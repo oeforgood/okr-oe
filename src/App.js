@@ -413,19 +413,17 @@ export default function App(){
   const {objectives,subobjectives,keyresults,people}=season;
 
   useEffect(()=>{
-    (async()=>{
-      try{
-        const r=await window.storage.get("okr_oe_v7");
-        if(r?.value){
-          const d=JSON.parse(r.value);
-          if(d.allSeasons)setAllSeasons(d.allSeasons);
-          if(d.seasonKey)setSeasonKey(d.seasonKey);
-          if(d.collObj)setCollObj(d.collObj);
-          if(d.collSobj)setCollSobj(d.collSobj);
-        }
-      }catch(e){}
-      setLoaded(true);
-    })();
+    try{
+      const raw=localStorage.getItem("okr_oe_v7");
+      if(raw){
+        const d=JSON.parse(raw);
+        if(d.allSeasons)setAllSeasons(d.allSeasons);
+        if(d.seasonKey)setSeasonKey(d.seasonKey);
+        if(d.collObj)setCollObj(d.collObj);
+        if(d.collSobj)setCollSobj(d.collSobj);
+      }
+    }catch(e){}
+    setLoaded(true);
   },[]);
 
   const allSeasonsRef=useRef(allSeasons);
@@ -433,9 +431,9 @@ export default function App(){
   const seasonKeyRef=useRef(seasonKey);
   useEffect(()=>{seasonKeyRef.current=seasonKey;},[seasonKey]);
 
-  async function persist(aS){
+  function persist(aS){
     try{
-      await window.storage.set("okr_oe_v7",JSON.stringify({allSeasons:aS,seasonKey:seasonKeyRef.current,collObj:collObj,collSobj:collSobj}));
+      localStorage.setItem("okr_oe_v7",JSON.stringify({allSeasons:aS,seasonKey:seasonKeyRef.current,collObj:collObj,collSobj:collSobj}));
       setSaved(true);setTimeout(()=>setSaved(false),1800);
     }catch(e){console.error("persist error",e);}
   }
