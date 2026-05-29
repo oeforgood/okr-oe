@@ -436,8 +436,12 @@ export default function App(){
   },[]);
 
   function updateSeason(patch){
-    const next={...allSeasons,[seasonKey]:{...season,...patch}};
-    setAllSeasons(next);persist(next,seasonKey,collObj,collSobj);
+    setAllSeasons(prev=>{
+      const cur=prev[seasonKey]||{};
+      const next={...prev,[seasonKey]:{...cur,...patch}};
+      persist(next,seasonKey,collObj,collSobj);
+      return next;
+    });
   }
   function switchSeason(key){
     let next=allSeasons;
@@ -458,10 +462,17 @@ export default function App(){
 
   function handleObjSave(data){
     const{_id,_isNew,...obj}=data;
-    let next;
-    if(_isNew){const newId=String(objectives.length+1);next=[...objectives,{id:newId,...obj,contributors:[],locked:false}];}
-    else{next=objectives.map(o=>o.id===_id?{...o,...obj}:o);}
-    updateSeason({objectives:next});setModal(null);
+    setAllSeasons(prev=>{
+      const cur=prev[seasonKey]||{};
+      const objs=cur.objectives||[];
+      let next;
+      if(_isNew){const newId=String(objs.length+1);next=[...objs,{id:newId,...obj,contributors:[],locked:false}];}
+      else{next=objs.map(o=>o.id===_id?{...o,...obj}:o);}
+      const updated={...prev,[seasonKey]:{...cur,objectives:next}};
+      persist(updated,seasonKey,collObj,collSobj);
+      return updated;
+    });
+    setModal(null);
   }
   function handleObjDel(id){
     if(!window.confirm("Supprimer cet objectif et tous ses sous-objectifs et KR ?"))return;
@@ -483,10 +494,17 @@ export default function App(){
   }
   function handleKRSave(data){
     const{_id,_sobjId,...kr}=data;
-    let nextKRs;
-    if(_id){nextKRs=keyresults.map(k=>k.id===_id?{...k,...kr}:k);}
-    else{const sib=keyresults.filter(k=>k.parent===_sobjId);nextKRs=[...keyresults,{id:`${_sobjId}.${sib.length+1}`,parent:_sobjId,priorite:"",...kr}];}
-    updateSeason({keyresults:nextKRs});setModal(null);
+    setAllSeasons(prev=>{
+      const cur=prev[seasonKey]||{};
+      const krs=cur.keyresults||[];
+      let nextKRs;
+      if(_id){nextKRs=krs.map(k=>k.id===_id?{...k,...kr}:k);}
+      else{const sib=krs.filter(k=>k.parent===_sobjId);nextKRs=[...krs,{id:`${_sobjId}.${sib.length+1}`,parent:_sobjId,priorite:"",...kr}];}
+      const next={...prev,[seasonKey]:{...cur,keyresults:nextKRs}};
+      persist(next,seasonKey,collObj,collSobj);
+      return next;
+    });
+    setModal(null);
   }
   function handleKRDel(id){
     if(!window.confirm("Supprimer ce KR ?"))return;
