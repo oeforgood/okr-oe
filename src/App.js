@@ -419,9 +419,9 @@ function ImportObjModal({allSeasons,currentSeasonKey,people,onClose,onImport}){
   const [mode,setMode]=useState("obj");
 
   const fromSeason=allSeasons[fromKey]||{};
-  const fromObjs=fromSeason.objectives||[];
-  const fromSobjs=fromSeason.subobjectives||[];
-  const fromKRs=fromSeason.keyresults||[];
+  const fromObjs=React.useMemo(()=>fromSeason.objectives||[],[fromSeason]);
+  const fromSobjs=React.useMemo(()=>fromSeason.subobjectives||[],[fromSeason]);
+  const fromKRs=React.useMemo(()=>fromSeason.keyresults||[],[fromSeason]);
   const seasonLabel=k=>SEASONS.find(s=>s.key===k)?.label||k;
 
   useEffect(()=>{
