@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, setDoc, onSnapshot } from "firebase/firestore";
 
@@ -419,9 +419,9 @@ function ImportObjModal({allSeasons,currentSeasonKey,people,onClose,onImport}){
   const [mode,setMode]=useState("obj");
 
   const fromSeason=allSeasons[fromKey]||{};
-  const fromObjs=React.useMemo(()=>fromSeason.objectives||[],[fromSeason]);
-  const fromSobjs=React.useMemo(()=>fromSeason.subobjectives||[],[fromSeason]);
-  const fromKRs=React.useMemo(()=>fromSeason.keyresults||[],[fromSeason]);
+  const fromObjs=useMemo(()=>fromSeason.objectives||[],[fromSeason]);
+  const fromSobjs=useMemo(()=>fromSeason.subobjectives||[],[fromSeason]);
+  const fromKRs=useMemo(()=>fromSeason.keyresults||[],[fromSeason]);
   const seasonLabel=k=>SEASONS.find(s=>s.key===k)?.label||k;
 
   useEffect(()=>{
