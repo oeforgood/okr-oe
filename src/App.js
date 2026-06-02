@@ -427,7 +427,7 @@ function ImportObjModal({allSeasons,currentSeasonKey,people,onClose,onImport}){
   useEffect(()=>{
     if(fromObjs.length>0)setObjId(fromObjs[0].id);
     else setObjId("");
-  },[fromKey]);
+  },[fromKey,fromObjs]);
 
   function doImport(){
     if(!objId)return;
