@@ -412,6 +412,63 @@ function SobjSection({sobj,sobjIndex,krs,people,objLocked,onEditKR,onAddKR,onEdi
   </div>;
 }
 
+function ImportObjModal({allSeasons,currentSeasonKey,people,onClose,onImport}){
+  const otherSeasons=Object.entries(allSeasons).filter(([k,v])=>k!==currentSeasonKey&&v.objectives&&v.objectives.length>0);
+  const [fromKey,setFromKey]=useState(otherSeasons[0]?.[0]||"");
+  const [objId,setObjId]=useState("");
+  const [mode,setMode]=useState("obj");
+
+  const fromSeason=allSeasons[fromKey]||{};
+  const fromObjs=fromSeason.objectives||[];
+  const fromSobjs=fromSeason.subobjectives||[];
+  const fromKRs=fromSeason.keyresults||[];
+  const seasonLabel=k=>SEASONS.find(s=>s.key===k)?.label||k;
+
+  useEffect(()=>{
+    if(fromObjs.length>0)setObjId(fromObjs[0].id);
+    else setObjId("");
+  },[fromKey]);
+
+  function doImport(){
+    if(!objId)return;
+    const obj=fromObjs.find(o=>o.id===objId);
+    if(!obj)return;
+    onImport({obj,sobjs:fromSobjs.filter(s=>s.parent===objId),krs:fromKRs.filter(k=>k.parent.startsWith(objId+'.')),mode});
+  }
+
+  if(otherSeasons.length===0)return <Modal title="Importer un objectif" onClose={onClose} onSave={onClose} saveLabel="Fermer">
+    <p style={{fontSize:13,color:"#6b6560"}}>Aucune autre saison ne contient des objectifs à importer.</p>
+  </Modal>;
+
+  return <Modal title="Importer un objectif" onClose={onClose} onSave={doImport} saveLabel="Importer">
+    <Field label="Depuis quelle saison ?">
+      <select style={INP} value={fromKey} onChange={e=>setFromKey(e.target.value)}>
+        {otherSeasons.map(([k])=><option key={k} value={k}>{seasonLabel(k)}</option>)}
+      </select>
+    </Field>
+    <Field label="Quel objectif ?">
+      <select style={INP} value={objId} onChange={e=>setObjId(e.target.value)}>
+        {fromObjs.map(o=><option key={o.id} value={o.id}>{o.id} — {o.title}</option>)}
+      </select>
+    </Field>
+    <Field label="Que souhaitez-vous importer ?">
+      <div style={{display:"flex",flexDirection:"column",gap:10,marginTop:4}}>
+        {[
+          {v:"obj",l:"L'objectif uniquement",d:"Titre, propriétaire, ETP, priorité"},
+          {v:"sobjs",l:"L'objectif et ses sous-objectifs",d:"Avec poids et propriétaires"},
+          {v:"all",l:"L'objectif, sous-objectifs et KR",d:"Les valeurs actuelles sont remises à zéro"},
+        ].map(opt=><label key={opt.v} style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",padding:"10px 12px",borderRadius:8,border:`1px solid ${mode===opt.v?"#2d6a4f":"#e2ddd6"}`,background:mode===opt.v?"#f0fdf4":"#fff"}}>
+          <input type="radio" name="mode" value={opt.v} checked={mode===opt.v} onChange={()=>setMode(opt.v)} style={{marginTop:2,accentColor:"#2d6a4f"}}/>
+          <div>
+            <div style={{fontSize:13,fontWeight:500,color:"#1a1814"}}>{opt.l}</div>
+            <div style={{fontSize:11,color:"#9e9890",marginTop:2}}>{opt.d}</div>
+          </div>
+        </label>)}
+      </div>
+    </Field>
+  </Modal>;
+}
+
 export default function App(){
   const [seasonKey,setSeasonKey]=useState("printemps_2026");
   const [allSeasons,setAllSeasons]=useState({"printemps_2026":{...JSON.parse(JSON.stringify(SPRING26))}});
@@ -516,7 +573,27 @@ export default function App(){
     if(!window.confirm("Supprimer ce KR ?"))return;
     updateSeason({keyresults:keyresults.filter(k=>k.id!==id)});setModal(null);
   }
-  function handlePeopleSave(list){updateSeason({people:list});setModal(null)}
+  function handlePeopleSave(list){updateSeason({people:list});setModal(null);}
+
+  function handleImport({obj,sobjs,krs,mode}){
+    const curObjs=allSeasonsRef.current[seasonKeyRef.current]?.objectives||[];
+    const curSobjs=allSeasonsRef.current[seasonKeyRef.current]?.subobjectives||[];
+    const curKRs=allSeasonsRef.current[seasonKeyRef.current]?.keyresults||[];
+    const newObjId=String(curObjs.length+1);
+    const newObj={...obj,id:newObjId,locked:false,taux:0,taux_land:0};
+    let newSobjs=[],newKRs=[];
+    if(mode==="sobjs"||mode==="all"){
+      newSobjs=sobjs.map(s=>({...s,id:`${newObjId}.${s.id.split('.')[1]}`,parent:newObjId,taux:0,taux_land:0}));
+    }
+    if(mode==="all"){
+      newKRs=krs.map(k=>{
+        const parts=k.id.split('.');
+        return {...k,id:`${newObjId}.${parts[1]}.${parts[2]}`,parent:`${newObjId}.${parts[1]}`,val_actuel:0,val_revise:k.val_cible,taux:0,taux_land:0};
+      });
+    }
+    updateSeason({objectives:[...curObjs,newObj],subobjectives:[...curSobjs,...newSobjs],keyresults:[...curKRs,...newKRs]});
+    setModal(null);
+  }
 
   const allLocked=objectives.length>0&&objectives.every(o=>!!o.locked);
   const visObjs=filterP?objectives.filter(o=>{
@@ -606,10 +683,16 @@ export default function App(){
             </div>}
           </div>;
         })}
-        {!allLocked&&<button onClick={()=>setModal({type:"obj",item:null,isNew:true})}
-          style={{fontSize:13,color:"#2d6a4f",background:"#d8f3dc",border:"1px dashed #2d6a4f",borderRadius:10,padding:"12px",textAlign:"center",cursor:"pointer",width:"100%"}}>
-          + Ajouter un objectif
-        </button>}
+        {!allLocked&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <button onClick={()=>setModal({type:"obj",item:null,isNew:true})}
+            style={{fontSize:13,color:"#2d6a4f",background:"#d8f3dc",border:"1px dashed #2d6a4f",borderRadius:10,padding:"12px",textAlign:"center",cursor:"pointer"}}>
+            + Ajouter un objectif
+          </button>
+          <button onClick={()=>setModal({type:"import"})}
+            style={{fontSize:13,color:"#1d4ed8",background:"#eff6ff",border:"1px dashed #1d4ed8",borderRadius:10,padding:"12px",textAlign:"center",cursor:"pointer"}}>
+            ↓ Importer d'une saison
+          </button>
+        </div>}
       </div>
     </div>
 
@@ -630,6 +713,7 @@ export default function App(){
       onSave={d=>handleKRSave({...d,_id:modal.item?.id,_sobjId:modal.sobjId})}
       onDelete={()=>handleKRDel(modal.item.id)}/>}
     {modal?.type==="people"&&<PeopleModal people={people} objectives={objectives} subobjectives={subobjectives} keyresults={keyresults} onClose={()=>setModal(null)} onSave={handlePeopleSave}/>}
+    {modal?.type==="import"&&<ImportObjModal allSeasons={allSeasons} currentSeasonKey={seasonKey} people={people} onClose={()=>setModal(null)} onImport={handleImport}/>}
     {modal?.type==="unlock"&&<UnlockModal objTitle={modal.item?.title} onClose={()=>setModal(null)} onUnlock={()=>unlockObj(modal.item.id)}/>}
 
     {saved&&<div style={{position:"fixed",bottom:20,right:20,background:"#2d6a4f",color:"#fff",fontSize:12,fontWeight:500,padding:"8px 16px",borderRadius:20,boxShadow:"0 2px 8px rgba(0,0,0,.2)",zIndex:200,pointerEvents:"none"}}>✓ Sauvegardé</div>}
