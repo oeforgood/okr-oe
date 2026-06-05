@@ -416,50 +416,48 @@ const ADMIN_PASSWORD = "Okr-FxH-1971";
 
 function SalveList({salves}){
   const [openSalve,setOpenSalve]=useState(null);
-  const [openMod,setOpenMod]=useState(null); // "si-mi" key
+  const [openMod,setOpenMod]=useState(null);
 
   return <div style={{display:"flex",flexDirection:"column",gap:8}}>
     {salves.map((salve,si)=>{
       const isOpen=openSalve===si;
       const sortedMods=[...salve.mods].sort((a,b)=>a.timestamp-b.timestamp);
-      return <div key={si} style={{border:"1px solid #e2ddd6",borderRadius:8,overflow:"hidden"}}>
-        {/* Salve header */}
-        <div onClick={()=>setOpenSalve(isOpen?null:si)}
-          style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",cursor:"pointer",background:isOpen?"#f5f3ef":"#fff",userSelect:"none"}}
+      return <div key={si} style={{border:"0.5px solid #e2ddd6",borderRadius:8,overflow:"hidden"}}>
+        <div onClick={()=>{setOpenSalve(isOpen?null:si);setOpenMod(null);}}
+          style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",cursor:"pointer",background:isOpen?"#f5f3ef":"#fff",userSelect:"none"}}
           onMouseEnter={e=>e.currentTarget.style.background="#f5f3ef"}
           onMouseLeave={e=>e.currentTarget.style.background=isOpen?"#f5f3ef":"#fff"}>
-          <div style={{width:8,height:8,borderRadius:"50%",background:"#2d6a4f",flexShrink:0}}/>
-          <span style={{flex:1,fontSize:13,fontWeight:500}}>
-            {formatDate(salve.start)} — <span style={{color:"#2d6a4f"}}>{salve.owner}</span>
+          <div style={{width:8,height:8,borderRadius:"50%",background:"#1D9E75",flexShrink:0}}/>
+          <span style={{flex:1,fontSize:13,fontWeight:500,color:"#1a1814"}}>
+            {formatDate(salve.start)} — <span style={{color:"#1D9E75"}}>{salve.owner}</span>
           </span>
-          <span style={{fontSize:12,color:"#9e9890"}}>{salve.mods.length} modif{salve.mods.length>1?"s":""}</span>
-          <span style={{fontSize:11,color:"#9e9890",transform:isOpen?"rotate(180deg)":"none",display:"inline-block",transition:"transform .2s"}}>▾</span>
+          <span style={{fontSize:11,color:"#9e9890"}}>{salve.mods.length} modif{salve.mods.length>1?"s":""}</span>
+          <span style={{fontSize:11,color:"#9e9890",display:"inline-block",transform:isOpen?"rotate(180deg)":"none",transition:"transform .2s"}}>▾</span>
         </div>
-        {/* Salve detail — list of modifications */}
-        {isOpen&&<div style={{borderTop:"1px solid #e2ddd6"}}>
+        {isOpen&&<div style={{borderTop:"0.5px solid #e2ddd6"}}>
           {sortedMods.map((m,mi)=>{
             const modKey=`${si}-${mi}`;
             const isModOpen=openMod===modKey;
-            return <div key={mi} style={{borderBottom:mi<sortedMods.length-1?"1px solid #f0ede8":"none"}}>
-              {/* Modification row */}
+            return <div key={mi} style={{borderBottom:mi<sortedMods.length-1?"0.5px solid #f0ede8":"none"}}>
               <div onClick={()=>setOpenMod(isModOpen?null:modKey)}
-                style={{display:"flex",alignItems:"center",gap:10,padding:"7px 14px 7px 28px",cursor:"pointer",userSelect:"none"}}
+                style={{display:"flex",alignItems:"center",gap:10,padding:"7px 14px 7px 28px",cursor:"pointer",background:isModOpen?"#f5f3ef":"transparent",userSelect:"none"}}
                 onMouseEnter={e=>e.currentTarget.style.background="#fafaf9"}
-                onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                <span style={{fontSize:10,color:"#9e9890",fontFamily:"monospace",flexShrink:0,minWidth:60}}>{formatDate(m.timestamp).split(" ").slice(-1)[0]}</span>
-                <span style={{fontSize:11,fontWeight:600,color:"#1a1814",flexShrink:0,fontFamily:"monospace"}}>{m.itemId}</span>
-                <span style={{fontSize:11,color:"#6b6560",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>— {m.itemTitle}</span>
-                <span style={{fontSize:10,color:"#9e9890",flexShrink:0}}>{m.changes?.length||0} champ{m.changes?.length>1?"s":""}</span>
-                <span style={{fontSize:10,color:"#9e9890",transform:isModOpen?"rotate(180deg)":"none",display:"inline-block",transition:"transform .2s"}}>▾</span>
+                onMouseLeave={e=>e.currentTarget.style.background=isModOpen?"#f5f3ef":"transparent"}>
+                <span style={{fontSize:10,color:"#9e9890",fontFamily:"monospace",flexShrink:0,minWidth:44}}>
+                  {formatDate(m.timestamp).split(" ").slice(-1)[0]}
+                </span>
+                <span style={{fontSize:11,fontWeight:600,color:"#1a1814",fontFamily:"monospace",flexShrink:0}}>{m.itemId}</span>
+                <span style={{fontSize:11,color:"#6b6560",flexShrink:0}}>{m.owner}</span>
+                <span style={{fontSize:11,color:"#9e9890",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>— {m.itemTitle}</span>
+                <span style={{fontSize:10,color:"#9e9890",flexShrink:0}}>{m.changes?.length||0} champ{m.changes?.length>1?"s":""} ▾</span>
               </div>
-              {/* Change detail */}
-              {isModOpen&&<div style={{background:"#f8f7f5",borderTop:"1px solid #f0ede8",padding:"6px 14px 6px 52px"}}>
+              {isModOpen&&<div style={{background:"#f8f7f5",borderTop:"0.5px solid #f0ede8",padding:"6px 14px 6px 52px"}}>
                 {m.changes&&m.changes.map((c,ci)=>(
-                  <div key={ci} style={{display:"flex",alignItems:"center",gap:8,padding:"3px 0",fontSize:11,borderBottom:ci<m.changes.length-1?"1px solid #f0ede8":"none"}}>
-                    <span style={{color:"#6b6560",minWidth:120,flexShrink:0}}>{c.field}</span>
-                    <span style={{fontFamily:"monospace",color:"#c0392b"}}>{String(c.before)}</span>
+                  <div key={ci} style={{display:"flex",alignItems:"center",gap:8,padding:"3px 0",fontSize:11,borderBottom:ci<m.changes.length-1?"0.5px solid #f0ede8":"none"}}>
+                    <span style={{color:"#6b6560",minWidth:130,flexShrink:0}}>{c.field}</span>
+                    <span style={{fontFamily:"monospace",color:"#E24B4A"}}>{String(c.before)}</span>
                     <span style={{color:"#9e9890"}}>→</span>
-                    <span style={{fontFamily:"monospace",color:"#2d6a4f",fontWeight:600}}>{String(c.after)}</span>
+                    <span style={{fontFamily:"monospace",color:"#1D9E75",fontWeight:600}}>{String(c.after)}</span>
                   </div>
                 ))}
               </div>}
@@ -471,44 +469,6 @@ function SalveList({salves}){
   </div>;
 }
 
-
-const SALVE_GAP_MS = 15 * 60 * 1000; // 15 minutes
-
-function formatDate(ts){
-  const d=new Date(ts);
-  const day=d.getDate(),month=d.toLocaleString("fr-FR",{month:"short"}),
-    h=String(d.getHours()).padStart(2,"0"),m=String(d.getMinutes()).padStart(2,"0");
-  return `${day} ${month} ${h}h${m}`;
-}
-
-function detectSalves(logs){
-  if(!logs.length)return[];
-  const sorted=[...logs].sort((a,b)=>a.timestamp-b.timestamp);
-  const salves=[];
-  let cur=[sorted[0]];
-  for(let i=1;i<sorted.length;i++){
-    if(sorted[i].timestamp-sorted[i-1].timestamp>SALVE_GAP_MS){
-      salves.push(cur);
-      cur=[sorted[i]];
-    } else {
-      cur.push(sorted[i]);
-    }
-  }
-  salves.push(cur);
-  // Attribute each salve to most frequent owner
-  return salves.map(mods=>{
-    const ownerCount={};
-    mods.forEach(m=>{if(m.owner)ownerCount[m.owner]=(ownerCount[m.owner]||0)+1;});
-    const owner=Object.entries(ownerCount).sort((a,b)=>b[1]-a[1])[0]?.[0]||"?";
-    return {mods,owner,start:mods[0].timestamp,end:mods[mods.length-1].timestamp};
-  }).reverse(); // most recent first
-}
-
-function fmtChange(c,unite){
-  const u=unite||"";
-  const fmt=v=>typeof v==="number"&&u?`${v}${u}`:String(v);
-  return `${fmt(c.before)} → ${fmt(c.after)}`;
-}
 
 function JournalModal({seasonKey,onClose}){
   const [pwd,setPwd]=useState("");
@@ -530,12 +490,21 @@ function JournalModal({seasonKey,onClose}){
 
   function loadLogs(){
     setLoading(true);
-    const q=query(collection(db,"okr_log"),orderBy("timestamp","asc"));
-    const unsub=onSnapshot(q,(snap)=>{
-      const all=snap.docs.map(d=>({id:d.id,...d.data()}));
-      setLogs(all.filter(l=>l.seasonKey===seasonKey));
-      setLoading(false);
-    },(e)=>{console.error(e);setLoading(false);});
+    // No orderBy to avoid needing a Firestore index — sort client-side
+    const unsub=onSnapshot(collection(db,"okr_log"),
+      (snap)=>{
+        const all=snap.docs.map(d=>({id:d.id,...d.data()}));
+        const filtered=all
+          .filter(l=>l.seasonKey===seasonKey)
+          .sort((a,b)=>a.timestamp-b.timestamp);
+        setLogs(filtered);
+        setLoading(false);
+      },
+      (e)=>{
+        console.error("Firestore error:",e);
+        setLoading(false);
+      }
+    );
     return unsub;
   }
 
