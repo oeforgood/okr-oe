@@ -412,13 +412,168 @@ function SobjSection({sobj,sobjIndex,krs,people,objLocked,onEditKR,onAddKR,onEdi
   </div>;
 }
 
+const ADMIN_PASSWORD = "Okr-FxH-1971";
+
+function SalveList({salves}){
+  const [openSalve,setOpenSalve]=useState(null);
+  const [openMod,setOpenMod]=useState(null); // "si-mi" key
+
+  return <div style={{display:"flex",flexDirection:"column",gap:8}}>
+    {salves.map((salve,si)=>{
+      const isOpen=openSalve===si;
+      const sortedMods=[...salve.mods].sort((a,b)=>a.timestamp-b.timestamp);
+      return <div key={si} style={{border:"1px solid #e2ddd6",borderRadius:8,overflow:"hidden"}}>
+        {/* Salve header */}
+        <div onClick={()=>setOpenSalve(isOpen?null:si)}
+          style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",cursor:"pointer",background:isOpen?"#f5f3ef":"#fff",userSelect:"none"}}
+          onMouseEnter={e=>e.currentTarget.style.background="#f5f3ef"}
+          onMouseLeave={e=>e.currentTarget.style.background=isOpen?"#f5f3ef":"#fff"}>
+          <div style={{width:8,height:8,borderRadius:"50%",background:"#2d6a4f",flexShrink:0}}/>
+          <span style={{flex:1,fontSize:13,fontWeight:500}}>
+            {formatDate(salve.start)} — <span style={{color:"#2d6a4f"}}>{salve.owner}</span>
+          </span>
+          <span style={{fontSize:12,color:"#9e9890"}}>{salve.mods.length} modif{salve.mods.length>1?"s":""}</span>
+          <span style={{fontSize:11,color:"#9e9890",transform:isOpen?"rotate(180deg)":"none",display:"inline-block",transition:"transform .2s"}}>▾</span>
+        </div>
+        {/* Salve detail — list of modifications */}
+        {isOpen&&<div style={{borderTop:"1px solid #e2ddd6"}}>
+          {sortedMods.map((m,mi)=>{
+            const modKey=`${si}-${mi}`;
+            const isModOpen=openMod===modKey;
+            return <div key={mi} style={{borderBottom:mi<sortedMods.length-1?"1px solid #f0ede8":"none"}}>
+              {/* Modification row */}
+              <div onClick={()=>setOpenMod(isModOpen?null:modKey)}
+                style={{display:"flex",alignItems:"center",gap:10,padding:"7px 14px 7px 28px",cursor:"pointer",userSelect:"none"}}
+                onMouseEnter={e=>e.currentTarget.style.background="#fafaf9"}
+                onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                <span style={{fontSize:10,color:"#9e9890",fontFamily:"monospace",flexShrink:0,minWidth:60}}>{formatDate(m.timestamp).split(" ").slice(-1)[0]}</span>
+                <span style={{fontSize:11,fontWeight:600,color:"#1a1814",flexShrink:0,fontFamily:"monospace"}}>{m.itemId}</span>
+                <span style={{fontSize:11,color:"#6b6560",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>— {m.itemTitle}</span>
+                <span style={{fontSize:10,color:"#9e9890",flexShrink:0}}>{m.changes?.length||0} champ{m.changes?.length>1?"s":""}</span>
+                <span style={{fontSize:10,color:"#9e9890",transform:isModOpen?"rotate(180deg)":"none",display:"inline-block",transition:"transform .2s"}}>▾</span>
+              </div>
+              {/* Change detail */}
+              {isModOpen&&<div style={{background:"#f8f7f5",borderTop:"1px solid #f0ede8",padding:"6px 14px 6px 52px"}}>
+                {m.changes&&m.changes.map((c,ci)=>(
+                  <div key={ci} style={{display:"flex",alignItems:"center",gap:8,padding:"3px 0",fontSize:11,borderBottom:ci<m.changes.length-1?"1px solid #f0ede8":"none"}}>
+                    <span style={{color:"#6b6560",minWidth:120,flexShrink:0}}>{c.field}</span>
+                    <span style={{fontFamily:"monospace",color:"#c0392b"}}>{String(c.before)}</span>
+                    <span style={{color:"#9e9890"}}>→</span>
+                    <span style={{fontFamily:"monospace",color:"#2d6a4f",fontWeight:600}}>{String(c.after)}</span>
+                  </div>
+                ))}
+              </div>}
+            </div>;
+          })}
+        </div>}
+      </div>;
+    })}
+  </div>;
+}
+
+
+const SALVE_GAP_MS = 15 * 60 * 1000; // 15 minutes
+
+function formatDate(ts){
+  const d=new Date(ts);
+  const day=d.getDate(),month=d.toLocaleString("fr-FR",{month:"short"}),
+    h=String(d.getHours()).padStart(2,"0"),m=String(d.getMinutes()).padStart(2,"0");
+  return `${day} ${month} ${h}h${m}`;
+}
+
+function detectSalves(logs){
+  if(!logs.length)return[];
+  const sorted=[...logs].sort((a,b)=>a.timestamp-b.timestamp);
+  const salves=[];
+  let cur=[sorted[0]];
+  for(let i=1;i<sorted.length;i++){
+    if(sorted[i].timestamp-sorted[i-1].timestamp>SALVE_GAP_MS){
+      salves.push(cur);
+      cur=[sorted[i]];
+    } else {
+      cur.push(sorted[i]);
+    }
+  }
+  salves.push(cur);
+  // Attribute each salve to most frequent owner
+  return salves.map(mods=>{
+    const ownerCount={};
+    mods.forEach(m=>{if(m.owner)ownerCount[m.owner]=(ownerCount[m.owner]||0)+1;});
+    const owner=Object.entries(ownerCount).sort((a,b)=>b[1]-a[1])[0]?.[0]||"?";
+    return {mods,owner,start:mods[0].timestamp,end:mods[mods.length-1].timestamp};
+  }).reverse(); // most recent first
+}
+
+function fmtChange(c,unite){
+  const u=unite||"";
+  const fmt=v=>typeof v==="number"&&u?`${v}${u}`:String(v);
+  return `${fmt(c.before)} → ${fmt(c.after)}`;
+}
+
+function JournalModal({seasonKey,onClose}){
+  const [pwd,setPwd]=useState("");
+  const [auth,setAuth]=useState(false);
+  const [logs,setLogs]=useState([]);
+  const [loading,setLoading]=useState(false);
+  const [openSalve,setOpenSalve]=useState(null);
+  const [errPwd,setErrPwd]=useState(false);
+
+  function tryAuth(){
+    if(pwd===ADMIN_PASSWORD){setAuth(true);loadLogs();}
+    else{setErrPwd(true);}
+  }
+
+  async function loadLogs(){
+    setLoading(true);
+    try{
+      const q=query(collection(db,"okr_log"),orderBy("timestamp","desc"));
+      const snap=await getDocs(q);
+      const all=snap.docs.map(d=>({id:d.id,...d.data()}));
+      // Filter by current season
+      setLogs(all.filter(l=>l.seasonKey===seasonKey));
+    }catch(e){console.error(e);}
+    setLoading(false);
+  }
+
+  const salves=detectSalves(logs);
+
+  return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div style={{background:"#fff",borderRadius:12,padding:24,width:"90%",maxWidth:600,maxHeight:"85vh",overflowY:"auto",boxSizing:"border-box"}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
+        <div style={{fontSize:16,fontWeight:600}}>Journal des modifications</div>
+        <button onClick={onClose} style={{border:"none",background:"none",cursor:"pointer",fontSize:20,color:"#9e9890",lineHeight:1}}>×</button>
+      </div>
+
+      {!auth ? (
+        <div>
+          <p style={{fontSize:13,color:"#6b6560",marginBottom:16}}>Accès réservé. Entrez le mot de passe.</p>
+          <div style={{display:"flex",gap:8}}>
+            <input type="password" style={{...INP,flex:1}} value={pwd}
+              onChange={e=>{setPwd(e.target.value);setErrPwd(false);}}
+              onKeyDown={e=>e.key==="Enter"&&tryAuth()}
+              placeholder="Mot de passe"/>
+            <button onClick={tryAuth} style={{fontSize:13,fontWeight:500,background:"#2d6a4f",color:"#fff",padding:"7px 16px",borderRadius:6,border:"none",cursor:"pointer"}}>OK</button>
+          </div>
+          {errPwd&&<p style={{fontSize:12,color:"#c0392b",marginTop:8}}>Mot de passe incorrect.</p>}
+        </div>
+      ) : loading ? (
+        <p style={{color:"#9e9890",fontSize:13}}>Chargement...</p>
+      ) : salves.length===0 ? (
+        <p style={{color:"#9e9890",fontSize:13}}>Aucune modification enregistrée pour cette saison.</p>
+      ) : (
+        <SalveList salves={salves}/>
+      )}
+    </div>
+  </div>;
+}
+
 function ImportObjModal({allSeasons,currentSeasonKey,people,onClose,onImport}){
   const otherSeasons=Object.entries(allSeasons).filter(([k,v])=>k!==currentSeasonKey&&v.objectives&&v.objectives.length>0);
   const [fromKey,setFromKey]=useState(otherSeasons[0]?.[0]||"");
   const [objId,setObjId]=useState("");
   const [mode,setMode]=useState("obj");
 
-  const fromSeason=allSeasons[fromKey]||{};
+  const fromSeason=useMemo(()=>allSeasons[fromKey]||{},{});
   const fromObjs=useMemo(()=>fromSeason.objectives||[],[fromSeason]);
   const fromSobjs=useMemo(()=>fromSeason.subobjectives||[],[fromSeason]);
   const fromKRs=useMemo(()=>fromSeason.keyresults||[],[fromSeason]);
@@ -471,6 +626,7 @@ function ImportObjModal({allSeasons,currentSeasonKey,people,onClose,onImport}){
 
 export default function App(){
   const [seasonKey,setSeasonKey]=useState("printemps_2026");
+  const [showJournal,setShowJournal]=useState(false);
   const [allSeasons,setAllSeasons]=useState({"printemps_2026":{...JSON.parse(JSON.stringify(SPRING26))}});
   const [collObj,setCollObj]=useState({});
   const [collSobj,setCollSobj]=useState({});
@@ -509,6 +665,18 @@ export default function App(){
       .catch(e=>console.error("Firestore save error",e));
   }
 
+  async function logChange(type, itemId, itemTitle, owner, changes){
+    try{
+      const ref=collection(db,"okr_log");
+      await addDoc(ref,{
+        type, itemId, itemTitle, owner,
+        changes, // array of {field, before, after}
+        seasonKey: seasonKeyRef.current,
+        timestamp: Date.now(),
+      });
+    }catch(e){console.error("log error",e);}
+  }
+
   function updateSeason(patch){
     const cur=allSeasonsRef.current[seasonKeyRef.current]||{};
     const next={...allSeasonsRef.current,[seasonKeyRef.current]:{...cur,...patch}};
@@ -538,7 +706,17 @@ export default function App(){
     const objs=allSeasonsRef.current[seasonKeyRef.current]?.objectives||[];
     let next;
     if(_isNew){const newId=String(objs.length+1);next=[...objs,{id:newId,...obj,contributors:[],locked:false}];}
-    else{next=objs.map(o=>o.id===_id?{...o,...obj}:o);}
+    else{
+      const prev=objs.find(o=>o.id===_id);
+      next=objs.map(o=>o.id===_id?{...o,...obj}:o);
+      if(prev){
+        const changes=[];
+        if(prev.title!==obj.title)changes.push({field:"Titre",before:prev.title,after:obj.title});
+        if(prev.etp!==obj.etp)changes.push({field:"ETP",before:prev.etp,after:obj.etp});
+        if(prev.owner!==obj.owner)changes.push({field:"Propriétaire",before:prev.owner,after:obj.owner});
+        if(changes.length>0)logChange("Objectif",_id,obj.title,obj.owner,changes);
+      }
+    }
     updateSeason({objectives:next});
     setModal(null);
   }
@@ -564,7 +742,20 @@ export default function App(){
     const{_id,_sobjId,...kr}=data;
     const krs=allSeasonsRef.current[seasonKeyRef.current]?.keyresults||[];
     let nextKRs;
-    if(_id){nextKRs=krs.map(k=>k.id===_id?{...k,...kr}:k);}
+    if(_id){
+      const prev=krs.find(k=>k.id===_id);
+      nextKRs=krs.map(k=>k.id===_id?{...k,...kr}:k);
+      // Log changes
+      if(prev){
+        const changes=[];
+        if(prev.val_actuel!==kr.val_actuel)changes.push({field:"Valeur actuelle",before:prev.val_actuel,after:kr.val_actuel});
+        if(prev.val_revise!==kr.val_revise)changes.push({field:"Cible réévaluée",before:prev.val_revise,after:kr.val_revise});
+        if(prev.val_cible!==kr.val_cible)changes.push({field:"Cible initiale",before:prev.val_cible,after:kr.val_cible});
+        if(prev.stop!==kr.stop)changes.push({field:"STOP",before:prev.stop?"Oui":"Non",after:kr.stop?"Oui":"Non"});
+        if(prev.poids!==kr.poids)changes.push({field:"Poids",before:prev.poids+"%",after:kr.poids+"%"});
+        if(changes.length>0)logChange("KR",_id,kr.title,kr.owner,changes);
+      }
+    }
     else{const sib=krs.filter(k=>k.parent===_sobjId);nextKRs=[...krs,{id:`${_sobjId}.${sib.length+1}`,parent:_sobjId,priorite:"",...kr}];}
     updateSeason({keyresults:nextKRs});
     setModal(null);
@@ -609,7 +800,7 @@ export default function App(){
 
   return <div style={{fontFamily:"system-ui,sans-serif",background:"#f5f3ef",minHeight:"100vh",color:"#1a1814"}}>
     <div style={{background:"rgba(245,243,239,.95)",borderBottom:"1px solid #e2ddd6",padding:"10px 20px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-      <span style={{fontSize:18,fontWeight:600,color:"#2d6a4f",letterSpacing:"-.3px"}}>Oé <span style={{fontWeight:300,color:"#6b6560"}}>OKR</span></span>
+      <span onClick={()=>setShowJournal(true)} style={{fontSize:18,fontWeight:600,color:"#2d6a4f",letterSpacing:"-.3px",cursor:"pointer"}} title="Voir le journal des modifications">Oé <span style={{fontWeight:300,color:"#6b6560"}}>OKR</span></span>
       <select value={seasonKey} onChange={e=>switchSeason(e.target.value)} style={{fontFamily:"inherit",fontSize:13,fontWeight:500,border:"1px solid #e2ddd6",background:"#fff",borderRadius:20,padding:"4px 14px",outline:"none",cursor:"pointer",color:"#1b4332"}}>
         {SEASONS.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
       </select>
@@ -714,6 +905,7 @@ export default function App(){
       onDelete={()=>handleKRDel(modal.item.id)}/>}
     {modal?.type==="people"&&<PeopleModal people={people} objectives={objectives} subobjectives={subobjectives} keyresults={keyresults} onClose={()=>setModal(null)} onSave={handlePeopleSave}/>}
     {modal?.type==="import"&&<ImportObjModal allSeasons={allSeasons} currentSeasonKey={seasonKey} people={people} onClose={()=>setModal(null)} onImport={handleImport}/>}
+    {showJournal&&<JournalModal seasonKey={seasonKey} onClose={()=>setShowJournal(false)}/>}
     {modal?.type==="unlock"&&<UnlockModal objTitle={modal.item?.title} onClose={()=>setModal(null)} onUnlock={()=>unlockObj(modal.item.id)}/>}
 
     {saved&&<div style={{position:"fixed",bottom:20,right:20,background:"#2d6a4f",color:"#fff",fontSize:12,fontWeight:500,padding:"8px 16px",borderRadius:20,boxShadow:"0 2px 8px rgba(0,0,0,.2)",zIndex:200,pointerEvents:"none"}}>✓ Sauvegardé</div>}
