@@ -518,21 +518,25 @@ function JournalModal({seasonKey,onClose}){
   const [openSalve,setOpenSalve]=useState(null);
   const [errPwd,setErrPwd]=useState(false);
 
+  const unsubRef=useRef(null);
   function tryAuth(){
-    if(pwd===ADMIN_PASSWORD){setAuth(true);loadLogs();}
+    if(pwd===ADMIN_PASSWORD){
+      setAuth(true);
+      unsubRef.current=loadLogs();
+    }
     else{setErrPwd(true);}
   }
+  // Cleanup on close handled by parent onClose
 
-  async function loadLogs(){
+  function loadLogs(){
     setLoading(true);
-    try{
-      const q=query(collection(db,"okr_log"),orderBy("timestamp","desc"));
-      const snap=await getDocs(q);
+    const q=query(collection(db,"okr_log"),orderBy("timestamp","asc"));
+    const unsub=onSnapshot(q,(snap)=>{
       const all=snap.docs.map(d=>({id:d.id,...d.data()}));
-      // Filter by current season
       setLogs(all.filter(l=>l.seasonKey===seasonKey));
-    }catch(e){console.error(e);}
-    setLoading(false);
+      setLoading(false);
+    },(e)=>{console.error(e);setLoading(false);});
+    return unsub;
   }
 
   const salves=detectSalves(logs);
@@ -540,13 +544,13 @@ function JournalModal({seasonKey,onClose}){
   return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
     <div style={{background:"#fff",borderRadius:12,padding:24,width:"90%",maxWidth:600,maxHeight:"85vh",overflowY:"auto",boxSizing:"border-box"}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
-        <div style={{fontSize:16,fontWeight:600}}>Journal des modifications</div>
+        {auth&&<div style={{fontSize:16,fontWeight:600}}>Journal des modifications</div>}
+        <div style={{flex:1}}/>
         <button onClick={onClose} style={{border:"none",background:"none",cursor:"pointer",fontSize:20,color:"#9e9890",lineHeight:1}}>×</button>
       </div>
 
       {!auth ? (
         <div>
-          <p style={{fontSize:13,color:"#6b6560",marginBottom:16}}>Accès réservé. Entrez le mot de passe.</p>
           <div style={{display:"flex",gap:8}}>
             <input type="password" style={{...INP,flex:1}} value={pwd}
               onChange={e=>{setPwd(e.target.value);setErrPwd(false);}}
