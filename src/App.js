@@ -412,6 +412,39 @@ function SobjSection({sobj,sobjIndex,krs,people,objLocked,onEditKR,onAddKR,onEdi
   </div>;
 }
 
+const SALVE_GAP_MS = 15 * 60 * 1000;
+
+function formatDate(ts){
+  const d=new Date(ts);
+  const day=d.getDate();
+  const month=d.toLocaleString("fr-FR",{month:"short"});
+  const h=String(d.getHours()).padStart(2,"0");
+  const m=String(d.getMinutes()).padStart(2,"0");
+  return `${day} ${month} ${h}h${m}`;
+}
+
+function detectSalves(logs){
+  if(!logs.length)return[];
+  const sorted=[...logs].sort((a,b)=>a.timestamp-b.timestamp);
+  const salves=[];
+  let cur=[sorted[0]];
+  for(let i=1;i<sorted.length;i++){
+    if(sorted[i].timestamp-sorted[i-1].timestamp>SALVE_GAP_MS){
+      salves.push(cur);
+      cur=[sorted[i]];
+    } else {
+      cur.push(sorted[i]);
+    }
+  }
+  salves.push(cur);
+  return salves.map(mods=>{
+    const ownerCount={};
+    mods.forEach(m=>{if(m.owner)ownerCount[m.owner]=(ownerCount[m.owner]||0)+1;});
+    const owner=Object.entries(ownerCount).sort((a,b)=>b[1]-a[1])[0]?.[0]||"?";
+    return {mods,owner,start:mods[0].timestamp,end:mods[mods.length-1].timestamp};
+  }).reverse();
+}
+
 const ADMIN_PASSWORD = "Okr-FxH-1971";
 
 function SalveList({salves}){
