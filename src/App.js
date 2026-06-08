@@ -202,52 +202,118 @@ function LoginPage({onLogin,error}){
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
-function UpdateStreak({myUpdates}){
-  // Build last 5 weeks
-  const weeks = [];
+function get26Weeks(myUpdates){
   const now = new Date();
-  for(let i=4; i>=0; i--){
+  const currentWk = getWeekKey(now);
+  const weeks = [];
+  for(let i=25; i>=0; i--){
     const d = new Date(now);
     d.setDate(now.getDate() - i*7);
     const wk = getWeekKey(d);
-    const{mon} = getWeekBounds(wk);
+    const {mon,fri} = getWeekBounds(wk);
     const update = myUpdates.find(u=>u.weekKey===wk);
-    let status = "none"; // red
+    let status = "none";
     if(update){
       const submDay = new Date(update.submittedAt).getDay();
-      status = submDay===1 ? "late" : "done"; // orange if monday, green otherwise
+      status = submDay===1 ? "late" : "done";
     }
-    // current week not yet passed = pending, not red
-    const isCurrentWeek = wk === getWeekKey(now);
-    if(!update && isCurrentWeek) status = "pending";
-    weeks.push({wk, mon, status, update, isCurrentWeek});
+    if(!update && wk===currentWk) status = "pending";
+    weeks.push({wk,mon,fri,status,update,isCurrentWeek:wk===currentWk});
   }
-  const statusStyle = {
-    done:    {bg:"#dcfce7", border:"#86efac", color:"#166534", label:"✓"},
-    late:    {bg:"#fef3c7", border:"#fcd34d", color:"#92400e", label:"✓"},
-    none:    {bg:"#fdecea", border:"#fca5a5", color:"#c0392b", label:"✗"},
-    pending: {bg:"#f5f3ef", border:"#e2ddd6", color:"#9e9890", label:"…"},
-  };
-  const currentWkKey = getWeekKey(now);
+  return weeks;
+}
+
+const DOT_COLORS = {
+  done:    {bg:"#2d6a4f", border:"#2d6a4f"},
+  late:    {bg:"#f59e0b", border:"#f59e0b"},
+  none:    {bg:"#fca5a5", border:"#ef4444"},
+  pending: {bg:"#e2ddd6", border:"#c5c0b8"},
+};
+
+function WeekDots({myUpdates, clickable=false, onClickUpdate}){
+  const weeks = get26Weeks(myUpdates);
+  const fmtD = d=>`${d.getDate()} ${d.toLocaleString("fr-FR",{month:"long"})}`;
+  return <div style={{display:"flex",gap:4,flexWrap:"wrap",alignItems:"center"}}>
+    {weeks.map((w,i)=>{
+      const c = DOT_COLORS[w.status];
+      const tooltip = `Semaine du lundi ${fmtD(w.mon)} au vendredi ${fmtD(w.fri)}`;
+      return <div key={i}
+        title={tooltip}
+        onClick={()=>clickable&&w.update&&onClickUpdate&&onClickUpdate(w)}
+        style={{
+          width:14,height:14,borderRadius:"50%",
+          background:c.bg,border:`1.5px solid ${c.border}`,
+          flexShrink:0,
+          cursor:clickable&&w.update?"pointer":"default",
+          transition:"transform .1s",
+          boxSizing:"border-box",
+        }}
+        onMouseEnter={e=>{if(clickable&&w.update)e.currentTarget.style.transform="scale(1.4)";}}
+        onMouseLeave={e=>{e.currentTarget.style.transform="scale(1)";}}
+      />;
+    })}
+  </div>;
+}
+
+function MoodCurve({allUpdates}){
+  const MOOD_SCORE = {"😊":5,"🙂":4,"😐":3,"😕":2,"😩":1};
+  const now = new Date();
+  const weeks = [];
+  for(let i=25;i>=0;i--){
+    const d=new Date(now);d.setDate(now.getDate()-i*7);
+    const wk=getWeekKey(d);
+    const {mon}=getWeekBounds(wk);
+    const wkUpdates=allUpdates.filter(u=>u.weekKey===wk&&u.answers?.q7);
+    const scores=wkUpdates.map(u=>MOOD_SCORE[u.answers.q7]||3);
+    const avg=scores.length?scores.reduce((a,b)=>a+b,0)/scores.length:null;
+    weeks.push({wk,mon,avg,count:scores.length});
+  }
+  const pts=weeks.filter(w=>w.avg!==null);
+  if(pts.length<2)return <div style={{fontSize:11,color:"#9e9890",textAlign:"center",padding:"12px 0"}}>Pas encore assez de données pour la courbe</div>;
+
+  const W=500,H=60,pad=10;
+  const minV=1,maxV=5;
+  const scaleX=(i)=>pad+(i/(weeks.length-1))*(W-2*pad);
+  const scaleY=(v)=>H-pad-((v-minV)/(maxV-minV))*(H-2*pad);
+
+  // Build path through all non-null points
+  const validIdx=weeks.map((w,i)=>({...w,i})).filter(w=>w.avg!==null);
+  const pathD=validIdx.map((w,j)=>`${j===0?"M":"L"}${scaleX(w.i).toFixed(1)},${scaleY(w.avg).toFixed(1)}`).join(" ");
+
+  const colorForAvg=(v)=>v>=4?"#2d6a4f":v>=2.5?"#f59e0b":"#ef4444";
+
+  return <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{display:"block",overflow:"visible"}}>
+    {/* Grid lines */}
+    {[1,2,3,4,5].map(v=><line key={v} x1={pad} x2={W-pad} y1={scaleY(v)} y2={scaleY(v)} stroke="#e2ddd6" strokeWidth="0.5"/>)}
+    {/* Curve */}
+    <path d={pathD} fill="none" stroke="#2d6a4f" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round"/>
+    {/* Dots */}
+    {validIdx.map((w,j)=><circle key={j} cx={scaleX(w.i)} cy={scaleY(w.avg)} r="3" fill={colorForAvg(w.avg)} stroke="#fff" strokeWidth="1">
+      <title>{`Semaine ${w.wk} — Mood moyen : ${w.avg.toFixed(1)}/5 (${w.count} réponses)`}</title>
+    </circle>)}
+    {/* Y labels */}
+    {[{"v":5,"l":"😊"},{"v":3,"l":"😐"},{"v":1,"l":"😩"}].map(({v,l})=>
+      <text key={v} x={W-2} y={scaleY(v)+4} fontSize="9" fill="#9e9890" textAnchor="end">{l}</text>
+    )}
+  </svg>;
+}
+
+function UpdateStreak({myUpdates, allUpdates=[]}){
+  const currentWkKey = getWeekKey(new Date());
   const currentDone = myUpdates.find(u=>u.weekKey===currentWkKey);
   return <div>
-    <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}>
-      {weeks.map((w,i)=>{
-        const s=statusStyle[w.status];
-        const fmtD=d=>`${d.getDate()} ${d.toLocaleString("fr-FR",{month:"short"})}`;
-        return <div key={i} title={`Semaine du ${fmtD(w.mon)}`}
-          style={{flex:1,height:36,borderRadius:8,background:s.bg,border:`1.5px solid ${s.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:700,color:s.color,cursor:"default"}}>
-          {s.label}
-        </div>;
-      })}
+    <WeekDots myUpdates={myUpdates} clickable={false}/>
+    <div style={{marginTop:16}}>
+      <div style={{fontSize:11,fontWeight:500,color:"#9e9890",textTransform:"uppercase",letterSpacing:".05em",marginBottom:6}}>Mood de l'équipe</div>
+      <MoodCurve allUpdates={allUpdates}/>
     </div>
-    <div style={{fontSize:11,color:"#9e9890",textAlign:"center"}}>
-      {currentDone ? "✅ Update complété cette semaine !" : getUpdateWeekKey()===null ? "🚫 Pas d'update le mardi" : "⏳ Update à compléter cette semaine"}
+    <div style={{fontSize:11,color:"#9e9890",textAlign:"center",marginTop:10}}>
+      {currentDone?"✅ Update complété cette semaine !":getUpdateWeekKey()===null?"🚫 Pas d'update le mardi":"⏳ Update à compléter cette semaine"}
     </div>
   </div>;
 }
 
-function Dashboard({currentUser,teamMember,onGoOKR,onGoUpdate,myUpdates,managerNotifs,onReadNotif,okrData,isAdmin,onOpenSettings}){
+function Dashboard({currentUser,teamMember,onGoOKR,onGoUpdate,myUpdates,allUpdates,managerNotifs,onReadNotif,okrData,isAdmin,onOpenSettings}){
   const {objectives=[],subobjectives=[],keyresults=[]}=okrData||{};
   const avgProg=calcWeightedAvg(objectives,subobjectives,keyresults);
   const totalKR=keyresults.length,doneKR=keyresults.filter(k=>k.taux>=100).length;
@@ -303,7 +369,7 @@ function Dashboard({currentUser,teamMember,onGoOKR,onGoUpdate,myUpdates,managerN
       {/* Update streak */}
       <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"16px 20px",marginBottom:16,boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
         <div style={{fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",marginBottom:12}}>Mes 5 derniers updates</div>
-        <UpdateStreak myUpdates={myUpdates}/>
+        <UpdateStreak myUpdates={myUpdates} allUpdates={allUpdates}/>
       </div>
 
       {/* Big buttons */}
@@ -312,14 +378,14 @@ function Dashboard({currentUser,teamMember,onGoOKR,onGoUpdate,myUpdates,managerN
           onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 12px rgba(0,0,0,.1)";e.currentTarget.style.transform="translateY(-1px)";}}
           onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 1px 3px rgba(0,0,0,.06)";e.currentTarget.style.transform="none";}}>
           <div style={{fontSize:22,marginBottom:8}}>📊</div>
-          <div style={{fontSize:15,fontWeight:600,color:"#1a1814",marginBottom:4}}>Mettre à jour les OKR</div>
+          <div style={{fontSize:14,fontWeight:500,color:"#1a1814",marginBottom:4,fontFamily:"system-ui,sans-serif"}}>Mettre à jour les OKR</div>
           <div style={{fontSize:12,color:"#9e9890"}}>Suivre l'avancement de la saison</div>
         </button>
         <button onClick={onGoUpdate} style={{padding:"20px",background:"#fff",color:"#1a1814",border:"1px solid #e2ddd6",borderRadius:10,cursor:"pointer",textAlign:"left",boxShadow:"0 1px 3px rgba(0,0,0,.06)",transition:"box-shadow .15s,transform .15s"}}
           onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 12px rgba(0,0,0,.1)";e.currentTarget.style.transform="translateY(-1px)";}}
           onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 1px 3px rgba(0,0,0,.06)";e.currentTarget.style.transform="none";}}>
           <div style={{fontSize:22,marginBottom:8}}>✍️</div>
-          <div style={{fontSize:15,fontWeight:600,color:"#1a1814",marginBottom:4}}>Compléter mon Update</div>
+          <div style={{fontSize:14,fontWeight:500,color:"#1a1814",marginBottom:4,fontFamily:"system-ui,sans-serif"}}>Mes Updates</div>
           <div style={{fontSize:12,color:"#9e9890"}}>Partager mes priorités de la semaine</div>
         </button>
       </div>
@@ -386,6 +452,7 @@ function UpdatePage({teamMember,questions,onSubmit,onBack,myUpdates}){
   const [answers,setAnswers]=useState(existing?.answers||{});
   const [submitted,setSubmitted]=useState(!!existing);
   const [viewUpdate,setViewUpdate]=useState(null);
+  const [selectedWeek,setSelectedWeek]=useState(null);
 
   if(!weekKey)return <div style={{minHeight:"100vh",background:"#f5f3ef",display:"flex",flexDirection:"column"}}>
     <TopBar onBack={onBack} title="Mon Update"/>
@@ -410,9 +477,21 @@ function UpdatePage({teamMember,questions,onSubmit,onBack,myUpdates}){
   const now=new Date();
 
   return <div style={{minHeight:"100vh",background:"#f5f3ef",fontFamily:"system-ui,sans-serif"}}>
-    <TopBar onBack={onBack} title="Mon Update"/>
+    <TopBar onBack={onBack} title="Mes Updates"/>
     <div style={{maxWidth:680,margin:"0 auto",padding:"24px 16px 60px"}}>
-      <div style={{fontSize:13,color:"#6b6560",marginBottom:20}}>Semaine du {weekLabel}</div>
+
+      {/* 26-week dots */}
+      <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"16px 20px",marginBottom:20,boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
+        <div style={{fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",marginBottom:12}}>Mes 26 dernières semaines</div>
+        <WeekDots myUpdates={myUpdates} clickable={true} onClickUpdate={w=>setSelectedWeek(w)}/>
+        <div style={{display:"flex",gap:16,marginTop:10,fontSize:11,color:"#9e9890"}}>
+          <span><span style={{display:"inline-block",width:10,height:10,borderRadius:"50%",background:"#2d6a4f",marginRight:4,verticalAlign:"middle"}}/>Fait en semaine</span>
+          <span><span style={{display:"inline-block",width:10,height:10,borderRadius:"50%",background:"#f59e0b",marginRight:4,verticalAlign:"middle"}}/>Fait le lundi</span>
+          <span><span style={{display:"inline-block",width:10,height:10,borderRadius:"50%",background:"#fca5a5",marginRight:4,verticalAlign:"middle"}}/>Non fait</span>
+        </div>
+      </div>
+
+      <div style={{fontSize:13,color:"#6b6560",marginBottom:16}}>Semaine du {weekLabel}</div>
 
       {submitted?<div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:24,textAlign:"center"}}>
         <div style={{fontSize:32,marginBottom:8}}>✅</div>
@@ -452,6 +531,7 @@ function UpdatePage({teamMember,questions,onSubmit,onBack,myUpdates}){
         </button>
       </>}
     </div>
+    {selectedWeek&&<UpdateViewModal notif={{updateData:selectedWeek.update,fromPrenom:teamMember?.prenom,weekKey:selectedWeek.wk,isOwn:true}} onClose={()=>setSelectedWeek(null)} onRead={()=>setSelectedWeek(null)}/>}
   </div>;
 }
 
@@ -1042,6 +1122,7 @@ export default function App(){
   const [teamMembers,setTeamMembers]=useState([]);
   const [questions,setQuestions]=useState(DEFAULT_QUESTIONS);
   const [myUpdates,setMyUpdates]=useState([]);
+  const [allUpdates,setAllUpdates]=useState([]);
   const [managerNotifs,setManagerNotifs]=useState([]);
   const [appLoaded,setAppLoaded]=useState(false);
   const [okrData,setOkrData]=useState({objectives:[],subobjectives:[],keyresults:[]});
@@ -1096,10 +1177,11 @@ export default function App(){
     const me=teamMembers.find(m=>m.email===authUser.email);
     if(!me)return;
 
-    // My updates
+    // My updates + all updates for mood curve
     const unsubUpdates=onSnapshot(collection(db,"updates"),(snap)=>{
       const all=snap.docs.map(d=>({id:d.id,...d.data()}));
       setMyUpdates(all.filter(u=>u.email===authUser.email));
+      setAllUpdates(all);
     });
 
     // Notifications for manager: updates from my direct reports
@@ -1209,6 +1291,7 @@ export default function App(){
     onGoUpdate={()=>setPage("update")}
     onGoSettings={()=>setPage("settings")}
     myUpdates={myUpdates}
+    allUpdates={allUpdates}
     managerNotifs={managerNotifs}
     onReadNotif={handleReadNotif}
     okrData={okrData}
