@@ -326,34 +326,32 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
   </div>;
 }
 
-// Keep WeekDots for UpdatePage
-function WeekDots({myUpdates, clickable=false, onClickUpdate}){
-  const weeks = get26Weeks(myUpdates);
-  const fmtD = d=>`${d.getDate()} ${d.toLocaleString("fr-FR",{month:"long"})}`;
-  const DOT_C={done:{bg:"#2d6a4f"},late:{bg:"#f59e0b"},none:{bg:"#ef4444"},pending:{bg:"#e2ddd6"}};
-  return <div style={{display:"flex",gap:4,flexWrap:"wrap",alignItems:"center"}}>
-    {weeks.map((w,i)=>{
-      const c=DOT_C[w.status];
-      const tooltip=`Semaine du lundi ${fmtD(w.mon)} au vendredi ${fmtD(w.fri)}`;
-      return <div key={i} title={tooltip} onClick={()=>clickable&&w.update&&onClickUpdate&&onClickUpdate(w)}
-        style={{width:14,height:14,borderRadius:"50%",background:c.bg,flexShrink:0,
-          cursor:clickable&&w.update?"pointer":"default",transition:"transform .1s",boxSizing:"border-box"}}
-        onMouseEnter={e=>{if(clickable&&w.update)e.currentTarget.style.transform="scale(1.4)";}}
-        onMouseLeave={e=>{e.currentTarget.style.transform="scale(1)";}}/>;
-    })}
-  </div>;
-}
-
 function UpdateStreak({myUpdates, allUpdates=[], onGoUpdate}){
   return <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} onGoUpdate={onGoUpdate}/>;
 }
 
 function Dashboard({currentUser,teamMember,onGoOKR,onGoUpdate,myUpdates,allUpdates,managerNotifs,onReadNotif,okrData,isAdmin,onOpenSettings}){
-  const {objectives=[],subobjectives=[],keyresults=[]}=okrData||{};
+  const {objectives=[],subobjectives=[],keyresults=[],seasonKey="printemps_2026"}=okrData||{};
   const avgProg=calcWeightedAvg(objectives,subobjectives,keyresults);
   const totalKR=keyresults.length,doneKR=keyresults.filter(k=>k.taux>=100).length;
-  const myKRs=keyresults.filter(k=>k.owner===teamMember?.prenom||k.contributors?.includes(teamMember?.prenom));
+  const myPrenom=teamMember?.prenom;
+  const myKRs=keyresults.filter(k=>k.owner===myPrenom||k.contributors?.includes(myPrenom));
   const myKRDone=myKRs.filter(k=>k.taux>=100).length;
+
+  // Personal weighted progress: weight = KR_poids * sobj_poids * obj_etp
+  const myPersonalProg=useMemo(()=>{
+    let totalW=0,weightedSum=0;
+    myKRs.filter(k=>k.poids>0).forEach(kr=>{
+      const sobj=subobjectives.find(s=>s.id===kr.parent);
+      const obj=objectives.find(o=>o.id===sobj?.parent);
+      if(!sobj||!obj)return;
+      const w=kr.poids*(sobj.poids/100)*(obj.etp||1);
+      totalW+=w;
+      weightedSum+=kr.taux*w;
+    });
+    return totalW>0?weightedSum/totalW:0;
+  },[myKRs,subobjectives,objectives]);
+
   const weekKey=getUpdateWeekKey();
   const todayUpdate=weekKey?myUpdates.find(u=>u.weekKey===weekKey):null;
   const [viewNotif,setViewNotif]=useState(null);
@@ -388,28 +386,78 @@ function Dashboard({currentUser,teamMember,onGoOKR,onGoUpdate,myUpdates,allUpdat
         </div>
       </div>}
 
-      {/* KPIs */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:16}}>
-        {[
-          {label:"Avancement global OKR",val:`${Math.round(avgProg)}%`,color:progColor(avgProg),sub:`${doneKR}/${totalKR} KR complétés`},
-          {label:"Mes KR complétés",val:`${myKRDone}/${myKRs.length}`,color:"#1d4ed8",sub:`${myKRs.length>0?Math.round(myKRDone/myKRs.length*100):0}% de mes KR`},
-        ].map(k=><div key={k.label} style={{background:"#fff",borderRadius:10,padding:"16px 18px",border:"1px solid #e2ddd6",boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
-          <div style={{fontSize:11,color:"#9e9890",marginBottom:6,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>{k.label}</div>
-          <div style={{fontSize:28,fontWeight:700,color:k.color,fontFamily:"monospace"}}>{k.val}</div>
-          <div style={{fontSize:11,color:"#9e9890",marginTop:4}}>{k.sub}</div>
-        </div>)}
-        {/* Update cette semaine card */}
-        <div style={{background:"#fff",borderRadius:10,padding:"16px 18px",border:"1px solid #e2ddd6",boxShadow:"0 1px 3px rgba(0,0,0,.06)",display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
-          <div style={{fontSize:11,color:"#9e9890",marginBottom:6,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>Update cette semaine</div>
-          {todayUpdate
-            ?<div style={{fontSize:40,lineHeight:1}}>{todayUpdate.answers?.q7||"✅"}</div>
-            :<button onClick={onGoUpdate} style={{marginTop:8,padding:"8px 14px",background:"#fef3c7",border:"1px solid #f59e0b",borderRadius:8,cursor:"pointer",fontSize:13,fontWeight:500,color:"#92400e",textAlign:"center"}}>
-              ⏳ Compléter mon Update
-            </button>}
-          <div style={{fontSize:11,color:"#9e9890",marginTop:6}}>
-            {todayUpdate?"Mood de la semaine":weekKey===null?"Mardi : pas d'update":"À compléter"}
+      {/* Season banners */}
+      <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
+        {/* Global banner */}
+        <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"12px 20px",display:"flex",alignItems:"center",gap:16,boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
+          <div style={{flexShrink:0,textAlign:"center",width:80}}>
+            <div style={{fontSize:36,fontWeight:700,fontFamily:"monospace",color:progColor(avgProg),lineHeight:1}}>{Math.round(avgProg)}%</div>
+            <div style={{fontSize:9,color:"#9e9890",marginTop:2,textTransform:"uppercase",letterSpacing:".06em"}}>Avancement global</div>
+          </div>
+          <div style={{width:1,background:"#e2ddd6",alignSelf:"stretch",flexShrink:0}}/>
+          <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",gap:8}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <span style={{fontSize:12,fontWeight:500,color:"#1a1814"}}>{getSeasonInfo(seasonKey||"printemps_2026").label}</span>
+              <span style={{fontSize:11,color:"#9e9890"}}>{new Date(getSeasonInfo(seasonKey||"printemps_2026").start).toLocaleDateString("fr-FR",{day:"numeric",month:"short"})} → {new Date(getSeasonInfo(seasonKey||"printemps_2026").end).toLocaleDateString("fr-FR",{day:"numeric",month:"short"})}</span>
+            </div>
+            <Bar v={avgProg} label="Avancement total des OKR" w={0}/>
+            <Bar v={getSeasonProgress(seasonKey||"printemps_2026")} label="Avancement de la saison" w={0}/>
+          </div>
+          <div style={{width:1,background:"#e2ddd6",alignSelf:"stretch",flexShrink:0}}/>
+          <div style={{flexShrink:0,textAlign:"center",width:72}}>
+            <div style={{fontSize:20,fontWeight:600,fontFamily:"monospace",color:progColor(doneKR/Math.max(totalKR,1)*100)}}>{doneKR}/{totalKR}</div>
+            <div style={{fontSize:9,color:"#9e9890",marginTop:2}}>KR complétés</div>
           </div>
         </div>
+        {/* Personal banner */}
+        {myKRs.length>0&&<div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"12px 20px",display:"flex",alignItems:"center",gap:16,boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
+          <div style={{flexShrink:0,textAlign:"center",width:80}}>
+            <div style={{fontSize:36,fontWeight:700,fontFamily:"monospace",color:progColor(myPersonalProg),lineHeight:1}}>{Math.round(myPersonalProg)}%</div>
+            <div style={{fontSize:9,color:"#6b6560",marginTop:2,textTransform:"uppercase",letterSpacing:".06em"}}>Mes OKR</div>
+          </div>
+          <div style={{width:1,background:"#86efac",alignSelf:"stretch",flexShrink:0}}/>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:11,color:"#6b6560",marginBottom:6}}>Mon avancement personnel</div>
+            <Bar v={myPersonalProg} label="" w={0}/>
+          </div>
+          <div style={{width:1,background:"#86efac",alignSelf:"stretch",flexShrink:0}}/>
+          <div style={{flexShrink:0,textAlign:"center",width:72}}>
+            <div style={{fontSize:20,fontWeight:600,fontFamily:"monospace",color:progColor(myKRDone/Math.max(myKRs.length,1)*100)}}>{myKRDone}/{myKRs.length}</div>
+            <div style={{fontSize:9,color:"#6b6560",marginTop:2}}>Mes KR complétés</div>
+          </div>
+        </div>}
+      </div>
+
+      {/* KPIs */}
+      {/* Update card + buttons row */}
+      <div style={{display:"grid",gridTemplateColumns:"160px 1fr 1fr",gap:12,marginBottom:16,alignItems:"stretch"}}>
+        {/* Update cette semaine card */}
+        <div style={{background:"#fff",borderRadius:10,padding:"14px 16px",border:"1px solid #e2ddd6",boxShadow:"0 1px 3px rgba(0,0,0,.06)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center"}}>
+          <div style={{fontSize:10,color:"#9e9890",marginBottom:6,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>Update cette semaine</div>
+          {todayUpdate
+            ?<div style={{fontSize:44,lineHeight:1,marginBottom:4}}>{todayUpdate.answers?.q7||"✅"}</div>
+            :<button onClick={onGoUpdate} style={{marginTop:4,padding:"7px 10px",background:"#fef3c7",border:"1px solid #f59e0b",borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:500,color:"#92400e",textAlign:"center",width:"100%"}}>
+              ⏳ Compléter
+            </button>}
+          <div style={{fontSize:10,color:"#9e9890",marginTop:4}}>
+            {todayUpdate?"Mood de la semaine":weekKey===null?"Mardi : bloqué":"À compléter"}
+          </div>
+        </div>
+        {/* Big buttons */}
+        <button onClick={onGoOKR} style={{padding:"16px 20px",background:"#fff",color:"#1a1814",border:"1px solid #e2ddd6",borderRadius:10,cursor:"pointer",textAlign:"left",boxShadow:"0 1px 3px rgba(0,0,0,.06)",transition:"box-shadow .15s,transform .15s"}}
+          onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 12px rgba(0,0,0,.1)";e.currentTarget.style.transform="translateY(-1px)";}}
+          onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 1px 3px rgba(0,0,0,.06)";e.currentTarget.style.transform="none";}}>
+          <div style={{fontSize:22,marginBottom:6}}>📊</div>
+          <div style={{fontSize:14,fontWeight:500,color:"#1a1814",marginBottom:3,fontFamily:"system-ui,sans-serif"}}>Mettre à jour les OKR</div>
+          <div style={{fontSize:11,color:"#9e9890"}}>Suivre l'avancement de la saison</div>
+        </button>
+        <button onClick={onGoUpdate} style={{padding:"16px 20px",background:"#fff",color:"#1a1814",border:"1px solid #e2ddd6",borderRadius:10,cursor:"pointer",textAlign:"left",boxShadow:"0 1px 3px rgba(0,0,0,.06)",transition:"box-shadow .15s,transform .15s"}}
+          onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 12px rgba(0,0,0,.1)";e.currentTarget.style.transform="translateY(-1px)";}}
+          onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 1px 3px rgba(0,0,0,.06)";e.currentTarget.style.transform="none";}}>
+          <div style={{fontSize:22,marginBottom:6}}>✍️</div>
+          <div style={{fontSize:14,fontWeight:500,color:"#1a1814",marginBottom:3,fontFamily:"system-ui,sans-serif"}}>Mes Updates</div>
+          <div style={{fontSize:11,color:"#9e9890"}}>Partager mes priorités de la semaine</div>
+        </button>
       </div>
 
       {/* Update streak */}
@@ -418,23 +466,7 @@ function Dashboard({currentUser,teamMember,onGoOKR,onGoUpdate,myUpdates,allUpdat
         <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} onGoUpdate={onGoUpdate}/>
       </div>
 
-      {/* Big buttons */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
-        <button onClick={onGoOKR} style={{padding:"20px",background:"#fff",color:"#1a1814",border:"1px solid #e2ddd6",borderRadius:10,cursor:"pointer",textAlign:"left",boxShadow:"0 1px 3px rgba(0,0,0,.06)",transition:"box-shadow .15s,transform .15s"}}
-          onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 12px rgba(0,0,0,.1)";e.currentTarget.style.transform="translateY(-1px)";}}
-          onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 1px 3px rgba(0,0,0,.06)";e.currentTarget.style.transform="none";}}>
-          <div style={{fontSize:22,marginBottom:8}}>📊</div>
-          <div style={{fontSize:14,fontWeight:500,color:"#1a1814",marginBottom:4,fontFamily:"system-ui,sans-serif"}}>Mettre à jour les OKR</div>
-          <div style={{fontSize:12,color:"#9e9890"}}>Suivre l'avancement de la saison</div>
-        </button>
-        <button onClick={onGoUpdate} style={{padding:"20px",background:"#fff",color:"#1a1814",border:"1px solid #e2ddd6",borderRadius:10,cursor:"pointer",textAlign:"left",boxShadow:"0 1px 3px rgba(0,0,0,.06)",transition:"box-shadow .15s,transform .15s"}}
-          onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 12px rgba(0,0,0,.1)";e.currentTarget.style.transform="translateY(-1px)";}}
-          onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 1px 3px rgba(0,0,0,.06)";e.currentTarget.style.transform="none";}}>
-          <div style={{fontSize:22,marginBottom:8}}>✍️</div>
-          <div style={{fontSize:14,fontWeight:500,color:"#1a1814",marginBottom:4,fontFamily:"system-ui,sans-serif"}}>Mes Updates</div>
-          <div style={{fontSize:12,color:"#9e9890"}}>Partager mes priorités de la semaine</div>
-        </button>
-      </div>
+
     </div>
 
     {/* Notif detail modal */}
@@ -1215,7 +1247,7 @@ export default function App(){
     });
 
     // Load OKR data for dashboard
-    const unsubOkr=onSnapshot(doc(db,"okr","data"),(snap)=>{if(snap.exists()&&snap.data().allSeasons){const d=snap.data();const sk=d.seasonKey||"printemps_2026";const s=d.allSeasons[sk]||{};setOkrData({objectives:s.objectives||[],subobjectives:s.subobjectives||[],keyresults:s.keyresults||[]});}});
+    const unsubOkr=onSnapshot(doc(db,"okr","data"),(snap)=>{if(snap.exists()&&snap.data().allSeasons){const d=snap.data();const sk=d.seasonKey||"printemps_2026";const s=d.allSeasons[sk]||{};setOkrData({objectives:s.objectives||[],subobjectives:s.subobjectives||[],keyresults:s.keyresults||[],seasonKey:sk});}});
 
     return()=>{unsub();unsubOkr();};
   },[authUser]);
