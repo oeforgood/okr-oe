@@ -186,9 +186,9 @@ function Field({label,children,style={}}){return <div style={{marginBottom:14,..
 function LoginPage({onLogin,error}){
   return <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#f0fdf4 0%,#dcfce7 50%,#f5f3ef 100%)",display:"flex",alignItems:"center",justifyContent:"center"}}>
     <div style={{background:"#fff",borderRadius:16,padding:48,maxWidth:400,width:"90%",textAlign:"center",boxShadow:"0 4px 32px rgba(0,0,0,.1)"}}>
-      <div style={{fontSize:40,marginBottom:8}}>🍾</div>
-      <div style={{fontSize:28,fontWeight:700,color:"#2d6a4f",marginBottom:4}}>Oé</div>
-      <div style={{fontSize:14,color:"#6b6560",marginBottom:32}}>Outil de pilotage OKR & Updates</div>
+      <div style={{fontSize:40,marginBottom:8}}>🌼</div>
+      <div style={{fontSize:28,fontWeight:700,color:"#2d6a4f",marginBottom:4}}>Calendula</div>
+      <div style={{fontSize:14,color:"#6b6560",marginBottom:32}}>Outil de pilotage OKR & Updates Oé</div>
       <button onClick={onLogin} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:12,width:"100%",padding:"13px 20px",background:"#fff",border:"2px solid #e2ddd6",borderRadius:10,cursor:"pointer",fontSize:14,fontWeight:500,color:"#1a1814",transition:"border-color .2s"}}
         onMouseEnter={e=>e.currentTarget.style.borderColor="#2d6a4f"}
         onMouseLeave={e=>e.currentTarget.style.borderColor="#e2ddd6"}>
@@ -202,7 +202,52 @@ function LoginPage({onLogin,error}){
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
-function Dashboard({currentUser,teamMember,onGoOKR,onGoUpdate,myUpdates,managerNotifs,onReadNotif,okrData}){
+function UpdateStreak({myUpdates}){
+  // Build last 5 weeks
+  const weeks = [];
+  const now = new Date();
+  for(let i=4; i>=0; i--){
+    const d = new Date(now);
+    d.setDate(now.getDate() - i*7);
+    const wk = getWeekKey(d);
+    const{mon} = getWeekBounds(wk);
+    const update = myUpdates.find(u=>u.weekKey===wk);
+    let status = "none"; // red
+    if(update){
+      const submDay = new Date(update.submittedAt).getDay();
+      status = submDay===1 ? "late" : "done"; // orange if monday, green otherwise
+    }
+    // current week not yet passed = pending, not red
+    const isCurrentWeek = wk === getWeekKey(now);
+    if(!update && isCurrentWeek) status = "pending";
+    weeks.push({wk, mon, status, update, isCurrentWeek});
+  }
+  const statusStyle = {
+    done:    {bg:"#dcfce7", border:"#86efac", color:"#166534", label:"✓"},
+    late:    {bg:"#fef3c7", border:"#fcd34d", color:"#92400e", label:"✓"},
+    none:    {bg:"#fdecea", border:"#fca5a5", color:"#c0392b", label:"✗"},
+    pending: {bg:"#f5f3ef", border:"#e2ddd6", color:"#9e9890", label:"…"},
+  };
+  const currentWkKey = getWeekKey(now);
+  const currentDone = myUpdates.find(u=>u.weekKey===currentWkKey);
+  return <div>
+    <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}>
+      {weeks.map((w,i)=>{
+        const s=statusStyle[w.status];
+        const fmtD=d=>`${d.getDate()} ${d.toLocaleString("fr-FR",{month:"short"})}`;
+        return <div key={i} title={`Semaine du ${fmtD(w.mon)}`}
+          style={{flex:1,height:36,borderRadius:8,background:s.bg,border:`1.5px solid ${s.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:700,color:s.color,cursor:"default"}}>
+          {s.label}
+        </div>;
+      })}
+    </div>
+    <div style={{fontSize:11,color:"#9e9890",textAlign:"center"}}>
+      {currentDone ? "✅ Update complété cette semaine !" : getUpdateWeekKey()===null ? "🚫 Pas d'update le mardi" : "⏳ Update à compléter cette semaine"}
+    </div>
+  </div>;
+}
+
+function Dashboard({currentUser,teamMember,onGoOKR,onGoUpdate,myUpdates,managerNotifs,onReadNotif,okrData,isAdmin,onOpenSettings}){
   const {objectives=[],subobjectives=[],keyresults=[]}=okrData||{};
   const avgProg=calcWeightedAvg(objectives,subobjectives,keyresults);
   const totalKR=keyresults.length,doneKR=keyresults.filter(k=>k.taux>=100).length;
@@ -214,11 +259,12 @@ function Dashboard({currentUser,teamMember,onGoOKR,onGoUpdate,myUpdates,managerN
   const unread=managerNotifs.filter(n=>!n.read);
 
   return <div style={{minHeight:"100vh",background:"#f5f3ef",fontFamily:"system-ui,sans-serif"}}>
-    <div style={{background:"rgba(245,243,239,.95)",borderBottom:"1px solid #e2ddd6",padding:"12px 20px",display:"flex",alignItems:"center",gap:12}}>
-      <span style={{fontSize:18,fontWeight:700,color:"#2d6a4f"}}>Oé</span>
-      <span style={{fontSize:14,color:"#9e9890",fontWeight:300}}>Dashboard</span>
+    <div style={{background:"rgba(245,243,239,.95)",borderBottom:"1px solid #e2ddd6",padding:"10px 20px",display:"flex",alignItems:"center",gap:12}}>
+      <span style={{fontSize:18,fontWeight:700,color:"#2d6a4f",letterSpacing:"-.3px"}}>🌼 Calendula</span>
       <div style={{flex:1}}/>
       <span style={{fontSize:13,color:"#6b6560"}}>{teamMember?.prenom}</span>
+      {isAdmin&&<button onClick={onOpenSettings} title="Paramètres" style={{width:32,height:32,borderRadius:8,border:"1px solid #e2ddd6",background:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#6b6560",fontSize:16}}
+        onMouseEnter={e=>e.currentTarget.style.background="#f5f3ef"} onMouseLeave={e=>e.currentTarget.style.background="none"}>⚙️</button>}
       <button onClick={()=>signOut(auth)} style={{fontSize:12,color:"#9e9890",background:"none",border:"1px solid #e2ddd6",borderRadius:6,padding:"4px 10px",cursor:"pointer"}}>Déconnexion</button>
     </div>
 
@@ -242,35 +288,39 @@ function Dashboard({currentUser,teamMember,onGoOKR,onGoUpdate,myUpdates,managerN
       </div>}
 
       {/* KPIs */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12,marginBottom:20}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:16}}>
         {[
           {label:"Avancement global OKR",val:`${Math.round(avgProg)}%`,color:progColor(avgProg),sub:`${doneKR}/${totalKR} KR complétés`},
           {label:"Mes KR complétés",val:`${myKRDone}/${myKRs.length}`,color:"#1d4ed8",sub:`${myKRs.length>0?Math.round(myKRDone/myKRs.length*100):0}% de mes KR`},
           {label:"Update cette semaine",val:todayUpdate?"✅":"⏳",color:todayUpdate?"#2d6a4f":"#b5680f",sub:todayUpdate?"Complété !":weekKey===null?"Mardi : pas d'update":"À compléter"},
-        ].map(k=><div key={k.label} style={{background:"#fff",borderRadius:10,padding:"16px 18px",border:"1px solid #e2ddd6"}}>
-          <div style={{fontSize:11,color:"#9e9890",marginBottom:4}}>{k.label}</div>
-          <div style={{fontSize:26,fontWeight:700,color:k.color}}>{k.val}</div>
-          <div style={{fontSize:11,color:"#9e9890",marginTop:2}}>{k.sub}</div>
+        ].map(k=><div key={k.label} style={{background:"#fff",borderRadius:10,padding:"16px 18px",border:"1px solid #e2ddd6",boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
+          <div style={{fontSize:11,color:"#9e9890",marginBottom:6,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>{k.label}</div>
+          <div style={{fontSize:28,fontWeight:700,color:k.color,fontFamily:"monospace"}}>{k.val}</div>
+          <div style={{fontSize:11,color:"#9e9890",marginTop:4}}>{k.sub}</div>
         </div>)}
       </div>
 
-      {/* Monthly calendar */}
-      <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"18px 20px",marginBottom:24}}>
-        <div style={{fontSize:13,fontWeight:600,marginBottom:14}}>📅 Mes Updates — {new Date().toLocaleString("fr-FR",{month:"long",year:"numeric"})}</div>
-        <UpdateCalendar myUpdates={myUpdates} onView={u=>setViewNotif({updateData:u,fromPrenom:teamMember?.prenom,weekKey:u.weekKey,isOwn:true})}/>
+      {/* Update streak */}
+      <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"16px 20px",marginBottom:16,boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
+        <div style={{fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",marginBottom:12}}>Mes 5 derniers updates</div>
+        <UpdateStreak myUpdates={myUpdates}/>
       </div>
 
       {/* Big buttons */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
-        <button onClick={onGoOKR} style={{padding:"28px 20px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:14,cursor:"pointer",fontSize:16,fontWeight:600,letterSpacing:"-.2px",boxShadow:"0 4px 14px rgba(45,106,79,.3)",transition:"transform .15s"}}
-          onMouseEnter={e=>e.currentTarget.style.transform="translateY(-2px)"}
-          onMouseLeave={e=>e.currentTarget.style.transform="none"}>
-          📊 Mettre à jour les OKR
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+        <button onClick={onGoOKR} style={{padding:"20px",background:"#fff",color:"#1a1814",border:"1px solid #e2ddd6",borderRadius:10,cursor:"pointer",textAlign:"left",boxShadow:"0 1px 3px rgba(0,0,0,.06)",transition:"box-shadow .15s,transform .15s"}}
+          onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 12px rgba(0,0,0,.1)";e.currentTarget.style.transform="translateY(-1px)";}}
+          onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 1px 3px rgba(0,0,0,.06)";e.currentTarget.style.transform="none";}}>
+          <div style={{fontSize:22,marginBottom:8}}>📊</div>
+          <div style={{fontSize:15,fontWeight:600,color:"#1a1814",marginBottom:4}}>Mettre à jour les OKR</div>
+          <div style={{fontSize:12,color:"#9e9890"}}>Suivre l'avancement de la saison</div>
         </button>
-        <button onClick={onGoUpdate} style={{padding:"28px 20px",background:"#1d4ed8",color:"#fff",border:"none",borderRadius:14,cursor:"pointer",fontSize:16,fontWeight:600,letterSpacing:"-.2px",boxShadow:"0 4px 14px rgba(29,78,216,.3)",transition:"transform .15s"}}
-          onMouseEnter={e=>e.currentTarget.style.transform="translateY(-2px)"}
-          onMouseLeave={e=>e.currentTarget.style.transform="none"}>
-          ✍️ Compléter mon Update
+        <button onClick={onGoUpdate} style={{padding:"20px",background:"#fff",color:"#1a1814",border:"1px solid #e2ddd6",borderRadius:10,cursor:"pointer",textAlign:"left",boxShadow:"0 1px 3px rgba(0,0,0,.06)",transition:"box-shadow .15s,transform .15s"}}
+          onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 12px rgba(0,0,0,.1)";e.currentTarget.style.transform="translateY(-1px)";}}
+          onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 1px 3px rgba(0,0,0,.06)";e.currentTarget.style.transform="none";}}>
+          <div style={{fontSize:22,marginBottom:8}}>✍️</div>
+          <div style={{fontSize:15,fontWeight:600,color:"#1a1814",marginBottom:4}}>Compléter mon Update</div>
+          <div style={{fontSize:12,color:"#9e9890"}}>Partager mes priorités de la semaine</div>
         </button>
       </div>
     </div>
@@ -358,33 +408,11 @@ function UpdatePage({teamMember,questions,onSubmit,onBack,myUpdates}){
 
   // Monthly calendar
   const now=new Date();
-  const yr=now.getFullYear(),mo=now.getMonth();
-  const days=getDaysInMonth(yr,mo),firstDay=getFirstDayOfMonth(yr,mo);
-  const cells=Array(firstDay).fill(null).concat(Array.from({length:days},(_,i)=>i+1));
 
   return <div style={{minHeight:"100vh",background:"#f5f3ef",fontFamily:"system-ui,sans-serif"}}>
     <TopBar onBack={onBack} title="Mon Update"/>
     <div style={{maxWidth:680,margin:"0 auto",padding:"24px 16px 60px"}}>
       <div style={{fontSize:13,color:"#6b6560",marginBottom:20}}>Semaine du {weekLabel}</div>
-
-      {/* Calendar */}
-      <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"16px",marginBottom:24}}>
-        <div style={{fontSize:12,fontWeight:600,color:"#6b6560",marginBottom:10}}>📅 {now.toLocaleString("fr-FR",{month:"long",year:"numeric"})}</div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3}}>
-          {["L","M","M","J","V","S","D"].map((d,i)=><div key={i} style={{textAlign:"center",fontSize:9,fontWeight:600,color:"#9e9890",padding:"2px 0"}}>{d}</div>)}
-          {cells.map((day,i)=>{
-            if(!day)return <div key={i}/>;
-            const date=new Date(yr,mo,day);
-            const wk=getWeekKey(date);
-            const u=myUpdates.find(x=>x.weekKey===wk);
-            const isMon=date.getDay()===1;
-            return <div key={i} onClick={()=>u&&onGoViewUpdate&&isMon&&setViewUpdate(u)}
-              style={{aspectRatio:"1",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:"50%",fontSize:11,background:isMon&&u?"#2d6a4f":isMon&&wk===weekKey?"#e0f2fe":"transparent",color:isMon&&u?"#fff":"#1a1814",fontWeight:isMon?"600":"400"}}>
-              {day}
-            </div>;
-          })}
-        </div>
-      </div>
 
       {submitted?<div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:24,textAlign:"center"}}>
         <div style={{fontSize:32,marginBottom:8}}>✅</div>
@@ -477,7 +505,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
     <TopBar onBack={onBack} title="⚙️ Paramètres"/>
     <div style={{maxWidth:800,margin:"0 auto",padding:"24px 16px 60px"}}>
       <div style={{display:"flex",gap:10,marginBottom:20}}>
-        {[{k:"members",l:"👥 Membres & rôles"},{k:"questions",l:"❓ Questions Update"}].map(t=><button key={t.k} onClick={()=>setTab(t.k)}
+        {([{k:"members",l:"👥 Membres & rôles"},...(currentUser?.email===OWNER_EMAIL?[{k:"questions",l:"❓ Questions Update"}]:[])]).map(t=><button key={t.k} onClick={()=>setTab(t.k)}
           style={{padding:"8px 16px",borderRadius:8,border:`1px solid ${tab===t.k?"#2d6a4f":"#e2ddd6"}`,background:tab===t.k?"#2d6a4f":"#fff",color:tab===t.k?"#fff":"#6b6560",cursor:"pointer",fontSize:13,fontWeight:500}}>
           {t.l}
         </button>)}
