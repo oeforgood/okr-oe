@@ -544,8 +544,9 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
               </div>
             </div>
           </div>
-        </div>}
-      </div>}
+        </div>
+      }
+      </div>
 
       <button onClick={save} style={{marginTop:20,padding:"12px 28px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600}}>
         💾 Enregistrer
