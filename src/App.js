@@ -255,62 +255,97 @@ function WeekDots({myUpdates, clickable=false, onClickUpdate}){
   </div>;
 }
 
-function MoodCurve({allUpdates}){
+function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onClickUpdate, onGoUpdate}){
   const MOOD_SCORE = {"😊":5,"🙂":4,"😐":3,"😕":2,"😩":1};
   const now = new Date();
+  const currentWkKey = getWeekKey(now);
+  const currentDone = myUpdates.find(u=>u.weekKey===currentWkKey);
+
   const weeks = [];
   for(let i=25;i>=0;i--){
     const d=new Date(now);d.setDate(now.getDate()-i*7);
     const wk=getWeekKey(d);
-    const {mon}=getWeekBounds(wk);
+    const {mon,fri}=getWeekBounds(wk);
+    const update=myUpdates.find(u=>u.weekKey===wk);
+    let status="none";
+    if(update){const submDay=new Date(update.submittedAt).getDay();status=submDay===1?"late":"done";}
+    if(!update&&wk===currentWkKey)status="pending";
     const wkUpdates=allUpdates.filter(u=>u.weekKey===wk&&u.answers?.q7);
     const scores=wkUpdates.map(u=>MOOD_SCORE[u.answers.q7]||3);
     const avg=scores.length?scores.reduce((a,b)=>a+b,0)/scores.length:null;
-    weeks.push({wk,mon,avg,count:scores.length});
+    weeks.push({wk,mon,fri,status,update,isCurrentWeek:wk===currentWkKey,avg,count:scores.length});
   }
-  const pts=weeks.filter(w=>w.avg!==null);
-  if(pts.length<2)return <div style={{fontSize:11,color:"#9e9890",textAlign:"center",padding:"12px 0"}}>Pas encore assez de données pour la courbe</div>;
 
-  const W=500,H=60,pad=10;
+  const DOT_C={done:{bg:"#2d6a4f"},late:{bg:"#f59e0b"},none:{bg:"#ef4444"},pending:{bg:"#e2ddd6"}};
+  const fmtD=d=>`${d.getDate()} ${d.toLocaleString("fr-FR",{month:"long"})}`;
+
+  // SVG dimensions — dots and curve share same X axis
+  const W=560,DOT_Y=10,CURVE_TOP=30,CURVE_H=90,pad=7;
+  const dotSpacing=(W-2*pad)/(weeks.length-1);
+  const dotX=i=>pad+i*dotSpacing;
   const minV=1,maxV=5;
-  const scaleX=(i)=>pad+(i/(weeks.length-1))*(W-2*pad);
-  const scaleY=(v)=>H-pad-((v-minV)/(maxV-minV))*(H-2*pad);
+  const curveY=v=>CURVE_TOP+CURVE_H-((v-minV)/(maxV-minV))*CURVE_H;
+  const validPts=weeks.map((w,i)=>({...w,i})).filter(w=>w.avg!==null);
+  const pathD=validPts.map((w,j)=>`${j===0?"M":"L"}${dotX(w.i).toFixed(1)},${curveY(w.avg).toFixed(1)}`).join(" ");
+  const colorForAvg=v=>v>=4?"#2d6a4f":v>=2.5?"#f59e0b":"#ef4444";
+  const totalH=CURVE_TOP+CURVE_H+10;
 
-  // Build path through all non-null points
-  const validIdx=weeks.map((w,i)=>({...w,i})).filter(w=>w.avg!==null);
-  const pathD=validIdx.map((w,j)=>`${j===0?"M":"L"}${scaleX(w.i).toFixed(1)},${scaleY(w.avg).toFixed(1)}`).join(" ");
-
-  const colorForAvg=(v)=>v>=4?"#2d6a4f":v>=2.5?"#f59e0b":"#ef4444";
-
-  return <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{display:"block",overflow:"visible"}}>
-    {/* Grid lines */}
-    {[1,2,3,4,5].map(v=><line key={v} x1={pad} x2={W-pad} y1={scaleY(v)} y2={scaleY(v)} stroke="#e2ddd6" strokeWidth="0.5"/>)}
-    {/* Curve */}
-    <path d={pathD} fill="none" stroke="#2d6a4f" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round"/>
-    {/* Dots */}
-    {validIdx.map((w,j)=><circle key={j} cx={scaleX(w.i)} cy={scaleY(w.avg)} r="3" fill={colorForAvg(w.avg)} stroke="#fff" strokeWidth="1">
-      <title>{`Semaine ${w.wk} — Mood moyen : ${w.avg.toFixed(1)}/5 (${w.count} réponses)`}</title>
-    </circle>)}
-    {/* Y labels */}
-    {[{"v":5,"l":"😊"},{"v":3,"l":"😐"},{"v":1,"l":"😩"}].map(({v,l})=>
-      <text key={v} x={W-2} y={scaleY(v)+4} fontSize="9" fill="#9e9890" textAnchor="end">{l}</text>
-    )}
-  </svg>;
-}
-
-function UpdateStreak({myUpdates, allUpdates=[]}){
-  const currentWkKey = getWeekKey(new Date());
-  const currentDone = myUpdates.find(u=>u.weekKey===currentWkKey);
   return <div>
-    <WeekDots myUpdates={myUpdates} clickable={false}/>
-    <div style={{marginTop:16}}>
-      <div style={{fontSize:11,fontWeight:500,color:"#9e9890",textTransform:"uppercase",letterSpacing:".05em",marginBottom:6}}>Mood de l'équipe</div>
-      <MoodCurve allUpdates={allUpdates}/>
-    </div>
-    <div style={{fontSize:11,color:"#9e9890",textAlign:"center",marginTop:10}}>
-      {currentDone?"✅ Update complété cette semaine !":getUpdateWeekKey()===null?"🚫 Pas d'update le mardi":"⏳ Update à compléter cette semaine"}
+    <svg width="100%" viewBox={`0 0 ${W} ${totalH}`} style={{display:"block",overflow:"visible"}}>
+      {/* Dots row */}
+      {weeks.map((w,i)=>{
+        const c=DOT_C[w.status];
+        const tip=`Semaine du lundi ${fmtD(w.mon)} au vendredi ${fmtD(w.fri)}`;
+        return <circle key={i} cx={dotX(i)} cy={DOT_Y} r="5"
+          fill={c.bg} stroke="#fff" strokeWidth="1.5"
+          style={{cursor:clickable&&w.update?"pointer":"default"}}
+          onClick={()=>clickable&&w.update&&onClickUpdate&&onClickUpdate(w)}>
+          <title>{tip}</title>
+        </circle>;
+      })}
+      {/* Grid lines for curve */}
+      {[1,2,3,4,5].map(v=><line key={v} x1={pad} x2={W-pad} y1={curveY(v)} y2={curveY(v)} stroke="#f0ede8" strokeWidth="0.8"/>)}
+      {/* Y labels */}
+      {[{v:5,l:"😊"},{v:3,l:"😐"},{v:1,l:"😩"}].map(({v,l})=>
+        <text key={v} x={2} y={curveY(v)+4} fontSize="8" fill="#9e9890">{l}</text>
+      )}
+      {/* Curve */}
+      {validPts.length>=2&&<path d={pathD} fill="none" stroke="#2d6a4f" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round"/>}
+      {/* Curve dots */}
+      {validPts.map((w,j)=><circle key={j} cx={dotX(w.i)} cy={curveY(w.avg)} r="2.5" fill={colorForAvg(w.avg)} stroke="#fff" strokeWidth="1">
+        <title>{`Mood moyen : ${w.avg.toFixed(1)}/5 (${w.count} réponses)`}</title>
+      </circle>)}
+    </svg>
+    {/* Legend */}
+    <div style={{display:"flex",gap:16,marginTop:6,fontSize:11,color:"#9e9890"}}>
+      <span><span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#2d6a4f",marginRight:4,verticalAlign:"middle"}}/>Fait en semaine</span>
+      <span><span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#f59e0b",marginRight:4,verticalAlign:"middle"}}/>Fait le lundi</span>
+      <span><span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#ef4444",marginRight:4,verticalAlign:"middle"}}/>Non fait</span>
+      <span style={{marginLeft:"auto"}}>Courbe : mood équipe</span>
     </div>
   </div>;
+}
+
+// Keep WeekDots for UpdatePage
+function WeekDots({myUpdates, clickable=false, onClickUpdate}){
+  const weeks = get26Weeks(myUpdates);
+  const fmtD = d=>`${d.getDate()} ${d.toLocaleString("fr-FR",{month:"long"})}`;
+  const DOT_C={done:{bg:"#2d6a4f"},late:{bg:"#f59e0b"},none:{bg:"#ef4444"},pending:{bg:"#e2ddd6"}};
+  return <div style={{display:"flex",gap:4,flexWrap:"wrap",alignItems:"center"}}>
+    {weeks.map((w,i)=>{
+      const c=DOT_C[w.status];
+      const tooltip=`Semaine du lundi ${fmtD(w.mon)} au vendredi ${fmtD(w.fri)}`;
+      return <div key={i} title={tooltip} onClick={()=>clickable&&w.update&&onClickUpdate&&onClickUpdate(w)}
+        style={{width:14,height:14,borderRadius:"50%",background:c.bg,flexShrink:0,
+          cursor:clickable&&w.update?"pointer":"default",transition:"transform .1s",boxSizing:"border-box"}}
+        onMouseEnter={e=>{if(clickable&&w.update)e.currentTarget.style.transform="scale(1.4)";}}
+        onMouseLeave={e=>{e.currentTarget.style.transform="scale(1)";}}/>;
+    })}
+  </div>;
+}
+
+function UpdateStreak({myUpdates, allUpdates=[], onGoUpdate}){
+  return <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} onGoUpdate={onGoUpdate}/>;
 }
 
 function Dashboard({currentUser,teamMember,onGoOKR,onGoUpdate,myUpdates,allUpdates,managerNotifs,onReadNotif,okrData,isAdmin,onOpenSettings}){
@@ -358,18 +393,29 @@ function Dashboard({currentUser,teamMember,onGoOKR,onGoUpdate,myUpdates,allUpdat
         {[
           {label:"Avancement global OKR",val:`${Math.round(avgProg)}%`,color:progColor(avgProg),sub:`${doneKR}/${totalKR} KR complétés`},
           {label:"Mes KR complétés",val:`${myKRDone}/${myKRs.length}`,color:"#1d4ed8",sub:`${myKRs.length>0?Math.round(myKRDone/myKRs.length*100):0}% de mes KR`},
-          {label:"Update cette semaine",val:todayUpdate?"✅":"⏳",color:todayUpdate?"#2d6a4f":"#b5680f",sub:todayUpdate?"Complété !":weekKey===null?"Mardi : pas d'update":"À compléter"},
         ].map(k=><div key={k.label} style={{background:"#fff",borderRadius:10,padding:"16px 18px",border:"1px solid #e2ddd6",boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
           <div style={{fontSize:11,color:"#9e9890",marginBottom:6,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>{k.label}</div>
           <div style={{fontSize:28,fontWeight:700,color:k.color,fontFamily:"monospace"}}>{k.val}</div>
           <div style={{fontSize:11,color:"#9e9890",marginTop:4}}>{k.sub}</div>
         </div>)}
+        {/* Update cette semaine card */}
+        <div style={{background:"#fff",borderRadius:10,padding:"16px 18px",border:"1px solid #e2ddd6",boxShadow:"0 1px 3px rgba(0,0,0,.06)",display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
+          <div style={{fontSize:11,color:"#9e9890",marginBottom:6,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>Update cette semaine</div>
+          {todayUpdate
+            ?<div style={{fontSize:40,lineHeight:1}}>{todayUpdate.answers?.q7||"✅"}</div>
+            :<button onClick={onGoUpdate} style={{marginTop:8,padding:"8px 14px",background:"#fef3c7",border:"1px solid #f59e0b",borderRadius:8,cursor:"pointer",fontSize:13,fontWeight:500,color:"#92400e",textAlign:"center"}}>
+              ⏳ Compléter mon Update
+            </button>}
+          <div style={{fontSize:11,color:"#9e9890",marginTop:6}}>
+            {todayUpdate?"Mood de la semaine":weekKey===null?"Mardi : pas d'update":"À compléter"}
+          </div>
+        </div>
       </div>
 
       {/* Update streak */}
       <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"16px 20px",marginBottom:16,boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
         <div style={{fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",marginBottom:12}}>Mes 5 derniers updates</div>
-        <UpdateStreak myUpdates={myUpdates} allUpdates={allUpdates}/>
+        <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} onGoUpdate={onGoUpdate}/>
       </div>
 
       {/* Big buttons */}
@@ -477,7 +523,7 @@ function UpdatePage({teamMember,questions,onSubmit,onBack,myUpdates}){
   const now=new Date();
 
   return <div style={{minHeight:"100vh",background:"#f5f3ef",fontFamily:"system-ui,sans-serif"}}>
-    <TopBar onBack={onBack} title="Mes Updates"/>
+    <TopBar onBack={onBack} title="Mes Updates" left={<span style={{fontSize:16,fontWeight:700,color:"#2d6a4f",cursor:"pointer"}} onClick={onBack}>🌼 Calendula</span>}/>
     <div style={{maxWidth:680,margin:"0 auto",padding:"24px 16px 60px"}}>
 
       {/* 26-week dots */}
@@ -535,15 +581,17 @@ function UpdatePage({teamMember,questions,onSubmit,onBack,myUpdates}){
   </div>;
 }
 
-function TopBar({onBack,title,extra}){
+function TopBar({onBack,title,extra,left}){
   return <div style={{background:"rgba(245,243,239,.95)",borderBottom:"1px solid #e2ddd6",padding:"10px 20px",display:"flex",alignItems:"center",gap:12}}>
-    <button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:"#6b6560",display:"flex",alignItems:"center",gap:4,padding:"2px 6px",borderRadius:6}}
+    {left||<button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#6b6560",display:"flex",alignItems:"center",gap:4,padding:"2px 6px",borderRadius:6}}
       onMouseEnter={e=>e.currentTarget.style.background="#e2ddd6"}
       onMouseLeave={e=>e.currentTarget.style.background="none"}>
-      ← <span style={{fontSize:13}}>Accueil</span>
-    </button>
-    <span style={{fontSize:15,fontWeight:600,color:"#2d6a4f"}}>{title}</span>
-    {extra}
+      🌼 Calendula
+    </button>}
+    <div style={{flex:1,textAlign:"center"}}>
+      <span style={{fontSize:15,fontWeight:600,color:"#1a1814"}}>{title}</span>
+    </div>
+    {extra||<div style={{width:80}}/>}
   </div>;
 }
 
@@ -1038,9 +1086,10 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin}){
 
   return <div style={{fontFamily:"system-ui,sans-serif",background:"#f5f3ef",minHeight:"100vh",color:"#1a1814"}}>
     <div style={{background:"rgba(245,243,239,.95)",borderBottom:"1px solid #e2ddd6",padding:"10px 20px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-      <button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#6b6560",display:"flex",alignItems:"center",gap:4,padding:"2px 8px",borderRadius:6}}
-        onMouseEnter={e=>e.currentTarget.style.background="#e2ddd6"} onMouseLeave={e=>e.currentTarget.style.background="none"}>← Accueil</button>
-      <span onClick={()=>setShowJournal(true)} style={{fontSize:18,fontWeight:600,color:"#2d6a4f",letterSpacing:"-.3px",cursor:"pointer"}}>Oé <span style={{fontWeight:300,color:"#6b6560"}}>OKR</span></span>
+      <span style={{fontSize:16,fontWeight:700,color:"#2d6a4f",letterSpacing:"-.2px",cursor:"pointer"}} onClick={onBack}>🌼 Calendula</span>
+      <div style={{flex:1,textAlign:"center"}}>
+        <span onClick={()=>setShowJournal(true)} style={{fontSize:16,fontWeight:600,color:"#1a1814",letterSpacing:"-.2px",cursor:"pointer"}}>OKR Oé</span>
+      </div>
       <select value={seasonKey} onChange={e=>switchSeason(e.target.value)} style={{fontFamily:"inherit",fontSize:13,fontWeight:500,border:"1px solid #e2ddd6",background:"#fff",borderRadius:20,padding:"4px 14px",outline:"none",cursor:"pointer",color:"#1b4332"}}>
         {SEASONS.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
       </select>
