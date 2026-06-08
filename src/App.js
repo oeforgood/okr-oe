@@ -276,7 +276,7 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
     weeks.push({wk,mon,fri,status,update,isCurrentWeek:wk===currentWkKey,avg,count:scores.length});
   }
 
-  const DOT_C={done:{bg:"#2d6a4f"},late:{bg:"#f59e0b"},none:{bg:"#ef4444"},pending:{bg:"#e2ddd6"}};
+  const DOT_C={done:{bg:"#2d6a4f"},late:{bg:"#facc15"},none:{bg:"#ef4444"},pending:{bg:"#e2ddd6"}};
   const fmtD=d=>`${d.getDate()} ${d.toLocaleString("fr-FR",{month:"long"})}`;
 
   // SVG dimensions — dots and curve share same X axis
@@ -319,7 +319,7 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
     {/* Legend */}
     <div style={{display:"flex",gap:16,marginTop:6,fontSize:11,color:"#9e9890"}}>
       <span><span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#2d6a4f",marginRight:4,verticalAlign:"middle"}}/>Fait en semaine</span>
-      <span><span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#f59e0b",marginRight:4,verticalAlign:"middle"}}/>Fait le lundi</span>
+      <span><span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#facc15",marginRight:4,verticalAlign:"middle"}}/>Fait le lundi</span>
       <span><span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#ef4444",marginRight:4,verticalAlign:"middle"}}/>Non fait</span>
       <span style={{marginLeft:"auto"}}>Courbe : mood équipe</span>
     </div>
@@ -416,9 +416,8 @@ function Dashboard({currentUser,teamMember,onGoOKR,onGoUpdate,myUpdates,allUpdat
             <div style={{fontSize:9,color:"#6b6560",marginTop:2,textTransform:"uppercase",letterSpacing:".06em"}}>Mes OKR</div>
           </div>
           <div style={{width:1,background:"#86efac",alignSelf:"stretch",flexShrink:0}}/>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:11,color:"#6b6560",marginBottom:6}}>Mon avancement personnel</div>
-            <Bar v={myPersonalProg} label="" w={0}/>
+          <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",gap:8}}>
+            <Bar v={myPersonalProg} label="Mon avancement personnel" w={0}/>
           </div>
           <div style={{width:1,background:"#86efac",alignSelf:"stretch",flexShrink:0}}/>
           <div style={{flexShrink:0,textAlign:"center",width:72}}>
@@ -564,7 +563,7 @@ function UpdatePage({teamMember,questions,onSubmit,onBack,myUpdates}){
         <WeekDots myUpdates={myUpdates} clickable={true} onClickUpdate={w=>setSelectedWeek(w)}/>
         <div style={{display:"flex",gap:16,marginTop:10,fontSize:11,color:"#9e9890"}}>
           <span><span style={{display:"inline-block",width:10,height:10,borderRadius:"50%",background:"#2d6a4f",marginRight:4,verticalAlign:"middle"}}/>Fait en semaine</span>
-          <span><span style={{display:"inline-block",width:10,height:10,borderRadius:"50%",background:"#f59e0b",marginRight:4,verticalAlign:"middle"}}/>Fait le lundi</span>
+          <span><span style={{display:"inline-block",width:10,height:10,borderRadius:"50%",background:"#facc15",marginRight:4,verticalAlign:"middle"}}/>Fait le lundi</span>
           <span><span style={{display:"inline-block",width:10,height:10,borderRadius:"50%",background:"#fca5a5",marginRight:4,verticalAlign:"middle"}}/>Non fait</span>
         </div>
       </div>
