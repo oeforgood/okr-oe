@@ -378,7 +378,7 @@ function NotifDetail({notif}){
   </div>;
 }
 
-function MessagesPanel({managerNotifs,onReadNotif,teamMember}){
+function MessagesPanel({managerNotifs,onReadNotif,teamMember,myUpdates=[]}){
   const [selected,setSelected]=useState(null);
   // Include manager notifs (update notifications) + system messages
   // System messages: Monday morning greeting, season prep reminder
@@ -545,7 +545,7 @@ function Dashboard({currentUser,teamMember,onGoOKR,onGoUpdate,myUpdates,allUpdat
       </div>
 
       {/* Messages panel */}
-      <MessagesPanel managerNotifs={managerNotifs} onReadNotif={onReadNotif} teamMember={teamMember}/>
+      <MessagesPanel managerNotifs={managerNotifs} onReadNotif={onReadNotif} teamMember={teamMember} myUpdates={myUpdates}/>
 
       {/* Update streak */}
       <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"16px 20px",marginBottom:16,boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
