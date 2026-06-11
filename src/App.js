@@ -55,6 +55,7 @@ function ini(name){return INITIALS_MAP[name]||(name||"?").slice(0,2).toUpperCase
 function pBg(name,people){const i=(people||[]).indexOf(name)%12;return P_BG[i<0?0:i]}
 function pTx(name,people){const i=(people||[]).indexOf(name)%12;return P_TX[i<0?0:i]}
 function progColor(v){return v>=80?"#2d6a4f":v>=50?"#b5680f":"#c0392b"}
+function progColorRel(v,avg){return v>avg?"#2d6a4f":v>avg-10?"#b5680f":"#c0392b"}
 function rnd(v){return Math.round(v*10)/10}
 function getSeasonInfo(key){return SEASONS.find(s=>s.key===key)||SEASONS[0]}
 function getSeasonProgress(key){
@@ -115,16 +116,28 @@ function getWeekBounds(weekKey){
   return{mon,fri};
 }
 function getUpdateWeekKey(){
-  // Mon = previous week, Tue = blocked, Wed-Sun = current week
+  // Mon = previous week, Tue = blocked, Wed-Fri before 15h = current week
+  // Fri after 15h = locked (read only)
   const now=new Date();
-  const dow=now.getDay(); // 0=sun,1=mon,2=tue...
+  const dow=now.getDay();
   if(dow===2)return null; // Tuesday blocked
   if(dow===1){
-    // Monday → previous week
     const prev=new Date(now);prev.setDate(now.getDate()-7);
     return getWeekKey(prev);
   }
   return getWeekKey(now);
+}
+function isUpdateLocked(){
+  // Locked on Friday after 15h, or Saturday/Sunday
+  const now=new Date();
+  const dow=now.getDay();
+  if(dow===6||dow===0)return true;
+  if(dow===5&&now.getHours()>=15)return true;
+  return false;
+}
+function isUpdateFinalizable(){
+  // Can submit/notify: before Friday 15h
+  return !isUpdateLocked();
 }
 function fmtWeekLabel(weekKey){
   const{mon,fri}=getWeekBounds(weekKey);
@@ -232,14 +245,20 @@ const DOT_COLORS = {
 
 function WeekDots({myUpdates, clickable=false, onClickUpdate}){
   const weeks = get26Weeks(myUpdates);
-  const fmtD = d=>`${d.getDate()} ${d.toLocaleString("fr-FR",{month:"long"})}`;
-  return <div style={{display:"flex",gap:4,flexWrap:"wrap",alignItems:"center"}}>
+  const [hov,setHov]=useState(null);
+  return <div style={{position:"relative",display:"flex",gap:4,flexWrap:"nowrap",alignItems:"center"}}>
+    {hov!==null&&weeks[hov]&&(()=>{
+      const w=weeks[hov];
+      const tip=`Semaine du ${w.mon.getDate()} ${w.mon.toLocaleString("fr-FR",{month:"long"})} au ${w.fri.getDate()} ${w.fri.toLocaleString("fr-FR",{month:"long"})}`;
+      const pct=hov/Math.max(weeks.length-1,1)*100;
+      return <div style={{position:"absolute",top:-26,left:`${pct}%`,transform:"translateX(-50%)",background:"#1a1814",color:"#fff",fontSize:10,padding:"3px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:10,pointerEvents:"none"}}>{tip}</div>;
+    })()}
     {weeks.map((w,i)=>{
       const c = DOT_COLORS[w.status];
-      const tooltip = `Semaine du ${w.mon.getDate()} au ${w.fri.getDate()} ${w.fri.toLocaleString("fr-FR",{month:"long"})}`;
       return <div key={i}
-        title={tooltip}
         onClick={()=>clickable&&w.update&&onClickUpdate&&onClickUpdate(w)}
+        onMouseEnter={()=>setHov(i)}
+        onMouseLeave={()=>setHov(null)}
         style={{
           width:14,height:14,borderRadius:"50%",
           background:c.bg,border:`1.5px solid ${c.border}`,
@@ -248,8 +267,6 @@ function WeekDots({myUpdates, clickable=false, onClickUpdate}){
           transition:"transform .1s",
           boxSizing:"border-box",
         }}
-        onMouseEnter={e=>{if(clickable&&w.update)e.currentTarget.style.transform="scale(1.4)";}}
-        onMouseLeave={e=>{e.currentTarget.style.transform="scale(1)";}}
       />;
     })}
   </div>;
@@ -313,7 +330,14 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
     }
   }
 
-  return <div>
+  const [hoveredDot,setHoveredDot]=useState(null);
+  return <div style={{position:"relative"}}>
+    {hoveredDot!==null&&weeks[hoveredDot]&&(()=>{
+      const w=weeks[hoveredDot];
+      const tip=`Semaine du ${w.mon.getDate()} ${w.mon.toLocaleString("fr-FR",{month:"long"})} au ${w.fri.getDate()} ${w.fri.toLocaleString("fr-FR",{month:"long"})}`;
+      const xPct=dotX(hoveredDot)/W*100;
+      return <div style={{position:"absolute",top:-28,left:`${xPct}%`,transform:"translateX(-50%)",background:"#1a1814",color:"#fff",fontSize:10,padding:"3px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:10,pointerEvents:"none"}}>{tip}</div>;
+    })()}
     <svg width="100%" viewBox={`0 0 ${W} ${totalH}`} style={{display:"block",overflow:"visible"}}>
       {/* Month separator lines */}
       {monthSeps.map((s,i)=><line key={i} x1={s.x} x2={s.x} y1={0} y2={CURVE_TOP+CURVE_H} stroke="#d5d0ca" strokeWidth="0.5"/>)}
@@ -322,13 +346,12 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
       {/* Dots row */}
       {weeks.map((w,i)=>{
         const c=DOT_C[w.status];
-        const tip=`Semaine du ${w.mon.getDate()} ${w.mon.toLocaleString("fr-FR",{month:"long"})} au ${w.fri.getDate()} ${w.fri.toLocaleString("fr-FR",{month:"long"})}`;
         return <circle key={i} cx={dotX(i)} cy={DOT_Y} r="5"
           fill={c.bg} stroke="#fff" strokeWidth="1.5"
           style={{cursor:clickable&&w.update?"pointer":"default"}}
-          onClick={()=>clickable&&w.update&&onClickUpdate&&onClickUpdate(w)}>
-          <title>{tip}</title>
-        </circle>;
+          onMouseEnter={()=>setHoveredDot(i)}
+          onMouseLeave={()=>setHoveredDot(null)}
+          onClick={()=>clickable&&w.update&&onClickUpdate&&onClickUpdate(w)}/>;
       })}
       {/* Grid lines for curve */}
       {[1,2,3,4,5].map(v=><line key={v} x1={pad} x2={W-pad} y1={curveY(v)} y2={curveY(v)} stroke="#f0ede8" strokeWidth="0.8"/>)}
@@ -408,21 +431,34 @@ function MessagesPanel({managerNotifs,onReadNotif,teamMember,myUpdates=[]}){
   }
 
   // Build all messages: system first, then notifs (newest first)
-  // Friday reminders
-  const isFriday=dow===5; // simplified: veille de pont handled later
   const currentWkKey2=getWeekKey(now);
   const updateDone=myUpdates.find(u=>u.weekKey===currentWkKey2);
-  // Check last OKR salve from Firestore - approximate: use allUpdates as proxy (real check would need logs)
-  // Use okrLastSalve prop if provided, otherwise skip OKR reminder
-  const fridayMsgs=[];
-  if(isFriday){
-    if(!updateDone){fridayMsgs.push({id:"fri_update",title:"⏰ Pense à faire ton Update !",content:`C'est vendredi et tu n'as pas encore complété ton Update de la semaine. Prends 5 minutes pour partager tes avancées et priorités — ça aide toute l'équipe à rester alignée ! 🌼`});}
+  const reminderMsgs=[];
+
+  // Monday morning: remind if no update yet
+  if(dow===1&&now.getHours()>=8&&!updateDone){
+    reminderMsgs.push({id:"mon_reminder",title:"🌅 Pense à faire ton Update de la semaine !",
+      content:`Bonjour ${teamMember?.prenom||""} ! C'est lundi, l'occasion de partager tes priorités de la semaine avec ton équipe. Prends 5 minutes pour compléter ton Update — ça aide tout le monde à rester aligné. À toi de jouer ! 🌼`});
+  }
+
+  // Friday reminders
+  if(dow===5){
+    if(!updateDone){
+      reminderMsgs.push({id:"fri_update",title:"⏰ Pense à faire ton Update avant 15h !",
+        content:`C'est vendredi ! Tu as jusqu'à 15h pour compléter ton Update de la semaine. Partage tes avancées et priorités — ça ne prend que quelques minutes. 🌼`});
+    }
   }
 
   const systemMsgs=[];
   if(greeting)systemMsgs.push({id:greeting.id,title:greeting.text,content:greeting.content,date:now,read:true,isSystem:true});
   if(seasonPrepMsg)systemMsgs.push({id:seasonPrepMsg.id,title:seasonPrepMsg.text,content:seasonPrepMsg.content,date:now,read:true,isSystem:true});
-  fridayMsgs.forEach(m=>systemMsgs.push({...m,date:now,read:false,isSystem:true}));
+  // Tuesday 7h: if update not done by Monday, remind manager (shown as system msg for manager)
+  // This is shown to the user themselves as a heads-up that their manager was notified
+  if(dow===2&&now.getHours()>=7&&!updateDone){
+    reminderMsgs.push({id:"tue_late",title:"⚠️ Ton Update n'a pas été fait lundi",
+      content:`Ton référent a été notifié que ton Update de la semaine n'a pas encore été complété. N'oublie pas de le faire dès que possible — les Updates hebdomadaires sont importants pour le suivi de l'équipe ! 🌼`});
+  }
+  reminderMsgs.forEach(m=>systemMsgs.push({...m,date:now,read:false,isSystem:true}));
 
   const notifMsgs=managerNotifs.map(n=>{
     const{mon,fri}=getWeekBounds(n.weekKey);
@@ -509,7 +545,7 @@ function Dashboard({currentUser,teamMember,onGoOKR,onGoUpdate,myUpdates,allUpdat
       {/* Season banners */}
       <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:16}}>
         <SeasonBanner seasonKey={seasonKey||"printemps_2026"} avgProg={avgProg} totalKR={totalKR} doneKR={doneKR}/>
-        {myKRsOwned.length>0&&<PersonalBanner prog={myPersonalProg} doneKR={myKRDoneOwned} totalKR={myKRsOwned.length} label={myPrenom||"Moi"} marginBottom={0}/>}
+        {myKRsOwned.length>0&&<PersonalBanner prog={myPersonalProg} doneKR={myKRDoneOwned} totalKR={myKRsOwned.length} label={myPrenom||"Moi"} marginBottom={0} avgProg={avgProg}/>}
       </div>
 
       {/* KPIs */}
@@ -644,7 +680,7 @@ function UpdatePage({teamMember,questions,onSubmit,onBack,myUpdates}){
 
   function upd(qid,val){setAnswers(p=>({...p,[qid]:val}));}
   async function handleSubmit(){
-    await onSubmit({weekKey,answers,prenom:teamMember.prenom,email:teamMember.email,managerEmail:teamMember.managerEmail,submittedAt:Date.now()});
+    await onSubmit({weekKey,answers,prenom:teamMember.prenom,email:teamMember.email,managerEmail:teamMember.managerEmail,submittedAt:Date.now(),notifyManager:isUpdateLocked()});
     setSubmitted(true);
   }
 
@@ -671,8 +707,8 @@ function UpdatePage({teamMember,questions,onSubmit,onBack,myUpdates}){
       {submitted?<div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:24,textAlign:"center"}}>
         <div style={{fontSize:32,marginBottom:8}}>✅</div>
         <div style={{fontSize:16,fontWeight:600,color:"#166534",marginBottom:4}}>Update enregistré !</div>
-        <div style={{fontSize:13,color:"#6b6560"}}>Tu pourras le modifier jusqu'à la fin de la semaine.</div>
-        <button onClick={()=>setSubmitted(false)} style={{marginTop:16,fontSize:13,color:"#1d4ed8",background:"none",border:"1px solid #1d4ed8",borderRadius:6,padding:"6px 14px",cursor:"pointer"}}>Modifier</button>
+        <div style={{fontSize:13,color:"#6b6560"}}>{isUpdateLocked()?"Cet update ne peut plus être modifié (délai passé).":"Tu pourras le modifier jusqu'au vendredi 15h."}</div>
+        {!isUpdateLocked()&&<button onClick={()=>setSubmitted(false)} style={{marginTop:16,fontSize:13,color:"#1d4ed8",background:"none",border:"1px solid #1d4ed8",borderRadius:6,padding:"6px 14px",cursor:"pointer"}}>Modifier</button>}
       </div>:<>
         <div style={{display:"flex",flexDirection:"column",gap:14}}>
           {(questions||DEFAULT_QUESTIONS).map(q=>{
@@ -1048,8 +1084,8 @@ function SeasonBanner({seasonKey,avgProg,totalKR,doneKR}){
   </div>;
 }
 
-function PersonalBanner({prog,doneKR,totalKR,label,marginBottom=8}){
-  const col=progColor(prog),krCol=progColor(doneKR/Math.max(totalKR,1)*100);
+function PersonalBanner({prog,doneKR,totalKR,label,marginBottom=8,avgProg=0}){
+  const col=progColorRel(prog,avgProg),krCol=progColorRel(doneKR/Math.max(totalKR,1)*100,avgProg);
   return <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"14px 20px",marginBottom,display:"flex",alignItems:"center",gap:20,flexWrap:"nowrap",overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
     <div style={{flexShrink:0,textAlign:"center",width:100}}>
       <div style={{fontSize:52,fontWeight:700,fontFamily:"monospace",color:col,lineHeight:1}}>{Math.round(prog)}%</div>
@@ -1102,7 +1138,7 @@ function JournalModal({seasonKey,onClose,isAdmin,currentPrenom}){
   const allSalves=detectSalves(logs);
   const salves=isAdmin?allSalves:allSalves.filter(s=>s.owner===currentPrenom);
   return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
-    <div style={{background:"#fff",borderRadius:12,padding:24,width:"90%",maxWidth:600,maxHeight:"85vh",overflowY:"auto"}}>
+    <div style={{background:"#fff",borderRadius:12,padding:24,width:"90%",maxWidth:900,maxHeight:"85vh",overflowY:"auto"}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
         <div style={{fontSize:16,fontWeight:600}}>Historique des modifications</div>
         <button onClick={onClose} style={{border:"none",background:"none",cursor:"pointer",fontSize:20,color:"#9e9890"}}>×</button>
@@ -1269,11 +1305,12 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin}){
   if(!loaded)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:200,color:"#9e9890",fontSize:13}}>Chargement…</div>;
 
   return <div style={{fontFamily:"system-ui,sans-serif",background:"#f5f3ef",minHeight:"100vh",color:"#1a1814"}}>
-    <div style={{background:"rgba(245,243,239,.95)",borderBottom:"1px solid #e2ddd6",padding:"10px 20px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+    <div style={{background:"rgba(245,243,239,.95)",borderBottom:"1px solid #e2ddd6",padding:"10px 20px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",position:"relative"}}>
       <span style={{fontSize:16,fontWeight:700,color:"#2d6a4f",letterSpacing:"-.2px",cursor:"pointer"}} onClick={onBack}>🌼 Calendula</span>
-      <div style={{flex:1,textAlign:"center"}}>
+      <div style={{position:"absolute",left:0,right:0,textAlign:"center",pointerEvents:"none"}}>
         <span style={{fontSize:16,fontWeight:600,color:"#1a1814",letterSpacing:"-.2px"}}>OKR Oé</span>
       </div>
+      <div style={{flex:1}}/>
       <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
         <select value={seasonKey} onChange={e=>switchSeason(e.target.value)} style={{fontFamily:"inherit",fontSize:13,fontWeight:500,border:"1px solid #e2ddd6",background:"#fff",borderRadius:20,padding:"4px 14px",outline:"none",cursor:"pointer",color:"#1b4332"}}>
           {SEASONS.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
@@ -1303,7 +1340,7 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin}){
             totalW+=w;weightedSum+=kr.taux*w;
           });
           const fProg=totalW>0?weightedSum/totalW:0;
-          return <PersonalBanner prog={fProg} doneKR={fDone} totalKR={fKRsOwned.length} label={filterP} marginBottom={0}/>;
+          return <PersonalBanner prog={fProg} doneKR={fDone} totalKR={fKRsOwned.length} label={filterP} marginBottom={0} avgProg={avgProg}/>;
         })()}
       </div>
       <div style={{display:"flex",flexDirection:"column",gap:10,marginTop:20}}>
@@ -1470,11 +1507,10 @@ export default function App(){
     const weekDocId=`${authUser.email}_${updateData.weekKey}`;
     await setDoc(doc(db,"updates",weekDocId),{...updateData,email:authUser.email,prenom:me?.prenom});
 
-    // Create notification for manager (without confidential answer)
-    if(me?.managerEmail){
+    // Create notification for manager only when update is locked (Fri after 15h)
+    if(me?.managerEmail&&updateData.notifyManager){
       const notifId=`${authUser.email}_${updateData.weekKey}_notif`;
       const answersWithoutConfidential={...updateData.answers};
-      // Keep confidential separate
       const confidentiel=updateData.answers?.q6||null;
       delete answersWithoutConfidential.q6;
 
