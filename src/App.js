@@ -17,7 +17,7 @@ const auth = getAuth(firebaseApp);
 const provider = new GoogleAuthProvider();
 
 // ─── INITIAL DATA ──────────────────────────────────────────────────────────────
-const SPRING26={objectives:[{id:"1",title:"Aller chercher du chiffre d'affaires sur d'autres canaux",etp:0.2,owner:"Tomek",priorite:"P1",contributors:[]},{id:"2",title:"Fiabiliser la production et monter d'un cran en supply",etp:0.1,owner:"Fiona",priorite:"P1",contributors:[]},{id:"3",title:"Adopter le loft et s'y sentir bien",etp:0.1,owner:"Julie",priorite:"P2",contributors:[]},{id:"4",title:"Se mettre en position sereine pour la pérénité d'Oé",etp:0.35,owner:"Fx",priorite:"P1",contributors:[]},{id:"5",title:"Gérer le domaine et la FSDO",etp:0.05,owner:"Fx",priorite:"P2",contributors:[]},{id:"6",title:"Prioriser les grands comptes RHF les plus ROIstes",etp:0.37,owner:"Christelle",priorite:"P1",contributors:[]},{id:"7",title:"Accélérer notre activité RETAIL en GMS",etp:0.22,owner:"Christelle",priorite:"P1",contributors:[]},{id:"8",title:"Aligner notre vision et piloter nos actions sales",etp:0.22,owner:"Christelle",priorite:"P1",contributors:[]},{id:"9",title:"Marketing : Déployer une stratégie de communication 360° cohérente et structurée au service de la croissance commerciale",etp:0.2,owner:"Juliette",priorite:"P1",contributors:[]},{id:"10",title:"Communauté : Structurer et activer une communauté engagée au service de l'impact positif et du développement de la marque et du B2B",etp:0.15,owner:"Juliette",priorite:"P1",contributors:[]},{id:"11",title:"Export : Réaliser des avancées significatives sur les principaux marchés cibles en priorisant le développement des distributeurs existants",etp:0.05,owner:"Claire",priorite:"P1",contributors:[]}],subobjectives:[{id:"1.1",parent:"1",title:"Ouvrir le canal Commandes Groupées et lancer les premières commandes Groopay",poids:70.0,owner:"Tomek",priorite:"P1",contributors:[]},{id:"1.2",parent:"1",title:"Se mettre au carré sur les market places et les activer",poids:30.0,owner:"Fiona",priorite:"P1",contributors:[]},{id:"2.1",parent:"2",title:"Fiabiliser la production des essences",poids:30.0,owner:"Fiona",priorite:"P1",contributors:[]},{id:"2.2",parent:"2",title:"Fiabiliser les dates de réalisation de production chez MP",poids:30.0,owner:"Fiona",priorite:"P2",contributors:[]},{id:"2.3",parent:"2",title:"Avancer avec la coallition des acteurs du vin et ReZip",poids:20.0,owner:"Julie",priorite:"P2",contributors:[]},{id:"2.4",parent:"2",title:"Poursuivre et fortifier notre collaboration avec l'ESAT",poids:10.0,owner:"Julie",priorite:"P2",contributors:[]},{id:"2.5",parent:"2",title:"Nettoyer les stocks chez Peguet",poids:10.0,owner:"Julie",priorite:"P2",contributors:[]},{id:"3.1",parent:"3",title:"Les travaux au loft : en finir une fois pour toutes !",poids:100.0,owner:"Julie",priorite:"P2",contributors:[]},{id:"4.1",parent:"4",title:"Se donner les moyens de réaliser la marge objectif en 2026",poids:33.3,owner:"Fx",priorite:"P1",contributors:[]},{id:"4.2",parent:"4",title:"Avancer dans notre plan d'étalement de dettes",poids:33.3,owner:"Fx",priorite:"P1",contributors:[]},{id:"4.3",parent:"4",title:"Sécuriser Oé en termes de trésorerie sur 2026-2027",poids:33.3,owner:"Fx",priorite:"P1",contributors:[]},{id:"5.1",parent:"5",title:"Donner une nouvelle impulsion au plan de régénération du DOCSP",poids:60.0,owner:"Fx",priorite:"P2",contributors:[]},{id:"5.2",parent:"5",title:"Retrapper le juridique de la FSDO",poids:30.0,owner:"Fx",priorite:"P2",contributors:[]},{id:"5.3",parent:"5",title:"Organiser les vendanges au Domaine",poids:10.0,owner:"Fx",priorite:"P3",contributors:[]},{id:"6.1",parent:"6",title:"Accélérer Episaveurs – Développer pipeline et sécuriser volumes",poids:20.0,owner:"Christelle",priorite:"P1",contributors:[]},{id:"6.2",parent:"6",title:"Sécuriser France Boissons – Pérenniser accords et promotions",poids:15.0,owner:"Claire",priorite:"P1",contributors:[]},{id:"6.3",parent:"6",title:"Optimiser potentiel Maison Richard – Développer ventes et présence",poids:15.0,owner:"Tomek",priorite:"P1",contributors:[]},{id:"6.4",parent:"6",title:"Pérenniser Pain Quotidien – Consolider déploiement international",poids:10.0,owner:"Claire",priorite:"P1",contributors:[]},{id:"6.5",parent:"6",title:"Traiter Grands Comptes directs à potentiel",poids:10.0,owner:"Christelle",priorite:"P1",contributors:[]},{id:"6.6",parent:"6",title:"Cibler distributeurs régionaux existants – Sécuriser les volumes et réactiver terrain",poids:10.0,owner:"Christelle",priorite:"P1",contributors:[]},{id:"6.7",parent:"6",title:"Traiter top clients CHR directs – Fidéliser et étendre gamme premium",poids:10.0,owner:"Christelle",priorite:"P2",contributors:[]},{id:"6.8",parent:"6",title:"Nous déployer en Cash & Carry",poids:10.0,owner:"Christelle",priorite:"P2",contributors:[]},{id:"7.1",parent:"7",title:"Carrefour – Déployer et animer les magasins clés",poids:15.0,owner:"Christelle",priorite:"P1",contributors:[]},{id:"7.2",parent:"7",title:"ITM, U, Monoprix – Assurer couverture régionale et promotion",poids:15.0,owner:"Christelle",priorite:"P1",contributors:[]},{id:"7.3",parent:"7",title:"Leclerc & Franprix – Développer les magasins VIP",poids:10.0,owner:"Christelle",priorite:"P3",contributors:[]},{id:"7.4",parent:"7",title:"Enseignes prioritaires – visibilité & MEA",poids:5.0,owner:"Christelle",priorite:"P1",contributors:[]},{id:"7.5",parent:"7",title:"Renforcer la bascule Reuse / Réemploi",poids:10.0,owner:"Christelle",priorite:"P1",contributors:[]},{id:"7.6",parent:"7",title:"GSS – Sécuriser et développer positions",poids:15.0,owner:"Christelle",priorite:"P1",contributors:[]},{id:"7.7",parent:"7",title:"Cavistes - Pousser les acteurs majeurs",poids:15.0,owner:"Christelle",priorite:"P1",contributors:[]},{id:"7.8",parent:"7",title:"Hard Discount - Focuser sur le leader",poids:5.0,owner:"Tomek",priorite:"P3",contributors:[]},{id:"7.9",parent:"7",title:"Marketplaces - Optimiser les ventes et destockage",poids:10.0,owner:"Christelle",priorite:"P1",contributors:[]},{id:"8.1",parent:"8",title:"Stratégie & alignement – Suivi feuille de route par canal (Retail, RHF, GC RHF)",poids:20.0,owner:"Christelle",priorite:"P1",contributors:[]},{id:"8.2",parent:"8",title:"Stratégie terrain sales tous canaux - Repenser l'organisation (agents/alternants/CDIs/mutualisation)",poids:20.0,owner:"Christelle",priorite:"P1",contributors:[]},{id:"8.3",parent:"8",title:"Road map Trade Marketing - Aligner et anticiper les temps forts S2 2026-2027",poids:15.0,owner:"Christelle",priorite:"P3",contributors:[]},{id:"8.4",parent:"8",title:"Optimisation discours commercial",poids:15.0,owner:"Christelle",priorite:"P1",contributors:[]},{id:"8.5",parent:"8",title:"KPI & pilotage – Fiabiliser tableaux de bord internes et reporting Hubspot",poids:15.0,owner:"Christelle",priorite:"P1",contributors:[]},{id:"8.6",parent:"8",title:"Collaboration support – Suivi actions partagées avec équipes support",poids:15.0,owner:"Christelle",priorite:"P1",contributors:[]},{id:"9.1",parent:"9",title:"Renforcer la prospection et la fidélisation B2B grâce à des contenus, outils et communications ciblées",poids:20.0,owner:"Juliette",priorite:"P1",contributors:[]},{id:"9.2",parent:"9",title:"B2B organiser les salons et animations 2026/2027 : WineParis et ReUse",poids:5.0,owner:"Guillemette",priorite:"P1",contributors:[]},{id:"9.3",parent:"9",title:"Assurer le succès des lancements produits B2B grâce à un plan de communication et des PLV adaptées",poids:20.0,owner:"Juliette",priorite:"P2",contributors:[]},{id:"9.4",parent:"9",title:"Déployer le plan de communication Printemps/Été pour assurer visibilité, cohérence et suivi des actions Brand & B2C",poids:25.0,owner:"Guillemette",priorite:"P1",contributors:[]},{id:"9.5",parent:"9",title:"Repenser et améliorer le site Oé pour offrir une expérience utilisateur fluide et engageante",poids:25.0,owner:"Guillemette",priorite:"P1",contributors:[]},{id:"9.6",parent:"9",title:"Réaliser l'inventaire complet des supports de communication et marketing Oé",poids:5.0,owner:"Guillemette",priorite:"P3",contributors:[]},{id:"10.1",parent:"10",title:"Valider, structurer et lancer le Campus Oé comme outil d'engagement et de formation de la communauté B2B",poids:20.0,owner:"Juliette",priorite:"P1",contributors:[]},{id:"10.2",parent:"10",title:"Développer et activer la communauté Oé en augmentant le recrutement et l'engagement via des communications, un programme de parrainage et des expériences dédiées",poids:15.0,owner:"Guillemette",priorite:"P2",contributors:[]},{id:"10.3",parent:"10",title:"Déployer une communication régulière pour soutenir la visibilité et l'engagement du Commando Monop'",poids:25.0,owner:"Guillemette",priorite:"P1",contributors:[]},{id:"10.4",parent:"10",title:"Créer et activer des opportunités commerciales via les commandes groupées auprès de 50 entreprises",poids:40.0,owner:"Guillemette",priorite:"P1",contributors:[]},{id:"11.1",parent:"11",title:"US : reprendre le développement commercial tout en boostant l'activité avec nos distributeurs existants",poids:12.0,owner:"Claire",priorite:"P2",contributors:[]},{id:"11.2",parent:"11",title:"Allemagne: valider notre choix de distributeur",poids:12.0,owner:"Claire",priorite:"P1",contributors:[]},{id:"11.3",parent:"11",title:"UK : déployer Oé sur le marché",poids:12.0,owner:"Claire",priorite:"P1",contributors:[]},{id:"11.4",parent:"11",title:"Alimenter en nouveaux clients la zone DK/DE/BE/UK/NL pour consolider (ou trouver) notre distribueur",poids:14.0,owner:"Claire",priorite:"P1",contributors:[]},{id:"11.5",parent:"11",title:"Danemark: reprise des échanges en vue de confirmer un distributeur",poids:8.0,owner:"Claire",priorite:"P1",contributors:[]},{id:"11.6",parent:"11",title:"Marchés monopolistiques",poids:8.0,owner:"Claire",priorite:"P1",contributors:[]},{id:"11.7",parent:"11",title:"Support / passation congé maternité",poids:7.0,owner:"Claire",priorite:"P2",contributors:[]},{id:"11.8",parent:"11",title:"Autres marchés",poids:7.0,owner:"Claire",priorite:"P2",contributors:[]},{id:"11.9",parent:"11",title:"Belgique : assurer la croissance des sell-out Oé en vue d'obtenir une nouvelle commande distributeur",poids:10.0,owner:"Claire",priorite:"P2",contributors:[]},{id:"11.10",parent:"11",title:"Finlande: anticiper la suite",poids:10.0,owner:"Claire",priorite:"P2",contributors:[]}],keyresults:[{id:"1.1.1",parent:"1.1",title:"Mettre à jour toutes les infos",poids:10.0,owner:"Juliette",priorite:"",stop:false,contributors:["Fiona"],val_depart:0.0,val_actuel:1.0,val_revise:1.0,val_cible:1.0,unite:"%",taux:100,taux_land:100},{id:"1.1.2",parent:"1.1",title:"Nous poser en équipe et lister les cibles d'Ambassadeurs",poids:10.0,owner:"Tomek",priorite:"",stop:false,contributors:[],val_depart:0.0,val_actuel:1.0,val_revise:1.0,val_cible:1.0,unite:"oui/non",taux:100.0,taux_land:100.0},{id:"1.1.3",parent:"1.1",title:"Définir le bon fonctionnement, argumentaire, visuels, guide Groopay simplifié",poids:10.0,owner:"Tomek",priorite:"",stop:false,contributors:["Guillemette"],val_depart:0.0,val_actuel:1.0,val_revise:1.0,val_cible:1.0,unite:"%",taux:100,taux_land:100},{id:"1.1.4",parent:"1.1",title:"Valider ensemble le bon fontionnement commercial futur et l'équation économique liée",poids:10.0,owner:"Tomek",priorite:"",stop:false,contributors:["Fx"],val_depart:0.0,val_actuel:1.0,val_revise:1.0,val_cible:1.0,unite:"oui/non",taux:100.0,taux_land:100.0},{id:"1.1.5",parent:"1.1",title:'Contacter 30 "Ambassadeurs"',poids:20.0,owner:"Tomek",priorite:"STOP",stop:true,contributors:["Guillemette"],val_depart:0.0,val_actuel:5.0,val_revise:5.0,val_cible:30.0,unite:"nb",taux:16.7,taux_land:16.7},{id:"1.1.6",parent:"1.1",title:"Générer d'ici fin juin 3 commandes groupées minimum",poids:30.0,owner:"Tomek",priorite:"",stop:false,contributors:["Guillemette"],val_depart:0.0,val_actuel:1.0,val_revise:3.0,val_cible:3.0,unite:"nb",taux:33.3,taux_land:100},{id:"1.1.7",parent:"1.1",title:"Formaliser un retour d'expérience structuré après les premières ventes pour préparer la saison suivante.",poids:10.0,owner:"Tomek",priorite:"",stop:false,contributors:["Fx"],val_depart:0.0,val_actuel:0.0,val_revise:1.0,val_cible:1.0,unite:"oui/non",taux:0.0,taux_land:100.0}],people:["Christelle","Claire","Fiona","Fx","Gareth","Guillemette","Julie","Juliette","Maxime","Thomas"]};
+const SPRING26={objectives:[{id:"1",title:"Aller chercher du chiffre d'affaires sur d'autres canaux",etp:0.2,owner:"Thomas",priorite:"P1",contributors:[]},{id:"2",title:"Fiabiliser la production et monter d'un cran en supply",etp:0.1,owner:"Fiona",priorite:"P1",contributors:[]},{id:"3",title:"Adopter le loft et s'y sentir bien",etp:0.1,owner:"Julie",priorite:"P2",contributors:[]},{id:"4",title:"Se mettre en position sereine pour la pérénité d'Oé",etp:0.35,owner:"Fx",priorite:"P1",contributors:[]},{id:"5",title:"Gérer le domaine et la FSDO",etp:0.05,owner:"Fx",priorite:"P2",contributors:[]},{id:"6",title:"Prioriser les grands comptes RHF les plus ROIstes",etp:0.37,owner:"Christelle",priorite:"P1",contributors:[]},{id:"7",title:"Accélérer notre activité RETAIL en GMS",etp:0.22,owner:"Christelle",priorite:"P1",contributors:[]},{id:"8",title:"Aligner notre vision et piloter nos actions sales",etp:0.22,owner:"Christelle",priorite:"P1",contributors:[]},{id:"9",title:"Marketing : Déployer une stratégie de communication 360° cohérente et structurée au service de la croissance commerciale",etp:0.2,owner:"Juliette",priorite:"P1",contributors:[]},{id:"10",title:"Communauté : Structurer et activer une communauté engagée au service de l'impact positif et du développement de la marque et du B2B",etp:0.15,owner:"Juliette",priorite:"P1",contributors:[]},{id:"11",title:"Export : Réaliser des avancées significatives sur les principaux marchés cibles en priorisant le développement des distributeurs existants",etp:0.05,owner:"Claire",priorite:"P1",contributors:[]}],subobjectives:[{id:"1.1",parent:"1",title:"Ouvrir le canal Commandes Groupées et lancer les premières commandes Groopay",poids:70.0,owner:"Thomas",priorite:"P1",contributors:[]},{id:"1.2",parent:"1",title:"Se mettre au carré sur les market places et les activer",poids:30.0,owner:"Fiona",priorite:"P1",contributors:[]},{id:"2.1",parent:"2",title:"Fiabiliser la production des essences",poids:30.0,owner:"Fiona",priorite:"P1",contributors:[]},{id:"2.2",parent:"2",title:"Fiabiliser les dates de réalisation de production chez MP",poids:30.0,owner:"Fiona",priorite:"P2",contributors:[]},{id:"2.3",parent:"2",title:"Avancer avec la coallition des acteurs du vin et ReZip",poids:20.0,owner:"Julie",priorite:"P2",contributors:[]},{id:"2.4",parent:"2",title:"Poursuivre et fortifier notre collaboration avec l'ESAT",poids:10.0,owner:"Julie",priorite:"P2",contributors:[]},{id:"2.5",parent:"2",title:"Nettoyer les stocks chez Peguet",poids:10.0,owner:"Julie",priorite:"P2",contributors:[]},{id:"3.1",parent:"3",title:"Les travaux au loft : en finir une fois pour toutes !",poids:100.0,owner:"Julie",priorite:"P2",contributors:[]},{id:"4.1",parent:"4",title:"Se donner les moyens de réaliser la marge objectif en 2026",poids:33.3,owner:"Fx",priorite:"P1",contributors:[]},{id:"4.2",parent:"4",title:"Avancer dans notre plan d'étalement de dettes",poids:33.3,owner:"Fx",priorite:"P1",contributors:[]},{id:"4.3",parent:"4",title:"Sécuriser Oé en termes de trésorerie sur 2026-2027",poids:33.3,owner:"Fx",priorite:"P1",contributors:[]},{id:"5.1",parent:"5",title:"Donner une nouvelle impulsion au plan de régénération du DOCSP",poids:60.0,owner:"Fx",priorite:"P2",contributors:[]},{id:"5.2",parent:"5",title:"Retrapper le juridique de la FSDO",poids:30.0,owner:"Fx",priorite:"P2",contributors:[]},{id:"5.3",parent:"5",title:"Organiser les vendanges au Domaine",poids:10.0,owner:"Fx",priorite:"P3",contributors:[]},{id:"6.1",parent:"6",title:"Accélérer Episaveurs – Développer pipeline et sécuriser volumes",poids:20.0,owner:"Christelle",priorite:"P1",contributors:[]},{id:"6.2",parent:"6",title:"Sécuriser France Boissons – Pérenniser accords et promotions",poids:15.0,owner:"Claire",priorite:"P1",contributors:[]},{id:"6.3",parent:"6",title:"Optimiser potentiel Maison Richard – Développer ventes et présence",poids:15.0,owner:"Thomas",priorite:"P1",contributors:[]},{id:"6.4",parent:"6",title:"Pérenniser Pain Quotidien – Consolider déploiement international",poids:10.0,owner:"Claire",priorite:"P1",contributors:[]},{id:"6.5",parent:"6",title:"Traiter Grands Comptes directs à potentiel",poids:10.0,owner:"Christelle",priorite:"P1",contributors:[]},{id:"6.6",parent:"6",title:"Cibler distributeurs régionaux existants – Sécuriser les volumes et réactiver terrain",poids:10.0,owner:"Christelle",priorite:"P1",contributors:[]},{id:"6.7",parent:"6",title:"Traiter top clients CHR directs – Fidéliser et étendre gamme premium",poids:10.0,owner:"Christelle",priorite:"P2",contributors:[]},{id:"6.8",parent:"6",title:"Nous déployer en Cash & Carry",poids:10.0,owner:"Christelle",priorite:"P2",contributors:[]},{id:"7.1",parent:"7",title:"Carrefour – Déployer et animer les magasins clés",poids:15.0,owner:"Christelle",priorite:"P1",contributors:[]},{id:"7.2",parent:"7",title:"ITM, U, Monoprix – Assurer couverture régionale et promotion",poids:15.0,owner:"Christelle",priorite:"P1",contributors:[]},{id:"7.3",parent:"7",title:"Leclerc & Franprix – Développer les magasins VIP",poids:10.0,owner:"Christelle",priorite:"P3",contributors:[]},{id:"7.4",parent:"7",title:"Enseignes prioritaires – visibilité & MEA",poids:5.0,owner:"Christelle",priorite:"P1",contributors:[]},{id:"7.5",parent:"7",title:"Renforcer la bascule Reuse / Réemploi",poids:10.0,owner:"Christelle",priorite:"P1",contributors:[]},{id:"7.6",parent:"7",title:"GSS – Sécuriser et développer positions",poids:15.0,owner:"Christelle",priorite:"P1",contributors:[]},{id:"7.7",parent:"7",title:"Cavistes - Pousser les acteurs majeurs",poids:15.0,owner:"Christelle",priorite:"P1",contributors:[]},{id:"7.8",parent:"7",title:"Hard Discount - Focuser sur le leader",poids:5.0,owner:"Thomas",priorite:"P3",contributors:[]},{id:"7.9",parent:"7",title:"Marketplaces - Optimiser les ventes et destockage",poids:10.0,owner:"Christelle",priorite:"P1",contributors:[]},{id:"8.1",parent:"8",title:"Stratégie & alignement – Suivi feuille de route par canal (Retail, RHF, GC RHF)",poids:20.0,owner:"Christelle",priorite:"P1",contributors:[]},{id:"8.2",parent:"8",title:"Stratégie terrain sales tous canaux - Repenser l'organisation (agents/alternants/CDIs/mutualisation)",poids:20.0,owner:"Christelle",priorite:"P1",contributors:[]},{id:"8.3",parent:"8",title:"Road map Trade Marketing - Aligner et anticiper les temps forts S2 2026-2027",poids:15.0,owner:"Christelle",priorite:"P3",contributors:[]},{id:"8.4",parent:"8",title:"Optimisation discours commercial",poids:15.0,owner:"Christelle",priorite:"P1",contributors:[]},{id:"8.5",parent:"8",title:"KPI & pilotage – Fiabiliser tableaux de bord internes et reporting Hubspot",poids:15.0,owner:"Christelle",priorite:"P1",contributors:[]},{id:"8.6",parent:"8",title:"Collaboration support – Suivi actions partagées avec équipes support",poids:15.0,owner:"Christelle",priorite:"P1",contributors:[]},{id:"9.1",parent:"9",title:"Renforcer la prospection et la fidélisation B2B grâce à des contenus, outils et communications ciblées",poids:20.0,owner:"Juliette",priorite:"P1",contributors:[]},{id:"9.2",parent:"9",title:"B2B organiser les salons et animations 2026/2027 : WineParis et ReUse",poids:5.0,owner:"Guillemette",priorite:"P1",contributors:[]},{id:"9.3",parent:"9",title:"Assurer le succès des lancements produits B2B grâce à un plan de communication et des PLV adaptées",poids:20.0,owner:"Juliette",priorite:"P2",contributors:[]},{id:"9.4",parent:"9",title:"Déployer le plan de communication Printemps/Été pour assurer visibilité, cohérence et suivi des actions Brand & B2C",poids:25.0,owner:"Guillemette",priorite:"P1",contributors:[]},{id:"9.5",parent:"9",title:"Repenser et améliorer le site Oé pour offrir une expérience utilisateur fluide et engageante",poids:25.0,owner:"Guillemette",priorite:"P1",contributors:[]},{id:"9.6",parent:"9",title:"Réaliser l'inventaire complet des supports de communication et marketing Oé",poids:5.0,owner:"Guillemette",priorite:"P3",contributors:[]},{id:"10.1",parent:"10",title:"Valider, structurer et lancer le Campus Oé comme outil d'engagement et de formation de la communauté B2B",poids:20.0,owner:"Juliette",priorite:"P1",contributors:[]},{id:"10.2",parent:"10",title:"Développer et activer la communauté Oé en augmentant le recrutement et l'engagement via des communications, un programme de parrainage et des expériences dédiées",poids:15.0,owner:"Guillemette",priorite:"P2",contributors:[]},{id:"10.3",parent:"10",title:"Déployer une communication régulière pour soutenir la visibilité et l'engagement du Commando Monop'",poids:25.0,owner:"Guillemette",priorite:"P1",contributors:[]},{id:"10.4",parent:"10",title:"Créer et activer des opportunités commerciales via les commandes groupées auprès de 50 entreprises",poids:40.0,owner:"Guillemette",priorite:"P1",contributors:[]},{id:"11.1",parent:"11",title:"US : reprendre le développement commercial tout en boostant l'activité avec nos distributeurs existants",poids:12.0,owner:"Claire",priorite:"P2",contributors:[]},{id:"11.2",parent:"11",title:"Allemagne: valider notre choix de distributeur",poids:12.0,owner:"Claire",priorite:"P1",contributors:[]},{id:"11.3",parent:"11",title:"UK : déployer Oé sur le marché",poids:12.0,owner:"Claire",priorite:"P1",contributors:[]},{id:"11.4",parent:"11",title:"Alimenter en nouveaux clients la zone DK/DE/BE/UK/NL pour consolider (ou trouver) notre distribueur",poids:14.0,owner:"Claire",priorite:"P1",contributors:[]},{id:"11.5",parent:"11",title:"Danemark: reprise des échanges en vue de confirmer un distributeur",poids:8.0,owner:"Claire",priorite:"P1",contributors:[]},{id:"11.6",parent:"11",title:"Marchés monopolistiques",poids:8.0,owner:"Claire",priorite:"P1",contributors:[]},{id:"11.7",parent:"11",title:"Support / passation congé maternité",poids:7.0,owner:"Claire",priorite:"P2",contributors:[]},{id:"11.8",parent:"11",title:"Autres marchés",poids:7.0,owner:"Claire",priorite:"P2",contributors:[]},{id:"11.9",parent:"11",title:"Belgique : assurer la croissance des sell-out Oé en vue d'obtenir une nouvelle commande distributeur",poids:10.0,owner:"Claire",priorite:"P2",contributors:[]},{id:"11.10",parent:"11",title:"Finlande: anticiper la suite",poids:10.0,owner:"Claire",priorite:"P2",contributors:[]}],keyresults:[{id:"1.1.1",parent:"1.1",title:"Mettre à jour toutes les infos",poids:10.0,owner:"Juliette",priorite:"",stop:false,contributors:["Fiona"],val_depart:0.0,val_actuel:1.0,val_revise:1.0,val_cible:1.0,unite:"%",taux:100,taux_land:100},{id:"1.1.2",parent:"1.1",title:"Nous poser en équipe et lister les cibles d'Ambassadeurs",poids:10.0,owner:"Thomas",priorite:"",stop:false,contributors:[],val_depart:0.0,val_actuel:1.0,val_revise:1.0,val_cible:1.0,unite:"oui/non",taux:100.0,taux_land:100.0},{id:"1.1.3",parent:"1.1",title:"Définir le bon fonctionnement, argumentaire, visuels, guide Groopay simplifié",poids:10.0,owner:"Thomas",priorite:"",stop:false,contributors:["Guillemette"],val_depart:0.0,val_actuel:1.0,val_revise:1.0,val_cible:1.0,unite:"%",taux:100,taux_land:100},{id:"1.1.4",parent:"1.1",title:"Valider ensemble le bon fontionnement commercial futur et l'équation économique liée",poids:10.0,owner:"Thomas",priorite:"",stop:false,contributors:["Fx"],val_depart:0.0,val_actuel:1.0,val_revise:1.0,val_cible:1.0,unite:"oui/non",taux:100.0,taux_land:100.0},{id:"1.1.5",parent:"1.1",title:'Contacter 30 "Ambassadeurs"',poids:20.0,owner:"Thomas",priorite:"STOP",stop:true,contributors:["Guillemette"],val_depart:0.0,val_actuel:5.0,val_revise:5.0,val_cible:30.0,unite:"nb",taux:16.7,taux_land:16.7},{id:"1.1.6",parent:"1.1",title:"Générer d'ici fin juin 3 commandes groupées minimum",poids:30.0,owner:"Thomas",priorite:"",stop:false,contributors:["Guillemette"],val_depart:0.0,val_actuel:1.0,val_revise:3.0,val_cible:3.0,unite:"nb",taux:33.3,taux_land:100},{id:"1.1.7",parent:"1.1",title:"Formaliser un retour d'expérience structuré après les premières ventes pour préparer la saison suivante.",poids:10.0,owner:"Thomas",priorite:"",stop:false,contributors:["Fx"],val_depart:0.0,val_actuel:0.0,val_revise:1.0,val_cible:1.0,unite:"oui/non",taux:0.0,taux_land:100.0}],people:["Christelle","Claire","Fiona","Fx","Gareth","Guillemette","Julie","Juliette","Maxime","Thomas"]};
 
 const SEASONS=[
   {key:"printemps_2026",label:"Printemps ☘️ 2026",start:"2026-04-01",end:"2026-06-30"},
@@ -37,17 +37,17 @@ const P_BG=["#dbeafe","#dcfce7","#fce7f3","#fef3c7","#ede9fe","#ffedd5","#e0f2fe
 const P_TX=["#1e40af","#166534","#9d174d","#92400e","#5b21b6","#9a3412","#075985","#14532d","#701a75","#7c2d12","#064e3b","#075985"];
 const INITIALS_MAP={Christelle:"Ch",Claire:"Cl",Fiona:"Fi",Fx:"Fx",Gareth:"Ga",Guillemette:"Gu",Julie:"Ju",Juliette:"Jt",Maxime:"Ma",Thomas:"Th"};
 const ADMIN_PWD="Okr-FxH-1971";
-const SALVE_GAP_MS=15*60*1000;
+const SALVE_GAP_MS=30*60*1000;
 
 const DEFAULT_QUESTIONS=[
-  {id:"q1",text:"Sur quoi tu t'es focusé·e cette semaine ?",type:"textarea",confidentiel:false},
-  {id:"q2",text:"Quels sont tes plans et priorités pour la semaine prochaine, notamment pour bien atteindre les Key-Results de tes OKR ?",type:"textarea",confidentiel:false},
-  {id:"q3",text:"Qu'est-ce qui t'a donné le plus de joie cette semaine ? 😍",type:"textarea",confidentiel:false},
-  {id:"q4",text:"Est-ce que tu as besoin d'aide sur certaines parties ?",type:"textarea",confidentiel:false},
-  {id:"q5",text:"Est-ce que tu as autre chose que tu voudrais partager ?",type:"textarea",confidentiel:false},
-  {id:"q6",text:"Souhaites-tu rajouter quelque chose confidentiellement ?",type:"textarea",confidentiel:true},
-  {id:"q7",text:"Comment tu t'es senti·e cette semaine ?",type:"mood",confidentiel:false},
-  {id:"q8",text:"La semaine prochaine : je suis ?",type:"presence",confidentiel:false},
+  {id:"q1",text:"Sur quoi tu t'es focusé(e) cette semaine ? *",type:"textarea",confidentiel:false},
+  {id:"q2",text:"Quels sont tes plans et priorités pour la semaine prochaine, notamment pour bien atteindre les Key-Results de tes OKR ? *",type:"textarea",confidentiel:false},
+  {id:"q3",text:"Qu'est-ce qui t'a donné le plus de joie cette semaine ? 😍 *",type:"textarea",confidentiel:false},
+  {id:"q4",text:"Est-ce que tu as besoin d'aide sur certaines parties ? *",type:"textarea",confidentiel:false},
+  {id:"q5",text:"Est-ce que tu as autre chose que tu voudrais partager ? *",type:"textarea",confidentiel:false},
+  {id:"q6",text:"Souhaites-tu rajouter quelque chose confidentiellement ?",type:"textarea",confidentiel:true,note:"Seul ton référent verra ta réponse et celle-ci ne sera pas archivée."},
+  {id:"q7",text:"Comment tu t'es senti(e) cette semaine ? *",type:"mood",confidentiel:false},
+  {id:"q8",text:"La semaine prochaine : je suis ? *",type:"presence",confidentiel:false},
 ];
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -236,7 +236,7 @@ function WeekDots({myUpdates, clickable=false, onClickUpdate}){
   return <div style={{display:"flex",gap:4,flexWrap:"wrap",alignItems:"center"}}>
     {weeks.map((w,i)=>{
       const c = DOT_COLORS[w.status];
-      const tooltip = `Semaine du lundi ${fmtD(w.mon)} au vendredi ${fmtD(w.fri)}`;
+      const tooltip = `Semaine du ${w.mon.getDate()} au ${w.fri.getDate()} ${w.fri.toLocaleString("fr-FR",{month:"long"})}`;
       return <div key={i}
         title={tooltip}
         onClick={()=>clickable&&w.update&&onClickUpdate&&onClickUpdate(w)}
@@ -278,9 +278,10 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
 
   const DOT_C={done:{bg:"#2d6a4f"},late:{bg:"#facc15"},none:{bg:"#ef4444"},pending:{bg:"#e2ddd6"}};
   const fmtD=d=>`${d.getDate()} ${d.toLocaleString("fr-FR",{month:"long"})}`;
+  const fmtDShort=d=>`${d.getDate()} ${d.toLocaleString("fr-FR",{month:"short"})}`;
 
-  // SVG dimensions — dots and curve share same X axis
-  const W=560,DOT_Y=10,CURVE_TOP=30,CURVE_H=90,pad=7;
+  // SVG dimensions
+  const W=560,DOT_Y=10,CURVE_TOP=30,CURVE_H=90,AXIS_H=18,pad=7;
   const dotSpacing=(W-2*pad)/(weeks.length-1);
   const dotX=i=>pad+i*dotSpacing;
   const minV=1,maxV=5;
@@ -288,14 +289,40 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
   const validPts=weeks.map((w,i)=>({...w,i})).filter(w=>w.avg!==null);
   const pathD=validPts.map((w,j)=>`${j===0?"M":"L"}${dotX(w.i).toFixed(1)},${curveY(w.avg).toFixed(1)}`).join(" ");
   const colorForAvg=v=>v>=4?"#2d6a4f":v>=2.5?"#f59e0b":"#ef4444";
-  const totalH=CURVE_TOP+CURVE_H+10;
+  const totalH=CURVE_TOP+CURVE_H+AXIS_H+2;
+
+  // Month separators: find where month changes between weeks (skip first and last partial months)
+  const monthSeps=[];
+  const monthLabels=[];
+  for(let i=1;i<weeks.length;i++){
+    const prev=weeks[i-1].mon,cur=weeks[i].mon;
+    if(cur.getMonth()!==prev.getMonth()){
+      const x=dotX(i);
+      monthSeps.push({x,i});
+      // Label goes in the middle of the month span
+      // Find end of this month
+      let end=i;
+      while(end<weeks.length-1&&weeks[end+1].mon.getMonth()===cur.getMonth())end++;
+      // Only label if full month (not first partial, not last partial = current month)
+      const isCurrentMonth=cur.getMonth()===new Date().getMonth()&&cur.getFullYear()===new Date().getFullYear();
+      if(!isCurrentMonth&&end<weeks.length-1){
+        const midX=(dotX(i)+dotX(end))/2;
+        const label=cur.toLocaleString("fr-FR",{month:"long"});
+        monthLabels.push({x:midX,label,i});
+      }
+    }
+  }
 
   return <div>
     <svg width="100%" viewBox={`0 0 ${W} ${totalH}`} style={{display:"block",overflow:"visible"}}>
+      {/* Month separator lines */}
+      {monthSeps.map((s,i)=><line key={i} x1={s.x} x2={s.x} y1={0} y2={CURVE_TOP+CURVE_H} stroke="#e2ddd6" strokeWidth="0.8" strokeDasharray="3,2"/>)}
+      {/* Month labels on X axis */}
+      {monthLabels.map((m,i)=><text key={i} x={m.x} y={totalH-2} fontSize="8" fill="#9e9890" textAnchor="middle">{m.label}</text>)}
       {/* Dots row */}
       {weeks.map((w,i)=>{
         const c=DOT_C[w.status];
-        const tip=`Semaine du lundi ${fmtD(w.mon)} au vendredi ${fmtD(w.fri)}`;
+        const tip=`Semaine du ${fmtDShort(w.mon)} au ${fmtDShort(w.fri)}`;
         return <circle key={i} cx={dotX(i)} cy={DOT_Y} r="5"
           fill={c.bg} stroke="#fff" strokeWidth="1.5"
           style={{cursor:clickable&&w.update?"pointer":"default"}}
@@ -330,6 +357,101 @@ function UpdateStreak({myUpdates, allUpdates=[], onGoUpdate}){
   return <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} onGoUpdate={onGoUpdate}/>;
 }
 
+function NotifDetail({notif}){
+  const answers=notif?.answers||{};
+  const moodVal=answers.q7||"";
+  const visibleQs=DEFAULT_QUESTIONS.filter(q=>answers[q.id]);
+  return <div>
+    {moodVal&&<div style={{fontSize:28,marginBottom:12}}>{moodVal}</div>}
+    {visibleQs.map(q=>{
+      const val=answers[q.id];if(!val)return null;
+      if(q.type==="mood")return null;
+      if(q.type==="presence")return <div key={q.id} style={{marginBottom:10}}>
+        <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:3}}>{q.text.replace(" *","")}</div>
+        <div style={{fontSize:13,background:"#f5f3ef",borderRadius:6,padding:"5px 10px"}}>{val}</div>
+      </div>;
+      return <div key={q.id} style={{marginBottom:10,background:q.confidentiel?"#fdf4ff":"transparent",padding:q.confidentiel?"6px 10px":"0",borderRadius:q.confidentiel?6:0}}>
+        <div style={{fontSize:11,fontWeight:600,color:q.confidentiel?"#a21caf":"#9e9890",marginBottom:3}}>{q.confidentiel?"🔒 ":""}{q.text.replace(" *","")}</div>
+        <div style={{fontSize:13,whiteSpace:"pre-wrap",color:"#1a1814"}}>{val}</div>
+      </div>;
+    })}
+  </div>;
+}
+
+function MessagesPanel({managerNotifs,onReadNotif,teamMember}){
+  const [selected,setSelected]=useState(null);
+  // Include manager notifs (update notifications) + system messages
+  // System messages: Monday morning greeting, season prep reminder
+  const now=new Date();
+  const GREETINGS=[
+    {id:"g1",text:"🌅 Belle semaine en perspective !",content:"Bonjour ! Une nouvelle semaine commence — que ce soit une semaine productive, riche en échanges et en avancées sur tes OKR. N'hésite pas à partager tes priorités via ton Update. Bonne semaine à toi ! 🌼"},
+    {id:"g2",text:"☀️ Prêt(e) à démarrer fort ?",content:"Salut ! C'est reparti pour une semaine. Prends un moment pour clarifier tes priorités, avance sur tes Key Results, et pense à compléter ton Update. Tu assures ! 💪"},
+    {id:"g3",text:"🌿 C'est lundi, c'est Calendula !",content:"Nouvelle semaine, nouvelles opportunités ! Pense à consulter les OKR de ton équipe et à planifier tes actions. Et n'oublie pas ton Update hebdomadaire pour garder tout le monde aligné. 🌼"},
+    {id:"g4",text:"🎯 Focus et sérénité pour cette semaine !",content:"Bonjour ! Avant de te lancer dans le sprint de la semaine, prends deux minutes pour te poser : quelles sont tes 3 priorités ? Comment est-ce que tu contribues aux OKR d'Oé ? Belle semaine à toi ! ✨"},
+  ];
+  const dow=now.getDay();
+  const weekNum=Math.ceil(now.getDate()/7);
+  const greeting=dow===1?GREETINGS[weekNum%GREETINGS.length]:null;
+
+  // Season prep message: Tuesday between 14th-20th of month 3 of season
+  const SEASON_MONTHS={printemps_2026:6,ete_2026:9,automne_2026:12,hiver_2027:3,printemps_2027:6,ete_2027:9,automne_2027:12};
+  const NEXT_SEASON_LABELS={printemps_2026:"Été 2026",ete_2026:"Automne 2026",automne_2026:"Hiver 2027",hiver_2027:"Printemps 2027",printemps_2027:"Été 2027",ete_2027:"Automne 2027",automne_2027:"Hiver 2028"};
+  let seasonPrepMsg=null;
+  // Find current season
+  const SEASONS_KEYS=["printemps_2026","ete_2026","automne_2026","hiver_2027","printemps_2027","ete_2027","automne_2027"];
+  const curSeasonKey=SEASONS_KEYS.find(k=>{const s=getSeasonInfo(k);return now>=new Date(s.start)&&now<=new Date(s.end);})||"printemps_2026";
+  const prepMonth=SEASON_MONTHS[curSeasonKey];
+  if(prepMonth&&now.getMonth()+1===prepMonth&&now.getDate()>=14&&now.getDate()<=20&&now.getDay()===2){
+    const nextLabel=NEXT_SEASON_LABELS[curSeasonKey]||"la prochaine saison";
+    seasonPrepMsg={id:"season_prep",text:`🗓️ Préparation des OKR — ${nextLabel}`,
+      content:`Salut ${teamMember?.prenom||""} ! La saison touche à sa fin et il est temps de préparer tes OKR pour ${nextLabel}. Prends le temps de réfléchir à tes objectifs, de les discuter avec ton référent, et de les saisir dans Calendula. Une bonne préparation, c'est la clé d'une saison réussie ! Tu peux le faire 🌼`};
+  }
+
+  // Build all messages: system first, then notifs (newest first)
+  const systemMsgs=[];
+  if(greeting)systemMsgs.push({id:greeting.id,title:greeting.text,content:greeting.content,date:now,read:true,isSystem:true});
+  if(seasonPrepMsg)systemMsgs.push({id:seasonPrepMsg.id,title:seasonPrepMsg.text,content:seasonPrepMsg.content,date:now,read:true,isSystem:true});
+
+  const notifMsgs=managerNotifs.map(n=>{
+    const{mon,fri}=getWeekBounds(n.weekKey);
+    const fmtD=d=>`${d.getDate()} ${d.toLocaleString("fr-FR",{month:"long"})}`;
+    return{id:n.id,title:`Nouvel Update de ${n.fromPrenom}`,content:null,notif:n,date:new Date(n.submittedAt),read:n.read,isSystem:false,fromPrenom:n.fromPrenom,weekLabel:`${fmtD(mon)} au ${fmtD(fri)}`};
+  }).sort((a,b)=>b.date-a.date);
+
+  const allMsgs=[...systemMsgs,...notifMsgs];
+
+  return <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",marginBottom:16,boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
+    <div style={{padding:"12px 18px",borderBottom:"1px solid #f0ede8",fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em"}}>
+      Messages {notifMsgs.filter(m=>!m.read).length>0&&<span style={{background:"#2d6a4f",color:"#fff",borderRadius:10,padding:"1px 7px",fontSize:10,marginLeft:6,fontWeight:500}}>{notifMsgs.filter(m=>!m.read).length}</span>}
+    </div>
+    <div style={{maxHeight:140,overflowY:"auto",padding:"6px 0"}}>
+      {allMsgs.length===0&&<div style={{padding:"16px 18px",fontSize:13,color:"#9e9890",textAlign:"center"}}>Aucun message</div>}
+      {allMsgs.map(msg=><div key={msg.id} onClick={()=>setSelected(msg)}
+        style={{display:"flex",alignItems:"center",gap:10,padding:"7px 18px",cursor:"pointer",borderBottom:"1px solid #f8f7f5",background:msg.read?"transparent":"#f0fdf4"}}
+        onMouseEnter={e=>e.currentTarget.style.background="#f8f7f5"} onMouseLeave={e=>e.currentTarget.style.background=msg.read?"transparent":"#f0fdf4"}>
+        {!msg.read&&<span style={{width:7,height:7,borderRadius:"50%",background:"#2d6a4f",flexShrink:0,display:"inline-block"}}/>}
+        {msg.read&&<span style={{width:7,flexShrink:0}}/>}
+        <span style={{fontSize:11,color:"#9e9890",minWidth:90,flexShrink:0}}>{msg.date.toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})} {msg.date.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}</span>
+        <span style={{fontSize:13,color:msg.read?"#6b6560":"#1a1814",fontWeight:msg.read?400:500,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{msg.title}</span>
+      </div>)}
+    </div>
+    {selected&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&setSelected(null)}>
+      <div style={{background:"#fff",borderRadius:12,padding:24,width:"90%",maxWidth:520,maxHeight:"80vh",overflowY:"auto"}}>
+        <div style={{fontSize:15,fontWeight:600,marginBottom:4}}>{selected.title}</div>
+        <div style={{fontSize:11,color:"#9e9890",marginBottom:18}}>{selected.date.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})} à {selected.date.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}</div>
+        {selected.isSystem
+          ?<div style={{fontSize:13,color:"#1a1814",lineHeight:1.6}}>{selected.content}</div>
+          :<NotifDetail notif={selected.notif} onRead={()=>{onReadNotif&&onReadNotif(selected.notif);setSelected(null);}}/>
+        }
+        <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginTop:20,borderTop:"1px solid #e2ddd6",paddingTop:14}}>
+          <button onClick={()=>setSelected(null)} style={{fontSize:13,color:"#6b6560",border:"1px solid #e2ddd6",padding:"7px 14px",borderRadius:6,cursor:"pointer",background:"none"}}>Fermer</button>
+          {!selected.isSystem&&!selected.notif?.read&&<button onClick={()=>{onReadNotif&&onReadNotif(selected.notif);setSelected(null);}} style={{fontSize:13,fontWeight:500,background:"#2d6a4f",color:"#fff",padding:"7px 16px",borderRadius:6,cursor:"pointer",border:"none"}}>✓ Lu</button>}
+        </div>
+      </div>
+    </div>}
+  </div>;
+}
+
 function Dashboard({currentUser,teamMember,onGoOKR,onGoUpdate,myUpdates,allUpdates,managerNotifs,onReadNotif,okrData,isAdmin,onOpenSettings}){
   const {objectives=[],subobjectives=[],keyresults=[],seasonKey="printemps_2026"}=okrData||{};
   const avgProg=calcWeightedAvg(objectives,subobjectives,keyresults);
@@ -354,7 +476,6 @@ function Dashboard({currentUser,teamMember,onGoOKR,onGoUpdate,myUpdates,allUpdat
 
   const weekKey=getUpdateWeekKey();
   const todayUpdate=weekKey?myUpdates.find(u=>u.weekKey===weekKey):null;
-  const [viewNotif,setViewNotif]=useState(null);
   const unread=managerNotifs.filter(n=>!n.read);
 
   return <div style={{minHeight:"100vh",background:"#f5f3ef",fontFamily:"system-ui,sans-serif"}}>
@@ -367,24 +488,8 @@ function Dashboard({currentUser,teamMember,onGoOKR,onGoUpdate,myUpdates,allUpdat
       <button onClick={()=>signOut(auth)} style={{fontSize:12,color:"#9e9890",background:"none",border:"1px solid #e2ddd6",borderRadius:6,padding:"4px 10px",cursor:"pointer"}}>Déconnexion</button>
     </div>
 
-    <div style={{maxWidth:900,margin:"0 auto",padding:"24px 16px"}}>
-      {/* Manager notifications */}
-      {managerNotifs.length>0&&<div style={{marginBottom:20}}>
-        <div style={{fontSize:13,fontWeight:600,color:"#1a1814",marginBottom:10}}>📬 Notifications Updates</div>
-        <div style={{display:"flex",flexDirection:"column",gap:6}}>
-          {managerNotifs.map(n=>{
-            const{mon,fri}=getWeekBounds(n.weekKey);
-            const fmtD=d=>`${d.getDate()} ${d.toLocaleString("fr-FR",{month:"long"})}`;
-            const label=`Nouvel Update enregistré par ${n.fromPrenom} pour la semaine du lundi ${fmtD(mon)} au vendredi ${fmtD(fri)}`;
-            return <div key={n.id} onClick={()=>{setViewNotif(n);}}
-              style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"#fff",border:"1px solid #e2ddd6",borderRadius:8,cursor:"pointer",opacity:n.read?0.6:1}}>
-              <span style={{fontSize:14}}>{n.read?"📭":"📬"}</span>
-              <span style={{flex:1,fontSize:13,textDecoration:n.read?"line-through":"none",color:n.read?"#9e9890":"#1a1814"}}>{label}</span>
-              {!n.read&&<span style={{fontSize:10,background:"#2d6a4f",color:"#fff",borderRadius:10,padding:"2px 7px"}}>Nouveau</span>}
-            </div>;
-          })}
-        </div>
-      </div>}
+    <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
+
 
       {/* Season banners */}
       <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
@@ -459,17 +564,18 @@ function Dashboard({currentUser,teamMember,onGoOKR,onGoUpdate,myUpdates,allUpdat
         </button>
       </div>
 
+      {/* Messages panel */}
+      <MessagesPanel managerNotifs={managerNotifs} onReadNotif={onReadNotif} teamMember={teamMember}/>
+
       {/* Update streak */}
       <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"16px 20px",marginBottom:16,boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
-        <div style={{fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",marginBottom:12}}>Mes 5 derniers updates</div>
+        <div style={{fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",marginBottom:12}}>Le mood de l'équipe</div>
         <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} onGoUpdate={onGoUpdate}/>
       </div>
 
 
     </div>
 
-    {/* Notif detail modal */}
-    {viewNotif&&<UpdateViewModal notif={viewNotif} onClose={()=>{setViewNotif(null);}} onRead={()=>{if(!viewNotif.isOwn&&!viewNotif.read)onReadNotif(viewNotif);setViewNotif(null);}}/>}
   </div>;
 }
 
@@ -498,18 +604,30 @@ function UpdateCalendar({myUpdates,onView}){
 function UpdateViewModal({notif,onClose,onRead}){
   const u=notif.updateData||notif;
   const weekLabel=notif.weekKey?fmtWeekLabel(notif.weekKey):"";
-  const mood=u.mood||u.updateData?.mood;
   const answers=u.answers||u.updateData?.answers||{};
+  const moodVal=answers.q7||"";
+  // Show questions in DEFAULT_QUESTIONS order, skip q7 (shown in title), include q6 if present
+  const visibleQs=DEFAULT_QUESTIONS.filter(q=>q.id!=="q7"&&answers[q.id]);
   return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
     <div style={{background:"#fff",borderRadius:12,padding:28,width:"90%",maxWidth:580,maxHeight:"85vh",overflowY:"auto"}}>
-      <div style={{fontSize:16,fontWeight:600,marginBottom:4}}>Update de {notif.fromPrenom}</div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
+        <div style={{fontSize:16,fontWeight:600}}>Update de {notif.fromPrenom}</div>
+        {moodVal&&<span style={{fontSize:26,lineHeight:1}}>{moodVal}</span>}
+      </div>
       <div style={{fontSize:12,color:"#9e9890",marginBottom:20}}>Semaine du {weekLabel}</div>
-      {Object.entries(answers).filter(([k])=>k!=="q6").map(([qid,val])=>{
-        const q=DEFAULT_QUESTIONS.find(x=>x.id===qid);
-        if(!q||!val)return null;
-        if(q.type==="mood")return <div key={qid} style={{marginBottom:14}}><div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text}</div><div style={{fontSize:24}}>{val}</div></div>;
-        if(q.type==="presence")return <div key={qid} style={{marginBottom:14}}><div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text}</div><div style={{fontSize:13,background:"#f5f3ef",borderRadius:6,padding:"6px 10px"}}>{val}</div></div>;
-        return <div key={qid} style={{marginBottom:14}}><div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text}</div><div style={{fontSize:13,whiteSpace:"pre-wrap",color:"#1a1814"}}>{val}</div></div>;
+      {visibleQs.map(q=>{
+        const val=answers[q.id];
+        if(!val)return null;
+        if(q.type==="presence")return <div key={q.id} style={{marginBottom:14}}>
+          <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text.replace(" *","")}</div>
+          <div style={{fontSize:13,background:"#f5f3ef",borderRadius:6,padding:"6px 10px"}}>{val}</div>
+        </div>;
+        return <div key={q.id} style={{marginBottom:14,background:q.confidentiel?"#fdf4ff":"transparent",padding:q.confidentiel?"8px 10px":"0",borderRadius:q.confidentiel?6:0,border:q.confidentiel?"1px solid #e9d5ff":"none"}}>
+          <div style={{fontSize:11,fontWeight:600,color:q.confidentiel?"#a21caf":"#9e9890",marginBottom:4}}>
+            {q.confidentiel?"🔒 ":""}{q.text.replace(" *","").replace(" ?","").trim()+" ?"}
+          </div>
+          <div style={{fontSize:13,whiteSpace:"pre-wrap",color:"#1a1814"}}>{val}</div>
+        </div>;
       })}
       <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginTop:20,borderTop:"1px solid #e2ddd6",paddingTop:16}}>
         <button onClick={onClose} style={{fontSize:13,color:"#6b6560",border:"1px solid #e2ddd6",padding:"7px 14px",borderRadius:6,cursor:"pointer",background:"none"}}>Fermer</button>
@@ -559,7 +677,7 @@ function UpdatePage({teamMember,questions,onSubmit,onBack,myUpdates}){
 
       {/* 26-week dots */}
       <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"16px 20px",marginBottom:20,boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
-        <div style={{fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",marginBottom:12}}>Mes 26 dernières semaines</div>
+        <div style={{fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",marginBottom:12}}>Mes updates ces 6 derniers mois</div>
         <WeekDots myUpdates={myUpdates} clickable={true} onClickUpdate={w=>setSelectedWeek(w)}/>
         <div style={{display:"flex",gap:16,marginTop:10,fontSize:11,color:"#9e9890"}}>
           <span><span style={{display:"inline-block",width:10,height:10,borderRadius:"50%",background:"#2d6a4f",marginRight:4,verticalAlign:"middle"}}/>Fait en semaine</span>
@@ -592,20 +710,26 @@ function UpdatePage({teamMember,questions,onSubmit,onBack,myUpdates}){
                 </label>)}
               </div>
             </div>;
-            return <div key={q.id} style={{background:q.confidentiel?"#fdf4ff":"#fff",borderRadius:10,border:`1px solid ${q.confidentiel?"#d946ef":"#e2ddd6"}`,padding:"16px 20px"}}>
-              <div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:10}}>
+            return <div key={q.id} style={{background:q.confidentiel?"#fdf4ff":"#fff",borderRadius:10,border:`1px solid ${q.confidentiel?"#d946ef":"#e2ddd6"}`,padding:"14px 18px"}}>
+              <div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:q.confidentiel&&q.note?6:10}}>
                 <div style={{fontSize:13,fontWeight:500,color:"#1a1814",flex:1}}>{q.text}</div>
                 {q.confidentiel&&<span style={{fontSize:10,background:"#fdf4ff",color:"#a21caf",border:"1px solid #d946ef",borderRadius:10,padding:"2px 7px",flexShrink:0}}>🔒 Confidentiel</span>}
               </div>
+              {q.confidentiel&&q.note&&<div style={{fontSize:11,color:"#9e9890",marginBottom:10,fontStyle:"italic"}}>{q.note}</div>}
               <textarea value={answers[q.id]||""} onChange={e=>upd(q.id,e.target.value)} rows={3}
-                style={{...INP,resize:"vertical",fontFamily:"inherit"}}
-                placeholder={q.confidentiel?"Visible uniquement par ton manager…":"Ta réponse…"}/>
+                style={{...INP,resize:"vertical",fontFamily:"inherit",fontSize:13}}
+                placeholder={q.confidentiel?"Ta réponse restera confidentielle…":"Ta réponse…"}/>
             </div>;
           })}
         </div>
-        <button onClick={handleSubmit} style={{marginTop:24,width:"100%",padding:"16px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:12,cursor:"pointer",fontSize:15,fontWeight:600,letterSpacing:"-.2px"}}>
-          🔐 Je bloque ces paroles.
-        </button>
+        {(()=>{
+          // Check all required questions answered
+          const requiredQs=(questions||DEFAULT_QUESTIONS).filter(q=>q.type==="textarea"&&!q.confidentiel||(q.type==="mood"||q.type==="presence"));
+          const allFilled=requiredQs.every(q=>answers[q.id]&&String(answers[q.id]).trim().length>0);
+          return <button onClick={allFilled?handleSubmit:undefined} style={{marginTop:20,width:"100%",padding:"10px 18px",background:allFilled?"#fff":"#f5f3ef",color:allFilled?"#2d6a4f":"#c5c0b8",border:`1px solid ${allFilled?"#2d6a4f":"#e2ddd6"}`,borderRadius:8,cursor:allFilled?"pointer":"not-allowed",fontSize:13,fontWeight:500,transition:"all .15s",letterSpacing:0}}>
+            🔐 Valider mon update
+          </button>;
+        })()}
       </>}
     </div>
     {selectedWeek&&<UpdateViewModal notif={{updateData:selectedWeek.update,fromPrenom:teamMember?.prenom,weekKey:selectedWeek.wk,isOwn:true}} onClose={()=>setSelectedWeek(null)} onRead={()=>setSelectedWeek(null)}/>}
@@ -751,7 +875,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
 }
 
 // ─── OKR MODALS (unchanged) ───────────────────────────────────────────────────
-function ObjModal({obj,isNew,people,onClose,onSave,onDelete,onLock,onUnlockRequest}){
+function ObjModal({obj,isNew,people,isAdmin,onClose,onSave,onDelete,onLock,onUnlockRequest}){
   const locked=obj?.locked||false;
   const [f,setF]=useState(obj?{...obj}:{title:"",owner:"",etp:0.1,priorite:"P1",contributors:[]});
   function upd(k,v){setF(p=>({...p,[k]:v}))}
@@ -770,7 +894,7 @@ function ObjModal({obj,isNew,people,onClose,onSave,onDelete,onLock,onUnlockReque
     {!isNew&&<div style={{marginTop:8,paddingTop:16,borderTop:"1px solid #e2ddd6",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
       <span style={{fontSize:12,color:"#6b6560"}}>{locked?"Cet objectif est verrouillé. Seul l'admin peut déverrouiller.":"Verrouiller empêche toute modification (admin requis pour déverrouiller)."}</span>
       {locked
-        ?<button onClick={onUnlockRequest} style={{fontSize:12,fontWeight:500,background:"#fef3c7",color:"#92400e",border:"1px solid #f59e0b",padding:"5px 12px",borderRadius:6,cursor:"pointer"}}>🔓 Déverrouiller</button>
+        ?<button onClick={isAdmin?onUnlockRequest:undefined} style={{fontSize:12,fontWeight:500,background:isAdmin?"#fef3c7":"#f5f3ef",color:isAdmin?"#92400e":"#c5c0b8",border:`1px solid ${isAdmin?"#f59e0b":"#e2ddd6"}`,padding:"5px 12px",borderRadius:6,cursor:isAdmin?"pointer":"not-allowed",opacity:isAdmin?1:0.6}}>🔓 Déverrouiller</button>
         :<button onClick={onLock} style={{fontSize:12,fontWeight:500,background:"#f5f3ef",color:"#6b6560",border:"1px solid #e2ddd6",padding:"5px 12px",borderRadius:6,cursor:"pointer"}}>🔒 Verrouiller</button>}
     </div>}
   </Modal>;
@@ -947,47 +1071,65 @@ function SeasonBanner({seasonKey,avgProg,totalKR,doneKR}){
 function detectSalves(logs){
   if(!logs.length)return[];
   const sorted=[...logs].sort((a,b)=>a.timestamp-b.timestamp);
-  const salves=[];let cur=[sorted[0]];
+  const salves=[];
+  let cur=[sorted[0]];
   for(let i=1;i<sorted.length;i++){
-    if(sorted[i].timestamp-sorted[i-1].timestamp>SALVE_GAP_MS){salves.push(cur);cur=[sorted[i]];}
-    else cur.push(sorted[i]);
+    const sameUser=sorted[i].owner===sorted[i-1].owner;
+    const withinGap=sorted[i].timestamp-sorted[i-1].timestamp<=SALVE_GAP_MS;
+    if(sameUser&&withinGap){cur.push(sorted[i]);}
+    else{salves.push(cur);cur=[sorted[i]];}
   }
   salves.push(cur);
-  return salves.map(mods=>{
-    const oc={};mods.forEach(m=>{if(m.owner)oc[m.owner]=(oc[m.owner]||0)+1;});
-    const owner=Object.entries(oc).sort((a,b)=>b[1]-a[1])[0]?.[0]||"?";
-    return{mods,owner,start:mods[0].timestamp,end:mods[mods.length-1].timestamp};
-  }).reverse();
+  return salves.map(mods=>({
+    mods,
+    owner:mods[0].owner||"?",
+    start:mods[0].timestamp,
+    end:mods[mods.length-1].timestamp,
+    count:mods.length,
+  })).reverse();
 }
-function JournalModal({seasonKey,onClose}){
-  const [pwd,setPwd]=useState(""),auth=useState(false),logs=useState([]),loading=useState(false),errPwd=useState(false);
-  const [_auth,setAuth]=auth;const [_logs,setLogs]=logs;const [_loading,setLoading]=loading;const [_errPwd,setErrPwd]=errPwd;
-  const unsubRef=useRef(null);
-  function tryAuth(){
-    if(pwd===ADMIN_PWD){setAuth(true);setLoading(true);
-      unsubRef.current=onSnapshot(collection(db,"okr_log"),(snap)=>{
-        const all=snap.docs.map(d=>({id:d.id,...d.data()}));
-        setLogs(all.filter(l=>l.seasonKey===seasonKey).sort((a,b)=>a.timestamp-b.timestamp));setLoading(false);
-      },(e)=>{console.error(e);setLoading(false);});}
-    else setErrPwd(true);
-  }
-  const salves=detectSalves(_logs);
+function JournalModal({seasonKey,onClose,isAdmin,currentPrenom}){
+  const [logs,setLogs]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [expanded,setExpanded]=useState({});
+  useEffect(()=>{
+    const unsub=onSnapshot(collection(db,"okr_log"),(snap)=>{
+      const all=snap.docs.map(d=>({id:d.id,...d.data()}));
+      setLogs(all.filter(l=>l.seasonKey===seasonKey));
+      setLoading(false);
+    },(e)=>{console.error(e);setLoading(false);});
+    return()=>unsub();
+  },[seasonKey]);
+  const allSalves=detectSalves(logs);
+  const salves=isAdmin?allSalves:allSalves.filter(s=>s.owner===currentPrenom);
   return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
     <div style={{background:"#fff",borderRadius:12,padding:24,width:"90%",maxWidth:600,maxHeight:"85vh",overflowY:"auto"}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
-        {_auth&&<div style={{fontSize:16,fontWeight:600}}>Journal des modifications</div>}
-        <div style={{flex:1}}/><button onClick={onClose} style={{border:"none",background:"none",cursor:"pointer",fontSize:20,color:"#9e9890"}}>×</button>
+        <div style={{fontSize:16,fontWeight:600}}>Historique des modifications</div>
+        <button onClick={onClose} style={{border:"none",background:"none",cursor:"pointer",fontSize:20,color:"#9e9890"}}>×</button>
       </div>
-      {!_auth?<div><div style={{display:"flex",gap:8}}>
-        <input type="password" style={{...INP,flex:1}} value={pwd} onChange={e=>{setPwd(e.target.value);setErrPwd(false);}} onKeyDown={e=>e.key==="Enter"&&tryAuth()} placeholder="Mot de passe"/>
-        <button onClick={tryAuth} style={{fontSize:13,fontWeight:500,background:"#2d6a4f",color:"#fff",padding:"7px 16px",borderRadius:6,border:"none",cursor:"pointer"}}>OK</button>
-      </div>{_errPwd&&<p style={{fontSize:12,color:"#c0392b",marginTop:8}}>Mot de passe incorrect.</p>}</div>
-      :_loading?<p style={{color:"#9e9890",fontSize:13}}>Chargement...</p>
-      :salves.length===0?<p style={{color:"#9e9890",fontSize:13}}>Aucune modification.</p>
-      :<div style={{display:"flex",flexDirection:"column",gap:8}}>
-        {salves.map((salve,si)=><div key={si} style={{border:"0.5px solid #e2ddd6",borderRadius:8,padding:"10px 14px",background:"#f8f7f5"}}>
-          <div style={{fontSize:13,fontWeight:500}}>{formatDate(salve.start)} — <span style={{color:"#1D9E75"}}>{salve.owner}</span> — {salve.mods.length} modif(s)</div>
-        </div>)}
+      {loading?<p style={{color:"#9e9890",fontSize:13}}>Chargement...</p>
+      :salves.length===0?<p style={{color:"#9e9890",fontSize:13}}>Aucune modification enregistrée.</p>
+      :<div style={{display:"flex",flexDirection:"column",gap:6}}>
+        {salves.map((salve,si)=>{
+          const isOpen=expanded[si];
+          return <div key={si} style={{border:"1px solid #e2ddd6",borderRadius:8,overflow:"hidden"}}>
+            <div onClick={()=>setExpanded(p=>({...p,[si]:!p[si]}))} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"#f8f7f5",cursor:"pointer"}}>
+              <span style={{fontSize:12,color:"#9e9890",minWidth:120}}>{formatDate(salve.end)}</span>
+              <span style={{fontSize:13,fontWeight:500,color:"#2d6a4f",flex:1}}>{salve.owner}</span>
+              <span style={{fontSize:12,color:"#9e9890"}}>{salve.count} modif{salve.count>1?"s":""}</span>
+              <span style={{fontSize:11,color:"#9e9890",transform:isOpen?"rotate(180deg)":"none",transition:"transform .2s"}}>▾</span>
+            </div>
+            {isOpen&&<div style={{padding:"10px 14px",borderTop:"1px solid #e2ddd6"}}>
+              {salve.mods.map((m,mi)=><div key={mi} style={{fontSize:12,color:"#6b6560",marginBottom:6}}>
+                <span style={{fontWeight:500,color:"#1a1814"}}>{m.itemTitle||m.itemId}</span>
+                {m.changes&&m.changes.map((c,ci)=><span key={ci} style={{marginLeft:8,color:"#9e9890"}}>
+                  {c.field}: <span style={{textDecoration:"line-through"}}>{String(c.before).slice(0,20)}</span> → <span style={{color:"#2d6a4f"}}>{String(c.after).slice(0,20)}</span>
+                </span>)}
+              </div>)}
+            </div>}
+          </div>;
+        })}
       </div>}
     </div>
   </div>;
@@ -1060,11 +1202,14 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin}){
     allSeasonsRef.current=next;setAllSeasons(next);persist(next);
   }
   function switchSeason(key){
-    let next=allSeasons;if(!next[key]){next={...allSeasons,[key]:makeFreshSeason(people)};setAllSeasons(next);}
-    setSeasonKey(key);setFilterP("");persist(next);
+    let next=allSeasonsRef.current;
+    if(!next[key]){next={...next,[key]:makeFreshSeason(people)};allSeasonsRef.current=next;setAllSeasons(next);}
+    seasonKeyRef.current=key;
+    setSeasonKey(key);setFilterP("");
+    setDoc(doc(db,"okr","data"),{allSeasons:next,seasonKey:key,collObj,collSobj}).catch(e=>console.error(e));
   }
-  function toggleObj(id){setCollObj(c=>({...c,[id]:!c[id]}));persist(allSeasonsRef.current);}
-  function toggleSobj(id){setCollSobj(c=>({...c,[id]:!c[id]}));persist(allSeasonsRef.current);}
+  function toggleObj(id){setCollObj(c=>{const n={...c,[id]:!c[id]};setDoc(doc(db,"okr","data"),{allSeasons:allSeasonsRef.current,seasonKey:seasonKeyRef.current,collObj:n,collSobj:collSobj}).catch(e=>console.error(e));return n;});}
+  function toggleSobj(id){setCollSobj(c=>{const n={...c,[id]:!c[id]};setDoc(doc(db,"okr","data"),{allSeasons:allSeasonsRef.current,seasonKey:seasonKeyRef.current,collObj,collSobj:n}).catch(e=>console.error(e));return n;});}
   function lockObj(id){updateSeason({objectives:objectives.map(o=>o.id===id?{...o,locked:true}:o)});setModal(null);}
   function unlockObj(id){updateSeason({objectives:objectives.map(o=>o.id===id?{...o,locked:false}:o)});setModal(null);}
   function handleObjSave(data){
@@ -1119,12 +1264,14 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin}){
     <div style={{background:"rgba(245,243,239,.95)",borderBottom:"1px solid #e2ddd6",padding:"10px 20px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
       <span style={{fontSize:16,fontWeight:700,color:"#2d6a4f",letterSpacing:"-.2px",cursor:"pointer"}} onClick={onBack}>🌼 Calendula</span>
       <div style={{flex:1,textAlign:"center"}}>
-        <span onClick={()=>setShowJournal(true)} style={{fontSize:16,fontWeight:600,color:"#1a1814",letterSpacing:"-.2px",cursor:"pointer"}}>OKR Oé</span>
+        <span style={{fontSize:16,fontWeight:600,color:"#1a1814",letterSpacing:"-.2px"}}>OKR Oé</span>
       </div>
       <select value={seasonKey} onChange={e=>switchSeason(e.target.value)} style={{fontFamily:"inherit",fontSize:13,fontWeight:500,border:"1px solid #e2ddd6",background:"#fff",borderRadius:20,padding:"4px 14px",outline:"none",cursor:"pointer",color:"#1b4332"}}>
         {SEASONS.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
       </select>
       {allLocked&&<span style={{fontSize:16}}>🔒</span>}
+      <button onClick={()=>setShowJournal(true)} title="Historique des modifications" style={{width:28,height:28,border:"1px solid #e2ddd6",borderRadius:6,background:"none",cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",color:"#6b6560"}}
+        onMouseEnter={e=>e.currentTarget.style.background="#f5f3ef"} onMouseLeave={e=>e.currentTarget.style.background="none"}>🕐</button>
       <div style={{flex:1}}/>
       <select value={filterP} onChange={e=>setFilterP(e.target.value)} style={{fontFamily:"inherit",fontSize:12,border:"1px solid #e2ddd6",background:"#fff",borderRadius:6,padding:"5px 10px",outline:"none",cursor:"pointer"}}>
         <option value="">Toute l'équipe</option>{people.map(p=><option key={p}>{p}</option>)}
@@ -1132,7 +1279,37 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin}){
     </div>
 
     <div style={{maxWidth:1100,margin:"0 auto",padding:"0 16px 60px"}}>
-      <div style={{padding:"16px 0 4px"}}><SeasonBanner seasonKey={seasonKey} avgProg={avgProg} totalKR={totalKR} doneKR={doneKR}/></div>
+      <div style={{padding:"16px 0 4px"}}>
+        <SeasonBanner seasonKey={seasonKey} avgProg={avgProg} totalKR={totalKR} doneKR={doneKR}/>
+        {filterP&&(()=>{
+          const fKRs=keyresults.filter(k=>k.owner===filterP||k.contributors?.includes(filterP));
+          const fDone=fKRs.filter(k=>k.taux>=100).length;
+          let totalW=0,weightedSum=0;
+          fKRs.filter(k=>k.poids>0).forEach(kr=>{
+            const sobj=subobjectives.find(s=>s.id===kr.parent);
+            const obj=objectives.find(o=>o.id===sobj?.parent);
+            if(!sobj||!obj)return;
+            const w=kr.poids*(sobj.poids/100)*(obj.etp||1);
+            totalW+=w;weightedSum+=kr.taux*w;
+          });
+          const fProg=totalW>0?weightedSum/totalW:0;
+          return <div style={{marginTop:8,background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"12px 20px",display:"flex",alignItems:"center",gap:16,boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
+            <div style={{flexShrink:0,textAlign:"center",width:80}}>
+              <div style={{fontSize:36,fontWeight:700,fontFamily:"monospace",color:progColor(fProg),lineHeight:1}}>{Math.round(fProg)}%</div>
+              <div style={{fontSize:9,color:"#6b6560",marginTop:2,textTransform:"uppercase",letterSpacing:".06em"}}>{filterP}</div>
+            </div>
+            <div style={{width:1,background:"#86efac",alignSelf:"stretch",flexShrink:0}}/>
+            <div style={{flex:1,minWidth:0}}>
+              <Bar v={fProg} label={`Avancement de ${filterP}`} w={0}/>
+            </div>
+            <div style={{width:1,background:"#86efac",alignSelf:"stretch",flexShrink:0}}/>
+            <div style={{flexShrink:0,textAlign:"center",width:72}}>
+              <div style={{fontSize:20,fontWeight:600,fontFamily:"monospace",color:progColor(fDone/Math.max(fKRs.length,1)*100)}}>{fDone}/{fKRs.length}</div>
+              <div style={{fontSize:9,color:"#6b6560",marginTop:2}}>KR complétés</div>
+            </div>
+          </div>;
+        })()}
+      </div>
       <div style={{display:"flex",flexDirection:"column",gap:10}}>
         {visObjs.length===0&&<div style={{textAlign:"center",padding:32,color:"#9e9890",fontSize:13}}>Aucun objectif.</div>}
         {visObjs.map((obj,idx)=>{
@@ -1183,11 +1360,11 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin}){
       </div>
     </div>
 
-    {modal?.type==="obj"&&<ObjModal obj={modal.item} isNew={modal.isNew} people={people} onClose={()=>setModal(null)} onSave={d=>handleObjSave({...d,_id:modal.item?.id,_isNew:modal.isNew})} onDelete={()=>handleObjDel(modal.item.id)} onLock={()=>lockObj(modal.item.id)} onUnlockRequest={()=>setModal({type:"unlock",item:modal.item})}/>}
+    {modal?.type==="obj"&&<ObjModal obj={modal.item} isNew={modal.isNew} people={people} isAdmin={isAdmin} onClose={()=>setModal(null)} onSave={d=>handleObjSave({...d,_id:modal.item?.id,_isNew:modal.isNew})} onDelete={()=>handleObjDel(modal.item.id)} onLock={()=>lockObj(modal.item.id)} onUnlockRequest={()=>setModal({type:"unlock",item:modal.item})}/>}
     {modal?.type==="sobj"&&<SobjModal sobj={modal.item} isNew={modal.isNew} parentObjId={modal.parentObjId} people={people} subobjectives={subobjectives} onClose={()=>setModal(null)} onSave={d=>handleSobjSave({...d,_id:modal.item?.id,_isNew:modal.isNew,_parentObjId:modal.parentObjId})} onDelete={()=>handleSobjDel(modal.item.id)}/>}
     {modal?.type==="kr"&&<KRModal kr={modal.item} sobjId={modal.sobjId} people={people} keyresults={keyresults} locked={modal.locked} onClose={()=>setModal(null)} onSave={d=>handleKRSave({...d,_id:modal.item?.id,_sobjId:modal.sobjId})} onDelete={()=>handleKRDel(modal.item.id)}/>}
     {modal?.type==="import"&&<ImportObjModal allSeasons={allSeasons} currentSeasonKey={seasonKey} people={people} onClose={()=>setModal(null)} onImport={handleImport}/>}
-    {showJournal&&<JournalModal seasonKey={seasonKey} onClose={()=>setShowJournal(false)}/>}
+    {showJournal&&<JournalModal seasonKey={seasonKey} onClose={()=>setShowJournal(false)} isAdmin={isAdmin} currentPrenom={teamMember?.prenom}/>}
     {modal?.type==="unlock"&&<UnlockModal objTitle={modal.item?.title} onClose={()=>setModal(null)} onUnlock={()=>unlockObj(modal.item.id)}/>}
     {saved&&<div style={{position:"fixed",bottom:20,right:20,background:"#2d6a4f",color:"#fff",fontSize:12,fontWeight:500,padding:"8px 16px",borderRadius:20,boxShadow:"0 2px 8px rgba(0,0,0,.2)",zIndex:200,pointerEvents:"none"}}>✓ Sauvegardé</div>}
   </div>;
