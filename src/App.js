@@ -272,7 +272,7 @@ function WeekDots({myUpdates, clickable=false, onClickUpdate}){
   </div>;
 }
 
-function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onClickUpdate, onGoUpdate}){
+function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onClickUpdate, onGoUpdate, showDots=true}){
   const MOOD_SCORE = {"😊":5,"🙂":4,"😐":3,"😕":2,"😩":1};
   const now = new Date();
   const currentWkKey = getWeekKey(now);
@@ -344,7 +344,7 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
       {/* Month labels on X axis */}
       {monthLabels.map((m,i)=><text key={i} x={m.x} y={totalH-2} fontSize="8" fill="#9e9890" textAnchor="middle">{m.label}</text>)}
       {/* Dots row */}
-      {weeks.map((w,i)=>{
+      {showDots&&weeks.map((w,i)=>{
         const c=DOT_C[w.status];
         return <circle key={i} cx={dotX(i)} cy={DOT_Y} r="5"
           fill={c.bg} stroke="#fff" strokeWidth="1.5"
@@ -367,12 +367,12 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
       </circle>)}
     </svg>
     {/* Legend */}
-    <div style={{display:"flex",gap:16,marginTop:6,fontSize:11,color:"#9e9890"}}>
+    {showDots&&<div style={{display:"flex",gap:16,marginTop:6,fontSize:11,color:"#9e9890"}}>
       <span><span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#2d6a4f",marginRight:4,verticalAlign:"middle"}}/>Fait en semaine</span>
       <span><span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#facc15",marginRight:4,verticalAlign:"middle"}}/>Fait le lundi</span>
       <span><span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#ef4444",marginRight:4,verticalAlign:"middle"}}/>Non fait</span>
       <span style={{marginLeft:"auto"}}>Courbe : mood équipe</span>
-    </div>
+    </div>}
   </div>;
 }
 
@@ -475,13 +475,12 @@ function MessagesPanel({managerNotifs,onReadNotif,teamMember,myUpdates=[]}){
     <div style={{maxHeight:140,overflowY:"auto",padding:"6px 0"}}>
       {allMsgs.length===0&&<div style={{padding:"16px 18px",fontSize:13,color:"#9e9890",textAlign:"center"}}>Aucun message</div>}
       {allMsgs.map(msg=><div key={msg.id} onClick={()=>setSelected(msg)}
-        style={{display:"flex",alignItems:"center",gap:10,padding:"7px 18px",cursor:"pointer",borderBottom:"1px solid #f8f7f5",background:msg.read?"transparent":"#f0fdf4"}}
-        onMouseEnter={e=>e.currentTarget.style.background="#f8f7f5"} onMouseLeave={e=>e.currentTarget.style.background=msg.read?"transparent":"#f0fdf4"}>
-        {!msg.read&&<span style={{width:7,height:7,borderRadius:"50%",background:"#2d6a4f",flexShrink:0,display:"inline-block"}}/>}
-        {msg.read&&<span style={{width:7,flexShrink:0}}/>}
-        <span style={{fontSize:11,color:"#9e9890",minWidth:90,flexShrink:0}}>{msg.date.toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})} {msg.date.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}</span>
-        <span style={{fontSize:13,color:msg.read?"#6b6560":"#1a1814",fontWeight:msg.read?400:500,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{msg.title}</span>
-      </div>)}
+       {allMsgs.map(msg=><div key={msg.id} onClick={()=>setSelected(msg)}
+         style={{display:"flex",alignItems:"center",gap:10,padding:"7px 18px",cursor:"pointer",borderBottom:"1px solid #f8f7f5",background:"transparent"}}
+         onMouseEnter={e=>e.currentTarget.style.background="#f8f7f5"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+         {!msg.read?<span style={{width:8,height:8,borderRadius:"50%",background:"#2d6a4f",flexShrink:0,display:"inline-block"}}/>:<span style={{width:8,flexShrink:0}}/>}
+         <span style={{fontSize:11,color:msg.read?"#c5c0b8":"#9e9890",minWidth:90,flexShrink:0}}>{msg.date.toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})} {msg.date.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}</span>
+         <span style={{fontSize:13,color:msg.read?"#c5c0b8":"#1a1814",fontWeight:msg.read?400:500,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textDecoration:msg.read?"line-through":"none"}}>{msg.title}</span>
     </div>
     {selected&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&setSelected(null)}>
       <div style={{background:"#fff",borderRadius:12,padding:24,width:"90%",maxWidth:520,maxHeight:"80vh",overflowY:"auto"}}>
@@ -517,11 +516,13 @@ function Dashboard({currentUser,teamMember,onGoOKR,onGoUpdate,myUpdates,allUpdat
     myKRsOwned.filter(k=>k.poids>0).forEach(kr=>{
       const sobj=subobjectives.find(s=>s.id===kr.parent);
       const obj=objectives.find(o=>o.id===sobj?.parent);
-      if(!sobj||!obj)return;
-      // Use etp||1 to avoid 0 weight when etp not set
-      const w=kr.poids*(sobj.poids/100)*Math.max(obj.etp||0,0.01);
+      // Even if sobj/obj not found, still count the KR with flat weight
+      const sobjPoids=sobj?sobj.poids:100;
+      const objEtp=obj?Math.max(obj.etp||0,0.01):1;
+      const w=kr.poids*(sobjPoids/100)*objEtp;
+      const taux=parseFloat(kr.taux)||0;
       totalW+=w;
-      weightedSum+=kr.taux*w;
+      weightedSum+=taux*w;
     });
     return totalW>0?Math.round(weightedSum/totalW*10)/10:0;
   },[myKRsOwned,subobjectives,objectives]);
@@ -586,8 +587,8 @@ function Dashboard({currentUser,teamMember,onGoOKR,onGoUpdate,myUpdates,allUpdat
 
       {/* Update streak */}
       <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"16px 20px",marginBottom:16,boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
-        <div style={{fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",marginBottom:12}}>Le mood de l'équipe</div>
-        <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} onGoUpdate={onGoUpdate}/>
+        <div style={{fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",marginBottom:12}}>Mood de l'équipe</div>
+        <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} onGoUpdate={onGoUpdate} showDots={false}/>
       </div>
 
 
@@ -1344,9 +1345,11 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin}){
           fKRsOwned.filter(k=>k.poids>0).forEach(kr=>{
             const sobj=subobjectives.find(s=>s.id===kr.parent);
             const obj=objectives.find(o=>o.id===sobj?.parent);
-            if(!sobj||!obj)return;
-            const w=kr.poids*(sobj.poids/100)*Math.max(obj.etp||0,0.01);
-            totalW+=w;weightedSum+=kr.taux*w;
+            const sobjPoids=sobj?sobj.poids:100;
+            const objEtp=obj?Math.max(obj.etp||0,0.01):1;
+            const w=kr.poids*(sobjPoids/100)*objEtp;
+            const taux=parseFloat(kr.taux)||0;
+            totalW+=w;weightedSum+=taux*w;
           });
           const fProg=totalW>0?Math.round(weightedSum/totalW*10)/10:0;
           return <PersonalBanner prog={fProg} doneKR={fDone} totalKR={fKRsOwned.length} label={filterP} marginBottom={0} avgProg={avgProg}/>;
