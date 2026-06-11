@@ -474,14 +474,14 @@ function MessagesPanel({managerNotifs,onReadNotif,teamMember,myUpdates=[]}){
     </div>
     <div style={{maxHeight:140,overflowY:"auto",padding:"6px 0"}}>
       {allMsgs.length===0&&<div style={{padding:"16px 18px",fontSize:13,color:"#9e9890",textAlign:"center"}}>Aucun message</div>}
-      {allMsgs.map(msg=><div key={msg.id} onClick={()=>setSelected(msg)}
        {allMsgs.map(msg=><div key={msg.id} onClick={()=>setSelected(msg)}
          style={{display:"flex",alignItems:"center",gap:10,padding:"7px 18px",cursor:"pointer",borderBottom:"1px solid #f8f7f5",background:"transparent"}}
          onMouseEnter={e=>e.currentTarget.style.background="#f8f7f5"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
          {!msg.read?<span style={{width:8,height:8,borderRadius:"50%",background:"#2d6a4f",flexShrink:0,display:"inline-block"}}/>:<span style={{width:8,flexShrink:0}}/>}
          <span style={{fontSize:11,color:msg.read?"#c5c0b8":"#9e9890",minWidth:90,flexShrink:0}}>{msg.date.toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})} {msg.date.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}</span>
          <span style={{fontSize:13,color:msg.read?"#c5c0b8":"#1a1814",fontWeight:msg.read?400:500,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textDecoration:msg.read?"line-through":"none"}}>{msg.title}</span>
-    </div>
+       </div>)}
+     </div>
     {selected&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&setSelected(null)}>
       <div style={{background:"#fff",borderRadius:12,padding:24,width:"90%",maxWidth:520,maxHeight:"80vh",overflowY:"auto"}}>
         <div style={{fontSize:15,fontWeight:600,marginBottom:4}}>{selected.title}</div>
