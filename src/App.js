@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, getDocs, query, where, updateDoc } from "firebase/firestore";
+import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, getDocs, query, where, updateDoc, deleteDoc } from "firebase/firestore";
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "firebase/auth";
 
 const firebaseConfig = {
@@ -510,19 +510,20 @@ function Dashboard({currentUser,teamMember,onGoOKR,onGoUpdate,myUpdates,allUpdat
 
   // Personal weighted progress: weight = KR_poids * sobj_poids * obj_etp
   // Owner-only KRs for personal progress (not contributor)
-  const myKRsOwned=keyresults.filter(k=>k.owner===myPrenom);
-  const myKRDoneOwned=myKRsOwned.filter(k=>k.taux>=100).length;
+  const myKRsOwned=useMemo(()=>keyresults.filter(k=>k.owner===myPrenom),[keyresults,myPrenom]);
+  const myKRDoneOwned=useMemo(()=>myKRsOwned.filter(k=>k.taux>=100).length,[myKRsOwned]);
   const myPersonalProg=useMemo(()=>{
     let totalW=0,weightedSum=0;
     myKRsOwned.filter(k=>k.poids>0).forEach(kr=>{
       const sobj=subobjectives.find(s=>s.id===kr.parent);
       const obj=objectives.find(o=>o.id===sobj?.parent);
       if(!sobj||!obj)return;
-      const w=kr.poids*(sobj.poids/100)*(obj.etp||1);
+      // Use etp||1 to avoid 0 weight when etp not set
+      const w=kr.poids*(sobj.poids/100)*Math.max(obj.etp||0,0.01);
       totalW+=w;
       weightedSum+=kr.taux*w;
     });
-    return totalW>0?weightedSum/totalW:0;
+    return totalW>0?Math.round(weightedSum/totalW*10)/10:0;
   },[myKRsOwned,subobjectives,objectives]);
 
   const weekKey=getUpdateWeekKey();
@@ -657,7 +658,7 @@ function UpdateViewModal({notif,onClose,onRead}){
 const MOODS=["😊","🙂","😐","😕","😩"];
 const PRESENCES=["Au boulot au moins deux jours","En congés","À l'école"];
 
-function UpdatePage({teamMember,questions,onSubmit,onBack,myUpdates}){
+function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates}){
   const weekKey=getUpdateWeekKey();
   const existing=weekKey?myUpdates.find(u=>u.weekKey===weekKey):null;
   const [answers,setAnswers]=useState(existing?.answers||{});
@@ -739,12 +740,20 @@ function UpdatePage({teamMember,questions,onSubmit,onBack,myUpdates}){
           })}
         </div>
         {(()=>{
-          // Check all required questions answered
           const requiredQs=(questions||DEFAULT_QUESTIONS).filter(q=>q.type==="textarea"&&!q.confidentiel||(q.type==="mood"||q.type==="presence"));
           const allFilled=requiredQs.every(q=>answers[q.id]&&String(answers[q.id]).trim().length>0);
-          return <button onClick={allFilled?handleSubmit:undefined} style={{marginTop:20,width:"100%",padding:"10px 18px",background:allFilled?"#fff":"#f5f3ef",color:allFilled?"#2d6a4f":"#c5c0b8",border:`1px solid ${allFilled?"#2d6a4f":"#e2ddd6"}`,borderRadius:8,cursor:allFilled?"pointer":"not-allowed",fontSize:13,fontWeight:500,transition:"all .15s",letterSpacing:0}}>
-            🔐 Je bloque ces paroles.
-          </button>;
+          return <div style={{display:"flex",gap:10,marginTop:20}}>
+            <button onClick={async()=>{
+              if(!window.confirm("Supprimer définitivement cet update ?"))return;
+              await onDelete&&onDelete(weekKey);
+              setAnswers({});setSubmitted(false);
+            }} style={{padding:"10px 14px",background:"#fff",color:"#c0392b",border:"1px solid #fca5a5",borderRadius:8,cursor:"pointer",fontSize:13,fontWeight:500}}>
+              🗑️ Supprimer mon Update
+            </button>
+            <button onClick={allFilled?handleSubmit:undefined} style={{flex:1,padding:"10px 18px",background:allFilled?"#fff":"#f5f3ef",color:allFilled?"#2d6a4f":"#c5c0b8",border:`1px solid ${allFilled?"#2d6a4f":"#e2ddd6"}`,borderRadius:8,cursor:allFilled?"pointer":"not-allowed",fontSize:13,fontWeight:500,transition:"all .15s"}}>
+              🔐 Je bloque ces paroles.
+            </button>
+          </div>;
         })()}
       </>}
     </div>
@@ -1336,10 +1345,10 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin}){
             const sobj=subobjectives.find(s=>s.id===kr.parent);
             const obj=objectives.find(o=>o.id===sobj?.parent);
             if(!sobj||!obj)return;
-            const w=kr.poids*(sobj.poids/100)*(obj.etp||1);
+            const w=kr.poids*(sobj.poids/100)*Math.max(obj.etp||0,0.01);
             totalW+=w;weightedSum+=kr.taux*w;
           });
-          const fProg=totalW>0?weightedSum/totalW:0;
+          const fProg=totalW>0?Math.round(weightedSum/totalW*10)/10:0;
           return <PersonalBanner prog={fProg} doneKR={fDone} totalKR={fKRsOwned.length} label={filterP} marginBottom={0} avgProg={avgProg}/>;
         })()}
       </div>
@@ -1525,6 +1534,16 @@ export default function App(){
     }
   }
 
+  async function handleDeleteUpdate(weekKey){
+    if(!authUser)return;
+    const docId=`${authUser.email}_${weekKey}`;
+    try{
+      await deleteDoc(doc(db,"updates",docId));
+      const notifId=`${authUser.email}_${weekKey}_notif`;
+      try{await deleteDoc(doc(db,"update_notifications",notifId));}catch(e){}
+    }catch(e){console.error(e);}
+  }
+
   async function handleReadNotif(notif){
     // Mark as read
     await updateDoc(doc(db,"update_notifications",notif.id),{read:true,readAt:Date.now()});
@@ -1570,7 +1589,7 @@ export default function App(){
   }
 
   if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin}/>;
-  if(page==="update")return <UpdatePage teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onBack={()=>setPage("dashboard")} myUpdates={myUpdates}/>;
+  if(page==="update")return <UpdatePage teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} myUpdates={myUpdates}/>;
   if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions}/>;
 
   return <Dashboard
