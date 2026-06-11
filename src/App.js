@@ -316,13 +316,13 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
   return <div>
     <svg width="100%" viewBox={`0 0 ${W} ${totalH}`} style={{display:"block",overflow:"visible"}}>
       {/* Month separator lines */}
-      {monthSeps.map((s,i)=><line key={i} x1={s.x} x2={s.x} y1={0} y2={CURVE_TOP+CURVE_H} stroke="#e2ddd6" strokeWidth="0.8" strokeDasharray="3,2"/>)}
+      {monthSeps.map((s,i)=><line key={i} x1={s.x} x2={s.x} y1={0} y2={CURVE_TOP+CURVE_H} stroke="#d5d0ca" strokeWidth="0.5"/>)}
       {/* Month labels on X axis */}
       {monthLabels.map((m,i)=><text key={i} x={m.x} y={totalH-2} fontSize="8" fill="#9e9890" textAnchor="middle">{m.label}</text>)}
       {/* Dots row */}
       {weeks.map((w,i)=>{
         const c=DOT_C[w.status];
-        const tip=`Semaine du ${fmtDShort(w.mon)} au ${fmtDShort(w.fri)}`;
+        const tip=`Semaine du ${w.mon.getDate()} ${w.mon.toLocaleString("fr-FR",{month:"long"})} au ${w.fri.getDate()} ${w.fri.toLocaleString("fr-FR",{month:"long"})}`;
         return <circle key={i} cx={dotX(i)} cy={DOT_Y} r="5"
           fill={c.bg} stroke="#fff" strokeWidth="1.5"
           style={{cursor:clickable&&w.update?"pointer":"default"}}
@@ -408,9 +408,21 @@ function MessagesPanel({managerNotifs,onReadNotif,teamMember}){
   }
 
   // Build all messages: system first, then notifs (newest first)
+  // Friday reminders
+  const isFriday=dow===5; // simplified: veille de pont handled later
+  const currentWkKey2=getWeekKey(now);
+  const updateDone=myUpdates.find(u=>u.weekKey===currentWkKey2);
+  // Check last OKR salve from Firestore - approximate: use allUpdates as proxy (real check would need logs)
+  // Use okrLastSalve prop if provided, otherwise skip OKR reminder
+  const fridayMsgs=[];
+  if(isFriday){
+    if(!updateDone){fridayMsgs.push({id:"fri_update",title:"⏰ Pense à faire ton Update !",content:`C'est vendredi et tu n'as pas encore complété ton Update de la semaine. Prends 5 minutes pour partager tes avancées et priorités — ça aide toute l'équipe à rester alignée ! 🌼`});}
+  }
+
   const systemMsgs=[];
   if(greeting)systemMsgs.push({id:greeting.id,title:greeting.text,content:greeting.content,date:now,read:true,isSystem:true});
   if(seasonPrepMsg)systemMsgs.push({id:seasonPrepMsg.id,title:seasonPrepMsg.text,content:seasonPrepMsg.content,date:now,read:true,isSystem:true});
+  fridayMsgs.forEach(m=>systemMsgs.push({...m,date:now,read:false,isSystem:true}));
 
   const notifMsgs=managerNotifs.map(n=>{
     const{mon,fri}=getWeekBounds(n.weekKey);
@@ -461,9 +473,12 @@ function Dashboard({currentUser,teamMember,onGoOKR,onGoUpdate,myUpdates,allUpdat
   const myKRDone=myKRs.filter(k=>k.taux>=100).length;
 
   // Personal weighted progress: weight = KR_poids * sobj_poids * obj_etp
+  // Owner-only KRs for personal progress (not contributor)
+  const myKRsOwned=keyresults.filter(k=>k.owner===myPrenom);
+  const myKRDoneOwned=myKRsOwned.filter(k=>k.taux>=100).length;
   const myPersonalProg=useMemo(()=>{
     let totalW=0,weightedSum=0;
-    myKRs.filter(k=>k.poids>0).forEach(kr=>{
+    myKRsOwned.filter(k=>k.poids>0).forEach(kr=>{
       const sobj=subobjectives.find(s=>s.id===kr.parent);
       const obj=objectives.find(o=>o.id===sobj?.parent);
       if(!sobj||!obj)return;
@@ -472,7 +487,7 @@ function Dashboard({currentUser,teamMember,onGoOKR,onGoUpdate,myUpdates,allUpdat
       weightedSum+=kr.taux*w;
     });
     return totalW>0?weightedSum/totalW:0;
-  },[myKRs,subobjectives,objectives]);
+  },[myKRsOwned,subobjectives,objectives]);
 
   const weekKey=getUpdateWeekKey();
   const todayUpdate=weekKey?myUpdates.find(u=>u.weekKey===weekKey):null;
@@ -492,44 +507,9 @@ function Dashboard({currentUser,teamMember,onGoOKR,onGoUpdate,myUpdates,allUpdat
 
 
       {/* Season banners */}
-      <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
-        {/* Global banner */}
-        <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"12px 20px",display:"flex",alignItems:"center",gap:16,boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
-          <div style={{flexShrink:0,textAlign:"center",width:80}}>
-            <div style={{fontSize:36,fontWeight:700,fontFamily:"monospace",color:progColor(avgProg),lineHeight:1}}>{Math.round(avgProg)}%</div>
-            <div style={{fontSize:9,color:"#9e9890",marginTop:2,textTransform:"uppercase",letterSpacing:".06em"}}>Avancement global</div>
-          </div>
-          <div style={{width:1,background:"#e2ddd6",alignSelf:"stretch",flexShrink:0}}/>
-          <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",gap:8}}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <span style={{fontSize:12,fontWeight:500,color:"#1a1814"}}>{getSeasonInfo(seasonKey||"printemps_2026").label}</span>
-              <span style={{fontSize:11,color:"#9e9890"}}>{new Date(getSeasonInfo(seasonKey||"printemps_2026").start).toLocaleDateString("fr-FR",{day:"numeric",month:"short"})} → {new Date(getSeasonInfo(seasonKey||"printemps_2026").end).toLocaleDateString("fr-FR",{day:"numeric",month:"short"})}</span>
-            </div>
-            <Bar v={avgProg} label="Avancement total des OKR" w={0}/>
-            <Bar v={getSeasonProgress(seasonKey||"printemps_2026")} label="Avancement de la saison" w={0}/>
-          </div>
-          <div style={{width:1,background:"#e2ddd6",alignSelf:"stretch",flexShrink:0}}/>
-          <div style={{flexShrink:0,textAlign:"center",width:72}}>
-            <div style={{fontSize:20,fontWeight:600,fontFamily:"monospace",color:progColor(doneKR/Math.max(totalKR,1)*100)}}>{doneKR}/{totalKR}</div>
-            <div style={{fontSize:9,color:"#9e9890",marginTop:2}}>KR complétés</div>
-          </div>
-        </div>
-        {/* Personal banner */}
-        {myKRs.length>0&&<div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"12px 20px",display:"flex",alignItems:"center",gap:16,boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
-          <div style={{flexShrink:0,textAlign:"center",width:80}}>
-            <div style={{fontSize:36,fontWeight:700,fontFamily:"monospace",color:progColor(myPersonalProg),lineHeight:1}}>{Math.round(myPersonalProg)}%</div>
-            <div style={{fontSize:9,color:"#6b6560",marginTop:2,textTransform:"uppercase",letterSpacing:".06em"}}>Mes OKR</div>
-          </div>
-          <div style={{width:1,background:"#86efac",alignSelf:"stretch",flexShrink:0}}/>
-          <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",gap:8}}>
-            <Bar v={myPersonalProg} label="Mon avancement personnel" w={0}/>
-          </div>
-          <div style={{width:1,background:"#86efac",alignSelf:"stretch",flexShrink:0}}/>
-          <div style={{flexShrink:0,textAlign:"center",width:72}}>
-            <div style={{fontSize:20,fontWeight:600,fontFamily:"monospace",color:progColor(myKRDone/Math.max(myKRs.length,1)*100)}}>{myKRDone}/{myKRs.length}</div>
-            <div style={{fontSize:9,color:"#6b6560",marginTop:2}}>Mes KR complétés</div>
-          </div>
-        </div>}
+      <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:16}}>
+        <SeasonBanner seasonKey={seasonKey||"printemps_2026"} avgProg={avgProg} totalKR={totalKR} doneKR={doneKR}/>
+        {myKRsOwned.length>0&&<PersonalBanner prog={myPersonalProg} doneKR={myKRDoneOwned} totalKR={myKRsOwned.length} label={myPrenom||"Moi"} marginBottom={0}/>}
       </div>
 
       {/* KPIs */}
@@ -727,7 +707,7 @@ function UpdatePage({teamMember,questions,onSubmit,onBack,myUpdates}){
           const requiredQs=(questions||DEFAULT_QUESTIONS).filter(q=>q.type==="textarea"&&!q.confidentiel||(q.type==="mood"||q.type==="presence"));
           const allFilled=requiredQs.every(q=>answers[q.id]&&String(answers[q.id]).trim().length>0);
           return <button onClick={allFilled?handleSubmit:undefined} style={{marginTop:20,width:"100%",padding:"10px 18px",background:allFilled?"#fff":"#f5f3ef",color:allFilled?"#2d6a4f":"#c5c0b8",border:`1px solid ${allFilled?"#2d6a4f":"#e2ddd6"}`,borderRadius:8,cursor:allFilled?"pointer":"not-allowed",fontSize:13,fontWeight:500,transition:"all .15s",letterSpacing:0}}>
-            🔐 Valider mon update
+            🔐 Je bloque ces paroles.
           </button>;
         })()}
       </>}
@@ -875,7 +855,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
 }
 
 // ─── OKR MODALS (unchanged) ───────────────────────────────────────────────────
-function ObjModal({obj,isNew,people,isAdmin,onClose,onSave,onDelete,onLock,onUnlockRequest}){
+function ObjModal({obj,isNew,people,isAdmin,onClose,onSave,onDelete,onLock,onUnlock,onUnlockRequest}){
   const locked=obj?.locked||false;
   const [f,setF]=useState(obj?{...obj}:{title:"",owner:"",etp:0.1,priorite:"P1",contributors:[]});
   function upd(k,v){setF(p=>({...p,[k]:v}))}
@@ -892,9 +872,9 @@ function ObjModal({obj,isNew,people,isAdmin,onClose,onSave,onDelete,onLock,onUnl
       </select></Field>
     </div>
     {!isNew&&<div style={{marginTop:8,paddingTop:16,borderTop:"1px solid #e2ddd6",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-      <span style={{fontSize:12,color:"#6b6560"}}>{locked?"Cet objectif est verrouillé. Seul l'admin peut déverrouiller.":"Verrouiller empêche toute modification (admin requis pour déverrouiller)."}</span>
+      <span style={{fontSize:12,color:"#6b6560"}}>{locked?"Cet objectif est verrouillé.":"Verrouiller empêche toute modification."}</span>
       {locked
-        ?<button onClick={isAdmin?onUnlockRequest:undefined} style={{fontSize:12,fontWeight:500,background:isAdmin?"#fef3c7":"#f5f3ef",color:isAdmin?"#92400e":"#c5c0b8",border:`1px solid ${isAdmin?"#f59e0b":"#e2ddd6"}`,padding:"5px 12px",borderRadius:6,cursor:isAdmin?"pointer":"not-allowed",opacity:isAdmin?1:0.6}}>🔓 Déverrouiller</button>
+        ?<button onClick={isAdmin?onUnlock:undefined} style={{fontSize:12,fontWeight:500,background:isAdmin?"#fef3c7":"#f5f3ef",color:isAdmin?"#92400e":"#c5c0b8",border:`1px solid ${isAdmin?"#f59e0b":"#e2ddd6"}`,padding:"5px 12px",borderRadius:6,cursor:isAdmin?"pointer":"not-allowed",opacity:isAdmin?1:0.6}}>🔓 Déverrouiller</button>
         :<button onClick={onLock} style={{fontSize:12,fontWeight:500,background:"#f5f3ef",color:"#6b6560",border:"1px solid #e2ddd6",padding:"5px 12px",borderRadius:6,cursor:"pointer"}}>🔒 Verrouiller</button>}
     </div>}
   </Modal>;
@@ -1068,6 +1048,25 @@ function SeasonBanner({seasonKey,avgProg,totalKR,doneKR}){
   </div>;
 }
 
+function PersonalBanner({prog,doneKR,totalKR,label,marginBottom=8}){
+  const col=progColor(prog),krCol=progColor(doneKR/Math.max(totalKR,1)*100);
+  return <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"14px 20px",marginBottom,display:"flex",alignItems:"center",gap:20,flexWrap:"nowrap",overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+    <div style={{flexShrink:0,textAlign:"center",width:100}}>
+      <div style={{fontSize:52,fontWeight:700,fontFamily:"monospace",color:col,lineHeight:1}}>{Math.round(prog)}%</div>
+      <div style={{fontSize:10,color:"#6b6560",marginTop:3,textTransform:"uppercase",letterSpacing:".06em"}}>{label}</div>
+    </div>
+    <div style={{width:1,background:"#86efac",alignSelf:"stretch",flexShrink:0}}/>
+    <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",gap:10}}>
+      <Bar v={prog} label="Mon avancement" w={0}/>
+    </div>
+    <div style={{width:1,background:"#86efac",alignSelf:"stretch",flexShrink:0}}/>
+    <div style={{flexShrink:0,textAlign:"center",width:90}}>
+      <div style={{fontSize:22,fontWeight:600,fontFamily:"monospace",color:krCol}}>{doneKR}/{totalKR}</div>
+      <div style={{fontSize:10,color:"#6b6560",marginTop:2}}>KR complétés</div>
+    </div>
+  </div>;
+}
+
 function detectSalves(logs){
   if(!logs.length)return[];
   const sorted=[...logs].sort((a,b)=>a.timestamp-b.timestamp);
@@ -1121,11 +1120,14 @@ function JournalModal({seasonKey,onClose,isAdmin,currentPrenom}){
               <span style={{fontSize:11,color:"#9e9890",transform:isOpen?"rotate(180deg)":"none",transition:"transform .2s"}}>▾</span>
             </div>
             {isOpen&&<div style={{padding:"10px 14px",borderTop:"1px solid #e2ddd6"}}>
-              {salve.mods.map((m,mi)=><div key={mi} style={{fontSize:12,color:"#6b6560",marginBottom:6}}>
-                <span style={{fontWeight:500,color:"#1a1814"}}>{m.itemTitle||m.itemId}</span>
-                {m.changes&&m.changes.map((c,ci)=><span key={ci} style={{marginLeft:8,color:"#9e9890"}}>
-                  {c.field}: <span style={{textDecoration:"line-through"}}>{String(c.before).slice(0,20)}</span> → <span style={{color:"#2d6a4f"}}>{String(c.after).slice(0,20)}</span>
-                </span>)}
+              {salve.mods.map((m,mi)=><div key={mi} style={{fontSize:12,color:"#6b6560",marginBottom:6,display:"flex",gap:8,alignItems:"flex-start"}}>
+                <span style={{fontFamily:"monospace",fontSize:11,color:"#9e9890",flexShrink:0,minWidth:50}}>{m.itemId}</span>
+                <div>
+                  <span style={{fontWeight:500,color:"#1a1814"}}>{m.itemTitle||m.itemId}</span>
+                  {m.changes&&m.changes.map((c,ci)=><span key={ci} style={{marginLeft:8,color:"#9e9890"}}>
+                    {c.field}: <span style={{textDecoration:"line-through"}}>{String(c.before).slice(0,20)}</span> → <span style={{color:"#2d6a4f"}}>{String(c.after).slice(0,20)}</span>
+                  </span>)}
+                </div>
               </div>)}
             </div>}
           </div>;
@@ -1194,7 +1196,8 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin}){
       .then(()=>{setSaved(true);setTimeout(()=>setSaved(false),1800);}).catch(e=>console.error(e));
   }
   async function logChange(type,itemId,itemTitle,owner,changes){
-    try{await addDoc(collection(db,"okr_log"),{type,itemId,itemTitle,owner,changes,seasonKey:seasonKeyRef.current,timestamp:Date.now()});}catch(e){console.error(e);}
+    // owner here = connected user's prenom
+    try{await addDoc(collection(db,"okr_log"),{type,itemId,itemTitle,owner:teamMember?.prenom||owner,changes,seasonKey:seasonKeyRef.current,timestamp:Date.now()});}catch(e){console.error(e);}
   }
   function updateSeason(patch){
     const cur=allSeasonsRef.current[seasonKeyRef.current]||{};
@@ -1237,7 +1240,12 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin}){
     const{_id,_sobjId,...kr}=data;
     const krs=allSeasonsRef.current[seasonKeyRef.current]?.keyresults||[];
     let nextKRs;
-    if(_id){const prev=krs.find(k=>k.id===_id);nextKRs=krs.map(k=>k.id===_id?{...k,...kr}:k);if(prev){const ch=[];if(prev.val_actuel!==kr.val_actuel)ch.push({field:"Valeur actuelle",before:prev.val_actuel,after:kr.val_actuel});if(prev.val_revise!==kr.val_revise)ch.push({field:"Cible réévaluée",before:prev.val_revise,after:kr.val_revise});if(prev.stop!==kr.stop)ch.push({field:"STOP",before:prev.stop?"Oui":"Non",after:kr.stop?"Oui":"Non"});if(ch.length)logChange("KR",_id,kr.title,kr.owner,ch);}}
+    if(_id){const prev=krs.find(k=>k.id===_id);nextKRs=krs.map(k=>k.id===_id?{...k,...kr}:k);if(prev){
+      // Only log when parent objective is locked
+      const _sobj=allSeasonsRef.current[seasonKeyRef.current]?.subobjectives?.find(s=>s.id===kr.parent);
+      const _obj=allSeasonsRef.current[seasonKeyRef.current]?.objectives?.find(o=>o.id===_sobj?.parent);
+      if(_obj?.locked){const ch=[];if(prev.val_actuel!==kr.val_actuel)ch.push({field:"Valeur actuelle",before:prev.val_actuel,after:kr.val_actuel});if(prev.val_revise!==kr.val_revise)ch.push({field:"Cible réévaluée",before:prev.val_revise,after:kr.val_revise});if(prev.stop!==kr.stop)ch.push({field:"STOP",before:prev.stop?"Oui":"Non",after:kr.stop?"Oui":"Non"});if(ch.length)logChange("KR",_id,kr.title,kr.owner,ch);}
+    }}
     else{const sib=krs.filter(k=>k.parent===_sobjId);nextKRs=[...krs,{id:`${_sobjId}.${sib.length+1}`,parent:_sobjId,priorite:"",...kr}];}
     updateSeason({keyresults:nextKRs});setModal(null);
   }
@@ -1266,26 +1274,28 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin}){
       <div style={{flex:1,textAlign:"center"}}>
         <span style={{fontSize:16,fontWeight:600,color:"#1a1814",letterSpacing:"-.2px"}}>OKR Oé</span>
       </div>
-      <select value={seasonKey} onChange={e=>switchSeason(e.target.value)} style={{fontFamily:"inherit",fontSize:13,fontWeight:500,border:"1px solid #e2ddd6",background:"#fff",borderRadius:20,padding:"4px 14px",outline:"none",cursor:"pointer",color:"#1b4332"}}>
-        {SEASONS.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
-      </select>
-      {allLocked&&<span style={{fontSize:16}}>🔒</span>}
-      <button onClick={()=>setShowJournal(true)} title="Historique des modifications" style={{width:28,height:28,border:"1px solid #e2ddd6",borderRadius:6,background:"none",cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",color:"#6b6560"}}
-        onMouseEnter={e=>e.currentTarget.style.background="#f5f3ef"} onMouseLeave={e=>e.currentTarget.style.background="none"}>🕐</button>
-      <div style={{flex:1}}/>
-      <select value={filterP} onChange={e=>setFilterP(e.target.value)} style={{fontFamily:"inherit",fontSize:12,border:"1px solid #e2ddd6",background:"#fff",borderRadius:6,padding:"5px 10px",outline:"none",cursor:"pointer"}}>
-        <option value="">Toute l'équipe</option>{people.map(p=><option key={p}>{p}</option>)}
-      </select>
+      <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+        <select value={seasonKey} onChange={e=>switchSeason(e.target.value)} style={{fontFamily:"inherit",fontSize:13,fontWeight:500,border:"1px solid #e2ddd6",background:"#fff",borderRadius:20,padding:"4px 14px",outline:"none",cursor:"pointer",color:"#1b4332"}}>
+          {SEASONS.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
+        </select>
+        {allLocked&&<span style={{fontSize:16}}>🔒</span>}
+        <button onClick={()=>setShowJournal(true)} title="Historique des modifications" style={{width:28,height:28,border:"1px solid #e2ddd6",borderRadius:6,background:"none",cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",color:"#6b6560"}}
+          onMouseEnter={e=>e.currentTarget.style.background="#f5f3ef"} onMouseLeave={e=>e.currentTarget.style.background="none"}>🕐</button>
+        <select value={filterP} onChange={e=>setFilterP(e.target.value)} style={{fontFamily:"inherit",fontSize:12,border:"1px solid #e2ddd6",background:"#fff",borderRadius:6,padding:"5px 10px",outline:"none",cursor:"pointer"}}>
+          <option value="">Toute l'équipe</option>{people.map(p=><option key={p}>{p}</option>)}
+        </select>
+      </div>
     </div>
 
     <div style={{maxWidth:1100,margin:"0 auto",padding:"0 16px 60px"}}>
-      <div style={{padding:"16px 0 4px"}}>
+      <div style={{padding:"16px 0 0"}}>
         <SeasonBanner seasonKey={seasonKey} avgProg={avgProg} totalKR={totalKR} doneKR={doneKR}/>
         {filterP&&(()=>{
-          const fKRs=keyresults.filter(k=>k.owner===filterP||k.contributors?.includes(filterP));
-          const fDone=fKRs.filter(k=>k.taux>=100).length;
+          // Owner-only for personal progress
+          const fKRsOwned=keyresults.filter(k=>k.owner===filterP);
+          const fDone=fKRsOwned.filter(k=>k.taux>=100).length;
           let totalW=0,weightedSum=0;
-          fKRs.filter(k=>k.poids>0).forEach(kr=>{
+          fKRsOwned.filter(k=>k.poids>0).forEach(kr=>{
             const sobj=subobjectives.find(s=>s.id===kr.parent);
             const obj=objectives.find(o=>o.id===sobj?.parent);
             if(!sobj||!obj)return;
@@ -1293,24 +1303,10 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin}){
             totalW+=w;weightedSum+=kr.taux*w;
           });
           const fProg=totalW>0?weightedSum/totalW:0;
-          return <div style={{marginTop:8,background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"12px 20px",display:"flex",alignItems:"center",gap:16,boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
-            <div style={{flexShrink:0,textAlign:"center",width:80}}>
-              <div style={{fontSize:36,fontWeight:700,fontFamily:"monospace",color:progColor(fProg),lineHeight:1}}>{Math.round(fProg)}%</div>
-              <div style={{fontSize:9,color:"#6b6560",marginTop:2,textTransform:"uppercase",letterSpacing:".06em"}}>{filterP}</div>
-            </div>
-            <div style={{width:1,background:"#86efac",alignSelf:"stretch",flexShrink:0}}/>
-            <div style={{flex:1,minWidth:0}}>
-              <Bar v={fProg} label={`Avancement de ${filterP}`} w={0}/>
-            </div>
-            <div style={{width:1,background:"#86efac",alignSelf:"stretch",flexShrink:0}}/>
-            <div style={{flexShrink:0,textAlign:"center",width:72}}>
-              <div style={{fontSize:20,fontWeight:600,fontFamily:"monospace",color:progColor(fDone/Math.max(fKRs.length,1)*100)}}>{fDone}/{fKRs.length}</div>
-              <div style={{fontSize:9,color:"#6b6560",marginTop:2}}>KR complétés</div>
-            </div>
-          </div>;
+          return <PersonalBanner prog={fProg} doneKR={fDone} totalKR={fKRsOwned.length} label={filterP} marginBottom={0}/>;
         })()}
       </div>
-      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+      <div style={{display:"flex",flexDirection:"column",gap:10,marginTop:20}}>
         {visObjs.length===0&&<div style={{textAlign:"center",padding:32,color:"#9e9890",fontSize:13}}>Aucun objectif.</div>}
         {visObjs.map((obj,idx)=>{
           const prog=calcObj(obj.id,subobjectives,keyresults);
@@ -1360,7 +1356,7 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin}){
       </div>
     </div>
 
-    {modal?.type==="obj"&&<ObjModal obj={modal.item} isNew={modal.isNew} people={people} isAdmin={isAdmin} onClose={()=>setModal(null)} onSave={d=>handleObjSave({...d,_id:modal.item?.id,_isNew:modal.isNew})} onDelete={()=>handleObjDel(modal.item.id)} onLock={()=>lockObj(modal.item.id)} onUnlockRequest={()=>setModal({type:"unlock",item:modal.item})}/>}
+    {modal?.type==="obj"&&<ObjModal obj={modal.item} isNew={modal.isNew} people={people} isAdmin={isAdmin} onClose={()=>setModal(null)} onSave={d=>handleObjSave({...d,_id:modal.item?.id,_isNew:modal.isNew})} onDelete={()=>handleObjDel(modal.item.id)} onLock={()=>lockObj(modal.item.id)} onUnlock={()=>{unlockObj(modal.item.id);}} onUnlockRequest={()=>setModal({type:"unlock",item:modal.item})}/>}
     {modal?.type==="sobj"&&<SobjModal sobj={modal.item} isNew={modal.isNew} parentObjId={modal.parentObjId} people={people} subobjectives={subobjectives} onClose={()=>setModal(null)} onSave={d=>handleSobjSave({...d,_id:modal.item?.id,_isNew:modal.isNew,_parentObjId:modal.parentObjId})} onDelete={()=>handleSobjDel(modal.item.id)}/>}
     {modal?.type==="kr"&&<KRModal kr={modal.item} sobjId={modal.sobjId} people={people} keyresults={keyresults} locked={modal.locked} onClose={()=>setModal(null)} onSave={d=>handleKRSave({...d,_id:modal.item?.id,_sobjId:modal.sobjId})} onDelete={()=>handleKRDel(modal.item.id)}/>}
     {modal?.type==="import"&&<ImportObjModal allSeasons={allSeasons} currentSeasonKey={seasonKey} people={people} onClose={()=>setModal(null)} onImport={handleImport}/>}
