@@ -851,7 +851,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
                   {m.email===OWNER_EMAIL
                     ?<span style={{fontSize:12,color:"#9e9890"}}>Propriétaire</span>
                     :<select value={m.role||"teammate"} onChange={e=>setRole(m.email,e.target.value)} style={{...INP,fontSize:12}}>
-                      <option value="admin">Admin</option><option value="teammate">Teammate</option>
+                      <option value="admin">Admin</option><option value="teammate">Teammate actif</option><option value="inactive">Teammate inactif</option>
                     </select>}
                 </td>
                 <td style={{padding:"10px 14px"}}>
@@ -1211,7 +1211,7 @@ function ImportObjModal({allSeasons,currentSeasonKey,people,onClose,onImport}){
 }
 
 // ─── OKR PAGE ─────────────────────────────────────────────────────────────────
-function OKRPage({onBack,currentUser,teamMember,isAdmin}){
+function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
   const [seasonKey,setSeasonKey]=useState("printemps_2026");
   const [showJournal,setShowJournal]=useState(false);
   const [allSeasons,setAllSeasons]=useState({"printemps_2026":{...JSON.parse(JSON.stringify(SPRING26))}});
@@ -1223,7 +1223,11 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin}){
   const [loaded,setLoaded]=useState(false);
 
   const season=allSeasons[seasonKey]||allSeasons["printemps_2026"];
-  const{objectives,subobjectives,keyresults,people}=season;
+  const{objectives,subobjectives,keyresults}=season;
+  // Use active team members from Firebase instead of static season people
+  const people=teamMembers.length>0
+    ? teamMembers.filter(m=>m.role!=="inactive").map(m=>m.prenom).sort()
+    : (season.people||[]);
 
   useEffect(()=>{
     const ref=doc(db,"okr","data");
@@ -1591,7 +1595,7 @@ export default function App(){
     </div>;
   }
 
-  if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin}/>;
+  if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers}/>;
   if(page==="update")return <UpdatePage teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} myUpdates={myUpdates}/>;
   if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions}/>;
 
