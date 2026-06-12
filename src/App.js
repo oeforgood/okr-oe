@@ -501,7 +501,7 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,m
       <div style={{background:"#fff",borderRadius:12,padding:24,width:"90%",maxWidth:520,maxHeight:"80vh",overflowY:"auto"}}>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4,flexWrap:"wrap"}}>
           <span style={{fontSize:15,fontWeight:600}}>{selected.title}</span>
-          {!selected.isSystem&&selected.notif&&<span style={{fontSize:11,color:"#c0392b",fontStyle:"italic"}}>{selected.notif.fromPrenom} a été informé(e) que tu as vu son Update</span>}
+          {!selected.isSystem&&selected.notif&&<span style={{fontSize:11,color:"#c0392b",marginLeft:"auto",textAlign:"right"}}>{selected.notif.fromPrenom} a été informé(e) que tu as vu son Update.</span>}
         </div>
         <div style={{fontSize:11,color:"#9e9890",marginBottom:18}}>{selected.date.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})} à {selected.date.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}</div>
         {selected.isSystem
