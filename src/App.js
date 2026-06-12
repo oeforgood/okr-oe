@@ -116,8 +116,7 @@ function getWeekBounds(weekKey){
   return{mon,fri};
 }
 function getUpdateWeekKey(){
-  // Mon = previous week, Tue = blocked, Wed-Fri before 15h = current week
-  // Fri after 15h = locked (read only)
+  // Mon = previous week, Tue = blocked, Wed-Sun = current week
   const now=new Date();
   const dow=now.getDay();
   if(dow===2)return null; // Tuesday blocked
@@ -128,21 +127,25 @@ function getUpdateWeekKey(){
   return getWeekKey(now);
 }
 function isUpdateLocked(){
-  // Locked on Friday after 15h, or Saturday/Sunday
+  // Locked (non modifiable) if already submitted: Friday after 15h
   const now=new Date();
   const dow=now.getDay();
-  if(dow===6||dow===0)return true;
   if(dow===5&&now.getHours()>=15)return true;
   return false;
 }
+function isUpdateDeadlinePassed(){
+  // Can no longer submit at all: Monday after 23h59
+  // i.e. Tuesday = blocked (handled by weekKey=null)
+  return false; // handled by weekKey===null for Tuesday
+}
 function isUpdateFinalizable(){
-  // Can submit/notify: before Friday 15h
   return !isUpdateLocked();
 }
 function fmtWeekLabel(weekKey){
   const{mon,fri}=getWeekBounds(weekKey);
-  const fmtD=(d)=>`${d.getDate()} ${d.toLocaleString("fr-FR",{month:"long"})}`;
-  return `lundi ${fmtD(mon)} au vendredi ${fmtD(fri)}`;
+  const sameMonth=mon.getMonth()===fri.getMonth();
+  if(sameMonth)return `lundi ${mon.getDate()} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`;
+  return `lundi ${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"long"})} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`;
 }
 function getDaysInMonth(year,month){return new Date(year,month+1,0).getDate();}
 function getFirstDayOfMonth(year,month){let d=new Date(year,month,1).getDay();return d===0?6:d-1;}
@@ -249,7 +252,10 @@ function WeekDots({myUpdates, clickable=false, onClickUpdate}){
   return <div style={{position:"relative",display:"flex",gap:4,flexWrap:"nowrap",alignItems:"center"}}>
     {hov!==null&&weeks[hov]&&(()=>{
       const w=weeks[hov];
-      const tip=`Semaine du ${w.mon.getDate()} ${w.mon.toLocaleString("fr-FR",{month:"long"})} au ${w.fri.getDate()} ${w.fri.toLocaleString("fr-FR",{month:"long"})}`;
+      const sameM2=w.mon.getMonth()===w.fri.getMonth();
+      const tip=sameM2
+        ?`Semaine du lundi ${w.mon.getDate()} au vendredi ${w.fri.getDate()} ${w.fri.toLocaleString("fr-FR",{month:"long"})}`
+        :`Semaine du lundi ${w.mon.getDate()} ${w.mon.toLocaleString("fr-FR",{month:"long"})} au vendredi ${w.fri.getDate()} ${w.fri.toLocaleString("fr-FR",{month:"long"})}`;
       const pct=hov/Math.max(weeks.length-1,1)*100;
       return <div style={{position:"absolute",top:-26,left:`${pct}%`,transform:"translateX(-50%)",background:"#1a1814",color:"#fff",fontSize:10,padding:"3px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:10,pointerEvents:"none"}}>{tip}</div>;
     })()}
@@ -334,7 +340,10 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
   return <div style={{position:"relative"}}>
     {hoveredDot!==null&&weeks[hoveredDot]&&(()=>{
       const w=weeks[hoveredDot];
-      const tip=`Semaine du ${w.mon.getDate()} ${w.mon.toLocaleString("fr-FR",{month:"long"})} au ${w.fri.getDate()} ${w.fri.toLocaleString("fr-FR",{month:"long"})}`;
+      const sameM2=w.mon.getMonth()===w.fri.getMonth();
+      const tip=sameM2
+        ?`Semaine du lundi ${w.mon.getDate()} au vendredi ${w.fri.getDate()} ${w.fri.toLocaleString("fr-FR",{month:"long"})}`
+        :`Semaine du lundi ${w.mon.getDate()} ${w.mon.toLocaleString("fr-FR",{month:"long"})} au vendredi ${w.fri.getDate()} ${w.fri.toLocaleString("fr-FR",{month:"long"})}`;
       const xPct=dotX(hoveredDot)/W*100;
       return <div style={{position:"absolute",top:-28,left:`${xPct}%`,transform:"translateX(-50%)",background:"#1a1814",color:"#fff",fontSize:10,padding:"3px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:10,pointerEvents:"none"}}>{tip}</div>;
     })()}
@@ -438,7 +447,7 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,m
   // Monday morning: remind if no update yet
   if(dow===1&&now.getHours()>=8&&!updateDone){
     reminderMsgs.push({id:"mon_reminder",title:"🌅 Pense à faire ton Update de la semaine !",
-      content:`Bonjour ${teamMember?.prenom||""} ! C'est lundi, l'occasion de partager tes priorités de la semaine avec ton équipe. Prends 5 minutes pour compléter ton Update — ça aide tout le monde à rester aligné. À toi de jouer ! 🌼`});
+      content:`Bonjour ${teamMember?.prenom||""} ! C'est lundi, dernière chance pour compléter ton Update de la semaine passée. Prends 5 minutes pour partager tes avancées — ça aide tout le monde à rester aligné. À toi de jouer ! 🌼`});
   }
 
   // Friday reminders
@@ -467,7 +476,7 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,m
       const fmtD=d=>`${d.getDate()} ${d.toLocaleString("fr-FR",{month:"long"})}`;
       // Use updatedAt if available (last modification), otherwise submittedAt
       const msgDate=new Date(n.updatedAt||n.submittedAt);
-      return{id:n.id,title:`Nouvel Update de ${n.fromPrenom}`,content:null,notif:n,date:msgDate,read:n.read,isSystem:false,fromPrenom:n.fromPrenom,weekLabel:`${fmtD(mon)} au ${fmtD(fri)}`};
+      return{id:n.id,title:`Nouvel Update de ${n.fromPrenom}`,content:null,notif:n,date:msgDate,read:n.read,isSystem:false,fromPrenom:n.fromPrenom,weekLabel:(mon.getMonth()===fri.getMonth()?`lundi ${mon.getDate()} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`:`lundi ${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"long"})} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`)};
     }).sort((a,b)=>b.date-a.date);
 
   // Teammate notifications (manager read your update)
@@ -678,18 +687,22 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates}){
   const weekKey=getUpdateWeekKey();
   const existing=weekKey?myUpdates.find(u=>u.weekKey===weekKey):null;
   const [answers,setAnswers]=useState(existing?.answers||{});
+  // Show as submitted only if existing update exists (regardless of lock)
+  // User can still submit even after 15h if they haven't submitted yet
   const [submitted,setSubmitted]=useState(!!existing);
   const [viewUpdate,setViewUpdate]=useState(null);
   const [selectedWeek,setSelectedWeek]=useState(null);
 
   if(!weekKey)return <div style={{minHeight:"100vh",background:"#f5f3ef",display:"flex",flexDirection:"column"}}>
-    <TopBar onBack={onBack} title="Mon Update"/>
+    <TopBar onBack={onBack} title="Mes Updates"/>
     <div style={{display:"flex",flex:1,alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12}}>
       <div style={{fontSize:48}}>🚫</div>
       <div style={{fontSize:16,fontWeight:600,color:"#1a1814"}}>Pas d'update le mardi</div>
-      <div style={{fontSize:13,color:"#9e9890"}}>L'update se complète le lundi (semaine passée) ou du mercredi au dimanche (semaine en cours).</div>
+      <div style={{fontSize:13,color:"#9e9890"}}>L'update se complète le lundi (semaine passée) ou du mercredi au vendredi (semaine en cours).</div>
     </div>
   </div>;
+
+
 
   const{mon,fri}=getWeekBounds(weekKey);
   const fmtD=d=>`${d.getDate()} ${d.toLocaleString("fr-FR",{month:"long"})}`;
@@ -721,12 +734,28 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates}){
 
       <div style={{fontSize:13,color:"#6b6560",marginBottom:16}}>Semaine du {weekLabel}</div>
 
-      {submitted?<div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:24,textAlign:"center"}}>
-        <div style={{fontSize:32,marginBottom:8}}>✅</div>
-        <div style={{fontSize:16,fontWeight:600,color:"#166534",marginBottom:4}}>Update enregistré !</div>
-        <div style={{fontSize:13,color:"#6b6560"}}>{isUpdateLocked()?"Cet update ne peut plus être modifié (délai passé).":"Tu pourras le modifier jusqu'au vendredi 15h."}</div>
-        {!isUpdateLocked()&&<button onClick={()=>setSubmitted(false)} style={{marginTop:16,fontSize:13,color:"#1d4ed8",background:"none",border:"1px solid #1d4ed8",borderRadius:6,padding:"6px 14px",cursor:"pointer"}}>Modifier</button>}
-      </div>:<>
+      {submitted?<div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:20}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+          <span style={{fontSize:24}}>✅</span>
+          <div>
+            <div style={{fontSize:14,fontWeight:600,color:"#166534"}}>Update enregistré !</div>
+            <div style={{fontSize:12,color:"#6b6560"}}>{isUpdateLocked()?"Non modifiable (délai vendredi 15h dépassé).":"Modifiable jusqu'au vendredi 15h."}</div>
+          </div>
+          {!isUpdateLocked()&&<button onClick={()=>setSubmitted(false)} style={{marginLeft:"auto",fontSize:12,color:"#1d4ed8",background:"none",border:"1px solid #1d4ed8",borderRadius:6,padding:"5px 12px",cursor:"pointer"}}>Modifier</button>}
+        </div>
+        {/* Show answers read-only */}
+        <div style={{display:"flex",flexDirection:"column",gap:10,opacity:0.85}}>
+          {(questions||DEFAULT_QUESTIONS).filter(q=>answers[q.id]).map(q=>{
+            const val=answers[q.id];
+            if(q.type==="mood")return <div key={q.id} style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:11,color:"#9e9890",flex:1}}>{q.text.replace(" *","")}</span><span style={{fontSize:22}}>{val}</span></div>;
+            if(q.type==="presence")return <div key={q.id}><span style={{fontSize:11,color:"#9e9890"}}>{q.text.replace(" *","")}</span><div style={{fontSize:12,background:"#fff",borderRadius:6,padding:"4px 8px",marginTop:3}}>{val}</div></div>;
+            return <div key={q.id} style={{background:q.confidentiel?"#fdf4ff":"#fff",borderRadius:6,padding:"8px 10px",border:"1px solid #e2ddd6"}}>
+              <div style={{fontSize:10,fontWeight:600,color:q.confidentiel?"#a21caf":"#9e9890",marginBottom:3}}>{q.confidentiel?"🔒 ":""}{q.text.replace(" *","")}</div>
+              <div style={{fontSize:12,whiteSpace:"pre-wrap",color:"#1a1814"}}>{val}</div>
+            </div>;
+          })}
+        </div>
+      </div>:!weekKey?<div style={{textAlign:"center",padding:32,color:"#9e9890"}}>Pas d'update possible aujourd'hui.</div>:<>
         <div style={{display:"flex",flexDirection:"column",gap:14}}>
           {(questions||DEFAULT_QUESTIONS).map(q=>{
             if(q.type==="mood")return <div key={q.id} style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"16px 20px"}}>
@@ -1597,7 +1626,8 @@ export default function App(){
     // Send notification to teammate that manager read their update
     const{mon,fri}=getWeekBounds(notif.weekKey);
     const fmtD=d=>`${d.getDate()} ${d.toLocaleString("fr-FR",{month:"long"})}`;
-    const weekLabel=`semaine du lundi ${fmtD(mon)} au vendredi ${fmtD(fri)}`;
+    const sameM=mon.getMonth()===fri.getMonth();
+    const weekLabel=sameM?`semaine du lundi ${mon.getDate()} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`:`semaine du lundi ${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"long"})} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`;
     const managerPrenom=currentTeamMember?.prenom;
     // Store as a teammate_notification readable by the teammate
     const tmNotifId=`${notif.fromEmail}_${notif.weekKey}_read`;
