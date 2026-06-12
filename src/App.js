@@ -460,11 +460,15 @@ function MessagesPanel({managerNotifs,onReadNotif,teamMember,myUpdates=[]}){
   }
   reminderMsgs.forEach(m=>systemMsgs.push({...m,date:now,read:false,isSystem:true}));
 
-  const notifMsgs=managerNotifs.map(n=>{
-    const{mon,fri}=getWeekBounds(n.weekKey);
-    const fmtD=d=>`${d.getDate()} ${d.toLocaleString("fr-FR",{month:"long"})}`;
-    return{id:n.id,title:`Nouvel Update de ${n.fromPrenom}`,content:null,notif:n,date:new Date(n.submittedAt),read:n.read,isSystem:false,fromPrenom:n.fromPrenom,weekLabel:`${fmtD(mon)} au ${fmtD(fri)}`};
-  }).sort((a,b)=>b.date-a.date);
+  const notifMsgs=managerNotifs
+    .filter(n=>!n.pending) // only show delivered notifications
+    .map(n=>{
+      const{mon,fri}=getWeekBounds(n.weekKey);
+      const fmtD=d=>`${d.getDate()} ${d.toLocaleString("fr-FR",{month:"long"})}`;
+      // Use updatedAt if available (last modification), otherwise submittedAt
+      const msgDate=new Date(n.updatedAt||n.submittedAt);
+      return{id:n.id,title:`Nouvel Update de ${n.fromPrenom}`,content:null,notif:n,date:msgDate,read:n.read,isSystem:false,fromPrenom:n.fromPrenom,weekLabel:`${fmtD(mon)} au ${fmtD(fri)}`};
+    }).sort((a,b)=>b.date-a.date);
 
   const allMsgs=[...systemMsgs,...notifMsgs];
 
@@ -1490,6 +1494,19 @@ export default function App(){
       setAllUpdates(all);
     });
 
+    // Flush pending notifications when app opens after Friday 15h
+    if(isUpdateLocked()){
+      const flushPending=async()=>{
+        try{
+          const snap=await getDocs(query(collection(db,"update_notifications"),where("pending","==",true)));
+          for(const d of snap.docs){
+            await updateDoc(doc(db,"update_notifications",d.id),{pending:false,updatedAt:d.data().updatedAt||d.data().submittedAt});
+          }
+        }catch(e){console.error("flush pending:",e);}
+      };
+      flushPending();
+    }
+
     // Notifications for manager: updates from my direct reports
     const myReports=teamMembers.filter(m=>m.managerEmail===authUser.email);
     let unsubNotifs=()=>{};
@@ -1519,22 +1536,26 @@ export default function App(){
 
   async function handleUpdateSubmit(updateData){
     const me=currentTeamMember;
-    // Save update
+    // Save update with updatedAt timestamp
     const weekDocId=`${authUser.email}_${updateData.weekKey}`;
-    await setDoc(doc(db,"updates",weekDocId),{...updateData,email:authUser.email,prenom:me?.prenom});
+    const updateWithMeta={...updateData,email:authUser.email,prenom:me?.prenom,updatedAt:Date.now()};
+    await setDoc(doc(db,"updates",weekDocId),updateWithMeta);
 
-    // Create notification for manager only when update is locked (Fri after 15h)
-    if(me?.managerEmail&&updateData.notifyManager){
+    // Create/update notification for manager
+    if(me?.managerEmail){
       const notifId=`${authUser.email}_${updateData.weekKey}_notif`;
       const answersWithoutConfidential={...updateData.answers};
       const confidentiel=updateData.answers?.q6||null;
       delete answersWithoutConfidential.q6;
-
-      await setDoc(doc(db,"update_notifications",notifId),{
+      const notifData={
         fromEmail:authUser.email,fromPrenom:me?.prenom,managerEmail:me?.managerEmail,
         weekKey:updateData.weekKey,submittedAt:updateData.submittedAt,
-        answers:answersWithoutConfidential,confidentiel,read:false,readAt:null,
-      });
+        updatedAt:Date.now(),
+        answers:answersWithoutConfidential,confidentiel,
+        read:false,readAt:null,
+        pending:!isUpdateLocked(), // pending = not yet delivered to manager
+      };
+      await setDoc(doc(db,"update_notifications",notifId),notifData);
 
       // Save "read" notification for the teammate (for when manager reads)
       // This is stored as a separate collection for teammate notifications
