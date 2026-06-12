@@ -102,10 +102,21 @@ function formatDate(ts){
 // Week key: "YYYY-WNN"
 function getWeekKey(date){
   const d=new Date(date);
-  const dow=d.getDay(); // 0=sun, 1=mon
-  const mon=new Date(d);mon.setDate(d.getDate()-(dow===0?6:dow-1));
-  const yr=mon.getFullYear(),wk=Math.ceil(((mon-new Date(yr,0,1))/86400000+1)/7);
-  return `${yr}-W${String(wk).padStart(2,"0")}`;
+  // Use ISO week: Thursday of the week determines the year
+  const thu=new Date(d);
+  thu.setDate(d.getDate()-(d.getDay()||7)+4); // Thursday of current week
+  const yr=thu.getFullYear();
+  const jan4=new Date(yr,0,4); // Jan 4 is always in week 1
+  const wk=Math.round(((thu-jan4)/86400000+jan4.getDay()||7)/7)+1;
+  // Simpler: use the Monday-based calculation
+  const dow=d.getDay()||7; // 1=Mon...7=Sun
+  const mon=new Date(d);mon.setDate(d.getDate()-dow+1);
+  const yr2=mon.getFullYear();
+  const startOfYear=new Date(yr2,0,1);
+  const startDow=startOfYear.getDay()||7;
+  const startOfWeek1=new Date(yr2,0,1+(startDow<=4?1-startDow:8-startDow));
+  const wk2=Math.floor((mon-startOfWeek1)/604800000)+1;
+  return `${yr2}-W${String(wk2).padStart(2,"0")}`;
 }
 function getWeekBounds(weekKey){
   const [yr,wStr]=weekKey.split("-W");
