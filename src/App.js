@@ -451,7 +451,8 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,m
   }
 
   // Build all messages: system first, then notifs (newest first)
-  const currentWkKey2=getWeekKey(now);
+  // On Monday, check previous week's update; otherwise check current week
+  const currentWkKey2=getUpdateWeekKey()||getWeekKey(now);
   const updateDone=myUpdates.find(u=>u.weekKey===currentWkKey2);
   const reminderMsgs=[];
 
