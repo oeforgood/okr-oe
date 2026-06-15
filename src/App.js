@@ -834,6 +834,119 @@ function TopBar({onBack,title,extra,left}){
 }
 
 // ─── SETTINGS PAGE ────────────────────────────────────────────────────────────
+function UpdatesHistoryTab(){
+  const [allUpdates,setAllUpdates]=useState([]);
+  const [allNotifs,setAllNotifs]=useState([]);
+  const [allTmNotifs,setAllTmNotifs]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [filterPrenom,setFilterPrenom]=useState("");
+  const [filterWeek,setFilterWeek]=useState("");
+  const [expanded,setExpanded]=useState({});
+
+  useEffect(()=>{
+    let done=0;
+    const check=()=>{done++;if(done===3)setLoading(false);};
+    const u1=onSnapshot(collection(db,"updates"),(snap)=>{
+      setAllUpdates(snap.docs.map(d=>({id:d.id,...d.data()})));check();
+    });
+    const u2=onSnapshot(collection(db,"update_notifications"),(snap)=>{
+      setAllNotifs(snap.docs.map(d=>({id:d.id,...d.data()})));check();
+    });
+    const u3=onSnapshot(collection(db,"teammate_notifications"),(snap)=>{
+      setAllTmNotifs(snap.docs.map(d=>({id:d.id,...d.data()})));check();
+    });
+    return()=>{u1();u2();u3();};
+  },[]);
+
+  const prenoms=[...new Set(allUpdates.map(u=>u.prenom).filter(Boolean))].sort();
+  const weeks=[...new Set(allUpdates.map(u=>u.weekKey).filter(Boolean))].sort().reverse();
+
+  const filtered=allUpdates
+    .filter(u=>!filterPrenom||u.prenom===filterPrenom)
+    .filter(u=>!filterWeek||u.weekKey===filterWeek)
+    .sort((a,b)=>(b.weekKey||"").localeCompare(a.weekKey||""));
+
+  const fmtTs=ts=>ts?new Date(ts).toLocaleDateString("fr-FR",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}):"—";
+
+  return <div>
+    {/* Filters */}
+    <div style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+      <select value={filterPrenom} onChange={e=>setFilterPrenom(e.target.value)} style={{...INP,width:"auto",fontSize:12}}>
+        <option value="">Toute l'équipe</option>
+        {prenoms.map(p=><option key={p}>{p}</option>)}
+      </select>
+      <select value={filterWeek} onChange={e=>setFilterWeek(e.target.value)} style={{...INP,width:"auto",fontSize:12}}>
+        <option value="">Toutes les semaines</option>
+        {weeks.map(w=>{const{mon,fri}=getWeekBounds(w);const sameM=mon.getMonth()===fri.getMonth();const label=sameM?`${w} · lundi ${mon.getDate()} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`:`${w} · lundi ${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"short"})} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`;return <option key={w} value={w}>{label}</option>;})}
+      </select>
+      <span style={{fontSize:12,color:"#9e9890",alignSelf:"center"}}>{filtered.length} update{filtered.length>1?"s":""}</span>
+    </div>
+
+    {loading?<div style={{textAlign:"center",padding:32,color:"#9e9890"}}>Chargement…</div>
+    :<div style={{display:"flex",flexDirection:"column",gap:8}}>
+      {filtered.map(u=>{
+        const notif=allNotifs.find(n=>n.fromEmail===u.email&&n.weekKey===u.weekKey);
+        const tmNotif=allTmNotifs.find(n=>n.toEmail===u.email&&n.weekKey===u.weekKey);
+        const isOpen=expanded[u.id];
+        const{mon,fri}=getWeekBounds(u.weekKey||"2026-W01");
+        const sameM=mon.getMonth()===fri.getMonth();
+        const weekLabel=sameM?`lundi ${mon.getDate()} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`:`lundi ${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"short"})} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`;
+
+        return <div key={u.id} style={{border:"1px solid #e2ddd6",borderRadius:8,overflow:"hidden"}}>
+          {/* Header row */}
+          <div onClick={()=>setExpanded(p=>({...p,[u.id]:!p[u.id]}))}
+            style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",background:"#f8f7f5",cursor:"pointer"}}>
+            <div style={{width:28,height:28,borderRadius:"50%",background:pBg(u.prenom,prenoms),color:pTx(u.prenom,prenoms),display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:600,flexShrink:0}}>{ini(u.prenom)}</div>
+            <div style={{flex:1}}>
+              <span style={{fontSize:13,fontWeight:500,color:"#1a1814"}}>{u.prenom}</span>
+              <span style={{fontSize:11,color:"#9e9890",marginLeft:10}}>{weekLabel}</span>
+            </div>
+            <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
+              {u.answers?.q7&&<span style={{fontSize:16}}>{u.answers.q7}</span>}
+              <span style={{fontSize:11,color:"#9e9890"}}>{fmtTs(u.updatedAt||u.submittedAt)}</span>
+              {/* Notif status */}
+              {notif?<span style={{fontSize:10,background:notif.read?"#f0fdf4":"#fef3c7",color:notif.read?"#166534":"#92400e",border:`1px solid ${notif.read?"#86efac":"#fcd34d"}`,borderRadius:10,padding:"1px 7px"}}>
+                {notif.read?`Lu ${fmtTs(notif.readAt)}`:"Notif envoyée"}
+              </span>:<span style={{fontSize:10,color:"#c5c0b8",border:"1px solid #e2ddd6",borderRadius:10,padding:"1px 7px"}}>Pas de notif</span>}
+              <span style={{fontSize:11,color:"#9e9890",transform:isOpen?"rotate(180deg)":"none",transition:"transform .2s"}}>▾</span>
+            </div>
+          </div>
+          {/* Expanded content */}
+          {isOpen&&<div style={{padding:"14px 16px",borderTop:"1px solid #e2ddd6"}}>
+            {/* Notif details */}
+            <div style={{background:"#f8f7f5",borderRadius:6,padding:"8px 12px",marginBottom:12,fontSize:11,color:"#6b6560"}}>
+              <div style={{fontWeight:600,marginBottom:4,color:"#1a1814"}}>📬 Messages liés</div>
+              {notif
+                ?<div style={{display:"flex",flexDirection:"column",gap:3}}>
+                  <div>• Notif envoyée au référent : {fmtTs(notif.updatedAt||notif.submittedAt)} {notif.pending?"(en attente)":""}</div>
+                  <div>• Lue par le référent : {notif.read?fmtTs(notif.readAt):"Non encore lue"}</div>
+                  {tmNotif&&<div>• Confirmation envoyée à {u.prenom} : {fmtTs(tmNotif.createdAt)} {tmNotif.read?`· vue le ${fmtTs(tmNotif.readAt||tmNotif.createdAt)}`:"· pas encore vue"}</div>}
+                </div>
+                :<div>Aucune notification envoyée (pas de référent ou délai non dépassé)</div>
+              }
+              {notif?.confidentiel&&<div style={{marginTop:6,padding:"6px 8px",background:"#fdf4ff",borderRadius:4,border:"1px solid #e9d5ff"}}>
+                <span style={{fontSize:10,color:"#a21caf",fontWeight:600}}>🔒 Message confidentiel : </span>
+                <span style={{color:"#1a1814"}}>{notif.confidentiel}</span>
+              </div>}
+            </div>
+            {/* Answers */}
+            {DEFAULT_QUESTIONS.filter(q=>u.answers?.[q.id]).map(q=>{
+              const val=u.answers[q.id];
+              if(q.type==="mood")return <div key={q.id} style={{marginBottom:8,display:"flex",gap:8,alignItems:"center"}}><span style={{fontSize:10,color:"#9e9890",flex:1}}>{q.text.replace(" *","")}</span><span style={{fontSize:20}}>{val}</span></div>;
+              if(q.type==="presence")return <div key={q.id} style={{marginBottom:8}}><div style={{fontSize:10,color:"#9e9890",marginBottom:2}}>{q.text.replace(" *","")}</div><div style={{fontSize:12,background:"#f5f3ef",borderRadius:4,padding:"3px 8px"}}>{val}</div></div>;
+              return <div key={q.id} style={{marginBottom:8,background:q.confidentiel?"#fdf4ff":"#f8f7f5",borderRadius:6,padding:"6px 10px",border:q.confidentiel?"1px solid #e9d5ff":"none"}}>
+                <div style={{fontSize:10,fontWeight:600,color:q.confidentiel?"#a21caf":"#9e9890",marginBottom:3}}>{q.confidentiel?"🔒 ":""}{q.text.replace(" *","")}</div>
+                <div style={{fontSize:12,whiteSpace:"pre-wrap",color:"#1a1814"}}>{val}</div>
+              </div>;
+            })}
+          </div>}
+        </div>;
+      })}
+      {filtered.length===0&&<div style={{textAlign:"center",padding:32,color:"#9e9890",fontSize:13}}>Aucun update trouvé.</div>}
+    </div>}
+  </div>;
+}
+
 function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions}){
   const [members,setMembers]=useState(teamMembers.map(m=>({...m})));
   const [newPrenom,setNewPrenom]=useState("");
@@ -871,7 +984,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
     <TopBar onBack={onBack} title="⚙️ Paramètres"/>
     <div style={{maxWidth:800,margin:"0 auto",padding:"24px 16px 60px"}}>
       <div style={{display:"flex",gap:10,marginBottom:20}}>
-        {([{k:"members",l:"👥 Membres & rôles"},...(currentUser?.email===OWNER_EMAIL?[{k:"questions",l:"❓ Questions Update"}]:[])]).map(t=><button key={t.k} onClick={()=>setTab(t.k)}
+        {([{k:"members",l:"👥 Membres & rôles"},...(currentUser?.email===OWNER_EMAIL?[{k:"questions",l:"❓ Questions Update"},{k:"history",l:"📋 Historique Updates"}]:[])]).map(t=><button key={t.k} onClick={()=>setTab(t.k)}
           style={{padding:"8px 16px",borderRadius:8,border:`1px solid ${tab===t.k?"#2d6a4f":"#e2ddd6"}`,background:tab===t.k?"#2d6a4f":"#fff",color:tab===t.k?"#fff":"#6b6560",cursor:"pointer",fontSize:13,fontWeight:500}}>
           {t.l}
         </button>)}
@@ -949,10 +1062,12 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
         </div>
       )}
 
-      <button onClick={save} style={{marginTop:20,padding:"12px 28px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600}}>
+      {tab==="history"&&<UpdatesHistoryTab/>}
+
+      {tab!=="history"&&<><button onClick={save} style={{marginTop:20,padding:"12px 28px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600}}>
         💾 Enregistrer
       </button>
-      {saved&&<span style={{marginLeft:12,fontSize:13,color:"#2d6a4f"}}>✓ Sauvegardé !</span>}
+      {saved&&<span style={{marginLeft:12,fontSize:13,color:"#2d6a4f"}}>✓ Sauvegardé !</span>}</>}
     </div>
   </div>;
 }
