@@ -724,7 +724,11 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates}){
 
   function upd(qid,val){setAnswers(p=>({...p,[qid]:val}));}
   async function handleSubmit(){
-    await onSubmit({weekKey,answers,prenom:teamMember.prenom,email:teamMember.email,managerEmail:teamMember.managerEmail,submittedAt:Date.now(),notifyManager:isUpdateLocked()});
+    const now=new Date(),dow=now.getDay(),h=now.getHours();
+    // Notify immediately: Monday, or Fri after 15h, Sat, Sun
+    // Pending (wait for Fri 15h): Wed, Thu, Fri before 15h
+    const notifyNow=dow===1||(dow===5&&h>=15)||dow===6||dow===0;
+    await onSubmit({weekKey,answers,prenom:teamMember.prenom,email:teamMember.email,managerEmail:teamMember.managerEmail,submittedAt:Date.now(),notifyManager:notifyNow});
     setSubmitted(true);
   }
 
