@@ -955,6 +955,141 @@ function UpdatesHistoryTab(){
 
 // ─── REPORTING TAB ────────────────────────────────────────────────────────────
 
+const DEFAULT_SUBCAT_LABELS = {
+  "A1-31": "Subvention",
+  "B1-09": "Charges de personnel",
+  "B1-23": "Outils",
+  "C1-15": "Frais de déplacement",
+  "C1-18": "Honoraires",
+  "F1-07": "Autres achats et charges externes",
+  "F1-09": "Charges de personnel",
+  "F1-10": "Commissions sur ventes",
+  "F1-14": "Frais bancaires",
+  "F1-15": "Frais de déplacement",
+  "F1-18": "Honoraires",
+  "F1-23": "Outils",
+  "F1-31": "Subvention",
+  "F1-36": "Formations",
+  "G1-04": "Achats non stockés de matière et fournitures",
+  "G1-06": "Assurance",
+  "G1-09": "Charges de personnel",
+  "G1-12": "Entretiens et réparations",
+  "G1-17": "Frais postaux et de télécommunications",
+  "G1-18": "Honoraires",
+  "G1-20": "Impôts, taxes et versements assimilés",
+  "G1-22": "Locations immobilières",
+  "G1-23": "Outils",
+  "G1-30": "Sous-traitance",
+  "I1-11": "Dotation aux amortissements",
+  "J1-18": "Honoraires",
+  "L1-01": "Achat d'emballages",
+  "L1-04": "Achats non stockés de matière et fournitures",
+  "L1-09": "Charges de personnel",
+  "L1-12": "Entretiens et réparations",
+  "L1-15": "Frais de déplacement",
+  "L1-23": "Outils",
+  "L1-26": "Prestations de services",
+  "L1-31": "Subvention",
+  "M1-01": "Branding · Achat d'emballages",
+  "M1-04": "Branding · Achats non stockés",
+  "M1-15": "Branding · Frais de déplacement",
+  "M1-21": "Branding · Impressions de supports",
+  "M1-24": "Branding · PLV",
+  "M1-26": "Branding · Prestations de services",
+  "M1-AU": "Branding · Autre",
+  "M2-04": "Collab · Achats non stockés",
+  "M2-AU": "Collab · Autre",
+  "M3-27": "Partenariat/Visibilité · Publicité",
+  "M3-AU": "Partenariat/Visibilité · Autre",
+  "M4-23": "Outils web · Outils",
+  "M4-AU": "Outils web · Autre",
+  "M6-05": "Impact · Adhésions et concours",
+  "M6-26": "Impact · Prestations de services",
+  "M6-AU": "Impact · Autre",
+  "M7-05": "B2B · Adhésions et concours",
+  "M7-26": "B2B · Prestations de services",
+  "M7-29": "B2B · Salons",
+  "M7-AU": "B2B · Autre",
+  "M8-09": "Salaires et déplacements · Charges de personnel",
+  "M8-15": "Salaires et déplacements · Frais de déplacement",
+  "M8-31": "Salaires et déplacements · Subvention",
+  "M8-AU": "Salaires et déplacements · Autre",
+  "O1-09": "Charges de personnel",
+  "O1-13": "Etudes et recherches",
+  "O1-15": "Frais de déplacement",
+  "O1-31": "Subvention",
+  "R1-16": "Frais de recrutement",
+  "R1-23": "Outils",
+  "R1-36": "Formations",
+  "S1-03": "Retail · Achats de vin en vrac",
+  "S1-05": "Retail · Adhésions et concours",
+  "S1-09": "Retail · Charges de personnel",
+  "S1-10": "Retail · Commissions sur ventes",
+  "S1-15": "Retail · Frais de déplacement",
+  "S1-18": "Retail · Honoraires",
+  "S1-26": "Retail · Prestations de services",
+  "S1-30": "Retail · Sous-traitance",
+  "S1-31": "Retail · Subvention",
+  "S1-35": "Retail · Ventes de marchandises",
+  "S1-36": "Retail · Formations",
+  "S1-AU": "Retail · Autre",
+  "S2-04": "CHR · Achats non stockés",
+  "S2-05": "CHR · Adhésions et concours",
+  "S2-07": "CHR · Autres achats et charges",
+  "S2-09": "CHR · Charges de personnel",
+  "S2-10": "CHR · Commissions sur ventes",
+  "S2-15": "CHR · Frais de déplacement",
+  "S2-18": "CHR · Honoraires",
+  "S2-27": "CHR · Publicité",
+  "S2-31": "CHR · Subvention",
+  "S2-35": "CHR · Ventes de marchandises",
+  "S2-36": "CHR · Formations",
+  "S2-AU": "CHR · Autre",
+  "S3-05": "Export · Adhésions et concours",
+  "S3-09": "Export · Charges de personnel",
+  "S3-10": "Export · Commissions sur ventes",
+  "S3-15": "Export · Frais de déplacement",
+  "S3-18": "Export · Honoraires",
+  "S3-26": "Export · Prestations de services",
+  "S3-31": "Export · Subvention",
+  "S3-32": "Export · Transport",
+  "S3-36": "Export · Formations",
+  "S3-AU": "Export · Autre",
+  "S4-18": "X canal · Honoraires",
+  "S4-23": "X canal · Outils",
+  "S4-26": "X canal · Prestations de services",
+  "S4-27": "X canal · Publicité",
+  "S4-30": "X canal · Sous-traitance",
+  "S4-AU": "X canal · Autre",
+  "S5-05": "E-commerce · Adhésions et concours",
+  "S5-09": "E-commerce · Charges de personnel",
+  "S5-10": "E-commerce · Commissions sur ventes",
+  "S5-23": "E-commerce · Outils",
+  "S5-27": "E-commerce · Publicité",
+  "S5-AU": "E-commerce · Autre",
+  "S6-05": "Grands Comptes · Adhésions et concours",
+  "S6-09": "Grands Comptes · Charges de personnel",
+  "S6-15": "Grands Comptes · Frais de déplacement",
+  "S6-18": "Grands Comptes · Honoraires",
+  "S6-21": "Grands Comptes · Impressions de supports",
+  "S6-26": "Grands Comptes · Prestations de services",
+  "S6-27": "Grands Comptes · Publicité",
+  "S6-35": "Grands Comptes · Ventes de marchandises",
+  "S6-AU": "Grands Comptes · Autre",
+  "T1-06": "Assurance",
+  "T1-07": "Autres achats et charges externes",
+  "T1-14": "Frais bancaires",
+  "T1-28": "Remboursement de prêt et OS",
+  "Z1-34": "Vente de prestation de services",
+  "Z1-35": "Ventes de marchandises",
+  "Z2-01": "Achat d'emballages",
+  "Z2-02": "Achats de matières premières",
+  "Z2-03": "Achats de vin en vrac",
+  "Z2-25": "Prestation d'embouteillage",
+  "Z2-32": "Transport",
+  "Z2-33": "Variation des stocks"
+};
+
 const REPORTING_CANALS = ['E-commerce B2C','CHR','Grands Comptes','Retail','Export','Autres B2B','Régénération'];
 const CANAL_CSV_MAP = {'E-commerce B2C':'B2C','CHR':'CHR','Grands Comptes':'Grands Comptes','Retail':'Retail','Export':'Export','Autres B2B':'Autres B2B','Régénération':'Régénération'};
 const CANAL_MARGIN = {
@@ -1015,7 +1150,7 @@ function ReportingRow({label, months, lastMonth, bold=false, highlight=false, is
   const total = months.reduce((a,b)=>a+b,0);
   const col = total < 0 ? '#c0392b' : total > 0 ? '#166534' : '#9e9890';
   const bg = isTotal ? '#f0fdf4' : highlight ? '#f8f7f5' : 'transparent';
-  const cell = {padding:'5px 8px',fontSize:11,textAlign:'right',fontFamily:'system-ui,sans-serif',width:72,minWidth:72,maxWidth:72,
+  const cell = {padding:'5px 8px',fontSize:11,textAlign:'right',fontFamily:'system-ui,sans-serif',width:44,minWidth:44,maxWidth:44,
     borderBottom:'1px solid #f0ede8',whiteSpace:'nowrap'};
   return <>
     <tr onClick={onClick} style={{cursor:onClick?'pointer':'default',background:bg,
@@ -1083,79 +1218,91 @@ function DetailEcritures({rows, lastMonth, monthActive}) {
   </>;
 }
 
-function SubcatsDnD({codeMap, setCodeMap, onSaveCodeMap, subcatLabels, catTypes, onSaveCatTypes}) {
-  // Group subcategory codes by category
+function SubcatsDnD({codeMap, setCodeMap, onSaveCodeMap, subcatLabels, knownSubcats=new Set(), customLabels={}, setCustomLabels, catTypes, onSaveCatTypes}) {
+  const [editingKey, setEditingKey] = useState(null);
+  const [editVal, setEditVal] = useState('');
+
+  // Group full subcategory codes (e.g. M1-04) by category code prefix (e.g. M1 -> Marketing)
   const byCategory = {};
   const uncat = [];
-  Object.keys(DEFAULT_CODE_TO_CAT).sort().forEach(code => {
-    const cat = codeMap[code];
-    if (cat) { if (!byCategory[cat]) byCategory[cat] = []; byCategory[cat].push(code); }
-    else uncat.push(code);
+  // Collect all known subcats from DEFAULT_SUBCAT_LABELS + knownSubcats from data
+  const allSubcatCodes = new Set([...Object.keys(DEFAULT_SUBCAT_LABELS), ...(knownSubcats||new Set())]);
+  
+  [...allSubcatCodes].sort().forEach(subcat => {
+    const prefix = subcat.slice(0,2);
+    const cat = codeMap[prefix];
+    if (cat) { if (!byCategory[cat]) byCategory[cat] = []; byCategory[cat].push(subcat); }
+    else uncat.push(subcat);
   });
 
-  // Get unique short labels for a code prefix (e.g. M1 -> "Branding-Frais de déplacement", ...)
-  function getSubcatRows(code) {
-    return Object.entries(subcatLabels)
-      .filter(([k]) => k.startsWith(code + '-'))
-      .map(([k, v]) => {
-        const parts = v.split('-');
-        const shortLabel = parts.slice(1).join(' · ');
-        return { key: k, label: shortLabel };
-      });
+  function saveLabel(key, val) {
+    const n = {...customLabels, [key]: val};
+    setCustomLabels(n);
+    setEditingKey(null);
   }
-
-  function setCode(code, cat) {
-    const n = { ...codeMap, [code]: cat };
-    setCodeMap(n);
-    onSaveCodeMap && onSaveCodeMap(n);
+  function resetLabel(key) {
+    const n = {...customLabels};
+    delete n[key];
+    setCustomLabels(n);
   }
 
   return (
     <div>
-      {uncat.length > 0 && <div style={{background:'#fdecea',border:'1px solid #fca5a5',borderRadius:8,padding:'8px 14px',marginBottom:16,fontSize:12,color:'#c0392b'}}>
-        ⚠️ Codes non affectés : <strong>{uncat.join(', ')}</strong>
+      {uncat.filter((v,i,a)=>a.indexOf(v)===i).length > 0 && <div style={{background:'#fdecea',border:'1px solid #fca5a5',borderRadius:8,padding:'8px 14px',marginBottom:16,fontSize:12,color:'#c0392b'}}>
+        ⚠️ Codes non affectés : <strong>{[...new Set(uncat.map(s=>s.slice(0,2)))].join(', ')}</strong>
       </div>}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        {CATEGORIES_ORDER.map(cat => (
-          <div key={cat} style={{borderRadius:10,border:'1px solid #e2ddd6',background:'#fafaf8',padding:'12px 14px'}}>
-            {/* Category header with type selector */}
+        {CATEGORIES_ORDER.map(cat => {
+          const subcats = [...new Set(byCategory[cat]||[])];
+          return <div key={cat} style={{borderRadius:10,border:'1px solid #e2ddd6',background:'#fafaf8',padding:'12px 14px'}}>
             <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,paddingBottom:8,borderBottom:'1px solid #e2ddd6'}}>
               <span style={{fontSize:12,fontWeight:600,color:'#1a1814',flex:1}}>{cat}</span>
-              <select value={catTypes[cat]||'charges_expl'} onChange={e=>{const n={...catTypes,[cat]:e.target.value};onSaveCatTypes&&onSaveCatTypes(n);}}
-                style={{fontSize:10,border:'1px solid #e2ddd6',borderRadius:4,padding:'2px 6px',color:'#6b6560',cursor:'pointer',background:'#fff'}}>
-                <option value="charges_expl">Charges expl.</option>
-                <option value="autres_charges">Autres charges</option>
-                <option value="cogs">COGS</option>
-                <option value="ventes">Ventes</option>
-              </select>
+              <span style={{fontSize:10,color:'#9e9890',background:'#f5f3ef',padding:'2px 8px',borderRadius:10}}>
+                {catTypes[cat]==='charges_expl'?"Charges expl.":catTypes[cat]==='autres_charges'?"Autres charges":catTypes[cat]==='cogs'?"COGS":"Ventes"}
+              </span>
             </div>
-            {/* Subcategories list */}
-            <div style={{display:'flex',flexDirection:'column',gap:4}}>
-              {(byCategory[cat]||[]).map(code => {
-                const rows = getSubcatRows(code);
-                return <div key={code} style={{background:'#fff',borderRadius:6,border:'1px solid #e2ddd6',padding:'6px 10px'}}>
-                  <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:rows.length?4:0}}>
-                    <span style={{fontSize:10,fontWeight:600,color:'#2d6a4f',fontFamily:'monospace',flexShrink:0}}>{code}</span>
-                    <select value={cat} onChange={e=>setCode(code,e.target.value)}
-                      style={{fontSize:10,border:'none',background:'transparent',color:'#9e9890',cursor:'pointer',marginLeft:'auto',outline:'none'}}>
-                      <option value="">— déplacer —</option>
-                      {CATEGORIES_ORDER.map(c=><option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </div>
-                  {rows.map(r=><div key={r.key} style={{fontSize:10,color:'#6b6560',paddingLeft:4,lineHeight:1.4}}>· {r.label}</div>)}
+            <div style={{display:'flex',flexDirection:'column',gap:3}}>
+              {subcats.map(subcat => {
+                const hasData = knownSubcats?.has(subcat);
+                const defaultLbl = DEFAULT_SUBCAT_LABELS[subcat];
+                const currentLbl = subcatLabels[subcat] || (defaultLbl ? '' : '— À nommer —');
+                const isCustom = !!customLabels[subcat];
+                const isNew = !defaultLbl && knownSubcats?.has(subcat);
+                
+                return <div key={subcat} style={{
+                  background:'#fff',borderRadius:6,border:'1px solid #e2ddd6',
+                  padding:'5px 8px',opacity:hasData?1:0.5,
+                  display:'flex',alignItems:'center',gap:6,
+                }}>
+                  <span style={{fontSize:10,fontWeight:600,color:'#2d6a4f',fontFamily:'monospace',flexShrink:0,minWidth:40}}>{subcat}</span>
+                  {editingKey===subcat
+                    ?<input autoFocus value={editVal}
+                        onChange={e=>setEditVal(e.target.value)}
+                        onBlur={()=>saveLabel(subcat,editVal)}
+                        onKeyDown={e=>{if(e.key==='Enter')saveLabel(subcat,editVal);if(e.key==='Escape')setEditingKey(null);}}
+                        style={{flex:1,fontSize:10,border:'1px solid #2d6a4f',borderRadius:4,padding:'2px 4px',outline:'none'}}/>
+                    :<span onClick={()=>{setEditingKey(subcat);setEditVal(currentLbl);}}
+                        style={{flex:1,fontSize:10,color:isNew?'#c0392b':hasData?'#6b6560':'#c5c0b8',
+                          textDecoration:hasData?'none':'line-through',cursor:'pointer'}}
+                        title="Cliquer pour modifier">
+                        {currentLbl||defaultLbl||'— À nommer —'}
+                      </span>}
+                  {isCustom&&<span title="Nom modifié — cliquer pour restaurer" onClick={()=>resetLabel(subcat)}
+                    style={{fontSize:9,color:'#f59e0b',cursor:'pointer',flexShrink:0}}>↩</span>}
+                  {isNew&&<span style={{fontSize:9,color:'#c0392b',flexShrink:0}}>NEW</span>}
                 </div>;
               })}
-              {(byCategory[cat]||[]).length===0&&<span style={{fontSize:11,color:'#c5c0b8',fontStyle:'italic'}}>Aucune sous-catégorie</span>}
+              {subcats.length===0&&<span style={{fontSize:11,color:'#c5c0b8',fontStyle:'italic'}}>Aucune sous-catégorie</span>}
             </div>
-          </div>
-        ))}
+          </div>;
+        })}
       </div>
     </div>
   );
 }
 
-function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMap}) {
+function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMap, savedCustomLabels={}, onSaveCustomLabels}) {
   const [caData, setCaData] = useState(null);
   const [chargeData, setChargeData] = useState(null);
   const [subcatLabels, setSubcatLabels] = useState({});
@@ -1163,6 +1310,16 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
   const [loading, setLoading] = useState(true);
   const [catTypes, setCatTypes] = useState(savedCatTypes || DEFAULT_CAT_TYPE);
   const [codeMap, setCodeMap] = useState(savedCodeMap || DEFAULT_CODE_TO_CAT);
+  const [customLabels, setCustomLabels] = useState(savedCustomLabels||{});  // user-edited labels
+  
+  // Merge: customLabels override DEFAULT_SUBCAT_LABELS
+  const effectiveLabels = useMemo(()=>({...DEFAULT_SUBCAT_LABELS, ...customLabels}),[customLabels]);
+  
+  // All known subcats from data
+  const knownSubcats = useMemo(()=>{
+    if(!chargeData) return new Set();
+    return new Set(Object.keys(chargeData));
+  },[chargeData]);
   const [activeTab, setActiveTab] = useState('report');
   const [expanded, setExpanded] = useState({});
   const [monthActive, setMonthActive] = useState(Array(12).fill(true));
@@ -1275,7 +1432,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
           indent={1} inKeur={inKeur} onClick={()=>toggle(catKey)} isOpen={expanded[catKey]}>
           {Object.entries(cats[cat]||{}).sort(([a],[b])=>a.localeCompare(b)).map(([subcat,d])=>{
             const subcatKey=catKey+'-'+subcat;
-            const label2=`${subcat} · ${subcatLabels[subcat]||''}`;
+            const label2=`${subcat} · ${effectiveLabels[subcat]||subcatLabels[subcat]||''}`;
             return <ReportingRow key={subcat} label={label2} months={d.months} lastMonth={lastMonth}
               indent={2} inKeur={inKeur} onClick={()=>toggle(subcatKey)} isOpen={expanded[subcatKey]}>
               <DetailEcritures rows={d.rows} lastMonth={lastMonth} monthActive={monthActive}/>
@@ -1302,7 +1459,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
 
 
     {/* Subcats tab - drag and drop */}
-    {activeTab==='subcats'&&<SubcatsDnD codeMap={codeMap} setCodeMap={setCodeMap} onSaveCodeMap={onSaveCodeMap} subcatLabels={subcatLabels} catTypes={catTypes} onSaveCatTypes={onSaveCatTypes}/>}
+    {activeTab==='subcats'&&<SubcatsDnD codeMap={codeMap} setCodeMap={setCodeMap} onSaveCodeMap={onSaveCodeMap} subcatLabels={effectiveLabels} knownSubcats={knownSubcats} customLabels={customLabels} setCustomLabels={(cl)=>{setCustomLabels(cl);onSaveCustomLabels&&onSaveCustomLabels(cl);}} catTypes={catTypes} onSaveCatTypes={onSaveCatTypes}/>}
 
     {/* Report tab */}
     {activeTab==='report'&&<>
@@ -1340,10 +1497,10 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
               {MONTHS_FR.map((m,i)=><>
                 {i===lastMonth&&<th key="ytd" style={{padding:'8px 8px',textAlign:'right',fontSize:11,fontWeight:700,
                   color:'#2d6a4f',borderLeft:'2px solid #2d6a4f',borderRight:'2px solid #2d6a4f',
-                  background:'#f0fdf4',borderBottom:'1px solid #e2ddd6',whiteSpace:'nowrap',width:72}}>YTD</th>}
+                  background:'#f0fdf4',borderBottom:'1px solid #e2ddd6',whiteSpace:'nowrap',width:44}}>YTD</th>}
                 <th key={i} style={{padding:'8px 8px',textAlign:'right',fontSize:11,fontWeight:600,
                   color:i<lastMonth?'#1a1814':'#c5c0b8',borderBottom:'1px solid #e2ddd6',
-                  background:i<lastMonth?'transparent':'#fafafa',whiteSpace:'nowrap',width:72}}>
+                  background:i<lastMonth?'transparent':'#fafafa',whiteSpace:'nowrap',width:44}}>
                   {m}
                   {i<lastMonth&&<span style={{display:'inline-block',width:6,height:6,borderRadius:'50%',
                     background:monthActive[i]?'#2d6a4f':'#c5c0b8',marginLeft:6,cursor:'pointer',verticalAlign:'middle'}}
@@ -1352,9 +1509,9 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
               </>)}
               {lastMonth===12&&<th key="ytd" style={{padding:'8px 8px',textAlign:'right',fontSize:11,fontWeight:700,
                 color:'#2d6a4f',borderLeft:'2px solid #2d6a4f',background:'#f0fdf4',
-                borderBottom:'1px solid #e2ddd6',whiteSpace:'nowrap',width:72}}>YTD</th>}
+                borderBottom:'1px solid #e2ddd6',whiteSpace:'nowrap',width:44}}>YTD</th>}
               <th style={{padding:'8px 8px',textAlign:'right',fontSize:11,fontWeight:600,
-                color:'#6b6560',borderLeft:'1px solid #e2ddd6',borderBottom:'1px solid #e2ddd6',width:72}}>Total</th>
+                color:'#6b6560',borderLeft:'1px solid #e2ddd6',borderBottom:'1px solid #e2ddd6',width:44}}>Total</th>
             </tr>
           </thead>
           <tbody>
@@ -1374,20 +1531,20 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                     const isEmpty=i>=lastMonth;
                     return <>
                       {i===lastMonth&&<td key="ytd" style={{padding:'5px 8px',fontSize:11,textAlign:'right',
-                        fontFamily:'system-ui,sans-serif',borderBottom:'1px solid #f0ede8',width:72,
+                        fontFamily:'system-ui,sans-serif',borderBottom:'1px solid #f0ede8',width:44,
                         borderLeft:'2px solid #2d6a4f',borderRight:'2px solid #2d6a4f',background:'#f0fdf4',
                         fontWeight:600,color:'#166534'}}>{fmtPct(rate)}</td>}
                       <td key={i} style={{padding:'5px 8px',fontSize:11,textAlign:'right',
-                        fontFamily:'system-ui,sans-serif',borderBottom:'1px solid #f0ede8',width:72,
+                        fontFamily:'system-ui,sans-serif',borderBottom:'1px solid #f0ede8',width:44,
                         color:isEmpty?'#c5c0b8':'#166534',background:isEmpty?'#fafafa':'transparent'}}>
                         {isEmpty?'—':fmtPct(rate)}
                       </td>
                     </>;
                   })}
-                  {lastMonth===12&&<td style={{padding:'5px 8px',fontSize:11,textAlign:'right',width:72,
+                  {lastMonth===12&&<td style={{padding:'5px 8px',fontSize:11,textAlign:'right',width:44,
                     borderLeft:'2px solid #2d6a4f',background:'#f0fdf4',borderBottom:'1px solid #f0ede8',
                     fontWeight:600,color:'#166534'}}>{fmtPct(rate)}</td>}
-                  <td style={{padding:'5px 8px',fontSize:11,textAlign:'right',width:72,
+                  <td style={{padding:'5px 8px',fontSize:11,textAlign:'right',width:44,
                     borderLeft:'1px solid #e2ddd6',borderBottom:'1px solid #f0ede8',color:'#166534'}}>{fmtPct(rate)}</td>
                 </tr>;
               })}
@@ -1404,7 +1561,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
 }
 
 
-function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions,catTypes,onSaveCatTypes,codeMap,onSaveCodeMap}){
+function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions,catTypes,onSaveCatTypes,codeMap,onSaveCodeMap,customSubcatLabels,onSaveCustomSubcatLabels}){
   const [members,setMembers]=useState(teamMembers.map(m=>({...m})));
   const [newPrenom,setNewPrenom]=useState("");
   const [newManager,setNewManager]=useState("");
@@ -1520,7 +1677,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
       )}
 
       {tab==="history"&&<UpdatesHistoryTab/>}
-      {tab==="reporting"&&<ReportingTab onSaveCatTypes={onSaveCatTypes} savedCatTypes={catTypes} savedCodeMap={codeMap} onSaveCodeMap={onSaveCodeMap}/>}
+      {tab==="reporting"&&<ReportingTab onSaveCatTypes={onSaveCatTypes} savedCatTypes={catTypes} savedCodeMap={codeMap} onSaveCodeMap={onSaveCodeMap} savedCustomLabels={customSubcatLabels} onSaveCustomLabels={onSaveCustomSubcatLabels}/>}
 
       {tab!=="history"&&tab!=="reporting"&&<><button onClick={save} style={{marginTop:20,padding:"12px 28px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600}}>
         💾 Enregistrer
@@ -2086,6 +2243,7 @@ export default function App(){
         if(d.questions)setQuestions(d.questions);
         if(d.catTypes)setCatTypes(d.catTypes);
         if(d.codeMap)setCodeMap(d.codeMap);
+        if(d.customSubcatLabels)setCustomSubcatLabels(d.customSubcatLabels);
       } else {
         // Init with defaults
         const defaultMembers=[
@@ -2245,8 +2403,13 @@ export default function App(){
     setCatTypes(ct);
   }
   async function handleSaveCodeMap(cm){
-    await setDoc(doc(db,"app_config","main"),{teamMembers,questions,catTypes,codeMap:cm});
+    await setDoc(doc(db,"app_config","main"),{teamMembers,questions,catTypes,codeMap:cm,customSubcatLabels});
     setCodeMap(cm);
+  }
+  const [customSubcatLabels,setCustomSubcatLabels]=useState({});
+  async function handleSaveCustomLabels(cl){
+    await setDoc(doc(db,"app_config","main"),{teamMembers,questions,catTypes,codeMap,customSubcatLabels:cl});
+    setCustomSubcatLabels(cl);
   }
 
   if(authLoading)return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f5f3ef",fontFamily:"system-ui"}}>
@@ -2273,7 +2436,7 @@ export default function App(){
 
   if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers}/>;
   if(page==="update")return <UpdatePage teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} myUpdates={myUpdates}/>;
-  if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap}/>;
+  if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels}/>;
 
   return <Dashboard
     currentUser={authUser}
