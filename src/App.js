@@ -1150,14 +1150,15 @@ function ReportingRow({label, months, lastMonth, bold=false, highlight=false, is
   const total = months.reduce((a,b)=>a+b,0);
   const col = total < 0 ? '#c0392b' : total > 0 ? '#166534' : '#9e9890';
   const bg = isTotal ? '#f0fdf4' : highlight ? '#f8f7f5' : 'transparent';
-  const cell = {padding:'5px 8px',fontSize:11,textAlign:'right',fontFamily:'system-ui,sans-serif',width:44,minWidth:44,maxWidth:44,
+  const cell = {padding:'5px 4px',fontSize:11,textAlign:'right',fontFamily:'system-ui,sans-serif',fontVariantNumeric:'tabular-nums',width:44,minWidth:44,maxWidth:44,
     borderBottom:'1px solid #f0ede8',whiteSpace:'nowrap'};
   return <>
     <tr onClick={onClick} style={{cursor:onClick?'pointer':'default',background:bg,
       borderTop:isTotal?'2px solid #e2ddd6':'none'}}>
-      <td style={{padding:`5px 8px 5px ${8+indent*14}px`,fontSize:12,fontWeight:bold?600:400,
+      <td style={{padding:`5px 6px 5px ${6+indent*12}px`,fontSize:11,fontWeight:bold?600:400,
         position:'sticky',left:0,background:bg||'#fff',zIndex:1,
-        borderBottom:'1px solid #f0ede8',minWidth:280,maxWidth:340}}>
+        borderBottom:'1px solid #f0ede8',minWidth:220,maxWidth:220,width:220,
+        overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
         <div style={{display:'flex',alignItems:'center',gap:4}}>
           {onClick&&<span style={{fontSize:9,color:'#9e9890',flexShrink:0,
             transform:isOpen?'rotate(90deg)':'none',transition:'transform .15s',display:'inline-block'}}>▶</span>}
@@ -1195,9 +1196,10 @@ function DetailEcritures({rows, lastMonth, monthActive}) {
     .sort((a,b)=>a.month-b.month||a.compte.localeCompare(b.compte));
   return <>
     {sorted.map((r,i)=><tr key={i} style={{background:'#fafaf8'}}>
-      <td style={{padding:'3px 8px 3px 56px',fontSize:10,color:'#6b6560',
+      <td style={{padding:'3px 4px 3px 40px',fontSize:10,color:'#6b6560',
         position:'sticky',left:0,background:'#fafaf8',zIndex:1,
-        borderBottom:'1px solid #f5f5f3',minWidth:280,maxWidth:400}}>
+        borderBottom:'1px solid #f5f5f3',width:220,minWidth:220,maxWidth:220,
+        overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
         <span style={{color:'#9e9890',marginRight:6}}>{MONTHS_FR[r.month-1]}</span>
         {r.compte} · {r.libCompte} · {r.tiers||'—'} · {r.facture||'—'} · {r.libLigne}
       </td>
@@ -1218,7 +1220,7 @@ function DetailEcritures({rows, lastMonth, monthActive}) {
   </>;
 }
 
-function SubcatsDnD({codeMap, setCodeMap, onSaveCodeMap, subcatLabels, knownSubcats=new Set(), customLabels={}, setCustomLabels, catTypes, onSaveCatTypes}) {
+function SubcatsDnD({codeMap, setCodeMap, onSaveCodeMap, subcatLabels, knownSubcats=new Set(), customLabels={}, setCustomLabels, catTypes, onSaveCatTypes, activeSubcats={}, onToggleSubcat}) {
   const [editingKey, setEditingKey] = useState(null);
   const [editVal, setEditVal] = useState('');
 
@@ -1265,15 +1267,19 @@ function SubcatsDnD({codeMap, setCodeMap, onSaveCodeMap, subcatLabels, knownSubc
             <div style={{display:'flex',flexDirection:'column',gap:3}}>
               {subcats.map(subcat => {
                 const hasData = knownSubcats?.has(subcat);
+                if (!hasData) return null; // Hide subcats with no transactions
+                
                 const defaultLbl = DEFAULT_SUBCAT_LABELS[subcat];
                 const currentLbl = subcatLabels[subcat] || (defaultLbl ? '' : '— À nommer —');
                 const isCustom = !!customLabels[subcat];
-                const isNew = !defaultLbl && knownSubcats?.has(subcat);
+                const isNew = !defaultLbl && hasData;
+                const isActive = activeSubcats[subcat] !== false;
                 
                 return <div key={subcat} style={{
                   background:'#fff',borderRadius:6,border:'1px solid #e2ddd6',
-                  padding:'5px 8px',opacity:hasData?1:0.5,
+                  padding:'5px 8px',
                   display:'flex',alignItems:'center',gap:6,
+                  opacity:isActive?1:0.6,
                 }}>
                   <span style={{fontSize:10,fontWeight:600,color:'#2d6a4f',fontFamily:'monospace',flexShrink:0,minWidth:40}}>{subcat}</span>
                   {editingKey===subcat
@@ -1282,15 +1288,20 @@ function SubcatsDnD({codeMap, setCodeMap, onSaveCodeMap, subcatLabels, knownSubc
                         onBlur={()=>saveLabel(subcat,editVal)}
                         onKeyDown={e=>{if(e.key==='Enter')saveLabel(subcat,editVal);if(e.key==='Escape')setEditingKey(null);}}
                         style={{flex:1,fontSize:10,border:'1px solid #2d6a4f',borderRadius:4,padding:'2px 4px',outline:'none'}}/>
-                    :<span onClick={()=>{setEditingKey(subcat);setEditVal(currentLbl);}}
-                        style={{flex:1,fontSize:10,color:isNew?'#c0392b':hasData?'#6b6560':'#c5c0b8',
-                          textDecoration:hasData?'none':'line-through',cursor:'pointer'}}
-                        title="Cliquer pour modifier">
+                    :<span onClick={()=>{setEditingKey(subcat);setEditVal(currentLbl||defaultLbl||'');}}
+                        style={{flex:1,fontSize:10,color:isNew?'#c0392b':'#6b6560',cursor:'pointer'}}
+                        title="Cliquer pour modifier le libellé">
                         {currentLbl||defaultLbl||'— À nommer —'}
                       </span>}
-                  {isCustom&&<span title="Nom modifié — cliquer pour restaurer" onClick={()=>resetLabel(subcat)}
+                  {isCustom&&<span title="Libellé modifié — cliquer pour restaurer l'original" onClick={()=>resetLabel(subcat)}
                     style={{fontSize:9,color:'#f59e0b',cursor:'pointer',flexShrink:0}}>↩</span>}
                   {isNew&&<span style={{fontSize:9,color:'#c0392b',flexShrink:0}}>NEW</span>}
+                  {/* Active/inactive toggle dot */}
+                  <span title={isActive?"Désactiver (sera regroupé dans XX-AU)":"Activer"}
+                    onClick={()=>onToggleSubcat&&onToggleSubcat(subcat)}
+                    style={{width:8,height:8,borderRadius:'50%',
+                      background:isActive?'#2d6a4f':'#c5c0b8',flexShrink:0,cursor:'pointer',
+                      border:`1px solid ${isActive?'#2d6a4f':'#e2ddd6'}`,display:'inline-block'}}/>
                 </div>;
               })}
               {subcats.length===0&&<span style={{fontSize:11,color:'#c5c0b8',fontStyle:'italic'}}>Aucune sous-catégorie</span>}
@@ -1311,6 +1322,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
   const [catTypes, setCatTypes] = useState(savedCatTypes || DEFAULT_CAT_TYPE);
   const [codeMap, setCodeMap] = useState(savedCodeMap || DEFAULT_CODE_TO_CAT);
   const [customLabels, setCustomLabels] = useState(savedCustomLabels||{});  // user-edited labels
+  const [activeSubcats, setActiveSubcats] = useState({});  // false = inactive (merged into XX-AU)
   
   // Merge: customLabels override DEFAULT_SUBCAT_LABELS
   const effectiveLabels = useMemo(()=>({...DEFAULT_SUBCAT_LABELS, ...customLabels}),[customLabels]);
@@ -1329,11 +1341,20 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
     const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists())setCaData(snap.data().caData);});
     const u2=onSnapshot(doc(db,'reporting','charges'),(snap)=>{if(snap.exists())setChargeData(snap.data().chargeData);});
     const u3=onSnapshot(doc(db,'reporting','meta'),(snap)=>{
-      if(snap.exists()){setSubcatLabels(snap.data().subcatLabels||{});setImportedAt(snap.data().importedAt);}
+      if(snap.exists()){
+        setSubcatLabels(snap.data().subcatLabels||{});
+        setImportedAt(snap.data().importedAt);
+        if(snap.data().activeSubcats) setActiveSubcats(snap.data().activeSubcats);
+      }
       setLoading(false);
     });
     return()=>{u1();u2();u3();};
   },[]);
+  
+  async function saveActiveSubcats(a){
+    await updateDoc(doc(db,'reporting','meta'),{activeSubcats:a}).catch(()=>{});
+    setActiveSubcats(a);
+  }
 
   // Detect last month with data
   const lastMonth = useMemo(()=>{
@@ -1394,10 +1415,18 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
       const type=catTypes[cat]||'charges_expl';
       if(!res[type]) res[type]={};
       if(!res[type][cat]) res[type][cat]={};
-      res[type][cat][subcat]={months:getMonthArray(data.months),rows:data.rows||[]};
+      
+      // If subcat is inactive, merge into XX-AU bucket
+      const isActive = activeSubcats[subcat] !== false; // default true
+      const targetSubcat = isActive ? subcat : `${code}-AU`;
+      
+      if(!res[type][cat][targetSubcat]) res[type][cat][targetSubcat]={months:Array(12).fill(0),rows:[]};
+      const months=getMonthArray(data.months);
+      months.forEach((v,i)=>res[type][cat][targetSubcat].months[i]+=v);
+      if(isActive) res[type][cat][targetSubcat].rows=(res[type][cat][targetSubcat].rows||[]).concat(data.rows||[]);
     });
     return res;
-  },[chargeData,codeMap,catTypes]);
+  },[chargeData,codeMap,catTypes,activeSubcats]);
 
   function getGroupTotal(type) {
     const cats=chargeByType[type]||{};
@@ -1459,7 +1488,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
 
 
     {/* Subcats tab - drag and drop */}
-    {activeTab==='subcats'&&<SubcatsDnD codeMap={codeMap} setCodeMap={setCodeMap} onSaveCodeMap={onSaveCodeMap} subcatLabels={effectiveLabels} knownSubcats={knownSubcats} customLabels={customLabels} setCustomLabels={(cl)=>{setCustomLabels(cl);onSaveCustomLabels&&onSaveCustomLabels(cl);}} catTypes={catTypes} onSaveCatTypes={onSaveCatTypes}/>}
+    {activeTab==='subcats'&&<SubcatsDnD codeMap={codeMap} setCodeMap={setCodeMap} onSaveCodeMap={onSaveCodeMap} subcatLabels={effectiveLabels} knownSubcats={knownSubcats} customLabels={customLabels} setCustomLabels={(cl)=>{setCustomLabels(cl);onSaveCustomLabels&&onSaveCustomLabels(cl);}} catTypes={catTypes} onSaveCatTypes={onSaveCatTypes} activeSubcats={activeSubcats} onToggleSubcat={(k)=>{const n={...activeSubcats,[k]:activeSubcats[k]===false};saveActiveSubcats(n);}}/>}
 
     {/* Report tab */}
     {activeTab==='report'&&<>
@@ -1490,8 +1519,9 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
         <table style={{width:'100%',borderCollapse:'collapse',minWidth:900}}>
           <thead>
             <tr style={{background:'#f5f3ef'}}>
-              <th style={{padding:'8px 12px',textAlign:'left',fontSize:11,fontWeight:600,color:'#6b6560',
-                position:'sticky',left:0,background:'#f5f3ef',zIndex:2,minWidth:280,borderBottom:'1px solid #e2ddd6'}}>
+              <th style={{padding:'8px 6px',textAlign:'left',fontSize:11,fontWeight:600,color:'#6b6560',
+                position:'sticky',left:0,background:'#f5f3ef',zIndex:2,
+                width:220,minWidth:220,maxWidth:220,borderBottom:'1px solid #e2ddd6'}}>
                 Ligne P&L
               </th>
               {MONTHS_FR.map((m,i)=><>
