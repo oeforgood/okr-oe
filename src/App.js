@@ -952,7 +952,342 @@ function UpdatesHistoryTab(){
   </div>;
 }
 
-function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions}){
+
+// ─── REPORTING TAB ────────────────────────────────────────────────────────────
+
+const REPORTING_CANALS = ['Autres B2B','B2C','CHR','Export','Grands Comptes','Retail','Régénération'];
+const CANAL_MARGIN = {'Régénération': 1.0};
+const DEFAULT_CANAL_MARGIN = 0.263;
+
+const CODE_TO_CATEGORY = {
+  A1:'Autres produits et charges', B1:'Bar', C1:'Culture et bien-être',
+  F1:'Comptabilité', G1:'Frais généraux', I1:'Immobilisations corporelles et incorporelles',
+  J1:'Juridique', L1:'Logistique', M1:'Marketing', M2:'Marketing', M3:'Marketing',
+  M4:'Marketing', M6:'Marketing', M7:'Marketing', M8:'Marketing',
+  O1:'Programme Oé pour la régénération', R1:'Ressources humaines',
+  S1:'Sales', S2:'Sales', S3:'Sales', S4:'Sales', S5:'Sales', S6:'Sales',
+  T1:'Frais financiers', Z1:'Ventes', Z2:'COGS',
+};
+
+const DEFAULT_CAT_TYPE = {
+  'Marketing':'charges_expl','Sales':'charges_expl','Ressources humaines':'charges_expl',
+  'Juridique':'charges_expl','Comptabilité':'charges_expl','Logistique':'charges_expl',
+  'Culture et bien-être':'charges_expl','Programme Oé pour la régénération':'charges_expl',
+  'Bar':'charges_expl','Frais généraux':'charges_expl','Autres produits et charges':'charges_expl',
+  'Frais financiers':'autres_charges','Immobilisations corporelles et incorporelles':'autres_charges',
+  'COGS':'cogs','Ventes':'ventes',
+};
+
+const CATEGORIES_ORDER = [
+  'Marketing','Sales','Ressources humaines','Juridique','Comptabilité','Logistique',
+  'Culture et bien-être','Programme Oé pour la régénération','Bar','Frais généraux',
+  'Autres produits et charges','Frais financiers','Immobilisations corporelles et incorporelles',
+  'COGS','Ventes',
+];
+
+const MONTHS_FR = ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'];
+
+function parseAmount(s) {
+  if (!s) return 0;
+  const clean = String(s).replace(/[\u202f\u00a0€ ]/g,'').replace(',','.').trim();
+  return parseFloat(clean) || 0;
+}
+
+function fmt(v) {
+  if (v === 0 || v === null || v === undefined) return '—';
+  return new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(v);
+}
+
+function parseCSV(text) {
+  const lines = text.split('\n');
+  function parseLine(line) {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') { inQuotes = !inQuotes; }
+      else if (ch === ',' && !inQuotes) { result.push(current); current = ''; }
+      else { current += ch; }
+    }
+    result.push(current);
+    return result;
+  }
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    const parsed = parseLine(lines[i]);
+    if (parsed.length >= 32) rows.push(parsed);
+  }
+  return { headers: headerRow, rows };
+}
+
+function buildReportData(rows, catTypes) {
+  // CA rows: col O (14) = "Analytique écritures comptables", col D (3) starts with 7, AL (37) in real canals
+  const caRows = rows.filter(r => r[14]==='Analytique écritures comptables' && r[3].startsWith('7') && REPORTING_CANALS.includes(r[37]));
+  // Charge rows: col O (14) = "Analytique écritures comptables", col D (3) starts with 6, AF (31) valid
+  const chargeRows = rows.filter(r => r[14]==='Analytique écritures comptables' && r[3].startsWith('6') && r[31] && r[31]!=='#N/A');
+  
+  // Find last month with data
+  const allMonths = [...new Set([...caRows,...chargeRows].map(r=>parseInt(r[30])).filter(m=>m>0&&m<=12))];
+  const lastMonth = allMonths.length ? Math.max(...allMonths) : 0;
+  
+  // Unassigned codes
+  const unassigned = new Set();
+  chargeRows.forEach(r => {
+    const code = r[31].slice(0,2);
+    const cat = CODE_TO_CATEGORY[code];
+    if (!cat || !catTypes[cat]) unassigned.add(r[31].slice(0,2));
+  });
+
+  // Build CA by canal by month
+  const caByCanal = {};
+  REPORTING_CANALS.forEach(c => { caByCanal[c] = Array(12).fill(0); });
+  caRows.forEach(r => {
+    const m = parseInt(r[30]) - 1;
+    const canal = r[37];
+    if (m >= 0 && m < 12 && caByCanal[canal]) caByCanal[canal][m] += parseAmount(r[29]);
+  });
+
+  // Build charges by category by subcategory by month + detail rows
+  const chargeData = {}; // cat -> subcat -> month[] + rows[]
+  chargeRows.forEach(r => {
+    const code = r[31].slice(0,2);
+    const cat = CODE_TO_CATEGORY[code] || 'Non affecté';
+    const subcat = r[31];
+    const type = catTypes[cat] || 'charges_expl';
+    if (!chargeData[type]) chargeData[type] = {};
+    if (!chargeData[type][cat]) chargeData[type][cat] = {};
+    if (!chargeData[type][cat][subcat]) chargeData[type][cat][subcat] = { months: Array(12).fill(0), rows: [] };
+    const m = parseInt(r[30]) - 1;
+    if (m >= 0 && m < 12) {
+      const val = parseAmount(r[29]);
+      chargeData[type][cat][subcat].months[m] += val;
+      // Detail row: exclude if col O=analytique AND col D starts with 6 or 7 (P&L)
+      // Wait - the exclusion was already applied (we already filter col D starts with 6)
+      // For detail: show all charge rows
+      chargeData[type][cat][subcat].rows.push({
+        date: r[1], compte: r[3], libCompte: r[4], tiers: r[12],
+        facture: r[10], libLigne: r[8], month: parseInt(r[30])-1, amount: parseAmount(r[29])
+      });
+    }
+  });
+
+  return { caByCanal, chargeData, lastMonth, unassigned: [...unassigned] };
+}
+
+function SumRow({ label, months, lastMonth, bold=false, color='#1a1814', bg='transparent', indent=0, onClick, isOpen, children }) {
+  const total = months.reduce((a,b)=>a+b,0);
+  const ytd = months.slice(0, lastMonth).reduce((a,b)=>a+b,0);
+  return <>
+    <tr onClick={onClick} style={{cursor:onClick?'pointer':'default', background:bg}}>
+      <td style={{padding:'6px 8px 6px '+(8+indent*16)+'px', fontSize:12, fontWeight:bold?600:400, color, whiteSpace:'nowrap', position:'sticky', left:0, background:bg||'#fff', zIndex:1, borderBottom:'1px solid #f0ede8'}}>
+        {onClick && <span style={{display:'inline-block',width:14,transform:isOpen?'rotate(90deg)':'none',transition:'transform .15s',color:'#9e9890',marginRight:4}}>▶</span>}
+        {label}
+      </td>
+      {months.map((v,i)=><td key={i} style={{padding:'6px 10px',fontSize:11,textAlign:'right',color:v<0?'#c0392b':v>0?'#1a1814':'#c5c0b8',fontFamily:'monospace',borderBottom:'1px solid #f0ede8',display:i>=lastMonth&&i<11?'none':'table-cell'}}>{fmt(v)}</td>)}
+      <td style={{padding:'6px 10px',fontSize:11,textAlign:'right',fontFamily:'monospace',fontWeight:600,color:ytd<0?'#c0392b':'#2d6a4f',borderBottom:'1px solid #f0ede8',borderLeft:'2px solid #e2ddd6'}}>{fmt(ytd)}</td>
+      <td style={{padding:'6px 10px',fontSize:11,textAlign:'right',fontFamily:'monospace',fontWeight:bold?600:400,color:total<0?'#c0392b':'#1a1814',borderBottom:'1px solid #f0ede8',borderLeft:'1px solid #e2ddd6'}}>{fmt(total)}</td>
+    </tr>
+    {isOpen && children}
+  </>;
+}
+
+function DetailRows({ rows, months, lastMonth, monthActive }) {
+  // Group by month then by compte
+  const byMonth = {};
+  rows.forEach(r => {
+    if (!byMonth[r.month]) byMonth[r.month] = [];
+    byMonth[r.month].push(r);
+  });
+  return <>
+    {Object.entries(byMonth).sort(([a],[b])=>+a-+b).map(([m,mrs])=>{
+      const mIdx = parseInt(m);
+      if (mIdx >= lastMonth) return null;
+      if (!monthActive[mIdx]) return null;
+      return mrs.sort((a,b)=>a.compte.localeCompare(b.compte)).map((r,i)=><tr key={m+'-'+i} style={{background:'#fafaf8'}}>
+        <td style={{padding:'4px 8px 4px 64px',fontSize:10,color:'#6b6560',borderBottom:'1px solid #f8f7f5',position:'sticky',left:0,background:'#fafaf8',zIndex:1}}>
+          {r.date} · {r.compte} · {r.libCompte} · {r.tiers||'—'} · {r.facture||'—'} · {r.libLigne}
+        </td>
+        {months.map((_,i)=><td key={i} style={{padding:'4px 10px',fontSize:10,textAlign:'right',fontFamily:'monospace',color:r.amount<0?'#c0392b':'#1a1814',borderBottom:'1px solid #f8f7f5',display:i>=lastMonth&&i<11?'none':'table-cell'}}>
+          {i===mIdx?fmt(r.amount):''}
+        </td>)}
+        <td style={{borderBottom:'1px solid #f8f7f5',borderLeft:'2px solid #e2ddd6'}}/>
+        <td style={{borderBottom:'1px solid #f8f7f5',borderLeft:'1px solid #e2ddd6'}}/>
+      </tr>);
+    })}
+  </>;
+}
+
+function ReportingTab({ onSaveCatTypes, savedCatTypes }) {
+  const [csvData, setCsvData] = useState(null);
+  const [fileName, setFileName] = useState('');
+  const [catTypes, setCatTypes] = useState(savedCatTypes || DEFAULT_CAT_TYPE);
+  const [activeTab, setActiveTab] = useState('report'); // report | params
+  const [expanded, setExpanded] = useState({});
+  const [monthActive, setMonthActive] = useState(Array(12).fill(true));
+  const fileRef = useRef(null);
+
+  const reportData = useMemo(() => csvData ? buildReportData(csvData.rows, catTypes) : null, [csvData, catTypes]);
+  const { caByCanal={}, chargeData={}, lastMonth=0, unassigned=[] } = reportData || {};
+
+  // CA totals
+  const caMonths = Array(12).fill(0);
+  Object.values(caByCanal).forEach(arr => arr.forEach((v,i) => caMonths[i]+=v));
+
+  // Marge brute
+  const mbByCanal = {};
+  Object.entries(caByCanal).forEach(([canal, arr]) => {
+    const rate = CANAL_MARGIN[canal] ?? DEFAULT_CANAL_MARGIN;
+    mbByCanal[canal] = arr.map(v => v * rate);
+  });
+  const mbMonths = Array(12).fill(0);
+  Object.values(mbByCanal).forEach(arr => arr.forEach((v,i) => mbMonths[i]+=v));
+
+  // Charges expl totals
+  const getGroupMonths = (type) => {
+    const months = Array(12).fill(0);
+    const cats = chargeData[type] || {};
+    Object.values(cats).forEach(subcats => Object.values(subcats).forEach(d => d.months.forEach((v,i)=>months[i]+=v)));
+    return months;
+  };
+  const chargesExplMonths = getGroupMonths('charges_expl');
+  const autresChargesMonths = getGroupMonths('autres_charges');
+
+  // EBITDA & Résultat net
+  const ebitdaMonths = mbMonths.map((v,i) => v + chargesExplMonths[i]);
+  const resultatMonths = ebitdaMonths.map((v,i) => v + autresChargesMonths[i]);
+
+  const months12 = Array(12).fill(0);
+  const toggle = (key) => setExpanded(p => ({...p, [key]: !p[key]}));
+
+  function handleFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = ev => { setCsvData(parseCSV(ev.target.result)); };
+    reader.readAsText(file, 'UTF-8');
+  }
+
+  function renderChargeGroup(type, label, groupMonths) {
+    const cats = chargeData[type] || {};
+    const orderedCats = CATEGORIES_ORDER.filter(c => cats[c] && (catTypes[c]==='charges_expl'?type==='charges_expl':catTypes[c]===type));
+    return <>
+      <SumRow label={label} months={groupMonths} lastMonth={lastMonth} bold bg='#f0fdf4'
+        onClick={()=>toggle(type)} isOpen={expanded[type]}>
+        {orderedCats.map(cat => {
+          const catMonths = Array(12).fill(0);
+          Object.values(cats[cat]||{}).forEach(d => d.months.forEach((v,i)=>catMonths[i]+=v));
+          const catKey = type+'-'+cat;
+          return <SumRow key={cat} label={cat} months={catMonths} lastMonth={lastMonth} indent={1} bg='#f8fffe'
+            onClick={()=>toggle(catKey)} isOpen={expanded[catKey]}>
+            {Object.entries(cats[cat]||{}).sort(([a],[b])=>a.localeCompare(b)).map(([subcat,d])=>{
+              const subcatKey = catKey+'-'+subcat;
+              return <SumRow key={subcat} label={subcat} months={d.months} lastMonth={lastMonth} indent={2} bg='#fbfffd'
+                onClick={()=>toggle(subcatKey)} isOpen={expanded[subcatKey]}>
+                <DetailRows rows={d.rows} months={months12} lastMonth={lastMonth} monthActive={monthActive}/>
+              </SumRow>;
+            })}
+          </SumRow>;
+        })}
+      </SumRow>
+    </>;
+  }
+
+  return <div>
+    {/* Tabs */}
+    <div style={{display:'flex',gap:8,marginBottom:16}}>
+      {[{k:'report',l:'📊 Tableau de reporting'},{k:'params',l:'⚙️ Paramétrage catégories'}].map(t=>
+        <button key={t.k} onClick={()=>setActiveTab(t.k)} style={{padding:'6px 14px',borderRadius:6,border:`1px solid ${activeTab===t.k?'#2d6a4f':'#e2ddd6'}`,background:activeTab===t.k?'#2d6a4f':'#fff',color:activeTab===t.k?'#fff':'#6b6560',cursor:'pointer',fontSize:12,fontWeight:500}}>
+          {t.l}
+        </button>
+      )}
+    </div>
+
+    {activeTab==='params' && <div>
+      <div style={{fontSize:13,fontWeight:600,marginBottom:12}}>Affectation des catégories</div>
+      <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+        <thead><tr style={{background:'#f5f3ef'}}>
+          {['Catégorie','Type'].map(h=><th key={h} style={{padding:'8px 12px',textAlign:'left',fontWeight:600,color:'#6b6560',borderBottom:'1px solid #e2ddd6'}}>{h}</th>)}
+        </tr></thead>
+        <tbody>
+          {CATEGORIES_ORDER.map(cat=><tr key={cat} style={{borderBottom:'1px solid #f0ede8'}}>
+            <td style={{padding:'7px 12px'}}>{cat}</td>
+            <td style={{padding:'7px 12px'}}>
+              <select value={catTypes[cat]||'charges_expl'} onChange={e=>{const n={...catTypes,[cat]:e.target.value};setCatTypes(n);onSaveCatTypes&&onSaveCatTypes(n);}} style={{fontSize:12,border:'1px solid #e2ddd6',borderRadius:4,padding:'3px 8px'}}>
+                <option value="charges_expl">Charges d'exploitation</option>
+                <option value="autres_charges">Autres charges</option>
+                <option value="cogs">COGS</option>
+                <option value="ventes">Ventes</option>
+              </select>
+            </td>
+          </tr>)}
+        </tbody>
+      </table>
+    </div>}
+
+    {activeTab==='report' && <>
+      {/* File import */}
+      <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:16}}>
+        <button onClick={()=>fileRef.current?.click()} style={{padding:'7px 16px',background:'#2d6a4f',color:'#fff',border:'none',borderRadius:6,cursor:'pointer',fontSize:12,fontWeight:500}}>
+          📂 Importer un CSV
+        </button>
+        <input ref={fileRef} type="file" accept=".csv" style={{display:'none'}} onChange={handleFile}/>
+        {fileName&&<span style={{fontSize:11,color:'#6b6560'}}>{fileName}</span>}
+      </div>
+
+      {unassigned.length>0&&<div style={{background:'#fef3c7',border:'1px solid #fcd34d',borderRadius:8,padding:'10px 14px',marginBottom:14,fontSize:12,color:'#92400e'}}>
+        ⚠️ Codes analytiques non affectés : <strong>{unassigned.join(', ')}</strong> — Allez dans "Paramétrage catégories" pour les affecter.
+      </div>}
+
+      {!csvData?<div style={{textAlign:'center',padding:40,color:'#9e9890',fontSize:13}}>Importez un fichier CSV pour afficher le reporting.</div>:<>
+        {/* Month toggles */}
+        <div style={{display:'flex',gap:6,marginBottom:12,flexWrap:'wrap',alignItems:'center'}}>
+          <span style={{fontSize:11,color:'#9e9890',marginRight:4}}>Détail écritures par mois :</span>
+          {MONTHS_FR.slice(0,lastMonth).map((m,i)=><button key={i} onClick={()=>setMonthActive(p=>p.map((v,j)=>j===i?!v:v))}
+            style={{padding:'3px 10px',borderRadius:12,border:`1px solid ${monthActive[i]?'#2d6a4f':'#e2ddd6'}`,background:monthActive[i]?'#2d6a4f':'#fff',color:monthActive[i]?'#fff':'#9e9890',cursor:'pointer',fontSize:11}}>
+            {m}
+          </button>)}
+        </div>
+
+        {/* Table */}
+        <div style={{overflowX:'auto',borderRadius:8,border:'1px solid #e2ddd6'}}>
+          <table style={{width:'100%',borderCollapse:'collapse',minWidth:800}}>
+            <thead>
+              <tr style={{background:'#f5f3ef'}}>
+                <th style={{padding:'8px 12px',textAlign:'left',fontSize:11,fontWeight:600,color:'#6b6560',position:'sticky',left:0,background:'#f5f3ef',zIndex:2,minWidth:220}}>Ligne</th>
+                {MONTHS_FR.map((m,i)=><th key={i} style={{padding:'8px 10px',textAlign:'right',fontSize:11,fontWeight:600,color:'#6b6560',display:i>=lastMonth&&i<11?'none':'table-cell'}}>{m}</th>)}
+                <th style={{padding:'8px 10px',textAlign:'right',fontSize:11,fontWeight:600,color:'#2d6a4f',borderLeft:'2px solid #e2ddd6',whiteSpace:'nowrap'}}>YTD</th>
+                <th style={{padding:'8px 10px',textAlign:'right',fontSize:11,fontWeight:600,color:'#1a1814',borderLeft:'1px solid #e2ddd6'}}>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* CA */}
+              <SumRow label="Chiffre d'Affaires" months={caMonths} lastMonth={lastMonth} bold bg='#fff' onClick={()=>toggle('ca')} isOpen={expanded['ca']}>
+                {REPORTING_CANALS.map(canal=><SumRow key={canal} label={canal} months={caByCanal[canal]||months12} lastMonth={lastMonth} indent={1} bg='#f8f7f5'/>)}
+              </SumRow>
+              {/* Marge brute */}
+              <SumRow label="Marge Brute" months={mbMonths} lastMonth={lastMonth} bold bg='#eff8f4' onClick={()=>toggle('mb')} isOpen={expanded['mb']}>
+                {REPORTING_CANALS.map(canal=><SumRow key={canal} label={canal} months={mbByCanal[canal]||months12} lastMonth={lastMonth} indent={1} bg='#f4fbf8'/>)}
+              </SumRow>
+              {/* Charges expl */}
+              {renderChargeGroup('charges_expl', "Charges d'exploitation", chargesExplMonths)}
+              {/* EBITDA */}
+              <SumRow label="EBITDA" months={ebitdaMonths} lastMonth={lastMonth} bold bg='#fffbeb' color={ebitdaMonths.reduce((a,b)=>a+b,0)<0?'#c0392b':'#2d6a4f'}/>
+              {/* Autres charges */}
+              {renderChargeGroup('autres_charges', "Autres charges", autresChargesMonths)}
+              {/* Résultat net */}
+              <SumRow label="Résultat net" months={resultatMonths} lastMonth={lastMonth} bold bg='#f5f3ef' color={resultatMonths.reduce((a,b)=>a+b,0)<0?'#c0392b':'#2d6a4f'}/>
+            </tbody>
+          </table>
+        </div>
+      </>}
+    </>}
+  </div>;
+}
+
+function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions,catTypes,onSaveCatTypes}){
   const [members,setMembers]=useState(teamMembers.map(m=>({...m})));
   const [newPrenom,setNewPrenom]=useState("");
   const [newManager,setNewManager]=useState("");
@@ -989,7 +1324,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
     <TopBar onBack={onBack} title="⚙️ Paramètres"/>
     <div style={{maxWidth:800,margin:"0 auto",padding:"24px 16px 60px"}}>
       <div style={{display:"flex",gap:10,marginBottom:20}}>
-        {([{k:"members",l:"👥 Membres & rôles"},...(currentUser?.email===OWNER_EMAIL?[{k:"questions",l:"❓ Questions Update"},{k:"history",l:"📋 Historique Updates"}]:[])]).map(t=><button key={t.k} onClick={()=>setTab(t.k)}
+        {([{k:"members",l:"👥 Membres & rôles"},...(currentUser?.email===OWNER_EMAIL?[{k:"questions",l:"❓ Questions Update"},{k:"history",l:"📋 Historique Updates"},{k:"reporting",l:"📈 Reporting financier"}]:[])]).map(t=><button key={t.k} onClick={()=>setTab(t.k)}
           style={{padding:"8px 16px",borderRadius:8,border:`1px solid ${tab===t.k?"#2d6a4f":"#e2ddd6"}`,background:tab===t.k?"#2d6a4f":"#fff",color:tab===t.k?"#fff":"#6b6560",cursor:"pointer",fontSize:13,fontWeight:500}}>
           {t.l}
         </button>)}
@@ -1068,6 +1403,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
       )}
 
       {tab==="history"&&<UpdatesHistoryTab/>}
+      {tab==="reporting"&&<ReportingTab onSaveCatTypes={onSaveCatTypes} savedCatTypes={catTypes}/>}
 
       {tab!=="history"&&<><button onClick={save} style={{marginTop:20,padding:"12px 28px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600}}>
         💾 Enregistrer
@@ -1604,6 +1940,7 @@ export default function App(){
   const [page,setPage]=useState("dashboard"); // dashboard | okr | update | settings
   const [teamMembers,setTeamMembers]=useState([]);
   const [questions,setQuestions]=useState(DEFAULT_QUESTIONS);
+  const [catTypes,setCatTypes]=useState(DEFAULT_CAT_TYPE);
   const [myUpdates,setMyUpdates]=useState([]);
   const [allUpdates,setAllUpdates]=useState([]);
   const [managerNotifs,setManagerNotifs]=useState([]);
@@ -1629,6 +1966,7 @@ export default function App(){
         const d=snap.data();
         if(d.teamMembers)setTeamMembers(d.teamMembers);
         if(d.questions)setQuestions(d.questions);
+        if(d.catTypes)setCatTypes(d.catTypes);
       } else {
         // Init with defaults
         const defaultMembers=[
@@ -1780,8 +2118,12 @@ export default function App(){
     setTeamMembers(members);
   }
   async function handleSaveQuestions(qs){
-    await setDoc(doc(db,"app_config","main"),{teamMembers,questions:qs});
+    await setDoc(doc(db,"app_config","main"),{teamMembers,questions:qs,catTypes});
     setQuestions(qs);
+  }
+  async function handleSaveCatTypes(ct){
+    await setDoc(doc(db,"app_config","main"),{teamMembers,questions,catTypes:ct});
+    setCatTypes(ct);
   }
 
   if(authLoading)return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f5f3ef",fontFamily:"system-ui"}}>
@@ -1808,7 +2150,7 @@ export default function App(){
 
   if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers}/>;
   if(page==="update")return <UpdatePage teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} myUpdates={myUpdates}/>;
-  if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions}/>;
+  if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes}/>;
 
   return <Dashboard
     currentUser={authUser}
