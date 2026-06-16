@@ -1019,10 +1019,10 @@ function parseCSV(text) {
     const parsed = parseLine(lines[i]);
     if (parsed.length >= 32) rows.push(parsed);
   }
-  return { headers: headerRow, rows };
+  return { rows };
 }
 
-function buildReportData(rows, catTypes) {
+function buildReportData(rows, catTypes, codeMap) {
   // CA rows: col O (14) = "Analytique écritures comptables", col D (3) starts with 7, AL (37) in real canals
   const caRows = rows.filter(r => r[14]==='Analytique écritures comptables' && r[3].startsWith('7') && REPORTING_CANALS.includes(r[37]));
   // Charge rows: col O (14) = "Analytique écritures comptables", col D (3) starts with 6, AF (31) valid
@@ -1053,7 +1053,7 @@ function buildReportData(rows, catTypes) {
   const chargeData = {}; // cat -> subcat -> month[] + rows[]
   chargeRows.forEach(r => {
     const code = r[31].slice(0,2);
-    const cat = CODE_TO_CATEGORY[code] || 'Non affecté';
+    const cat = codeMap[code] || 'Non affecté';
     const subcat = r[31];
     const type = catTypes[cat] || 'charges_expl';
     if (!chargeData[type]) chargeData[type] = {};
@@ -1119,16 +1119,33 @@ function DetailRows({ rows, months, lastMonth, monthActive }) {
   </>;
 }
 
-function ReportingTab({ onSaveCatTypes, savedCatTypes }) {
+function ReportingTab({ onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMap }) {
   const [csvData, setCsvData] = useState(null);
   const [fileName, setFileName] = useState('');
   const [catTypes, setCatTypes] = useState(savedCatTypes || DEFAULT_CAT_TYPE);
-  const [activeTab, setActiveTab] = useState('report'); // report | params
+  const [codeMap, setCodeMap] = useState(savedCodeMap || CODE_TO_CATEGORY);
+  const [activeTab, setActiveTab] = useState('report'); // report | params | subcats
   const [expanded, setExpanded] = useState({});
   const [monthActive, setMonthActive] = useState(Array(12).fill(true));
   const fileRef = useRef(null);
+  
+  // Get all subcategory codes from loaded CSV
+  const csvSubcats = useMemo(() => {
+    if (!csvData) return [];
+    const codes = new Set();
+    csvData.rows.forEach(r => { if (r[31] && r[31]!=='#N/A' && r[14]==='Analytique écritures comptables') codes.add(r[31]); });
+    return [...codes].sort();
+  }, [csvData]);
+  
+  // Merge CSV subcats with existing codeMap
+  const allSubcats = useMemo(() => {
+    const existing = Object.keys(codeMap).map(k => k); // prefix codes like M1
+    // from CSV we have full codes like M1-04, extract prefix
+    const fromCsv = csvSubcats.map(c => c.slice(0,2));
+    return [...new Set([...existing, ...fromCsv])].sort();
+  }, [codeMap, csvSubcats]);
 
-  const reportData = useMemo(() => csvData ? buildReportData(csvData.rows, catTypes) : null, [csvData, catTypes]);
+  const reportData = useMemo(() => csvData ? buildReportData(csvData.rows, catTypes, codeMap) : null, [csvData, catTypes, codeMap]);
   const { caByCanal={}, chargeData={}, lastMonth=0, unassigned=[] } = reportData || {};
 
   // CA totals
@@ -1225,6 +1242,29 @@ function ReportingTab({ onSaveCatTypes, savedCatTypes }) {
           </tr>)}
         </tbody>
       </table>
+      {/* Subcategory to category mapping */}
+      <div style={{marginTop:24}}>
+        <div style={{fontSize:13,fontWeight:600,marginBottom:12}}>Affectation des sous-catégories aux catégories</div>
+        <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+          <thead><tr style={{background:'#f5f3ef'}}>
+            {['Code','Catégorie'].map(h=><th key={h} style={{padding:'8px 12px',textAlign:'left',fontWeight:600,color:'#6b6560',borderBottom:'1px solid #e2ddd6'}}>{h}</th>)}
+          </tr></thead>
+          <tbody>
+            {allSubcats.map(code=><tr key={code} style={{borderBottom:'1px solid #f0ede8'}}>
+              <td style={{padding:'7px 12px',fontFamily:'monospace',fontSize:11}}>{code}</td>
+              <td style={{padding:'7px 12px'}}>
+                <input value={codeMap[code]||''} onChange={e=>{const n={...codeMap,[code]:e.target.value};setCodeMap(n);onSaveCodeMap&&onSaveCodeMap(n);}}
+                  placeholder="Nom de catégorie"
+                  style={{fontSize:12,border:'1px solid #e2ddd6',borderRadius:4,padding:'3px 8px',width:'100%',fontFamily:'inherit'}}
+                  list="cat-list"/>
+              </td>
+            </tr>)}
+          </tbody>
+        </table>
+        <datalist id="cat-list">
+          {CATEGORIES_ORDER.map(c=><option key={c} value={c}/>)}
+        </datalist>
+      </div>
     </div>}
 
     {activeTab==='report' && <>
@@ -1287,7 +1327,7 @@ function ReportingTab({ onSaveCatTypes, savedCatTypes }) {
   </div>;
 }
 
-function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions,catTypes,onSaveCatTypes}){
+function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions,catTypes,onSaveCatTypes,codeMap,onSaveCodeMap}){
   const [members,setMembers]=useState(teamMembers.map(m=>({...m})));
   const [newPrenom,setNewPrenom]=useState("");
   const [newManager,setNewManager]=useState("");
@@ -1403,7 +1443,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
       )}
 
       {tab==="history"&&<UpdatesHistoryTab/>}
-      {tab==="reporting"&&<ReportingTab onSaveCatTypes={onSaveCatTypes} savedCatTypes={catTypes}/>}
+      {tab==="reporting"&&<ReportingTab onSaveCatTypes={onSaveCatTypes} savedCatTypes={catTypes} savedCodeMap={codeMap} onSaveCodeMap={onSaveCodeMap}/>}
 
       {tab!=="history"&&<><button onClick={save} style={{marginTop:20,padding:"12px 28px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600}}>
         💾 Enregistrer
@@ -1941,6 +1981,7 @@ export default function App(){
   const [teamMembers,setTeamMembers]=useState([]);
   const [questions,setQuestions]=useState(DEFAULT_QUESTIONS);
   const [catTypes,setCatTypes]=useState(DEFAULT_CAT_TYPE);
+  const [codeMap,setCodeMap]=useState(CODE_TO_CATEGORY);
   const [myUpdates,setMyUpdates]=useState([]);
   const [allUpdates,setAllUpdates]=useState([]);
   const [managerNotifs,setManagerNotifs]=useState([]);
@@ -1967,6 +2008,7 @@ export default function App(){
         if(d.teamMembers)setTeamMembers(d.teamMembers);
         if(d.questions)setQuestions(d.questions);
         if(d.catTypes)setCatTypes(d.catTypes);
+        if(d.codeMap)setCodeMap(d.codeMap);
       } else {
         // Init with defaults
         const defaultMembers=[
@@ -2122,8 +2164,12 @@ export default function App(){
     setQuestions(qs);
   }
   async function handleSaveCatTypes(ct){
-    await setDoc(doc(db,"app_config","main"),{teamMembers,questions,catTypes:ct});
+    await setDoc(doc(db,"app_config","main"),{teamMembers,questions,catTypes:ct,codeMap});
     setCatTypes(ct);
+  }
+  async function handleSaveCodeMap(cm){
+    await setDoc(doc(db,"app_config","main"),{teamMembers,questions,catTypes,codeMap:cm});
+    setCodeMap(cm);
   }
 
   if(authLoading)return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f5f3ef",fontFamily:"system-ui"}}>
@@ -2150,7 +2196,7 @@ export default function App(){
 
   if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers}/>;
   if(page==="update")return <UpdatePage teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} myUpdates={myUpdates}/>;
-  if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes}/>;
+  if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap}/>;
 
   return <Dashboard
     currentUser={authUser}
