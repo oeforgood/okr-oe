@@ -955,8 +955,17 @@ function UpdatesHistoryTab(){
 
 // ─── REPORTING TAB ────────────────────────────────────────────────────────────
 
-const REPORTING_CANALS = ['Autres B2B','B2C','CHR','Export','Grands Comptes','Retail','Régénération'];
-const CANAL_MARGIN = {'Régénération': 1.0};
+const REPORTING_CANALS = ['E-commerce B2C','CHR','Grands Comptes','Retail','Export','Autres B2B','Régénération'];
+const CANAL_CSV_MAP = {'E-commerce B2C':'B2C','CHR':'CHR','Grands Comptes':'Grands Comptes','Retail':'Retail','Export':'Export','Autres B2B':'Autres B2B','Régénération':'Régénération'};
+const CANAL_MARGIN = {
+  'E-commerce B2C': 0.270,
+  'CHR': 0.293,
+  'Grands Comptes': 0.266,
+  'Retail': 0.292,
+  'Export': 0.231,
+  'Autres B2B': 0.225,
+  'Régénération': 1.0,
+};
 const DEFAULT_CANAL_MARGIN = 0.263;
 const MONTHS_FR = ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'];
 
@@ -989,12 +998,15 @@ const CATEGORIES_ORDER = [
 
 function fmtAmount(v, inKeur) {
   if (v === 0 || v === null || v === undefined) return '—';
-  if (inKeur) return new Intl.NumberFormat('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:1}).format(v/1000)+' k€';
-  return new Intl.NumberFormat('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:0}).format(v)+' €';
+  if (inKeur) return new Intl.NumberFormat('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:1}).format(v/1000);
+  return new Intl.NumberFormat('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:0}).format(v);
 }
 function fmtDetail(v) {
   if (!v && v!==0) return '—';
-  return new Intl.NumberFormat('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}).format(v)+' €';
+  return new Intl.NumberFormat('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}).format(v);
+}
+function fmtPct(v) {
+  return new Intl.NumberFormat('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:1}).format(v*100)+'%';
 }
 
 function ReportingRow({label, months, lastMonth, bold=false, highlight=false, isTotal=false,
@@ -1003,7 +1015,7 @@ function ReportingRow({label, months, lastMonth, bold=false, highlight=false, is
   const total = months.reduce((a,b)=>a+b,0);
   const col = total < 0 ? '#c0392b' : total > 0 ? '#166534' : '#9e9890';
   const bg = isTotal ? '#f0fdf4' : highlight ? '#f8f7f5' : 'transparent';
-  const cell = {padding:'5px 10px',fontSize:11,textAlign:'right',fontFamily:'system-ui,sans-serif',
+  const cell = {padding:'5px 8px',fontSize:11,textAlign:'right',fontFamily:'system-ui,sans-serif',width:72,minWidth:72,maxWidth:72,
     borderBottom:'1px solid #f0ede8',whiteSpace:'nowrap'};
   return <>
     <tr onClick={onClick} style={{cursor:onClick?'pointer':'default',background:bg,
@@ -1071,7 +1083,7 @@ function DetailEcritures({rows, lastMonth, monthActive}) {
   </>;
 }
 
-function SubcatsDnD({codeMap, setCodeMap, onSaveCodeMap, subcatLabels}) {
+function SubcatsDnD({codeMap, setCodeMap, onSaveCodeMap, subcatLabels, catTypes, onSaveCatTypes}) {
   const [draggedCode, setDraggedCode] = useState(null);
   const [overCat, setOverCat] = useState(null);
 
@@ -1164,7 +1176,17 @@ function SubcatsDnD({codeMap, setCodeMap, onSaveCodeMap, subcatLabels}) {
               background: overCat === cat ? '#f0fdf4' : '#fafaf8',
               padding: '10px 12px', minHeight: 70, transition: 'all .15s',
             }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: '#6b6560', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.05em' }}>{cat}</div>
+            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom: 8 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#6b6560', textTransform: 'uppercase', letterSpacing: '.05em', flex:1 }}>{cat}</span>
+              <select value={catTypes[cat]||'charges_expl'} onChange={e=>{const n={...catTypes,[cat]:e.target.value};onSaveCatTypes&&onSaveCatTypes(n);}}
+                style={{fontSize:10,border:'1px solid #e2ddd6',borderRadius:4,padding:'2px 6px',color:'#6b6560',cursor:'pointer'}}
+                onClick={e=>e.stopPropagation()}>
+                <option value="charges_expl">Charges expl.</option>
+                <option value="autres_charges">Autres charges</option>
+                <option value="cogs">COGS</option>
+                <option value="ventes">Ventes</option>
+              </select>
+            </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {(byCategory[cat] || []).map(code => <CodeChip key={code} code={code} removable />)}
               {(byCategory[cat] || []).length === 0 && (
@@ -1189,7 +1211,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
   const [activeTab, setActiveTab] = useState('report');
   const [expanded, setExpanded] = useState({});
   const [monthActive, setMonthActive] = useState(Array(12).fill(true));
-  const [inKeur, setInKeur] = useState(false);
+  const [inKeur, setInKeur] = useState(true);
 
   useEffect(()=>{
     const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists())setCaData(snap.data().caData);});
@@ -1221,17 +1243,21 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
   // CA
   const caByCanal = useMemo(()=>{
     const res={};
-    REPORTING_CANALS.forEach(c=>{res[c]=getMonthArray(caData?.[c]);});
+    REPORTING_CANALS.forEach(c=>{
+      const csvKey=CANAL_CSV_MAP[c]||c;
+      res[c]=getMonthArray(caData?.[csvKey]);
+    });
     return res;
   },[caData]);
   const caTotal = useMemo(()=>Array(12).fill(0).map((_,i)=>REPORTING_CANALS.reduce((s,c)=>s+(caByCanal[c]?.[i]||0),0)),[caByCanal]);
 
-  // Marge brute
+  // Marge brute - use actual canal rates
   const mbByCanal = useMemo(()=>{
     const res={};
     REPORTING_CANALS.forEach(c=>{const rate=CANAL_MARGIN[c]??DEFAULT_CANAL_MARGIN;res[c]=(caByCanal[c]||[]).map(v=>v*rate);});
     return res;
   },[caByCanal]);
+  // MB total = sum of (CA per canal * rate per canal)
   const mbTotal = useMemo(()=>Array(12).fill(0).map((_,i)=>REPORTING_CANALS.reduce((s,c)=>s+(mbByCanal[c]?.[i]||0),0)),[mbByCanal]);
 
   // Unassigned codes
@@ -1308,8 +1334,8 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
   return <div>
     {/* Tabs */}
     <div style={{display:'flex',gap:8,marginBottom:16}}>
-      {[{k:'report',l:'📊 Tableau'},{k:'params',l:'⚙️ Catégories'},{k:'subcats',l:'🏷️ Sous-catégories'}].map(t=>
-        <button key={t.k} onClick={()=>setActiveTab(t.k)}
+      {[{k:'report',l:'📊 Tableau'},{k:'subcats',l:'⚙️'}].map(t=>
+        <button key={t.k} onClick={()=>setActiveTab(t.k)} title={t.k==='subcats'?'Paramétrage':undefined}
           style={{padding:'5px 12px',borderRadius:6,border:`1px solid ${activeTab===t.k?'#2d6a4f':'#e2ddd6'}`,
             background:activeTab===t.k?'#2d6a4f':'#fff',color:activeTab===t.k?'#fff':'#6b6560',
             cursor:'pointer',fontSize:12,fontWeight:500}}>
@@ -1318,32 +1344,10 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
       )}
     </div>
 
-    {/* Params tab */}
-    {activeTab==='params'&&<div>
-      <div style={{fontSize:12,fontWeight:600,marginBottom:10,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.05em'}}>Type de charge par catégorie</div>
-      <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
-        <thead><tr style={{background:'#f5f3ef'}}>
-          {['Catégorie','Type'].map(h=><th key={h} style={{padding:'7px 12px',textAlign:'left',fontWeight:600,color:'#6b6560',borderBottom:'1px solid #e2ddd6',fontSize:11}}>{h}</th>)}
-        </tr></thead>
-        <tbody>
-          {CATEGORIES_ORDER.map(cat=><tr key={cat} style={{borderBottom:'1px solid #f0ede8'}}>
-            <td style={{padding:'6px 12px',fontSize:12}}>{cat}</td>
-            <td style={{padding:'6px 12px'}}>
-              <select value={catTypes[cat]||'charges_expl'} onChange={e=>{const n={...catTypes,[cat]:e.target.value};setCatTypes(n);onSaveCatTypes&&onSaveCatTypes(n);}}
-                style={{fontSize:12,border:'1px solid #e2ddd6',borderRadius:4,padding:'3px 8px'}}>
-                <option value="charges_expl">Charges d'exploitation</option>
-                <option value="autres_charges">Autres charges</option>
-                <option value="cogs">COGS</option>
-                <option value="ventes">Ventes</option>
-              </select>
-            </td>
-          </tr>)}
-        </tbody>
-      </table>
-    </div>}
+
 
     {/* Subcats tab - drag and drop */}
-    {activeTab==='subcats'&&<SubcatsDnD codeMap={codeMap} setCodeMap={setCodeMap} onSaveCodeMap={onSaveCodeMap} subcatLabels={subcatLabels}/>}
+    {activeTab==='subcats'&&<SubcatsDnD codeMap={codeMap} setCodeMap={setCodeMap} onSaveCodeMap={onSaveCodeMap} subcatLabels={subcatLabels} catTypes={catTypes} onSaveCatTypes={onSaveCatTypes}/>}
 
     {/* Report tab */}
     {activeTab==='report'&&<>
@@ -1379,23 +1383,23 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                 Ligne P&L
               </th>
               {MONTHS_FR.map((m,i)=><>
-                {i===lastMonth&&<th key="ytd" style={{padding:'8px 10px',textAlign:'right',fontSize:11,fontWeight:700,
+                {i===lastMonth&&<th key="ytd" style={{padding:'8px 8px',textAlign:'right',fontSize:11,fontWeight:700,
                   color:'#2d6a4f',borderLeft:'2px solid #2d6a4f',borderRight:'2px solid #2d6a4f',
-                  background:'#f0fdf4',borderBottom:'1px solid #e2ddd6',whiteSpace:'nowrap'}}>YTD</th>}
-                <th key={i} style={{padding:'8px 10px',textAlign:'right',fontSize:11,fontWeight:600,
+                  background:'#f0fdf4',borderBottom:'1px solid #e2ddd6',whiteSpace:'nowrap',width:72}}>YTD</th>}
+                <th key={i} style={{padding:'8px 8px',textAlign:'right',fontSize:11,fontWeight:600,
                   color:i<lastMonth?'#1a1814':'#c5c0b8',borderBottom:'1px solid #e2ddd6',
-                  background:i<lastMonth?'transparent':'#fafafa',whiteSpace:'nowrap'}}>
+                  background:i<lastMonth?'transparent':'#fafafa',whiteSpace:'nowrap',width:72}}>
                   {m}
                   {i<lastMonth&&<span style={{display:'inline-block',width:6,height:6,borderRadius:'50%',
                     background:monthActive[i]?'#2d6a4f':'#c5c0b8',marginLeft:6,cursor:'pointer',verticalAlign:'middle'}}
                     onClick={()=>setMonthActive(p=>p.map((v,j)=>j===i?!v:v))}/>}
                 </th>
               </>)}
-              {lastMonth===12&&<th key="ytd" style={{padding:'8px 10px',textAlign:'right',fontSize:11,fontWeight:700,
+              {lastMonth===12&&<th key="ytd" style={{padding:'8px 8px',textAlign:'right',fontSize:11,fontWeight:700,
                 color:'#2d6a4f',borderLeft:'2px solid #2d6a4f',background:'#f0fdf4',
-                borderBottom:'1px solid #e2ddd6',whiteSpace:'nowrap'}}>YTD</th>}
-              <th style={{padding:'8px 10px',textAlign:'right',fontSize:11,fontWeight:600,
-                color:'#6b6560',borderLeft:'1px solid #e2ddd6',borderBottom:'1px solid #e2ddd6'}}>Total</th>
+                borderBottom:'1px solid #e2ddd6',whiteSpace:'nowrap',width:72}}>YTD</th>}
+              <th style={{padding:'8px 8px',textAlign:'right',fontSize:11,fontWeight:600,
+                color:'#6b6560',borderLeft:'1px solid #e2ddd6',borderBottom:'1px solid #e2ddd6',width:72}}>Total</th>
             </tr>
           </thead>
           <tbody>
@@ -1403,7 +1407,35 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
               {REPORTING_CANALS.map(c=><ReportingRow key={c} label={c} months={caByCanal[c]||Array(12).fill(0)} lastMonth={lastMonth} indent={1} inKeur={inKeur}/>)}
             </ReportingRow>
             <ReportingRow label="Marge Brute" months={mbTotal} lastMonth={lastMonth} bold inKeur={inKeur} highlight onClick={()=>toggle('mb')} isOpen={expanded['mb']}>
-              {REPORTING_CANALS.map(c=><ReportingRow key={c} label={c} months={mbByCanal[c]||Array(12).fill(0)} lastMonth={lastMonth} indent={1} inKeur={inKeur}/>)}
+              {REPORTING_CANALS.map(c=>{
+                const rate=CANAL_MARGIN[c]??DEFAULT_CANAL_MARGIN;
+                return <tr key={c} style={{background:'#f8fffd'}}>
+                  <td style={{padding:'5px 8px 5px 22px',fontSize:11,fontWeight:400,
+                    position:'sticky',left:0,background:'#f8fffd',zIndex:1,
+                    borderBottom:'1px solid #f0ede8',minWidth:280}}>
+                    <span style={{color:'#9e9890',marginRight:4'}}>▸</span>{c}
+                  </td>
+                  {Array(12).fill(0).map((_,i)=>{
+                    const isEmpty=i>=lastMonth;
+                    return <>
+                      {i===lastMonth&&<td key="ytd" style={{padding:'5px 8px',fontSize:11,textAlign:'right',
+                        fontFamily:'system-ui,sans-serif',borderBottom:'1px solid #f0ede8',width:72,
+                        borderLeft:'2px solid #2d6a4f',borderRight:'2px solid #2d6a4f',background:'#f0fdf4',
+                        fontWeight:600,color:'#166534'}}>{fmtPct(rate)}</td>}
+                      <td key={i} style={{padding:'5px 8px',fontSize:11,textAlign:'right',
+                        fontFamily:'system-ui,sans-serif',borderBottom:'1px solid #f0ede8',width:72,
+                        color:isEmpty?'#c5c0b8':'#166534',background:isEmpty?'#fafafa':'transparent'}}>
+                        {isEmpty?'—':fmtPct(rate)}
+                      </td>
+                    </>;
+                  })}
+                  {lastMonth===12&&<td style={{padding:'5px 8px',fontSize:11,textAlign:'right',width:72,
+                    borderLeft:'2px solid #2d6a4f',background:'#f0fdf4',borderBottom:'1px solid #f0ede8',
+                    fontWeight:600,color:'#166534'}}>{fmtPct(rate)}</td>}
+                  <td style={{padding:'5px 8px',fontSize:11,textAlign:'right',width:72,
+                    borderLeft:'1px solid #e2ddd6',borderBottom:'1px solid #f0ede8',color:'#166534'}}>{fmtPct(rate)}</td>
+                </tr>;
+              })}
             </ReportingRow>
             {renderGroup('charges_expl',"Charges d'exploitation")}
             <ReportingRow label="EBITDA" months={ebitda} lastMonth={lastMonth} bold isTotal inKeur={inKeur}/>
