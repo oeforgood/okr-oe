@@ -989,12 +989,12 @@ const CATEGORIES_ORDER = [
 
 function fmtAmount(v, inKeur) {
   if (v === 0 || v === null || v === undefined) return '—';
-  if (inKeur) return new Intl.NumberFormat('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:1}).format(v/1000)+'k';
-  return new Intl.NumberFormat('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:0}).format(v)+'€';
+  if (inKeur) return new Intl.NumberFormat('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:1}).format(v/1000)+' k€';
+  return new Intl.NumberFormat('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:0}).format(v)+' €';
 }
 function fmtDetail(v) {
   if (!v && v!==0) return '—';
-  return new Intl.NumberFormat('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}).format(v)+'€';
+  return new Intl.NumberFormat('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}).format(v)+' €';
 }
 
 function ReportingRow({label, months, lastMonth, bold=false, highlight=false, isTotal=false,
@@ -1003,7 +1003,7 @@ function ReportingRow({label, months, lastMonth, bold=false, highlight=false, is
   const total = months.reduce((a,b)=>a+b,0);
   const col = total < 0 ? '#c0392b' : total > 0 ? '#166534' : '#9e9890';
   const bg = isTotal ? '#f0fdf4' : highlight ? '#f8f7f5' : 'transparent';
-  const cell = {padding:'5px 10px',fontSize:11,textAlign:'right',fontFamily:'monospace',
+  const cell = {padding:'5px 10px',fontSize:11,textAlign:'right',fontFamily:'system-ui,sans-serif',
     borderBottom:'1px solid #f0ede8',whiteSpace:'nowrap'};
   return <>
     <tr onClick={onClick} style={{cursor:onClick?'pointer':'default',background:bg,
@@ -1020,15 +1020,21 @@ function ReportingRow({label, months, lastMonth, bold=false, highlight=false, is
       {months.map((v,i)=>{
         const isEmpty = i >= lastMonth;
         const c = v<0?'#c0392b':v>0?'#1a1814':'#c5c0b8';
-        return <td key={i} style={{...cell,color:isEmpty?'#c5c0b8':c,
-          background:i===lastMonth-1?'#f8fffc':'transparent'}}>
-          {isEmpty ? '—' : fmtAmount(v,inKeur)}
-        </td>;
+        return <>
+          {i===lastMonth&&<td key="ytd" style={{...cell,borderLeft:'2px solid #2d6a4f',borderRight:'2px solid #2d6a4f',
+            color:ytd<0?'#c0392b':'#166534',fontWeight:600,background:'#f0fdf4'}}>
+            {fmtAmount(ytd,inKeur)}
+          </td>}
+          <td key={i} style={{...cell,color:isEmpty?'#c5c0b8':c,
+            background:isEmpty?'#fafafa':'transparent'}}>
+            {isEmpty ? '—' : fmtAmount(v,inKeur)}
+          </td>
+        </>;
       })}
-      <td key="ytd" style={{...cell,borderLeft:'2px solid #2d6a4f',
+      {lastMonth===12&&<td key="ytd" style={{...cell,borderLeft:'2px solid #2d6a4f',
         color:ytd<0?'#c0392b':'#166534',fontWeight:600,background:'#f0fdf4'}}>
         {fmtAmount(ytd,inKeur)}
-      </td>
+      </td>}
       <td style={{...cell,borderLeft:'1px solid #e2ddd6',fontWeight:bold?600:400,color:col}}>
         {fmtAmount(total,inKeur)}
       </td>
@@ -1050,16 +1056,126 @@ function DetailEcritures({rows, lastMonth, monthActive}) {
       </td>
       {Array(12).fill(0).map((_,i)=>{
         const isThisMonth = i===r.month-1;
-        return <td key={i} style={{padding:'3px 10px',fontSize:10,textAlign:'right',
-          fontFamily:'monospace',borderBottom:'1px solid #f5f5f3',
-          color:r.amount<0?'#c0392b':'#1a1814'}}>
-          {isThisMonth ? fmtDetail(r.amount) : ''}
-        </td>;
+        return <>
+          {i===lastMonth&&<td key="ytd" style={{borderBottom:'1px solid #f5f5f3',borderLeft:'2px solid #2d6a4f',borderRight:'2px solid #2d6a4f',background:'#f0fdf4'}}/>}
+          <td key={i} style={{padding:'3px 10px',fontSize:10,textAlign:'right',
+            fontFamily:'system-ui,sans-serif',borderBottom:'1px solid #f5f5f3',
+            color:r.amount<0?'#c0392b':'#1a1814',background:i>=lastMonth?'#fafafa':'transparent'}}>
+            {isThisMonth && i<lastMonth ? fmtDetail(r.amount) : ''}
+          </td>
+        </>;
       })}
-      <td style={{borderBottom:'1px solid #f5f5f3',borderLeft:'2px solid #2d6a4f',background:'#f0fdf4'}}/>
+      {lastMonth===12&&<td style={{borderBottom:'1px solid #f5f5f3',borderLeft:'2px solid #2d6a4f',background:'#f0fdf4'}}/>}
       <td style={{borderBottom:'1px solid #f5f5f3',borderLeft:'1px solid #e2ddd6'}}/>
     </tr>)}
   </>;
+}
+
+function SubcatsDnD({codeMap, setCodeMap, onSaveCodeMap, subcatLabels}) {
+  const [draggedCode, setDraggedCode] = useState(null);
+  const [overCat, setOverCat] = useState(null);
+
+  const byCategory = {};
+  const uncat = [];
+  Object.keys(DEFAULT_CODE_TO_CAT).sort().forEach(code => {
+    const cat = codeMap[code];
+    if (cat) { if (!byCategory[cat]) byCategory[cat] = []; byCategory[cat].push(code); }
+    else uncat.push(code);
+  });
+
+  function getSubcatNames(code) {
+    return Object.entries(subcatLabels)
+      .filter(([k]) => k.startsWith(code + '-'))
+      .map(([, v]) => v.split('-').slice(1).join(' · '))
+      .filter((v, i, a) => a.indexOf(v) === i);
+  }
+
+  function handleDrop(cat) {
+    if (!draggedCode) return;
+    const n = { ...codeMap, [draggedCode]: cat };
+    setCodeMap(n);
+    onSaveCodeMap && onSaveCodeMap(n);
+    setDraggedCode(null);
+    setOverCat(null);
+  }
+
+  function handleRemove(code) {
+    const n = { ...codeMap };
+    delete n[code];
+    setCodeMap(n);
+    onSaveCodeMap && onSaveCodeMap(n);
+  }
+
+  function CodeChip({ code, removable = false }) {
+    const names = getSubcatNames(code);
+    return (
+      <div draggable
+        onDragStart={() => setDraggedCode(code)}
+        onDragEnd={() => { setDraggedCode(null); setOverCat(null); }}
+        style={{
+          display: 'inline-flex', flexDirection: 'column', gap: 2,
+          padding: '5px 10px', borderRadius: 8,
+          border: `1.5px solid ${draggedCode === code ? '#2d6a4f' : '#e2ddd6'}`,
+          background: draggedCode === code ? '#f0fdf4' : '#fff',
+          cursor: 'grab', boxShadow: '0 1px 3px rgba(0,0,0,.08)',
+          userSelect: 'none', maxWidth: 160, position: 'relative',
+          transition: 'border-color .15s, background .15s',
+        }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#2d6a4f', fontFamily: 'monospace' }}>{code}</span>
+          {removable && <span onClick={e => { e.stopPropagation(); handleRemove(code); }}
+            style={{ fontSize: 11, color: '#9e9890', cursor: 'pointer', marginLeft: 'auto', lineHeight: 1 }}>×</span>}
+        </div>
+        {names.length > 0 && <span style={{ fontSize: 9, color: '#9e9890', lineHeight: 1.3 }}>
+          {names.slice(0, 2).join(' / ')}{names.length > 2 ? '…' : ''}
+        </span>}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div style={{ fontSize: 12, color: '#9e9890', marginBottom: 16 }}>
+        Glissez les codes analytiques (blocs) dans la catégorie correspondante. Cliquez × pour retirer.
+      </div>
+
+      {/* Unassigned */}
+      {uncat.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#c0392b', marginBottom: 8 }}>⚠️ Non affectés</div>
+          <div style={{
+            display: 'flex', flexWrap: 'wrap', gap: 6, padding: '10px 12px',
+            borderRadius: 10, border: '2px dashed #fca5a5', background: '#fdecea', minHeight: 52,
+          }}>
+            {uncat.map(code => <CodeChip key={code} code={code} />)}
+          </div>
+        </div>
+      )}
+
+      {/* Drop zones by category */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        {CATEGORIES_ORDER.map(cat => (
+          <div key={cat}
+            onDragOver={e => { e.preventDefault(); setOverCat(cat); }}
+            onDragLeave={() => setOverCat(null)}
+            onDrop={() => handleDrop(cat)}
+            style={{
+              borderRadius: 10, border: `2px ${overCat === cat ? 'solid' : 'dashed'} ${overCat === cat ? '#2d6a4f' : '#e2ddd6'}`,
+              background: overCat === cat ? '#f0fdf4' : '#fafaf8',
+              padding: '10px 12px', minHeight: 70, transition: 'all .15s',
+            }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#6b6560', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.05em' }}>{cat}</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {(byCategory[cat] || []).map(code => <CodeChip key={code} code={code} removable />)}
+              {(byCategory[cat] || []).length === 0 && (
+                <span style={{ fontSize: 11, color: '#c5c0b8', fontStyle: 'italic' }}>Glissez ici…</span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMap}) {
@@ -1226,30 +1342,8 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
       </table>
     </div>}
 
-    {/* Subcats tab */}
-    {activeTab==='subcats'&&<div>
-      <div style={{fontSize:12,fontWeight:600,marginBottom:10,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.05em'}}>Affectation des sous-catégories aux catégories</div>
-      <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
-        <thead><tr style={{background:'#f5f3ef'}}>
-          {['Code','Libellé','Catégorie'].map(h=><th key={h} style={{padding:'7px 12px',textAlign:'left',fontWeight:600,color:'#6b6560',borderBottom:'1px solid #e2ddd6',fontSize:11}}>{h}</th>)}
-        </tr></thead>
-        <tbody>
-          {Object.keys(DEFAULT_CODE_TO_CAT).sort().map(code=><tr key={code} style={{borderBottom:'1px solid #f0ede8'}}>
-            <td style={{padding:'6px 12px',fontFamily:'monospace',fontSize:11,color:'#6b6560'}}>{code}</td>
-            <td style={{padding:'6px 12px',fontSize:11,color:'#9e9890'}}>
-              {Object.entries(subcatLabels).filter(([k])=>k.startsWith(code+'-')).map(([,v])=>v.split('-').slice(1).join('-')).filter((v,i,a)=>a.indexOf(v)===i).join(', ')||'—'}
-            </td>
-            <td style={{padding:'6px 12px'}}>
-              <select value={codeMap[code]||''} onChange={e=>{const n={...codeMap,[code]:e.target.value};setCodeMap(n);onSaveCodeMap&&onSaveCodeMap(n);}}
-                style={{fontSize:12,border:'1px solid #e2ddd6',borderRadius:4,padding:'3px 8px',width:'100%'}}>
-                <option value="">—</option>
-                {CATEGORIES_ORDER.map(c=><option key={c} value={c}>{c}</option>)}
-              </select>
-            </td>
-          </tr>)}
-        </tbody>
-      </table>
-    </div>}
+    {/* Subcats tab - drag and drop */}
+    {activeTab==='subcats'&&<SubcatsDnD codeMap={codeMap} setCodeMap={setCodeMap} onSaveCodeMap={onSaveCodeMap} subcatLabels={subcatLabels}/>}
 
     {/* Report tab */}
     {activeTab==='report'&&<>
@@ -1284,17 +1378,22 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                 position:'sticky',left:0,background:'#f5f3ef',zIndex:2,minWidth:280,borderBottom:'1px solid #e2ddd6'}}>
                 Ligne P&L
               </th>
-              {MONTHS_FR.map((m,i)=><th key={i} style={{padding:'8px 10px',textAlign:'right',fontSize:11,fontWeight:600,
-                color:i<lastMonth?'#1a1814':'#c5c0b8',borderBottom:'1px solid #e2ddd6',
-                background:i<lastMonth?'transparent':'#fafafa',whiteSpace:'nowrap'}}>
-                {m}
-                {i<lastMonth&&<span style={{display:'inline-block',width:6,height:6,borderRadius:'50%',
-                  background:monthActive[i]?'#2d6a4f':'#c5c0b8',marginLeft:6,cursor:'pointer',verticalAlign:'middle'}}
-                  onClick={()=>setMonthActive(p=>p.map((v,j)=>j===i?!v:v))}/>}
-              </th>)}
-              <th style={{padding:'8px 10px',textAlign:'right',fontSize:11,fontWeight:700,
+              {MONTHS_FR.map((m,i)=><>
+                {i===lastMonth&&<th key="ytd" style={{padding:'8px 10px',textAlign:'right',fontSize:11,fontWeight:700,
+                  color:'#2d6a4f',borderLeft:'2px solid #2d6a4f',borderRight:'2px solid #2d6a4f',
+                  background:'#f0fdf4',borderBottom:'1px solid #e2ddd6',whiteSpace:'nowrap'}}>YTD</th>}
+                <th key={i} style={{padding:'8px 10px',textAlign:'right',fontSize:11,fontWeight:600,
+                  color:i<lastMonth?'#1a1814':'#c5c0b8',borderBottom:'1px solid #e2ddd6',
+                  background:i<lastMonth?'transparent':'#fafafa',whiteSpace:'nowrap'}}>
+                  {m}
+                  {i<lastMonth&&<span style={{display:'inline-block',width:6,height:6,borderRadius:'50%',
+                    background:monthActive[i]?'#2d6a4f':'#c5c0b8',marginLeft:6,cursor:'pointer',verticalAlign:'middle'}}
+                    onClick={()=>setMonthActive(p=>p.map((v,j)=>j===i?!v:v))}/>}
+                </th>
+              </>)}
+              {lastMonth===12&&<th key="ytd" style={{padding:'8px 10px',textAlign:'right',fontSize:11,fontWeight:700,
                 color:'#2d6a4f',borderLeft:'2px solid #2d6a4f',background:'#f0fdf4',
-                borderBottom:'1px solid #e2ddd6',whiteSpace:'nowrap'}}>YTD</th>
+                borderBottom:'1px solid #e2ddd6',whiteSpace:'nowrap'}}>YTD</th>}
               <th style={{padding:'8px 10px',textAlign:'right',fontSize:11,fontWeight:600,
                 color:'#6b6560',borderLeft:'1px solid #e2ddd6',borderBottom:'1px solid #e2ddd6'}}>Total</th>
             </tr>
@@ -1353,7 +1452,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
 
   return <div style={{minHeight:"100vh",background:"#f5f3ef",fontFamily:"system-ui,sans-serif"}}>
     <TopBar onBack={onBack} title="⚙️ Paramètres"/>
-    <div style={{maxWidth:800,margin:"0 auto",padding:"24px 16px 60px"}}>
+    <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
       <div style={{display:"flex",gap:10,marginBottom:20}}>
         {([{k:"members",l:"👥 Membres & rôles"},...(currentUser?.email===OWNER_EMAIL?[{k:"questions",l:"❓ Questions Update"},{k:"history",l:"📋 Historique Updates"},{k:"reporting",l:"📈 Reporting financier"}]:[])]).map(t=><button key={t.k} onClick={()=>setTab(t.k)}
           style={{padding:"8px 16px",borderRadius:8,border:`1px solid ${tab===t.k?"#2d6a4f":"#e2ddd6"}`,background:tab===t.k?"#2d6a4f":"#fff",color:tab===t.k?"#fff":"#6b6560",cursor:"pointer",fontSize:13,fontWeight:500}}>
@@ -1436,7 +1535,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
       {tab==="history"&&<UpdatesHistoryTab/>}
       {tab==="reporting"&&<ReportingTab onSaveCatTypes={onSaveCatTypes} savedCatTypes={catTypes} savedCodeMap={codeMap} onSaveCodeMap={onSaveCodeMap}/>}
 
-      {tab!=="history"&&<><button onClick={save} style={{marginTop:20,padding:"12px 28px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600}}>
+      {tab!=="history"&&tab!=="reporting"&&<><button onClick={save} style={{marginTop:20,padding:"12px 28px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600}}>
         💾 Enregistrer
       </button>
       {saved&&<span style={{marginLeft:12,fontSize:13,color:"#2d6a4f"}}>✓ Sauvegardé !</span>}</>}
