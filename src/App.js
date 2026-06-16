@@ -1084,9 +1084,7 @@ function DetailEcritures({rows, lastMonth, monthActive}) {
 }
 
 function SubcatsDnD({codeMap, setCodeMap, onSaveCodeMap, subcatLabels, catTypes, onSaveCatTypes}) {
-  const [draggedCode, setDraggedCode] = useState(null);
-  const [overCat, setOverCat] = useState(null);
-
+  // Group subcategory codes by category
   const byCategory = {};
   const uncat = [];
   Object.keys(DEFAULT_CODE_TO_CAT).sort().forEach(code => {
@@ -1095,103 +1093,60 @@ function SubcatsDnD({codeMap, setCodeMap, onSaveCodeMap, subcatLabels, catTypes,
     else uncat.push(code);
   });
 
-  function getSubcatNames(code) {
+  // Get unique short labels for a code prefix (e.g. M1 -> "Branding-Frais de déplacement", ...)
+  function getSubcatRows(code) {
     return Object.entries(subcatLabels)
       .filter(([k]) => k.startsWith(code + '-'))
-      .map(([, v]) => v.split('-').slice(1).join(' · '))
-      .filter((v, i, a) => a.indexOf(v) === i);
+      .map(([k, v]) => {
+        const parts = v.split('-');
+        const shortLabel = parts.slice(1).join(' · ');
+        return { key: k, label: shortLabel };
+      });
   }
 
-  function handleDrop(cat) {
-    if (!draggedCode) return;
-    const n = { ...codeMap, [draggedCode]: cat };
+  function setCode(code, cat) {
+    const n = { ...codeMap, [code]: cat };
     setCodeMap(n);
     onSaveCodeMap && onSaveCodeMap(n);
-    setDraggedCode(null);
-    setOverCat(null);
-  }
-
-  function handleRemove(code) {
-    const n = { ...codeMap };
-    delete n[code];
-    setCodeMap(n);
-    onSaveCodeMap && onSaveCodeMap(n);
-  }
-
-  function CodeChip({ code, removable = false }) {
-    const names = getSubcatNames(code);
-    return (
-      <div draggable
-        onDragStart={() => setDraggedCode(code)}
-        onDragEnd={() => { setDraggedCode(null); setOverCat(null); }}
-        style={{
-          display: 'inline-flex', flexDirection: 'column', gap: 2,
-          padding: '5px 10px', borderRadius: 8,
-          border: `1.5px solid ${draggedCode === code ? '#2d6a4f' : '#e2ddd6'}`,
-          background: draggedCode === code ? '#f0fdf4' : '#fff',
-          cursor: 'grab', boxShadow: '0 1px 3px rgba(0,0,0,.08)',
-          userSelect: 'none', maxWidth: 160, position: 'relative',
-          transition: 'border-color .15s, background .15s',
-        }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: '#2d6a4f', fontFamily: 'monospace' }}>{code}</span>
-          {removable && <span onClick={e => { e.stopPropagation(); handleRemove(code); }}
-            style={{ fontSize: 11, color: '#9e9890', cursor: 'pointer', marginLeft: 'auto', lineHeight: 1 }}>×</span>}
-        </div>
-        {names.length > 0 && <span style={{ fontSize: 9, color: '#9e9890', lineHeight: 1.3 }}>
-          {names.slice(0, 2).join(' / ')}{names.length > 2 ? '…' : ''}
-        </span>}
-      </div>
-    );
   }
 
   return (
     <div>
-      <div style={{ fontSize: 12, color: '#9e9890', marginBottom: 16 }}>
-        Glissez les codes analytiques (blocs) dans la catégorie correspondante. Cliquez × pour retirer.
-      </div>
+      {uncat.length > 0 && <div style={{background:'#fdecea',border:'1px solid #fca5a5',borderRadius:8,padding:'8px 14px',marginBottom:16,fontSize:12,color:'#c0392b'}}>
+        ⚠️ Codes non affectés : <strong>{uncat.join(', ')}</strong>
+      </div>}
 
-      {/* Unassigned */}
-      {uncat.length > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: '#c0392b', marginBottom: 8 }}>⚠️ Non affectés</div>
-          <div style={{
-            display: 'flex', flexWrap: 'wrap', gap: 6, padding: '10px 12px',
-            borderRadius: 10, border: '2px dashed #fca5a5', background: '#fdecea', minHeight: 52,
-          }}>
-            {uncat.map(code => <CodeChip key={code} code={code} />)}
-          </div>
-        </div>
-      )}
-
-      {/* Drop zones by category */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         {CATEGORIES_ORDER.map(cat => (
-          <div key={cat}
-            onDragOver={e => { e.preventDefault(); setOverCat(cat); }}
-            onDragLeave={() => setOverCat(null)}
-            onDrop={() => handleDrop(cat)}
-            style={{
-              borderRadius: 10, border: `2px ${overCat === cat ? 'solid' : 'dashed'} ${overCat === cat ? '#2d6a4f' : '#e2ddd6'}`,
-              background: overCat === cat ? '#f0fdf4' : '#fafaf8',
-              padding: '10px 12px', minHeight: 70, transition: 'all .15s',
-            }}>
-            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom: 8 }}>
-              <span style={{ fontSize: 11, fontWeight: 600, color: '#6b6560', textTransform: 'uppercase', letterSpacing: '.05em', flex:1 }}>{cat}</span>
+          <div key={cat} style={{borderRadius:10,border:'1px solid #e2ddd6',background:'#fafaf8',padding:'12px 14px'}}>
+            {/* Category header with type selector */}
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,paddingBottom:8,borderBottom:'1px solid #e2ddd6'}}>
+              <span style={{fontSize:12,fontWeight:600,color:'#1a1814',flex:1}}>{cat}</span>
               <select value={catTypes[cat]||'charges_expl'} onChange={e=>{const n={...catTypes,[cat]:e.target.value};onSaveCatTypes&&onSaveCatTypes(n);}}
-                style={{fontSize:10,border:'1px solid #e2ddd6',borderRadius:4,padding:'2px 6px',color:'#6b6560',cursor:'pointer'}}
-                onClick={e=>e.stopPropagation()}>
+                style={{fontSize:10,border:'1px solid #e2ddd6',borderRadius:4,padding:'2px 6px',color:'#6b6560',cursor:'pointer',background:'#fff'}}>
                 <option value="charges_expl">Charges expl.</option>
                 <option value="autres_charges">Autres charges</option>
                 <option value="cogs">COGS</option>
                 <option value="ventes">Ventes</option>
               </select>
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {(byCategory[cat] || []).map(code => <CodeChip key={code} code={code} removable />)}
-              {(byCategory[cat] || []).length === 0 && (
-                <span style={{ fontSize: 11, color: '#c5c0b8', fontStyle: 'italic' }}>Glissez ici…</span>
-              )}
+            {/* Subcategories list */}
+            <div style={{display:'flex',flexDirection:'column',gap:4}}>
+              {(byCategory[cat]||[]).map(code => {
+                const rows = getSubcatRows(code);
+                return <div key={code} style={{background:'#fff',borderRadius:6,border:'1px solid #e2ddd6',padding:'6px 10px'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:rows.length?4:0}}>
+                    <span style={{fontSize:10,fontWeight:600,color:'#2d6a4f',fontFamily:'monospace',flexShrink:0}}>{code}</span>
+                    <select value={cat} onChange={e=>setCode(code,e.target.value)}
+                      style={{fontSize:10,border:'none',background:'transparent',color:'#9e9890',cursor:'pointer',marginLeft:'auto',outline:'none'}}>
+                      <option value="">— déplacer —</option>
+                      {CATEGORIES_ORDER.map(c=><option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  {rows.map(r=><div key={r.key} style={{fontSize:10,color:'#6b6560',paddingLeft:4,lineHeight:1.4}}>· {r.label}</div>)}
+                </div>;
+              })}
+              {(byCategory[cat]||[]).length===0&&<span style={{fontSize:11,color:'#c5c0b8',fontStyle:'italic'}}>Aucune sous-catégorie</span>}
             </div>
           </div>
         ))}
@@ -1413,7 +1368,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                   <td style={{padding:'5px 8px 5px 22px',fontSize:11,fontWeight:400,
                     position:'sticky',left:0,background:'#f8fffd',zIndex:1,
                     borderBottom:'1px solid #f0ede8',minWidth:280}}>
-                    <span style={{color:'#9e9890',marginRight:4'}}>▸</span>{c}
+                    <span style={{color:'#9e9890',marginRight:4}}>▸</span>{c}
                   </td>
                   {Array(12).fill(0).map((_,i)=>{
                     const isEmpty=i>=lastMonth;
