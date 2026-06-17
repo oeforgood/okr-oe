@@ -766,8 +766,6 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,myU
 
   </div>;
 }
-  </div>;
-}
 
 function UpdateCalendar({myUpdates,onView}){
   const now=new Date();
@@ -1416,7 +1414,7 @@ function SubcatsDnD({codeMap, setCodeMap, onSaveCodeMap, subcatLabels, knownSubc
             </div>
             {/* Subcategories grid - 3 columns */}
             {!isCollapsed&&<div style={{padding:'12px 16px'}}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gridAutoFlow: 'column', gridTemplateRows: `repeat(${Math.ceil((subcats.filter(s=>knownSubcats?.has(s)).length)/3)}, auto)`, gap: 6 }}>
               {subcats.map(subcat => {
                 const hasData = knownSubcats?.has(subcat);
                 if (!hasData) return null; // Hide subcats with no transactions
