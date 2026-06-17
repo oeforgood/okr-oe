@@ -537,7 +537,7 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,m
   </div>;
 }
 
-function Dashboard({currentUser,teamMember,onGoOKR,onGoUpdate,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,okrData,isAdmin,onOpenSettings}){
+function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,okrData,isAdmin,onOpenSettings}){
   const {objectives=[],subobjectives=[],keyresults=[],seasonKey="printemps_2026"}=okrData||{};
   const avgProg=calcWeightedAvg(objectives,subobjectives,keyresults);
   const totalKR=keyresults.length,doneKR=keyresults.filter(k=>k.taux>=100).length;
@@ -581,57 +581,191 @@ function Dashboard({currentUser,teamMember,onGoOKR,onGoUpdate,myUpdates,allUpdat
 
     <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
 
-
-      {/* Season banners */}
-      <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:16}}>
-        <SeasonBanner seasonKey={seasonKey||"printemps_2026"} avgProg={avgProg} totalKR={totalKR} doneKR={doneKR}/>
-        {myKRsOwned.length>0&&<PersonalBanner prog={myPersonalProg} doneKR={myKRDoneOwned} totalKR={myKRsOwned.length} label={myPrenom||"Moi"} marginBottom={0} avgProg={avgProg}/>}
-      </div>
-
-      {/* KPIs */}
-      {/* Update card + buttons row */}
-      <div style={{display:"grid",gridTemplateColumns:"160px 1fr 1fr",gap:12,marginBottom:16,alignItems:"stretch"}}>
-        {/* Update cette semaine card */}
-        <div style={{background:"#fff",borderRadius:10,padding:"14px 16px",border:"1px solid #e2ddd6",boxShadow:"0 1px 3px rgba(0,0,0,.06)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center"}}>
-          <div style={{fontSize:10,color:"#9e9890",marginBottom:6,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>Update cette semaine</div>
-          {todayUpdate
-            ?<div style={{fontSize:44,lineHeight:1,marginBottom:4}}>{todayUpdate.answers?.q7||"✅"}</div>
-            :<button onClick={onGoUpdate} style={{marginTop:4,padding:"7px 10px",background:"#fef3c7",border:"1px solid #f59e0b",borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:500,color:"#92400e",textAlign:"center",width:"100%"}}>
-              ⏳ Compléter
-            </button>}
-          <div style={{fontSize:10,color:"#9e9890",marginTop:4}}>
-            {todayUpdate?"Mood de la semaine":weekKey===null?"Mardi : bloqué":"À compléter"}
-          </div>
+      {/* ── SECTION OKR ── */}
+      <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:12,marginBottom:20,alignItems:"stretch"}}>
+        {/* Left: OKR banners */}
+        <div style={{display:"flex",flexDirection:"column",gap:4}}>
+          <SeasonBanner seasonKey={seasonKey||"printemps_2026"} avgProg={avgProg} totalKR={totalKR} doneKR={doneKR}/>
+          {myKRsOwned.length>0&&<PersonalBanner prog={myPersonalProg} doneKR={myKRDoneOwned} totalKR={myKRsOwned.length} label={myPrenom||"Moi"} marginBottom={0} avgProg={avgProg}/>}
         </div>
-        {/* Big buttons */}
-        <button onClick={onGoOKR} style={{padding:"16px 20px",background:"#fff",color:"#1a1814",border:"1px solid #e2ddd6",borderRadius:10,cursor:"pointer",textAlign:"left",boxShadow:"0 1px 3px rgba(0,0,0,.06)",transition:"box-shadow .15s,transform .15s"}}
-          onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 12px rgba(0,0,0,.1)";e.currentTarget.style.transform="translateY(-1px)";}}
+        {/* Right: OKR button */}
+        <button onClick={onGoOKR}
+          style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,cursor:"pointer",
+            padding:"20px 24px",textAlign:"left",boxShadow:"0 1px 3px rgba(0,0,0,.06)",
+            display:"flex",flexDirection:"column",justifyContent:"center",
+            transition:"box-shadow .15s,transform .15s"}}
+          onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 14px rgba(0,0,0,.1)";e.currentTarget.style.transform="translateY(-1px)";}}
           onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 1px 3px rgba(0,0,0,.06)";e.currentTarget.style.transform="none";}}>
-          <div style={{fontSize:22,marginBottom:6}}>📊</div>
-          <div style={{fontSize:14,fontWeight:500,color:"#1a1814",marginBottom:3,fontFamily:"system-ui,sans-serif"}}>Mettre à jour les OKR</div>
-          <div style={{fontSize:11,color:"#9e9890"}}>Suivre l'avancement de la saison</div>
-        </button>
-        <button onClick={onGoUpdate} style={{padding:"16px 20px",background:"#fff",color:"#1a1814",border:"1px solid #e2ddd6",borderRadius:10,cursor:"pointer",textAlign:"left",boxShadow:"0 1px 3px rgba(0,0,0,.06)",transition:"box-shadow .15s,transform .15s"}}
-          onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 12px rgba(0,0,0,.1)";e.currentTarget.style.transform="translateY(-1px)";}}
-          onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 1px 3px rgba(0,0,0,.06)";e.currentTarget.style.transform="none";}}>
-          <div style={{fontSize:22,marginBottom:6}}>✍️</div>
-          <div style={{fontSize:14,fontWeight:500,color:"#1a1814",marginBottom:3,fontFamily:"system-ui,sans-serif"}}>Mes Updates</div>
-          <div style={{fontSize:11,color:"#9e9890"}}>Partager mes priorités de la semaine</div>
+          <div style={{fontSize:28,marginBottom:10}}>📊</div>
+          <div style={{fontSize:15,fontWeight:600,color:"#1a1814",marginBottom:4}}>Mettre à jour les OKR</div>
+          <div style={{fontSize:12,color:"#9e9890",marginBottom:12}}>Suivre l'avancement de la saison</div>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <div style={{flex:1,height:4,background:"#e2ddd6",borderRadius:2,overflow:"hidden"}}>
+              <div style={{width:`${Math.min(avgProg,100)}%`,height:"100%",background:progColor(avgProg),borderRadius:2}}/>
+            </div>
+            <span style={{fontSize:12,fontWeight:600,color:progColor(avgProg)}}>{Math.round(avgProg)}%</span>
+          </div>
         </button>
       </div>
 
-      {/* Messages panel */}
-      <MessagesPanel managerNotifs={managerNotifs} teammateNotifs={teammateNotifs} onReadNotif={onReadNotif} teamMember={teamMember} myUpdates={myUpdates}/>
+      {/* ── SECTION UPDATES ── */}
+      {(()=>{
+        const MOOD_SCORE={"😊":5,"🙂":4,"😐":3,"😕":2,"😩":1};
+        const MOOD_FROM_SCORE=s=>s>=4.5?"😊":s>=3.5?"🙂":s>=2.5?"😐":s>=1.5?"😕":"😩";
 
-      {/* Update streak */}
-      <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"16px 20px",marginBottom:16,boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
-        <div style={{fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",marginBottom:12}}>Mood de l'équipe</div>
-        <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} onGoUpdate={onGoUpdate} showDots={false}/>
+        // Get last week and current week keys
+        const now=new Date();
+        const lastWkDate=new Date(now);lastWkDate.setDate(now.getDate()-7);
+        const lastWkKey=getWeekKey(lastWkDate);
+        const curWkKey=getUpdateWeekKey()||getWeekKey(now);
+
+        // Team updates last week & this week (from allUpdates)
+        const teamLastWk=[...allUpdates].filter(u=>u.weekKey===lastWkKey&&u.answers?.q7)
+          .sort((a,b)=>a.submittedAt-b.submittedAt);
+        const teamCurWk=[...allUpdates].filter(u=>u.weekKey===curWkKey&&u.answers?.q7)
+          .sort((a,b)=>a.submittedAt-b.submittedAt);
+
+        // Team mood average last week
+        const teamMoodScores=teamLastWk.map(u=>MOOD_SCORE[u.answers.q7]||3);
+        const teamMoodAvg=teamMoodScores.length?teamMoodScores.reduce((a,b)=>a+b,0)/teamMoodScores.length:null;
+
+        // Active teammates count
+        const activeCount=teamMembers?.filter(m=>m.role!=="inactive"&&m.role!=="owner").length||0;
+        const lastWkCount=teamLastWk.length;
+
+        // My updates for personal banner (13 weeks)
+        const my13Weeks=Array.from({length:13},(_,i)=>{
+          const d=new Date(now);d.setDate(now.getDate()-(12-i)*7);
+          const wk=getWeekKey(d);
+          const u=myUpdates.find(x=>x.weekKey===wk);
+          const{mon,fri}=getWeekBounds(wk);
+          return{wk,u,mon,fri};
+        });
+        const myUpdateCount=my13Weeks.filter(w=>w.u).length;
+        const myCompletionRate=Math.round(myUpdateCount/13*100);
+        const myLastWkUpdate=myUpdates.find(u=>u.weekKey===lastWkKey);
+        const myMoodLastWk=myLastWkUpdate?.answers?.q7||null;
+
+        function SmileysRow({updates,label}){
+          const [hov,setHov]=useState(null);
+          return <div style={{display:"flex",gap:4,alignItems:"center",flexWrap:"wrap",position:"relative"}}>
+            {hov!==null&&<div style={{position:"absolute",top:-22,left:0,background:"#1a1814",color:"#fff",fontSize:10,padding:"2px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:10,pointerEvents:"none"}}>{hov}</div>}
+            {updates.map((u,i)=><span key={i} style={{fontSize:18,cursor:"default",lineHeight:1}}
+              onMouseEnter={()=>setHov(u.prenom)}
+              onMouseLeave={()=>setHov(null)}>
+              {u.answers?.q7||"😐"}
+            </span>)}
+            {updates.length===0&&<span style={{fontSize:11,color:"#c5c0b8",fontStyle:"italic"}}>{label}</span>}
+          </div>;
+        }
+
+        function My13Smileys(){
+          const [hov,setHov]=useState(null);
+          return <div style={{display:"flex",gap:3,alignItems:"center",position:"relative"}}>
+            {hov&&<div style={{position:"absolute",top:-22,left:0,background:"#1a1814",color:"#fff",fontSize:10,padding:"2px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:10,pointerEvents:"none"}}>{hov}</div>}
+            {my13Weeks.map((w,i)=>{
+              const mood=w.u?.answers?.q7||"🫥";
+              const sameM=w.mon.getMonth()===w.fri.getMonth();
+              const tip=sameM?`Semaine du ${w.mon.getDate()} au ${w.fri.getDate()} ${w.fri.toLocaleString("fr-FR",{month:"long"})}`:`Semaine du ${w.mon.getDate()} ${w.mon.toLocaleString("fr-FR",{month:"short"})} au ${w.fri.getDate()} ${w.fri.toLocaleString("fr-FR",{month:"short"})}`;
+              return <span key={i} style={{fontSize:16,cursor:"default",lineHeight:1,opacity:w.u?1:0.4}}
+                onMouseEnter={()=>setHov(tip)}
+                onMouseLeave={()=>setHov(null)}>
+                {mood}
+              </span>;
+            })}
+          </div>;
+        }
+
+        return <>
+          {/* Team Updates banner */}
+          <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"14px 20px",
+            marginBottom:4,display:"flex",alignItems:"center",gap:20,
+            boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+            {/* Left: big team mood */}
+            <div style={{flexShrink:0,textAlign:"center",width:100}}>
+              <div style={{fontSize:48,lineHeight:1}}>{teamMoodAvg?MOOD_FROM_SCORE(teamMoodAvg):"—"}</div>
+              <div style={{fontSize:9,color:"#9e9890",marginTop:3,textTransform:"uppercase",letterSpacing:".06em"}}>Mood équipe</div>
+            </div>
+            <div style={{width:1,background:"#e2ddd6",alignSelf:"stretch",flexShrink:0}}/>
+            {/* Middle: smileys rows */}
+            <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",gap:10}}>
+              <div>
+                <div style={{fontSize:10,color:"#9e9890",marginBottom:4,fontWeight:500}}>Updates semaine passée</div>
+                <SmileysRow updates={teamLastWk} label="Aucun update"/>
+              </div>
+              <div>
+                <div style={{fontSize:10,color:"#9e9890",marginBottom:4,fontWeight:500}}>Updates cette semaine</div>
+                <SmileysRow updates={teamCurWk} label="Aucun update encore"/>
+              </div>
+            </div>
+            <div style={{width:1,background:"#e2ddd6",alignSelf:"stretch",flexShrink:0}}/>
+            {/* Right: ratio */}
+            <div style={{flexShrink:0,textAlign:"center",width:90}}>
+              <div style={{fontSize:28,fontWeight:700,color:lastWkCount>=activeCount?"#2d6a4f":"#b5680f"}}>
+                {lastWkCount}/{activeCount}
+              </div>
+              <div style={{fontSize:9,color:"#9e9890",marginTop:2}}>updates sem. passée</div>
+            </div>
+          </div>
+
+          {/* Personal Updates banner */}
+          <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"14px 20px",
+            marginBottom:16,display:"flex",alignItems:"center",gap:20,
+            boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+            {/* Left: my mood last week */}
+            <div style={{flexShrink:0,textAlign:"center",width:100}}>
+              <div style={{fontSize:48,lineHeight:1}}>{myMoodLastWk||"—"}</div>
+              <div style={{fontSize:9,color:"#6b6560",marginTop:3,textTransform:"uppercase",letterSpacing:".06em"}}>{myPrenom}</div>
+            </div>
+            <div style={{width:1,background:"#86efac",alignSelf:"stretch",flexShrink:0}}/>
+            {/* Middle: my 13 weeks smileys */}
+            <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",gap:6}}>
+              <div style={{fontSize:10,color:"#6b6560",fontWeight:500}}>Mes 13 dernières semaines</div>
+              <My13Smileys/>
+            </div>
+            <div style={{width:1,background:"#86efac",alignSelf:"stretch",flexShrink:0}}/>
+            {/* Right: completion rate */}
+            <div style={{flexShrink:0,textAlign:"center",width:90}}>
+              <div style={{fontSize:28,fontWeight:700,color:myCompletionRate>=80?"#2d6a4f":myCompletionRate>=50?"#b5680f":"#c0392b"}}>
+                {myCompletionRate}%
+              </div>
+              <div style={{fontSize:9,color:"#6b6560",marginTop:2}}>complétion 13 sem.</div>
+            </div>
+          </div>
+
+          {/* Updates button */}
+          <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:12,marginBottom:16}}>
+            <div/>{/* spacer */}
+            <button onClick={onGoUpdate}
+              style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,cursor:"pointer",
+                padding:"16px 20px",textAlign:"left",boxShadow:"0 1px 3px rgba(0,0,0,.06)",
+                display:"flex",flexDirection:"column",justifyContent:"center",
+                transition:"box-shadow .15s,transform .15s"}}
+              onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 14px rgba(0,0,0,.1)";e.currentTarget.style.transform="translateY(-1px)";}}
+              onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 1px 3px rgba(0,0,0,.06)";e.currentTarget.style.transform="none";}}>
+              <div style={{fontSize:24,marginBottom:8}}>✍️</div>
+              <div style={{fontSize:14,fontWeight:600,color:"#1a1814",marginBottom:3}}>Mes Updates</div>
+              <div style={{fontSize:11,color:"#9e9890",marginBottom:8}}>Partager mes priorités de la semaine</div>
+              {!todayUpdate&&weekKey!==null&&<div style={{padding:"5px 10px",background:"#fef3c7",border:"1px solid #f59e0b",borderRadius:6,fontSize:11,fontWeight:500,color:"#92400e",textAlign:"center"}}>⏳ À compléter</div>}
+              {todayUpdate&&<div style={{padding:"5px 10px",background:"#f0fdf4",border:"1px solid #86efac",borderRadius:6,fontSize:11,fontWeight:500,color:"#166534",textAlign:"center"}}>✓ Complété</div>}
+            </button>
+          </div>
+        </>;
+      })()}
+
+      {/* Messages + Mood */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+        <MessagesPanel managerNotifs={managerNotifs} teammateNotifs={teammateNotifs} onReadNotif={onReadNotif} teamMember={teamMember} myUpdates={myUpdates}/>
+        <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"16px 20px",boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
+          <div style={{fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",marginBottom:12}}>Mood de l'équipe</div>
+          <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} onGoUpdate={onGoUpdate} showDots={false}/>
+        </div>
       </div>
-
 
     </div>
 
+  </div>;
+}
   </div>;
 }
 
@@ -2501,6 +2635,7 @@ export default function App(){
   return <Dashboard
     currentUser={authUser}
     teamMember={currentTeamMember}
+    teamMembers={teamMembers}
     onGoOKR={()=>setPage("okr")}
     onGoUpdate={()=>setPage("update")}
     onGoSettings={()=>setPage("settings")}
