@@ -1885,6 +1885,42 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
 }
 
 
+function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSaveCustomSubcatLabels, catTypes, onSaveCatTypes}) {
+  const [chargeData, setChargeData] = useState(null);
+  const [activeSubcats, setActiveSubcats] = useState({});
+  const [localCodeMap, setLocalCodeMap] = useState(codeMap || DEFAULT_CODE_TO_CAT);
+  const [localCustomLabels, setLocalCustomLabels] = useState(customSubcatLabels || {});
+
+  useEffect(()=>{
+    const u1 = onSnapshot(doc(db,'reporting','charges'),(snap)=>{if(snap.exists())setChargeData(snap.data().chargeData);});
+    const u2 = onSnapshot(doc(db,'reporting','meta'),(snap)=>{if(snap.exists()&&snap.data().activeSubcats)setActiveSubcats(snap.data().activeSubcats);});
+    return()=>{u1();u2();};
+  },[]);
+
+  const knownSubcats = useMemo(()=>new Set(chargeData?Object.keys(chargeData):Object.keys(DEFAULT_SUBCAT_LABELS)),[chargeData]);
+  const effectiveLabels = useMemo(()=>({...DEFAULT_SUBCAT_LABELS,...localCustomLabels}),[localCustomLabels]);
+
+  async function saveActiveSubcats(a) {
+    await updateDoc(doc(db,'reporting','meta'),{activeSubcats:a}).catch(()=>{});
+    setActiveSubcats(a);
+  }
+
+  return <SubcatsDnD
+    codeMap={localCodeMap}
+    setCodeMap={cm=>{setLocalCodeMap(cm);onSaveCodeMap&&onSaveCodeMap(cm);}}
+    onSaveCodeMap={onSaveCodeMap}
+    subcatLabels={effectiveLabels}
+    knownSubcats={knownSubcats}
+    customLabels={localCustomLabels}
+    setCustomLabels={cl=>{setLocalCustomLabels(cl);onSaveCustomSubcatLabels&&onSaveCustomSubcatLabels(cl);}}
+    catTypes={catTypes}
+    onSaveCatTypes={onSaveCatTypes}
+    activeSubcats={activeSubcats}
+    onToggleSubcat={k=>{const n={...activeSubcats,[k]:activeSubcats[k]===false};saveActiveSubcats(n);}}
+    chargeData={chargeData}
+    lastMonth={5}/>;
+}
+
 function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions,catTypes,onSaveCatTypes,codeMap,onSaveCodeMap,customSubcatLabels,onSaveCustomSubcatLabels}){
   const [members,setMembers]=useState(teamMembers.map(m=>({...m})));
   const [newPrenom,setNewPrenom]=useState("");
@@ -1922,7 +1958,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
     <TopBar onBack={onBack} title="⚙️ Paramètres"/>
     <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
       <div style={{display:"flex",gap:10,marginBottom:20}}>
-        {([{k:"members",l:"👥 Membres & rôles"},...(currentUser?.email===OWNER_EMAIL?[{k:"questions",l:"❓ Questions Update"},{k:"history",l:"📋 Historique Updates"}]:[])]).map(t=><button key={t.k} onClick={()=>setTab(t.k)}
+        {([{k:"members",l:"👥 Membres & rôles"},...(currentUser?.email===OWNER_EMAIL?[{k:"questions",l:"❓ Questions Update"},{k:"history",l:"📋 Historique Updates"},{k:"reporting_params",l:"⚙️ Reporting"}]:[])]).map(t=><button key={t.k} onClick={()=>setTab(t.k)}
           style={{padding:"8px 16px",borderRadius:8,border:`1px solid ${tab===t.k?"#2d6a4f":"#e2ddd6"}`,background:tab===t.k?"#2d6a4f":"#fff",color:tab===t.k?"#fff":"#6b6560",cursor:"pointer",fontSize:13,fontWeight:500}}>
           {t.l}
         </button>)}
@@ -2001,6 +2037,10 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
       )}
 
       {tab==="history"&&<UpdatesHistoryTab/>}
+      {tab==="reporting_params"&&<ReportingParamsTab
+          codeMap={codeMap} onSaveCodeMap={onSaveCodeMap}
+          customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={onSaveCustomSubcatLabels}
+          catTypes={catTypes} onSaveCatTypes={onSaveCatTypes}/>}
 
 
       {tab!=="history"&&tab!=="reporting"&&<><button onClick={save} style={{marginTop:20,padding:"12px 28px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600}}>
