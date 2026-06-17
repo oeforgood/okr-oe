@@ -289,7 +289,7 @@ function WeekDots({myUpdates, clickable=false, onClickUpdate}){
   </div>;
 }
 
-function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onClickUpdate, onGoUpdate, showDots=true}){
+function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onClickUpdate, onGoUpdate, showDots=true, nWeeks=26}){
   const MOOD_SCORE = {"😊":5,"🙂":4,"😐":3,"😕":2,"😩":1};
   const now = new Date();
   const currentWkKey = getWeekKey(now);
@@ -711,7 +711,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
                   transition:"opacity .15s"}}
                   onMouseEnter={e=>e.currentTarget.style.opacity=".85"}
                   onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
-                  <span>📊</span> Mettre à jour les OKR
+                  <span>📊</span> Aller aux OKR et mettre à jour
                 </button>
               </div>
             </div>
@@ -805,7 +805,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             </div>
             <div style={{width:1,background:"#e2ddd6",flexShrink:0}}/>
             {/* Middle left: smileys last week + this week */}
-            <div style={{flex:"0 0 220px",display:"flex",flexDirection:"column",gap:10,justifyContent:"center"}}>
+            <div style={{flex:"0 0 180px",display:"flex",flexDirection:"column",gap:10,justifyContent:"center"}}>
               <div>
                 <div style={{fontSize:9,color:"#9e9890",marginBottom:4,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>Semaine passée</div>
                 <SmileysWithAbsents done={teamLastWk} absent={absentLastWk} size={22}/>
@@ -818,8 +818,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             <div style={{width:1,background:"#e2ddd6",flexShrink:0}}/>
             {/* Middle right: mood curve */}
             <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",justifyContent:"center"}}>
-              <div style={{fontSize:9,color:"#9e9890",marginBottom:6,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>Courbe mood équipe</div>
-              <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} showDots={false}/>
+              <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} showDots={false} nWeeks={13}/>
             </div>
             <div style={{width:1,background:"#e2ddd6",flexShrink:0}}/>
             {/* Right: ratio */}
@@ -858,7 +857,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
                 ✍️ Aller aux updates et compléter
               </button>
               {todayUpdate&&<div style={{fontSize:10,color:"#166534",textAlign:"center"}}>✓ Update complété cette semaine</div>}
-              {!todayUpdate&&weekKey&&<div style={{fontSize:10,color:"#92400e",textAlign:"center"}}>⏳ À compléter</div>}
+
             </div>
             <div style={{width:1,background:"#86efac",flexShrink:0}}/>
             {/* Right: completion rate */}
@@ -879,13 +878,9 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
         return <ReportingBanner onGoReporting={onGoReporting}/>;
       })()}
 
-      {/* Messages + Mood */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16,marginTop:16}}>
+      {/* Messages */}
+      <div style={{marginTop:16,marginBottom:16}}>
         <MessagesPanel managerNotifs={managerNotifs} teammateNotifs={teammateNotifs} onReadNotif={onReadNotif} teamMember={teamMember} myUpdates={myUpdates}/>
-        <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"16px 20px",boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
-          <div style={{fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",marginBottom:12}}>Mood de l'équipe</div>
-          <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} showDots={false}/>
-        </div>
       </div>
 
     </div>
@@ -1463,8 +1458,19 @@ function DetailEcritures({rows, lastMonth, monthActive, isAU=false}) {
       <td style={{padding:'3px 4px 3px 40px',fontSize:10,color:'#6b6560',
         position:'sticky',left:0,background:'#fafaf8',zIndex:1,
         borderBottom:'1px solid #f5f5f3',width:220,minWidth:220,maxWidth:220,
-        overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}
-        title={label}>
+        overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
+        cursor:'default'}}
+        onMouseEnter={e=>{
+          const el=document.createElement('div');
+          el.id='rtip';
+          el.style.cssText='position:fixed;background:#1a1814;color:#fff;font-size:11px;padding:4px 10px;border-radius:5px;z-index:9999;pointer-events:none;max-width:600px;white-space:normal;line-height:1.4;box-shadow:0 2px 8px rgba(0,0,0,.3)';
+          el.textContent=label;
+          document.body.appendChild(el);
+          const rect=e.currentTarget.getBoundingClientRect();
+          el.style.left=Math.min(rect.left,window.innerWidth-620)+'px';
+          el.style.top=(rect.top-el.offsetHeight-4)+'px';
+        }}
+        onMouseLeave={()=>{const el=document.getElementById('rtip');if(el)el.remove();}}>
         {label}
       </td>
       {Array(12).fill(0).map((_,i)=>{
@@ -1916,7 +1922,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
     <TopBar onBack={onBack} title="⚙️ Paramètres"/>
     <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
       <div style={{display:"flex",gap:10,marginBottom:20}}>
-        {([{k:"members",l:"👥 Membres & rôles"},...(currentUser?.email===OWNER_EMAIL?[{k:"questions",l:"❓ Questions Update"},{k:"history",l:"📋 Historique Updates"},{k:"reporting",l:"📈 Reporting financier"}]:[])]).map(t=><button key={t.k} onClick={()=>setTab(t.k)}
+        {([{k:"members",l:"👥 Membres & rôles"},...(currentUser?.email===OWNER_EMAIL?[{k:"questions",l:"❓ Questions Update"},{k:"history",l:"📋 Historique Updates"}]:[])]).map(t=><button key={t.k} onClick={()=>setTab(t.k)}
           style={{padding:"8px 16px",borderRadius:8,border:`1px solid ${tab===t.k?"#2d6a4f":"#e2ddd6"}`,background:tab===t.k?"#2d6a4f":"#fff",color:tab===t.k?"#fff":"#6b6560",cursor:"pointer",fontSize:13,fontWeight:500}}>
           {t.l}
         </button>)}
@@ -1995,7 +2001,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
       )}
 
       {tab==="history"&&<UpdatesHistoryTab/>}
-      {tab==="reporting"&&<ReportingTab onSaveCatTypes={onSaveCatTypes} savedCatTypes={catTypes} savedCodeMap={codeMap} onSaveCodeMap={onSaveCodeMap} savedCustomLabels={customSubcatLabels} onSaveCustomLabels={onSaveCustomSubcatLabels}/>}
+
 
       {tab!=="history"&&tab!=="reporting"&&<><button onClick={save} style={{marginTop:20,padding:"12px 28px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600}}>
         💾 Enregistrer
