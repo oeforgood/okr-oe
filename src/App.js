@@ -892,8 +892,6 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
 
   </div>;
 }
-  </div>;
-}
 
 function UpdateCalendar({myUpdates,onView}){
   const now=new Date();
