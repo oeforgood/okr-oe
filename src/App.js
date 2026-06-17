@@ -1191,17 +1191,23 @@ function ReportingRow({label, months, lastMonth, bold=false, highlight=false, is
   </>;
 }
 
-function DetailEcritures({rows, lastMonth, monthActive}) {
+function DetailEcritures({rows, lastMonth, monthActive, isAU=false}) {
+  // For AU buckets, sort by subcat code (stored in row.subcat if set), then month, then compte
   const sorted = [...rows].filter(r=>r.month<=lastMonth&&monthActive[r.month-1])
-    .sort((a,b)=>a.month-b.month||a.compte.localeCompare(b.compte));
+    .sort((a,b)=>{
+      if(isAU){const sc=(a.subcat||'').localeCompare(b.subcat||'');if(sc!==0)return sc;}
+      return a.month-b.month||a.compte.localeCompare(b.compte);
+    });
   return <>
-    {sorted.map((r,i)=><tr key={i} style={{background:'#fafaf8'}}>
+    {sorted.map((r,i)=>{
+      const label=`${isAU&&r.subcat?r.subcat+' · ':''}${MONTHS_FR[r.month-1]} · ${r.compte} · ${r.libCompte} · ${r.tiers||'—'} · ${r.facture||'—'} · ${r.libLigne}`;
+      return <tr key={i} style={{background:'#fafaf8'}}>
       <td style={{padding:'3px 4px 3px 40px',fontSize:10,color:'#6b6560',
         position:'sticky',left:0,background:'#fafaf8',zIndex:1,
         borderBottom:'1px solid #f5f5f3',width:220,minWidth:220,maxWidth:220,
-        overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-        <span style={{color:'#9e9890',marginRight:6}}>{MONTHS_FR[r.month-1]}</span>
-        {r.compte} · {r.libCompte} · {r.tiers||'—'} · {r.facture||'—'} · {r.libLigne}
+        overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}
+        title={label}>
+        {label}
       </td>
       {Array(12).fill(0).map((_,i)=>{
         const isThisMonth = i===r.month-1;
@@ -1216,11 +1222,12 @@ function DetailEcritures({rows, lastMonth, monthActive}) {
       })}
       {lastMonth===12&&<td style={{borderBottom:'1px solid #f5f5f3',borderLeft:'2px solid #2d6a4f',background:'#f0fdf4'}}/>}
       <td style={{borderBottom:'1px solid #f5f5f3',borderLeft:'1px solid #e2ddd6'}}/>
-    </tr>)}
+    </tr>;
+    })}
   </>;
 }
 
-function SubcatsDnD({codeMap, setCodeMap, onSaveCodeMap, subcatLabels, knownSubcats=new Set(), customLabels={}, setCustomLabels, catTypes, onSaveCatTypes, activeSubcats={}, onToggleSubcat}) {
+function SubcatsDnD({codeMap, setCodeMap, onSaveCodeMap, subcatLabels, knownSubcats=new Set(), customLabels={}, setCustomLabels, catTypes, onSaveCatTypes, activeSubcats={}, onToggleSubcat, chargeData={}, lastMonth=5}) {
   const [editingKey, setEditingKey] = useState(null);
   const [editVal, setEditVal] = useState('');
 
@@ -1248,26 +1255,43 @@ function SubcatsDnD({codeMap, setCodeMap, onSaveCodeMap, subcatLabels, knownSubc
     setCustomLabels(n);
   }
 
+  const [collapsedCats, setCollapsedCats] = useState({});
+  const toggleCat = cat => setCollapsedCats(p=>({...p,[cat]:!p[cat]}));
+
   return (
     <div>
       {uncat.filter((v,i,a)=>a.indexOf(v)===i).length > 0 && <div style={{background:'#fdecea',border:'1px solid #fca5a5',borderRadius:8,padding:'8px 14px',marginBottom:16,fontSize:12,color:'#c0392b'}}>
         ⚠️ Codes non affectés : <strong>{[...new Set(uncat.map(s=>s.slice(0,2)))].join(', ')}</strong>
       </div>}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div style={{ display: 'flex', flexDirection:'column', gap: 8 }}>
         {CATEGORIES_ORDER.map(cat => {
-          const subcats = [...new Set(byCategory[cat]||[])];
-          return <div key={cat} style={{borderRadius:10,border:'1px solid #e2ddd6',background:'#fafaf8',padding:'12px 14px'}}>
-            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,paddingBottom:8,borderBottom:'1px solid #e2ddd6'}}>
-              <span style={{fontSize:12,fontWeight:600,color:'#1a1814',flex:1}}>{cat}</span>
-              <span style={{fontSize:10,color:'#9e9890',background:'#f5f3ef',padding:'2px 8px',borderRadius:10}}>
-                {catTypes[cat]==='charges_expl'?"Charges expl.":catTypes[cat]==='autres_charges'?"Autres charges":catTypes[cat]==='cogs'?"COGS":"Ventes"}
-              </span>
+          const subcats = [...new Set(byCategory[cat]||[])].filter(s=>knownSubcats?.has(s));
+          const isCollapsed = collapsedCats[cat];
+          const typeLabel = catTypes[cat]==='charges_expl'?"Charges d'exploitation":catTypes[cat]==='autres_charges'?"Autres charges":catTypes[cat]==='cogs'?"COGS":"Ventes";
+          // Compute monthly avg for display
+          return <div key={cat} style={{borderRadius:10,border:'1px solid #e2ddd6',background:'#fafaf8',overflow:'hidden'}}>
+            {/* Category header - clickable */}
+            <div onClick={()=>toggleCat(cat)} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 16px',cursor:'pointer',background:'#f5f3ef',userSelect:'none'}}
+              onMouseEnter={e=>e.currentTarget.style.background='#ede9e3'}
+              onMouseLeave={e=>e.currentTarget.style.background='#f5f3ef'}>
+              <span style={{fontSize:12,transform:isCollapsed?'rotate(-90deg)':'rotate(0deg)',transition:'transform .2s',color:'#9e9890',display:'inline-block'}}>▾</span>
+              <span style={{fontSize:13,fontWeight:600,color:'#1a1814',flex:1}}>{cat}</span>
+              <span style={{fontSize:11,color:'#9e9890'}}>{subcats.length} sous-cat{subcats.length>1?'s':''}</span>
+              <span style={{fontSize:11,color:'#6b6560',background:'#fff',border:'1px solid #e2ddd6',padding:'2px 10px',borderRadius:10}}>{typeLabel}</span>
             </div>
-            <div style={{display:'flex',flexDirection:'column',gap:3}}>
+            {/* Subcategories grid - 3 columns */}
+            {!isCollapsed&&<div style={{padding:'12px 16px'}}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
               {subcats.map(subcat => {
                 const hasData = knownSubcats?.has(subcat);
                 if (!hasData) return null; // Hide subcats with no transactions
+                
+                // Compute monthly average
+                const subcatMonths = chargeData?.[subcat]?.months || {};
+                const subcatTotal = Object.values(subcatMonths).reduce((a,b)=>a+b,0);
+                const subcatCount = Object.keys(subcatMonths).filter(k=>parseInt(k.split('-')[1])<=lastMonth).length||1;
+                const monthlyAvg = subcatTotal / subcatCount;
                 
                 const defaultLbl = DEFAULT_SUBCAT_LABELS[subcat];
                 const currentLbl = subcatLabels[subcat] || (defaultLbl ? '' : '— À nommer —');
@@ -1296,6 +1320,9 @@ function SubcatsDnD({codeMap, setCodeMap, onSaveCodeMap, subcatLabels, knownSubc
                   {isCustom&&<span title="Libellé modifié — cliquer pour restaurer l'original" onClick={()=>resetLabel(subcat)}
                     style={{fontSize:9,color:'#f59e0b',cursor:'pointer',flexShrink:0}}>↩</span>}
                   {isNew&&<span style={{fontSize:9,color:'#c0392b',flexShrink:0}}>NEW</span>}
+                  <span style={{fontSize:9,color:'#9e9890',flexShrink:0}}>
+                    {new Intl.NumberFormat('fr-FR',{maximumFractionDigits:0}).format(Math.abs(monthlyAvg)/1000)}k/m
+                  </span>
                   {/* Active/inactive toggle dot */}
                   <span title={isActive?"Désactiver (sera regroupé dans XX-AU)":"Activer"}
                     onClick={()=>onToggleSubcat&&onToggleSubcat(subcat)}
@@ -1305,7 +1332,8 @@ function SubcatsDnD({codeMap, setCodeMap, onSaveCodeMap, subcatLabels, knownSubc
                 </div>;
               })}
               {subcats.length===0&&<span style={{fontSize:11,color:'#c5c0b8',fontStyle:'italic'}}>Aucune sous-catégorie</span>}
-            </div>
+              </div>
+            </div>}
           </div>;
         })}
       </div>
@@ -1420,10 +1448,12 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
       const isActive = activeSubcats[subcat] !== false; // default true
       const targetSubcat = isActive ? subcat : `${code}-AU`;
       
-      if(!res[type][cat][targetSubcat]) res[type][cat][targetSubcat]={months:Array(12).fill(0),rows:[]};
+      if(!res[type][cat][targetSubcat]) res[type][cat][targetSubcat]={months:Array(12).fill(0),rows:[],isAU:!isActive};
       const months=getMonthArray(data.months);
       months.forEach((v,i)=>res[type][cat][targetSubcat].months[i]+=v);
-      if(isActive) res[type][cat][targetSubcat].rows=(res[type][cat][targetSubcat].rows||[]).concat(data.rows||[]);
+      // Store rows with subcat code for AU buckets sorting
+      const rowsWithSubcat=(data.rows||[]).map(r=>({...r,subcat:isActive?undefined:subcat}));
+      res[type][cat][targetSubcat].rows=(res[type][cat][targetSubcat].rows||[]).concat(rowsWithSubcat);
     });
     return res;
   },[chargeData,codeMap,catTypes,activeSubcats]);
@@ -1464,7 +1494,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
             const label2=`${subcat} · ${effectiveLabels[subcat]||subcatLabels[subcat]||''}`;
             return <ReportingRow key={subcat} label={label2} months={d.months} lastMonth={lastMonth}
               indent={2} inKeur={inKeur} onClick={()=>toggle(subcatKey)} isOpen={expanded[subcatKey]}>
-              <DetailEcritures rows={d.rows} lastMonth={lastMonth} monthActive={monthActive}/>
+              <DetailEcritures rows={d.rows} lastMonth={lastMonth} monthActive={monthActive} isAU={d.isAU}/>
             </ReportingRow>;
           })}
         </ReportingRow>;
@@ -1488,7 +1518,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
 
 
     {/* Subcats tab - drag and drop */}
-    {activeTab==='subcats'&&<SubcatsDnD codeMap={codeMap} setCodeMap={setCodeMap} onSaveCodeMap={onSaveCodeMap} subcatLabels={effectiveLabels} knownSubcats={knownSubcats} customLabels={customLabels} setCustomLabels={(cl)=>{setCustomLabels(cl);onSaveCustomLabels&&onSaveCustomLabels(cl);}} catTypes={catTypes} onSaveCatTypes={onSaveCatTypes} activeSubcats={activeSubcats} onToggleSubcat={(k)=>{const n={...activeSubcats,[k]:activeSubcats[k]===false};saveActiveSubcats(n);}}/>}
+    {activeTab==='subcats'&&<SubcatsDnD codeMap={codeMap} setCodeMap={setCodeMap} onSaveCodeMap={onSaveCodeMap} subcatLabels={effectiveLabels} knownSubcats={knownSubcats} customLabels={customLabels} setCustomLabels={(cl)=>{setCustomLabels(cl);onSaveCustomLabels&&onSaveCustomLabels(cl);}} catTypes={catTypes} onSaveCatTypes={onSaveCatTypes} activeSubcats={activeSubcats} onToggleSubcat={(k)=>{const n={...activeSubcats,[k]:activeSubcats[k]===false};saveActiveSubcats(n);}} chargeData={chargeData} lastMonth={lastMonth}/>}
 
     {/* Report tab */}
     {activeTab==='report'&&<>
