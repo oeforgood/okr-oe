@@ -838,14 +838,35 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
         function SmileysOrdered({done,absent,size=22}){
           const [hov,setHov]=useState(null);
           const [pos,setPos]=useState({x:0,y:0});
-          const absentItems=absent.map(m=>({key:'a'+m.email,emoji:getAbsenceIcon(m.email,m.prenom),name:m.prenom,isAbsent:true}));
+          // Absents = ceux avec 🤰/🎓/🌴/🎿 (forceMat, forceAbsent, ou q8 congés/école)
           const absentEmails=new Set(absent.map(m=>m.email));
-          const doneItems=done.filter(u=>!absentEmails.has(u.email)).map(u=>({key:'d'+u.email,emoji:u.answers?.q7||"😐",name:u.prenom,isAbsent:false}));
-          const all=[...absentItems,...doneItems];
+          const realAbsents=absent.filter(m=>{
+            const icon=getAbsenceIcon(m.email,m.prenom);
+            return icon==='🤰'||icon==='🎓'||icon==='🌴'||icon==='🎿';
+          });
+          const realAbsentEmails=new Set(realAbsents.map(m=>m.email));
+          // Sort: 🤰 first, then others
+          const absentSorted=[...realAbsents].sort((a,b)=>{
+            const aFirst=(a.forceMat||a.email==='claire@oeforgood.com')?0:1;
+            const bFirst=(b.forceMat||b.email==='claire@oeforgood.com')?0:1;
+            return aFirst-bFirst;
+          });
+          const absentItems=absentSorted.map(m=>({key:'a'+m.email,emoji:getAbsenceIcon(m.email,m.prenom),name:m.prenom,isAbsent:true}));
+          // Done (excl. real absents), sorted by submittedAt
+          const doneItems=done.filter(u=>!realAbsentEmails.has(u.email)).sort((a,b)=>a.submittedAt-b.submittedAt).map(u=>({key:'d'+u.email,emoji:u.answers?.q7||"😐",name:u.prenom,isAbsent:false}));
+          // Not done = present actifs qui n'ont ni soumis ni sont absents → 🫥
+          const doneEmails=new Set(done.map(u=>u.email));
+          // notDone = actifs, non absents réels (🤰🎓🌴🎿), non complétés
+          const notDoneItems=(teamMembers||[]).filter(m=>
+            m.role!=="inactive"&&m.email&&
+            !realAbsentEmails.has(m.email)&&
+            !doneEmails.has(m.email)
+          ).map(m=>({key:'n'+m.email,emoji:"🫥",name:m.prenom,isAbsent:false,notDone:true}));
+          const all=[...absentItems,...doneItems,...notDoneItems];
           return <div style={{display:"flex",gap:3,flexWrap:"wrap",alignItems:"center"}}>
             {hov&&<div style={{position:"fixed",left:pos.x+10,top:pos.y-28,background:"#1a1814",color:"#fff",
               fontSize:10,padding:"2px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:9999,pointerEvents:"none"}}>{hov}</div>}
-            {all.map(item=><span key={item.key} style={{fontSize:size,lineHeight:1,cursor:"default",opacity:item.isAbsent?0.7:1}}
+            {all.map(item=><span key={item.key} style={{fontSize:size,lineHeight:1,cursor:"default",opacity:item.isAbsent?0.8:item.notDone?0.5:1}}
               onMouseEnter={e=>{setHov(item.name);setPos({x:e.clientX,y:e.clientY});}}
               onMouseMove={e=>setPos({x:e.clientX,y:e.clientY})}
               onMouseLeave={()=>setHov(null)}>
