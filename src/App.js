@@ -348,7 +348,7 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
   }
 
   const [hoveredDot,setHoveredDot]=useState(null);
-  return <div style={{position:"relative",height:fillContainer?"100%":undefined,display:fillContainer?"flex":undefined,flexDirection:"column"}}>
+  return <div style={{position:"relative",width:"100%"}}>
     {hoveredDot!==null&&weeks[hoveredDot]&&(()=>{
       const w=weeks[hoveredDot];
       const sameM2=w.mon.getMonth()===w.fri.getMonth();
@@ -358,7 +358,7 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
       const xPct=dotX(hoveredDot)/W*100;
       return <div style={{position:"absolute",top:-28,left:`${xPct}%`,transform:"translateX(-50%)",background:"#1a1814",color:"#fff",fontSize:10,padding:"3px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:10,pointerEvents:"none"}}>{tip}</div>;
     })()}
-    <svg width="100%" height={fillContainer?"100%":undefined} viewBox={`0 0 ${W} ${totalH}`} preserveAspectRatio={fillContainer?"none":"xMidYMid meet"} style={{display:"block",overflow:fillContainer?"hidden":"visible"}}>
+    <svg width="100%" viewBox={`0 0 ${W} ${totalH}`} preserveAspectRatio="xMidYMid meet" style={{display:"block",overflow:"visible"}}>
       {/* Month separator lines */}
       {monthSeps.map((s,i)=><line key={i} x1={s.x} x2={s.x} y1={0} y2={CURVE_H} stroke="#e2ddd6" strokeWidth="0.5" strokeDasharray="2,2"/>)}
       {/* Month labels overlaid at bottom of curve */}
@@ -833,17 +833,18 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
 
         function SmileysOrdered({done,absent,size=22}){
           const [hov,setHov]=useState(null);
-          // Claire (🤰) always first if she's in done (not absent), then other absents, then done by order
-          // Absents first (including forceMat/forceAbsent), then done by order
+          const [pos,setPos]=useState({x:0,y:0});
           const absentItems=absent.map(m=>({key:'a'+m.email,emoji:getAbsenceIcon(m.email,m.prenom),name:m.prenom,isAbsent:true}));
           const absentEmails=new Set(absent.map(m=>m.email));
           const doneItems=done.filter(u=>!absentEmails.has(u.email)).map(u=>({key:'d'+u.email,emoji:u.answers?.q7||"😐",name:u.prenom,isAbsent:false}));
           const all=[...absentItems,...doneItems];
-          return <div style={{display:"flex",gap:3,flexWrap:"wrap",alignItems:"center",position:"relative"}}>
-            {hov&&<div style={{position:"absolute",top:-22,left:0,background:"#1a1814",color:"#fff",
-              fontSize:10,padding:"2px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:10,pointerEvents:"none"}}>{hov}</div>}
+          return <div style={{display:"flex",gap:3,flexWrap:"wrap",alignItems:"center"}}>
+            {hov&&<div style={{position:"fixed",left:pos.x+10,top:pos.y-28,background:"#1a1814",color:"#fff",
+              fontSize:10,padding:"2px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:9999,pointerEvents:"none"}}>{hov}</div>}
             {all.map(item=><span key={item.key} style={{fontSize:size,lineHeight:1,cursor:"default",opacity:item.isAbsent?0.7:1}}
-              onMouseEnter={()=>setHov(item.name)} onMouseLeave={()=>setHov(null)}>
+              onMouseEnter={e=>{setHov(item.name);setPos({x:e.clientX,y:e.clientY});}}
+              onMouseMove={e=>setPos({x:e.clientX,y:e.clientY})}
+              onMouseLeave={()=>setHov(null)}>
               {item.emoji}
             </span>)}
           </div>;
@@ -865,15 +866,21 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
 
         function My13Smileys(){
           const [hov,setHov]=useState(null);
-          return <div style={{display:"flex",gap:3,flexWrap:"wrap",alignItems:"center",position:"relative"}}>
-            {hov&&<div style={{position:"absolute",top:-22,left:0,background:"#1a1814",color:"#fff",
-              fontSize:10,padding:"2px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:10,pointerEvents:"none"}}>{hov}</div>}
+          const [pos,setPos]=useState({x:0,y:0});
+          // Last week with an update (most recent)
+          const lastDone=[...my13Weeks].reverse().find(w=>w.u);
+          return <div style={{display:"flex",gap:3,flexWrap:"wrap",alignItems:"center"}}>
+            {hov&&<div style={{position:"fixed",left:pos.x+10,top:pos.y-28,background:"#1a1814",color:"#fff",
+              fontSize:10,padding:"2px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:9999,pointerEvents:"none"}}>{hov}</div>}
             {my13Weeks.map((w,i)=>{
               const mood=w.u?.answers?.q7||"🫥";
+              const isLast=lastDone&&w===lastDone;
               const sameM=w.mon.getMonth()===w.fri.getMonth();
               const tip=sameM?`Semaine du ${w.mon.getDate()} au ${w.fri.getDate()} ${w.fri.toLocaleString("fr-FR",{month:"long"})}`:`Semaine du ${w.mon.getDate()} ${w.mon.toLocaleString("fr-FR",{month:"short"})} au ${w.fri.getDate()} ${w.fri.toLocaleString("fr-FR",{month:"short"})}`;
-              return <span key={i} style={{fontSize:18,lineHeight:1,cursor:"default",opacity:w.u?1:0.4}}
-                onMouseEnter={()=>setHov(tip)} onMouseLeave={()=>setHov(null)}>{mood}</span>;
+              return <span key={i} style={{fontSize:isLast?32:18,lineHeight:1,cursor:"default",opacity:w.u?1:0.4,transition:"font-size .2s"}}
+                onMouseEnter={e=>{setHov(tip);setPos({x:e.clientX,y:e.clientY});}}
+                onMouseMove={e=>setPos({x:e.clientX,y:e.clientY})}
+                onMouseLeave={()=>setHov(null)}>{mood}</span>;
             })}
           </div>;
         }
@@ -922,8 +929,8 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
               </div>
             </div>
             {/* Right: mood curve - tall */}
-            <div style={{flexShrink:0,width:280,alignSelf:"stretch",display:"flex",flexDirection:"column",overflow:"hidden"}}>
-              <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} showDots={false} nWeeks={13} fillContainer={true}/>
+            <div style={{flex:"0 0 260px",alignSelf:"stretch",display:"flex",alignItems:"center",overflow:"hidden"}}>
+              <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} showDots={false} nWeeks={13}/>
             </div>
             {/* Old ratio removed - now in left panel */}
 
