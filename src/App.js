@@ -905,7 +905,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
           {/* Team Updates banner */}
           <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"14px 20px",
             display:"flex",alignItems:"stretch",gap:12,
-            boxShadow:"0 1px 3px rgba(0,0,0,.04)",height:160,boxSizing:"border-box",overflow:"hidden"}}>
+            boxShadow:"0 1px 3px rgba(0,0,0,.04)",height:220,boxSizing:"border-box",overflow:"hidden"}}>
             {/* Left: team mood avg + ratio */}
             <div style={{flexShrink:0,textAlign:"center",width:90,display:"flex",flexDirection:"column",justifyContent:"center",gap:6}}>
               <div style={{fontSize:44,lineHeight:1}}>{teamMoodAvg?MOOD_FROM_SCORE(teamMoodAvg):"—"}</div>
@@ -942,7 +942,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             </div>
             {/* Right: mood curve - tall */}
             <div style={{flex:"0 0 340px",alignSelf:"stretch",overflow:"hidden"}}>
-              <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} showDots={false} nWeeks={26} curveHeight={132}/>
+              <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} showDots={false} nWeeks={26} curveHeight={192}/>
             </div>
             {/* Old ratio removed - now in left panel */}
 
@@ -950,7 +950,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
           {/* Personal Updates banner - 320px */}
           <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"14px 20px",
             display:"flex",alignItems:"stretch",gap:12,flexDirection:"column",justifyContent:"space-between",
-            boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+            boxShadow:"0 1px 3px rgba(0,0,0,.04)",height:220,boxSizing:"border-box",overflow:"hidden"}}>
             {/* Perso: vertical layout for 320px height */}
             {/* Top: mood + name */}
             <div style={{display:"flex",alignItems:"center",gap:12,paddingBottom:12,borderBottom:"1px solid #86efac"}}>
