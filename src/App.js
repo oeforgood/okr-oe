@@ -315,7 +315,7 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
   const fmtDShort=d=>`${d.getDate()} ${d.toLocaleString("fr-FR",{month:"short"})}`;
 
   // SVG dimensions
-  const W=560,DOT_Y=10,CURVE_TOP=30,CURVE_H=Math.max(curveHeight-48,50),AXIS_H=18,pad=7;
+  const W=560,DOT_Y=4,CURVE_TOP=8,CURVE_H=Math.max(curveHeight-20,50),AXIS_H=12,pad=4;
   const dotSpacing=(W-2*pad)/(weeks.length-1);
   const dotX=i=>pad+i*dotSpacing;
   const minV=1,maxV=5;
@@ -777,9 +777,9 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
 
         // Build last week full list: done members + absent members
         const doneLastWkEmails=new Set(teamLastWk.map(u=>u.email));
-        const absentLastWk=activeTeam.filter(m=>!doneLastWkEmails.has(m.email));
+        const absentLastWk=activeTeam.filter(m=>!doneLastWkEmails.has(m.email)||m.forceAbsent||m.forceMat);
         const doneCurWkEmails=new Set(teamCurWk.map(u=>u.email));
-        const absentCurWk=activeTeam.filter(m=>!doneCurWkEmails.has(m.email));
+        const absentCurWk=activeTeam.filter(m=>!doneCurWkEmails.has(m.email)||m.forceAbsent||m.forceMat);
 
         const teamMoodScores=teamLastWk.filter(u=>u.answers?.q7).map(u=>MOOD_SCORE[u.answers.q7]||3);
         const teamMoodAvg=teamMoodScores.length?teamMoodScores.reduce((a,b)=>a+b,0)/teamMoodScores.length:null;
@@ -808,17 +808,22 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
         const myCompletionRate=myActiveWeeks.length>0?Math.round(my13Weeks.filter(w=>w.u&&myActiveWeeks.includes(w)).length/myActiveWeeks.length*100):100;
 
 
-  // Get absence icon for a teammate based on their previous week's q8 answer
+  // Get absence icon for a teammate based on forceAbsent/forceMat flags or previous week's q8 answer
   function getAbsenceIcon(email, prenom) {
-    if (email === 'claire@oeforgood.com') return '🤰';
+    const member = (teamMembers||[]).find(m => m.email === email);
+    if (member?.forceMat) return '🤰';
+    if (member?.forceAbsent) {
+      const now = new Date();
+      const mo = now.getMonth() + 1;
+      return ((mo >= 12 && now.getDate() >= 15) || mo <= 4) ? '🎿' : '🌴';
+    }
     const prevUpdate = allUpdates.find(u => u.email === email && u.weekKey === lastWkKey);
     const q8 = prevUpdate?.answers?.q8 || '';
     if (q8.includes('école') || q8.includes('École')) return '🎓';
     if (q8.includes('congés') || q8.includes('vacances')) {
       const now = new Date();
-      const m = now.getMonth() + 1;
-      if ((m >= 12 && now.getDate() >= 15) || m <= 4) return '🎿';
-      return '🌴';
+      const mo = now.getMonth() + 1;
+      return ((mo >= 12 && now.getDate() >= 15) || mo <= 4) ? '🎿' : '🌴';
     }
     return '🫥';
   }
@@ -826,13 +831,11 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
         function SmileysOrdered({done,absent,size=22}){
           const [hov,setHov]=useState(null);
           // Claire (🤰) always first if she's in done (not absent), then other absents, then done by order
-          const claireInDone=done.find(u=>u.email==='claire@oeforgood.com');
-          const claireAbsent=absent.find(m=>m.email==='claire@oeforgood.com');
-          const clairePinned=claireInDone?[{key:'claire',emoji:'🤰',name:'Claire',isAbsent:false}]:[];
-          const absentItems=absent.filter(m=>m.email!=='claire@oeforgood.com').map(m=>({key:'a'+m.email,emoji:getAbsenceIcon(m.email,m.prenom),name:m.prenom,isAbsent:true}));
-          if(claireAbsent)absentItems.unshift({key:'claire',emoji:'🤰',name:'Claire',isAbsent:true});
-          const doneItems=done.filter(u=>u.email!=='claire@oeforgood.com').map(u=>({key:'d'+u.email,emoji:u.answers?.q7||"😐",name:u.prenom,isAbsent:false}));
-          const all=[...clairePinned,...absentItems,...doneItems];
+          // Absents first (including forceMat/forceAbsent), then done by order
+          const absentItems=absent.map(m=>({key:'a'+m.email,emoji:getAbsenceIcon(m.email,m.prenom),name:m.prenom,isAbsent:true}));
+          const absentEmails=new Set(absent.map(m=>m.email));
+          const doneItems=done.filter(u=>!absentEmails.has(u.email)).map(u=>({key:'d'+u.email,emoji:u.answers?.q7||"😐",name:u.prenom,isAbsent:false}));
+          const all=[...absentItems,...doneItems];
           return <div style={{display:"flex",gap:3,flexWrap:"wrap",alignItems:"center",position:"relative"}}>
             {hov&&<div style={{position:"absolute",top:-22,left:0,background:"#1a1814",color:"#fff",
               fontSize:10,padding:"2px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:10,pointerEvents:"none"}}>{hov}</div>}
@@ -888,7 +891,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
                 const presentTeam2=activeTeam.filter(m=>{
                   const prevU=allUpdates.find(u=>u.email===m.email&&u.weekKey===lastWkKey);
                   const q8=prevU?.answers?.q8||'';
-                  return !q8.includes('congés')&&!q8.includes('École')&&!q8.includes('école')&&m.email!=='claire@oeforgood.com';
+                  return !q8.includes('congés')&&!q8.includes('École')&&!q8.includes('école')&&!m.forceMat&&!m.forceAbsent;
                 });
                 const num=teamLastWk.filter(u=>presentTeam2.some(m=>m.email===u.email)).length;
                 const denom=presentTeam2.length||activeCount;
@@ -2084,6 +2087,9 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
     if(email===OWNER_EMAIL)return;
     setMembers(p=>p.map(m=>m.email===email?{...m,role}:m));
   }
+  function toggleForce(email,field){
+    setMembers(p=>p.map(m=>m.email===email?{...m,[field]:!m[field]}:m));
+  }
   function setManager(email,managerEmail){
     setMembers(p=>p.map(m=>m.email===email?{...m,managerEmail}:m));
   }
@@ -2118,7 +2124,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
         <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",overflow:"hidden"}}>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
             <thead><tr style={{background:"#f5f3ef"}}>
-              {["Prénom","Email","Manager","Rôle",""].map(h=><th key={h} style={{fontSize:11,fontWeight:600,color:"#9e9890",textTransform:"uppercase",letterSpacing:".05em",padding:"10px 14px",textAlign:"left",borderBottom:"1px solid #e2ddd6"}}>{h}</th>)}
+              {["Prénom","Email","Manager","Rôle","🌴 Absent","🤰 Mat.",""].map(h=><th key={h} style={{fontSize:11,fontWeight:600,color:"#9e9890",textTransform:"uppercase",letterSpacing:".05em",padding:"10px 14px",textAlign:"left",borderBottom:"1px solid #e2ddd6"}}>{h}</th>)}
             </tr></thead>
             <tbody>
               {members.map(m=><tr key={m.email} style={{borderBottom:"1px solid #f0ede8"}}>
@@ -2136,6 +2142,14 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
                     :<select value={m.role||"teammate"} onChange={e=>setRole(m.email,e.target.value)} style={{...INP,fontSize:12}}>
                       <option value="admin">Admin</option><option value="teammate">Teammate actif</option><option value="inactive">Teammate inactif</option>
                     </select>}
+                </td>
+                <td style={{padding:"10px 14px",textAlign:"center"}}>
+                  <input type="checkbox" checked={!!m.forceAbsent} onChange={()=>toggleForce(m.email,'forceAbsent')}
+                    style={{width:16,height:16,cursor:"pointer",accentColor:"#2d6a4f"}}/>
+                </td>
+                <td style={{padding:"10px 14px",textAlign:"center"}}>
+                  <input type="checkbox" checked={!!m.forceMat} onChange={()=>toggleForce(m.email,'forceMat')}
+                    style={{width:16,height:16,cursor:"pointer",accentColor:"#c0392b"}}/>
                 </td>
                 <td style={{padding:"10px 14px"}}>
                   {m.email!==OWNER_EMAIL&&<button onClick={()=>removeMember(m.email)} style={{fontSize:12,color:"#c0392b",background:"#fdecea",border:"1px solid #fca5a5",borderRadius:6,padding:"4px 10px",cursor:"pointer"}}>Retirer</button>}
