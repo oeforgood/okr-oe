@@ -315,7 +315,7 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
   const fmtDShort=d=>`${d.getDate()} ${d.toLocaleString("fr-FR",{month:"short"})}`;
 
   // SVG dimensions
-  const W=560,DOT_Y=4,CURVE_TOP=8,CURVE_H=Math.max(curveHeight-20,50),AXIS_H=12,pad=4;
+  const W=560,DOT_Y=4,CURVE_TOP=0,CURVE_H=Math.max(curveHeight-12,50),AXIS_H=0,pad=4;
   const dotSpacing=(W-2*pad)/(weeks.length-1);
   const dotX=i=>pad+i*dotSpacing;
   const minV=1,maxV=5;
@@ -360,9 +360,9 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
     })()}
     <svg width="100%" viewBox={`0 0 ${W} ${totalH}`} style={{display:"block",overflow:"visible"}}>
       {/* Month separator lines */}
-      {monthSeps.map((s,i)=><line key={i} x1={s.x} x2={s.x} y1={0} y2={CURVE_TOP+CURVE_H} stroke="#d5d0ca" strokeWidth="0.5"/>)}
-      {/* Month labels on X axis */}
-      {monthLabels.map((m,i)=><text key={i} x={m.x} y={totalH-2} fontSize="8" fill="#9e9890" textAnchor="middle">{m.label}</text>)}
+      {monthSeps.map((s,i)=><line key={i} x1={s.x} x2={s.x} y1={0} y2={CURVE_H} stroke="#e2ddd6" strokeWidth="0.5" strokeDasharray="2,2"/>)}
+      {/* Month labels overlaid at bottom of curve */}
+      {monthLabels.map((m,i)=><text key={i} x={m.x} y={curveY(1.15)} fontSize="8" fill="#c5c0b8" textAnchor="middle" style={{pointerEvents:"none"}}>{m.label}</text>)}
       {/* Dots row */}
       {showDots&&weeks.map((w,i)=>{
         const c=DOT_C[w.status];
