@@ -838,19 +838,25 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
         function SmileysOrdered({done,absent,size=22}){
           const [hov,setHov]=useState(null);
           const [pos,setPos]=useState({x:0,y:0});
-          // 1. Absents (forceMat/forceAbsent first, then others)
+          // Absents = ceux avec 🤰/🎓/🌴/🎿 (forceMat, forceAbsent, ou q8 congés/école)
           const absentEmails=new Set(absent.map(m=>m.email));
-          const absentSorted=[...absent].sort((a,b)=>{
-            const aForce=(a.forceMat||a.forceAbsent||a.email==='claire@oeforgood.com')?0:1;
-            const bForce=(b.forceMat||b.forceAbsent||b.email==='claire@oeforgood.com')?0:1;
-            return aForce-bForce;
+          const realAbsents=absent.filter(m=>{
+            const icon=getAbsenceIcon(m.email,m.prenom);
+            return icon==='🤰'||icon==='🎓'||icon==='🌴'||icon==='🎿';
+          });
+          const realAbsentEmails=new Set(realAbsents.map(m=>m.email));
+          // Sort: 🤰 first, then others
+          const absentSorted=[...realAbsents].sort((a,b)=>{
+            const aFirst=(a.forceMat||a.email==='claire@oeforgood.com')?0:1;
+            const bFirst=(b.forceMat||b.email==='claire@oeforgood.com')?0:1;
+            return aFirst-bFirst;
           });
           const absentItems=absentSorted.map(m=>({key:'a'+m.email,emoji:getAbsenceIcon(m.email,m.prenom),name:m.prenom,isAbsent:true}));
-          // 2. Done sorted by submittedAt
-          const doneItems=done.filter(u=>!absentEmails.has(u.email)).sort((a,b)=>a.submittedAt-b.submittedAt).map(u=>({key:'d'+u.email,emoji:u.answers?.q7||"😐",name:u.prenom,isAbsent:false}));
-          // 3. Not done (present but no update)
+          // Done (excl. real absents), sorted by submittedAt
+          const doneItems=done.filter(u=>!realAbsentEmails.has(u.email)).sort((a,b)=>a.submittedAt-b.submittedAt).map(u=>({key:'d'+u.email,emoji:u.answers?.q7||"😐",name:u.prenom,isAbsent:false}));
+          // Not done = present actifs qui n'ont ni soumis ni sont absents → 🫥
           const doneEmails=new Set(done.map(u=>u.email));
-          const notDoneItems=(teamMembers||[]).filter(m=>m.role!=="inactive"&&m.email&&!absentEmails.has(m.email)&&!doneEmails.has(m.email)).map(m=>({key:'n'+m.email,emoji:"🫥",name:m.prenom,isAbsent:false,notDone:true}));
+          const notDoneItems=(teamMembers||[]).filter(m=>m.role!=="inactive"&&m.email&&!realAbsentEmails.has(m.email)&&!doneEmails.has(m.email)&&!absentEmails.has(m.email)).map(m=>({key:'n'+m.email,emoji:"🫥",name:m.prenom,isAbsent:false,notDone:true}));
           const all=[...absentItems,...doneItems,...notDoneItems];
           return <div style={{display:"flex",gap:3,flexWrap:"wrap",alignItems:"center"}}>
             {hov&&<div style={{position:"fixed",left:pos.x+10,top:pos.y-28,background:"#1a1814",color:"#fff",
