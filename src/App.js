@@ -878,7 +878,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
           {/* Team Updates banner - 320px */}
           <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"14px 20px",
             display:"flex",alignItems:"stretch",gap:12,
-            boxShadow:"0 1px 3px rgba(0,0,0,.04)",height:220,boxSizing:"border-box"}}>
+            boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
             {/* Left: team mood avg */}
             <div style={{flexShrink:0,textAlign:"center",width:100,display:"flex",flexDirection:"column",justifyContent:"center"}}>
               <div style={{fontSize:52,lineHeight:1}}>{teamMoodAvg?MOOD_FROM_SCORE(teamMoodAvg):"—"}</div>
@@ -926,7 +926,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
           {/* Personal Updates banner - 320px */}
           <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"14px 20px",
             display:"flex",alignItems:"stretch",gap:12,flexDirection:"column",justifyContent:"space-between",
-            boxShadow:"0 1px 3px rgba(0,0,0,.04)",height:220,boxSizing:"border-box"}}>
+            boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
             {/* Perso: vertical layout for 320px height */}
             {/* Top: mood + name */}
             <div style={{display:"flex",alignItems:"center",gap:12,paddingBottom:12,borderBottom:"1px solid #86efac"}}>
@@ -2368,7 +2368,7 @@ function SeasonBanner({seasonKey,avgProg,totalKR,doneKR}){
   const start=new Date(info.start),end=new Date(info.end);
   const fmt=d=>d.toLocaleDateString("fr-FR",{day:"numeric",month:"short"});
   const col=progColor(avgProg),krCol=progColor(doneKR/Math.max(totalKR,1)*100);
-  return <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"14px 20px",marginBottom:0,display:"flex",alignItems:"center",gap:20,flexWrap:"nowrap",overflow:"hidden",height:160,minHeight:160,maxHeight:160}}>
+  return <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"14px 20px",marginBottom:14,display:"flex",alignItems:"center",gap:20,flexWrap:"nowrap",overflow:"hidden"}}>
     <div style={{flexShrink:0,textAlign:"center",width:100}}>
       <div style={{fontSize:52,fontWeight:700,fontFamily:"monospace",color:col,lineHeight:1}}>{Math.round(avgProg)}%</div>
       <div style={{fontSize:10,color:"#9e9890",marginTop:3,textTransform:"uppercase",letterSpacing:".06em"}}>Avancement global</div>
@@ -2392,7 +2392,7 @@ function SeasonBanner({seasonKey,avgProg,totalKR,doneKR}){
 
 function PersonalBanner({prog,doneKR,totalKR,label,marginBottom=8,avgProg=0}){
   const col=progColorRel(prog,avgProg),krCol=progColorRel(doneKR/Math.max(totalKR,1)*100,avgProg);
-  return <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"14px 20px",marginBottom,display:"flex",alignItems:"center",gap:20,flexWrap:"nowrap",overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,.04)",height:160,minHeight:160,maxHeight:160}}>
+  return <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"14px 20px",marginBottom,display:"flex",alignItems:"center",gap:20,flexWrap:"nowrap",overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
     <div style={{flexShrink:0,textAlign:"center",width:100}}>
       <div style={{fontSize:52,fontWeight:700,fontFamily:"monospace",color:col,lineHeight:1}}>{Math.round(prog)}%</div>
       <div style={{fontSize:10,color:"#6b6560",marginTop:3,textTransform:"uppercase",letterSpacing:".06em"}}>{label}</div>
