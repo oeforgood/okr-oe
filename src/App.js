@@ -386,13 +386,7 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
         <title>{`Mood moyen : ${w.avg.toFixed(1)}/5 (${w.count} réponses)`}</title>
       </circle>)}
     </svg>
-    {/* Legend */}
-    {showDots&&<div style={{display:"flex",gap:16,marginTop:6,fontSize:11,color:"#9e9890"}}>
-      <span><span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#2d6a4f",marginRight:4,verticalAlign:"middle"}}/>Fait en semaine</span>
-      <span><span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#facc15",marginRight:4,verticalAlign:"middle"}}/>Fait le lundi</span>
-      <span><span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#ef4444",marginRight:4,verticalAlign:"middle"}}/>Non fait</span>
-      <span style={{marginLeft:"auto"}}>Courbe : mood équipe</span>
-    </div>}
+
   </div>;
 }
 
@@ -661,7 +655,7 @@ function FeedbackBox({currentUser, teamMember}) {
 
   return (
     <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"14px 16px",
-      boxShadow:"0 1px 3px rgba(0,0,0,.06)",display:"flex",flexDirection:"column",gap:10}}>
+      boxShadow:"0 1px 3px rgba(0,0,0,.06)",display:"flex",flexDirection:"column",gap:10,height:"100%"}}>
       <div style={{fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em"}}>
         💡 Idées & corrections
       </div>
@@ -736,8 +730,12 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
 
       {/* ── TOP: Messages + Feedback ── */}
       <div style={{display:"grid",gridTemplateColumns:"3fr 1fr",gap:12,marginBottom:16,alignItems:"stretch"}}>
-        <MessagesPanel managerNotifs={managerNotifs} teammateNotifs={teammateNotifs} onReadNotif={onReadNotif} teamMember={teamMember} myUpdates={myUpdates}/>
-        <FeedbackBox currentUser={currentUser} teamMember={teamMember}/>
+        <div style={{display:"flex",flexDirection:"column"}}>
+          <MessagesPanel managerNotifs={managerNotifs} teammateNotifs={teammateNotifs} onReadNotif={onReadNotif} teamMember={teamMember} myUpdates={myUpdates} style={{flex:1,height:"100%"}}/>
+        </div>
+        <div style={{display:"flex",flexDirection:"column"}}>
+          <FeedbackBox currentUser={currentUser} teamMember={teamMember} style={{flex:1,height:"100%"}}/>
+        </div>
       </div>
 
       {/* ── SECTION OKR ── pleine largeur */}
@@ -875,10 +873,12 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
         const todayUpdate=weekKey?myUpdates.find(u=>u.weekKey===weekKey):null;
 
         return <>
-          {/* Team Updates banner */}
+          {/* Updates section: 2/3 team + 1/3 perso, 320px tall */}
+          <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:12,marginBottom:20}}>
+          {/* Team Updates banner - 320px */}
           <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"14px 20px",
-            marginBottom:4,display:"flex",alignItems:"stretch",gap:16,
-            boxShadow:"0 1px 3px rgba(0,0,0,.04)",minHeight:110}}>
+            display:"flex",alignItems:"stretch",gap:12,
+            boxShadow:"0 1px 3px rgba(0,0,0,.04)",height:320,boxSizing:"border-box"}}>
             {/* Left: team mood avg */}
             <div style={{flexShrink:0,textAlign:"center",width:100,display:"flex",flexDirection:"column",justifyContent:"center"}}>
               <div style={{fontSize:52,lineHeight:1}}>{teamMoodAvg?MOOD_FROM_SCORE(teamMoodAvg):"—"}</div>
@@ -886,7 +886,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             </div>
             <div style={{width:1,background:"#e2ddd6",flexShrink:0}}/>
             {/* Middle left: smileys last week + this week */}
-            <div style={{flex:"0 0 180px",display:"flex",flexDirection:"column",gap:10,justifyContent:"center"}}>
+            <div style={{flex:1,display:"flex",flexDirection:"column",gap:8,justifyContent:"center",minWidth:0}}>
               <div>
                 <div style={{fontSize:9,color:"#9e9890",marginBottom:4,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>Semaine passée</div>
                 <SmileysWithAbsents done={teamLastWk} absent={absentLastWk} size={22}/>
@@ -898,7 +898,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             </div>
             <div style={{width:1,background:"#e2ddd6",flexShrink:0}}/>
             {/* Middle right: mood curve */}
-            <div style={{flex:"0 0 300px",minWidth:0,display:"flex",flexDirection:"column",justifyContent:"center"}}>
+            <div style={{flex:"0 0 240px",display:"flex",flexDirection:"column",justifyContent:"center",overflow:"hidden"}}>
               <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} showDots={false} nWeeks={13}/>
             </div>
             <div style={{width:1,background:"#e2ddd6",flexShrink:0}}/>
@@ -923,44 +923,42 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             </div>
           </div>
 
-          {/* Personal Updates banner */}
+          {/* Personal Updates banner - 320px */}
           <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"14px 20px",
-            marginBottom:20,display:"flex",alignItems:"stretch",gap:16,
-            boxShadow:"0 1px 3px rgba(0,0,0,.04)",minHeight:110}}>
-            {/* Left: my mood last week */}
-            <div style={{flexShrink:0,textAlign:"center",width:100,display:"flex",flexDirection:"column",justifyContent:"center"}}>
-              <div style={{fontSize:52,lineHeight:1}}>{myMoodLastWk||"—"}</div>
-              <div style={{fontSize:9,color:"#6b6560",marginTop:4,textTransform:"uppercase",letterSpacing:".05em"}}>{myPrenom}</div>
+            display:"flex",alignItems:"stretch",gap:12,flexDirection:"column",justifyContent:"space-between",
+            boxShadow:"0 1px 3px rgba(0,0,0,.04)",height:320,boxSizing:"border-box"}}>
+            {/* Perso: vertical layout for 320px height */}
+            {/* Top: mood + name */}
+            <div style={{display:"flex",alignItems:"center",gap:12,paddingBottom:12,borderBottom:"1px solid #86efac"}}>
+              <div style={{fontSize:44,lineHeight:1}}>{myMoodLastWk||"—"}</div>
+              <div>
+                <div style={{fontSize:13,fontWeight:600,color:"#1a1814"}}>{myPrenom}</div>
+                <div style={{fontSize:9,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em"}}>Semaine passée</div>
+              </div>
+              <div style={{marginLeft:"auto",textAlign:"right"}}>
+                <div style={{fontSize:24,fontWeight:700,color:myCompletionRate>=80?"#2d6a4f":myCompletionRate>=50?"#b5680f":"#c0392b"}}>{myCompletionRate}%</div>
+                <div style={{fontSize:9,color:"#6b6560"}}>complétion 13 sem.</div>
+              </div>
             </div>
-            <div style={{width:1,background:"#86efac",flexShrink:0}}/>
-            {/* Middle left: 13 smileys */}
-            <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",gap:8,justifyContent:"center"}}>
+            {/* Middle: 13 smileys */}
+            <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",gap:6}}>
               <div style={{fontSize:9,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>Mes 13 dernières semaines</div>
               <My13Smileys/>
             </div>
-            <div style={{width:1,background:"#86efac",flexShrink:0}}/>
-            {/* Middle right: go-to-updates button */}
-            <div style={{flexShrink:0,width:180,display:"flex",flexDirection:"column",justifyContent:"center",gap:8}}>
+            {/* Bottom: button */}
+            <div style={{paddingTop:12,borderTop:"1px solid #86efac"}}>
               <button onClick={onGoUpdate}
-                style={{padding:"8px 14px",background:"#2d6a4f",color:"#fff",border:"none",
+                style={{width:"100%",padding:"8px 14px",background:"#2d6a4f",color:"#fff",border:"none",
                   borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:500,
                   transition:"opacity .15s",textAlign:"center"}}
                 onMouseEnter={e=>e.currentTarget.style.opacity=".85"}
                 onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
                 ✍️ Aller aux updates et compléter
               </button>
-              {todayUpdate&&<div style={{fontSize:10,color:"#166534",textAlign:"center"}}>✓ Update complété cette semaine</div>}
-
-            </div>
-            <div style={{width:1,background:"#86efac",flexShrink:0}}/>
-            {/* Right: completion rate */}
-            <div style={{flexShrink:0,textAlign:"center",width:90,display:"flex",flexDirection:"column",justifyContent:"center"}}>
-              <div style={{fontSize:28,fontWeight:700,color:myCompletionRate>=80?"#2d6a4f":myCompletionRate>=50?"#b5680f":"#c0392b"}}>
-                {myCompletionRate}%
-              </div>
-              <div style={{fontSize:9,color:"#6b6560",marginTop:2}}>complétion 13 sem.</div>
+              {todayUpdate&&<div style={{fontSize:10,color:"#166534",textAlign:"center",marginTop:4}}>✓ Update complété cette semaine</div>}
             </div>
           </div>
+          </div>{/* end updates 2/3+1/3 grid */}
         </>;
       })()}
 
@@ -2026,6 +2024,10 @@ function FeedbackAdminTab() {
   async function markRead(id) {
     await updateDoc(doc(db,'feedback',id),{read:true});
   }
+  async function deleteItem(id) {
+    if(!window.confirm('Supprimer ce feedback ?'))return;
+    await deleteDoc(doc(db,'feedback',id));
+  }
 
   const unread = items.filter(i=>!i.read).length;
 
@@ -2044,11 +2046,18 @@ function FeedbackAdminTab() {
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
           <span style={{fontSize:12,fontWeight:600,color:"#1a1814"}}>{item.from}</span>
           <span style={{fontSize:11,color:"#9e9890"}}>{new Date(item.createdAt).toLocaleDateString("fr-FR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</span>
-          {!item.read&&<button onClick={()=>markRead(item.id)}
-            style={{marginLeft:"auto",fontSize:11,color:"#2d6a4f",background:"none",
-              border:"1px solid #2d6a4f",borderRadius:4,padding:"2px 8px",cursor:"pointer"}}>
-            ✓ Lu
-          </button>}
+          <div style={{marginLeft:"auto",display:"flex",gap:6}}>
+            {!item.read&&<button onClick={()=>markRead(item.id)}
+              style={{fontSize:11,color:"#2d6a4f",background:"none",
+                border:"1px solid #2d6a4f",borderRadius:4,padding:"2px 8px",cursor:"pointer"}}>
+              ✓ Lu
+            </button>}
+            <button onClick={()=>deleteItem(item.id)}
+              style={{fontSize:11,color:"#c0392b",background:"none",
+                border:"1px solid #fca5a5",borderRadius:4,padding:"2px 8px",cursor:"pointer"}}>
+              🗑️
+            </button>
+          </div>
         </div>
         <div style={{fontSize:13,color:"#1a1814",whiteSpace:"pre-wrap"}}>{item.message}</div>
       </div>)}
@@ -2359,7 +2368,7 @@ function SeasonBanner({seasonKey,avgProg,totalKR,doneKR}){
   const start=new Date(info.start),end=new Date(info.end);
   const fmt=d=>d.toLocaleDateString("fr-FR",{day:"numeric",month:"short"});
   const col=progColor(avgProg),krCol=progColor(doneKR/Math.max(totalKR,1)*100);
-  return <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"14px 20px",marginBottom:0,display:"flex",alignItems:"center",gap:20,flexWrap:"nowrap",overflow:"hidden",minHeight:110}}>
+  return <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"14px 20px",marginBottom:0,display:"flex",alignItems:"center",gap:20,flexWrap:"nowrap",overflow:"hidden",height:160,minHeight:160,maxHeight:160}}>
     <div style={{flexShrink:0,textAlign:"center",width:100}}>
       <div style={{fontSize:52,fontWeight:700,fontFamily:"monospace",color:col,lineHeight:1}}>{Math.round(avgProg)}%</div>
       <div style={{fontSize:10,color:"#9e9890",marginTop:3,textTransform:"uppercase",letterSpacing:".06em"}}>Avancement global</div>
@@ -2383,7 +2392,7 @@ function SeasonBanner({seasonKey,avgProg,totalKR,doneKR}){
 
 function PersonalBanner({prog,doneKR,totalKR,label,marginBottom=8,avgProg=0}){
   const col=progColorRel(prog,avgProg),krCol=progColorRel(doneKR/Math.max(totalKR,1)*100,avgProg);
-  return <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"14px 20px",marginBottom,display:"flex",alignItems:"center",gap:20,flexWrap:"nowrap",overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,.04)",minHeight:110}}>
+  return <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"14px 20px",marginBottom,display:"flex",alignItems:"center",gap:20,flexWrap:"nowrap",overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,.04)",height:160,minHeight:160,maxHeight:160}}>
     <div style={{flexShrink:0,textAlign:"center",width:100}}>
       <div style={{fontSize:52,fontWeight:700,fontFamily:"monospace",color:col,lineHeight:1}}>{Math.round(prog)}%</div>
       <div style={{fontSize:10,color:"#6b6560",marginTop:3,textTransform:"uppercase",letterSpacing:".06em"}}>{label}</div>
