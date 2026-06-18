@@ -586,50 +586,36 @@ function ReportingBanner({onGoReporting}) {
   const ebitdaCol = ebitdaYTD >= 0 ? '#2d6a4f' : '#c0392b';
   const resultatCol = resultatYTD >= 0 ? '#2d6a4f' : '#c0392b';
 
+  const items = [
+    {label:"CA YTD",val:caYTD,col:"#1a1814"},
+    {label:"Marge Brute",val:mbYTD,col:"#2d6a4f"},
+    {label:"Charges expl.",val:Math.abs(chargesExplYTD),col:"#b5680f"},
+    {label:"EBITDA",val:ebitdaYTD,col:ebitdaCol},
+    {label:"Trésorerie",val:303000,col:"#1d4ed8"},
+  ];
+
   return (
     <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"14px 20px",
-      display:"flex",alignItems:"stretch",gap:16,boxShadow:"0 1px 3px rgba(0,0,0,.04)",marginBottom:4}}>
-      {/* Left: CA YTD */}
-      <div style={{flexShrink:0,textAlign:"center",width:100,display:"flex",flexDirection:"column",justifyContent:"center"}}>
-        <div style={{fontSize:36,fontWeight:700,fontFamily:"monospace",color:"#1a1814",lineHeight:1}}>{fmtK(caYTD)}</div>
-        <div style={{fontSize:9,color:"#9e9890",marginTop:4,textTransform:"uppercase",letterSpacing:".05em"}}>CA YTD</div>
-      </div>
-      <div style={{width:1,background:"#e2ddd6",flexShrink:0}}/>
-      {/* Middle: MB - Charges = EBITDA equation */}
-      <div style={{flex:1,minWidth:0,display:"flex",alignItems:"center",justifyContent:"space-around",gap:8}}>
-        {[
-          {label:"Marge Brute",val:mbYTD,col:"#2d6a4f"},
-          {label:"−",val:null,col:"#9e9890",sep:true},
-          {label:"Charges expl.",val:Math.abs(chargesExplYTD),col:"#b5680f"},
-          {label:"=",val:null,col:"#9e9890",sep:true},
-          {label:"EBITDA",val:ebitdaYTD,col:ebitdaCol},
-        ].map((item,i)=>item.sep
-          ?<div key={i} style={{fontSize:28,color:item.col,fontWeight:300}}>−</div>
-          :<div key={i} style={{textAlign:"center",flexShrink:0}}>
-            <div style={{fontSize:28,fontWeight:700,color:item.col,lineHeight:1,fontFamily:"monospace"}}>{fmtK(item.val)}</div>
-            <div style={{fontSize:9,color:"#9e9890",marginTop:3,textTransform:"uppercase",letterSpacing:".05em"}}>{item.label}</div>
-          </div>
-        )}
-      </div>
-      <div style={{width:1,background:"#e2ddd6",flexShrink:0}}/>
-      {/* Right: Trésorerie + button */}
-      <div style={{flexShrink:0,width:160,display:"flex",flexDirection:"column",justifyContent:"center",gap:8,alignItems:"center"}}>
-        <div style={{textAlign:"center"}}>
-          <div style={{fontSize:28,fontWeight:700,color:"#1d4ed8",lineHeight:1,fontFamily:"monospace"}}>303k</div>
-          <div style={{fontSize:9,color:"#9e9890",marginTop:2,textTransform:"uppercase",letterSpacing:".05em"}}>Trésorerie</div>
+      display:"flex",alignItems:"center",gap:0,boxShadow:"0 1px 3px rgba(0,0,0,.04)",marginBottom:4}}>
+      {items.map((item,i)=><>
+        <div key={item.label} style={{flex:1,textAlign:"center",padding:"0 12px"}}>
+          <div style={{fontSize:26,fontWeight:700,color:item.col,lineHeight:1,fontFamily:"monospace"}}>{fmtK(item.val)}</div>
+          <div style={{fontSize:9,color:"#9e9890",marginTop:3,textTransform:"uppercase",letterSpacing:".05em"}}>{item.label}</div>
         </div>
+        {i<4&&<div key={"sep"+i} style={{width:1,background:"#e2ddd6",alignSelf:"stretch",flexShrink:0}}/>}
+      </>)}
+      <div style={{width:1,background:"#e2ddd6",alignSelf:"stretch",flexShrink:0}}/>
+      {/* Button as 6th item */}
+      <div style={{flex:1,textAlign:"center",padding:"0 12px"}}>
         <button onClick={onGoReporting}
-          style={{display:"flex",alignItems:"center",gap:6,padding:"6px 14px",
+          style={{display:"inline-flex",alignItems:"center",gap:6,padding:"8px 16px",
             background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,
-            cursor:"pointer",fontSize:11,fontWeight:500,width:"100%",justifyContent:"center",
+            cursor:"pointer",fontSize:12,fontWeight:500,
             transition:"opacity .15s"}}
           onMouseEnter={e=>e.currentTarget.style.opacity=".85"}
           onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
           📈 Voir le Reporting
         </button>
-        {importedAt&&<div style={{fontSize:9,color:"#c5c0b8",textAlign:"center"}}>
-          Au {new Date(importedAt).toLocaleDateString("fr-FR",{day:"numeric",month:"short"})}
-        </div>}
       </div>
     </div>
   );
@@ -728,18 +714,14 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
 
     <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
 
-      {/* ── TOP: Messages + Feedback ── */}
-      <div style={{display:"grid",gridTemplateColumns:"3fr 1fr",gap:12,marginBottom:16,alignItems:"stretch"}}>
-        <div style={{display:"flex",flexDirection:"column"}}>
-          <MessagesPanel managerNotifs={managerNotifs} teammateNotifs={teammateNotifs} onReadNotif={onReadNotif} teamMember={teamMember} myUpdates={myUpdates} style={{flex:1,height:"100%"}}/>
-        </div>
-        <div style={{display:"flex",flexDirection:"column"}}>
-          <FeedbackBox currentUser={currentUser} teamMember={teamMember} style={{flex:1,height:"100%"}}/>
-        </div>
+      {/* ── TOP: Notifications + Feedback ── */}
+      <div style={{display:"grid",gridTemplateColumns:"3fr 1fr",gap:12,marginBottom:16,alignItems:"stretch",gridAutoRows:"1fr"}}>
+        <MessagesPanel managerNotifs={managerNotifs} teammateNotifs={teammateNotifs} onReadNotif={onReadNotif} teamMember={teamMember} myUpdates={myUpdates}/>
+        <FeedbackBox currentUser={currentUser} teamMember={teamMember}/>
       </div>
 
       {/* ── SECTION OKR ── pleine largeur */}
-      <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:20}}>
+      <div style={{display:"flex",flexDirection:"column",gap:2,marginBottom:16}}>
         <SeasonBanner seasonKey={seasonKey||"printemps_2026"} avgProg={avgProg} totalKR={totalKR} doneKR={doneKR}/>
         {/* Personal banner with OKR button inside */}
         {myKRsOwned.length>0&&(()=>{
@@ -841,6 +823,22 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
     return '🫥';
   }
 
+        function SmileysOrdered({done,absent,size=22}){
+          const [hov,setHov]=useState(null);
+          // Absents first, then done sorted by submittedAt
+          const absentItems=absent.map(m=>({key:'a'+m.email,emoji:getAbsenceIcon(m.email,m.prenom),name:m.prenom,isAbsent:true}));
+          const doneItems=done.map(u=>({key:'d'+u.email,emoji:u.answers?.q7||"😐",name:u.prenom,isAbsent:false}));
+          const all=[...absentItems,...doneItems];
+          return <div style={{display:"flex",gap:3,flexWrap:"nowrap",alignItems:"center",position:"relative"}}>
+            {hov&&<div style={{position:"absolute",top:-22,left:0,background:"#1a1814",color:"#fff",
+              fontSize:10,padding:"2px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:10,pointerEvents:"none"}}>{hov}</div>}
+            {all.map(item=><span key={item.key} style={{fontSize:size,lineHeight:1,cursor:"default",opacity:item.isAbsent?0.7:1}}
+              onMouseEnter={()=>setHov(item.name)} onMouseLeave={()=>setHov(null)}>
+              {item.emoji}
+            </span>)}
+          </div>;
+        }
+
         function SmileysWithAbsents({done,absent,size=20}){
           const [hov,setHov]=useState(null);
           return <div style={{display:"flex",gap:3,flexWrap:"wrap",alignItems:"center",position:"relative"}}>
@@ -875,53 +873,42 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
         return <>
           {/* Updates section: 2/3 team + 1/3 perso, 320px tall */}
           <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:12,marginBottom:20}}>
-          {/* Team Updates banner - 320px */}
+          {/* Team Updates banner */}
           <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"14px 20px",
             display:"flex",alignItems:"stretch",gap:12,
             boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
-            {/* Left: team mood avg */}
-            <div style={{flexShrink:0,textAlign:"center",width:100,display:"flex",flexDirection:"column",justifyContent:"center"}}>
-              <div style={{fontSize:52,lineHeight:1}}>{teamMoodAvg?MOOD_FROM_SCORE(teamMoodAvg):"—"}</div>
-              <div style={{fontSize:9,color:"#9e9890",marginTop:4,textTransform:"uppercase",letterSpacing:".05em"}}>Mood équipe</div>
-            </div>
-            <div style={{width:1,background:"#e2ddd6",flexShrink:0}}/>
-            {/* Middle left: smileys last week + this week */}
-            <div style={{flex:1,display:"flex",flexDirection:"column",gap:8,justifyContent:"center",minWidth:0}}>
-              <div>
-                <div style={{fontSize:9,color:"#9e9890",marginBottom:4,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>Semaine passée</div>
-                <SmileysWithAbsents done={teamLastWk} absent={absentLastWk} size={22}/>
-              </div>
-              <div>
-                <div style={{fontSize:9,color:"#9e9890",marginBottom:4,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>Semaine en cours</div>
-                <SmileysWithAbsents done={teamCurWk} absent={absentCurWk} size={22}/>
-              </div>
-            </div>
-            <div style={{width:1,background:"#e2ddd6",flexShrink:0}}/>
-            {/* Middle right: mood curve */}
-            <div style={{flex:"0 0 240px",display:"flex",flexDirection:"column",justifyContent:"center",overflow:"hidden"}}>
-              <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} showDots={false} nWeeks={13}/>
-            </div>
-            <div style={{width:1,background:"#e2ddd6",flexShrink:0}}/>
-            {/* Right: ratio - exclude absent teammates */}
-            <div style={{flexShrink:0,textAlign:"center",width:90,display:"flex",flexDirection:"column",justifyContent:"center"}}>
+            {/* Left: team mood avg + ratio */}
+            <div style={{flexShrink:0,textAlign:"center",width:90,display:"flex",flexDirection:"column",justifyContent:"center",gap:4}}>
+              <div style={{fontSize:48,lineHeight:1}}>{teamMoodAvg?MOOD_FROM_SCORE(teamMoodAvg):"—"}</div>
               {(()=>{
-                // Exclude teammates who were absent last week (congés/école/maternité)
-                const presentTeam=activeTeam.filter(m=>{
+                const presentTeam2=activeTeam.filter(m=>{
                   const prevU=allUpdates.find(u=>u.email===m.email&&u.weekKey===lastWkKey);
                   const q8=prevU?.answers?.q8||'';
                   return !q8.includes('congés')&&!q8.includes('École')&&!q8.includes('école')&&m.email!=='claire@oeforgood.com';
                 });
-                const denom=presentTeam.length||activeCount;
-                const num=teamLastWk.filter(u=>presentTeam.some(m=>m.email===u.email)).length;
-                return <>
-                  <div style={{fontSize:28,fontWeight:700,color:num>=denom?"#2d6a4f":"#b5680f"}}>
-                    {num}/{denom}
-                  </div>
-                  <div style={{fontSize:9,color:"#9e9890",marginTop:2}}>updates sem. passée</div>
-                </>;
+                const num=teamLastWk.filter(u=>presentTeam2.some(m=>m.email===u.email)).length;
+                const denom=presentTeam2.length||activeCount;
+                return <div style={{fontSize:16,fontWeight:700,color:num>=denom?"#2d6a4f":"#b5680f"}}>{num}/{denom}</div>;
               })()}
+              <div style={{fontSize:9,color:"#9e9890",textTransform:"uppercase",letterSpacing:".05em"}}>sem. passée</div>
             </div>
-          </div>
+            <div style={{width:1,background:"#e2ddd6",flexShrink:0}}/>
+            {/* Middle: smileys last week + this week */}
+            <div style={{flex:1,display:"flex",flexDirection:"column",gap:8,justifyContent:"center",minWidth:0}}>
+              <div>
+                <div style={{fontSize:9,color:"#9e9890",marginBottom:4,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>Semaine passée</div>
+                <SmileysOrdered done={teamLastWk} absent={absentLastWk} size={22}/>
+              </div>
+              <div>
+                <div style={{fontSize:9,color:"#9e9890",marginBottom:4,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>Semaine en cours</div>
+                <SmileysOrdered done={teamCurWk} absent={absentCurWk} size={22}/>
+              </div>
+            </div>
+            {/* Right: mood curve - full height */}
+            <div style={{flexShrink:0,width:240,alignSelf:"stretch",display:"flex",flexDirection:"column",justifyContent:"center",overflow:"hidden"}}>
+              <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} showDots={false} nWeeks={13}/>
+            </div>
+            {/* Old ratio removed - now in left panel */}
 
           {/* Personal Updates banner - 320px */}
           <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"14px 20px",
