@@ -838,14 +838,24 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
         function SmileysOrdered({done,absent,size=22}){
           const [hov,setHov]=useState(null);
           const [pos,setPos]=useState({x:0,y:0});
-          const absentItems=absent.map(m=>({key:'a'+m.email,emoji:getAbsenceIcon(m.email,m.prenom),name:m.prenom,isAbsent:true}));
+          // 1. Absents (forceMat/forceAbsent first, then others)
           const absentEmails=new Set(absent.map(m=>m.email));
-          const doneItems=done.filter(u=>!absentEmails.has(u.email)).map(u=>({key:'d'+u.email,emoji:u.answers?.q7||"😐",name:u.prenom,isAbsent:false}));
-          const all=[...absentItems,...doneItems];
+          const absentSorted=[...absent].sort((a,b)=>{
+            const aForce=(a.forceMat||a.forceAbsent||a.email==='claire@oeforgood.com')?0:1;
+            const bForce=(b.forceMat||b.forceAbsent||b.email==='claire@oeforgood.com')?0:1;
+            return aForce-bForce;
+          });
+          const absentItems=absentSorted.map(m=>({key:'a'+m.email,emoji:getAbsenceIcon(m.email,m.prenom),name:m.prenom,isAbsent:true}));
+          // 2. Done sorted by submittedAt
+          const doneItems=done.filter(u=>!absentEmails.has(u.email)).sort((a,b)=>a.submittedAt-b.submittedAt).map(u=>({key:'d'+u.email,emoji:u.answers?.q7||"😐",name:u.prenom,isAbsent:false}));
+          // 3. Not done (present but no update)
+          const doneEmails=new Set(done.map(u=>u.email));
+          const notDoneItems=(teamMembers||[]).filter(m=>m.role!=="inactive"&&m.email&&!absentEmails.has(m.email)&&!doneEmails.has(m.email)).map(m=>({key:'n'+m.email,emoji:"🫥",name:m.prenom,isAbsent:false,notDone:true}));
+          const all=[...absentItems,...doneItems,...notDoneItems];
           return <div style={{display:"flex",gap:3,flexWrap:"wrap",alignItems:"center"}}>
             {hov&&<div style={{position:"fixed",left:pos.x+10,top:pos.y-28,background:"#1a1814",color:"#fff",
               fontSize:10,padding:"2px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:9999,pointerEvents:"none"}}>{hov}</div>}
-            {all.map(item=><span key={item.key} style={{fontSize:size,lineHeight:1,cursor:"default",opacity:item.isAbsent?0.7:1}}
+            {all.map(item=><span key={item.key} style={{fontSize:size,lineHeight:1,cursor:"default",opacity:item.isAbsent?0.7:item.notDone?0.35:1}}
               onMouseEnter={e=>{setHov(item.name);setPos({x:e.clientX,y:e.clientY});}}
               onMouseMove={e=>setPos({x:e.clientX,y:e.clientY})}
               onMouseLeave={()=>setHov(null)}>
