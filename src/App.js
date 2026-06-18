@@ -910,6 +910,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             </div>
             {/* Old ratio removed - now in left panel */}
 
+          </div>
           {/* Personal Updates banner - 320px */}
           <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"14px 20px",
             display:"flex",alignItems:"stretch",gap:12,flexDirection:"column",justifyContent:"space-between",
