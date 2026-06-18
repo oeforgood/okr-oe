@@ -601,42 +601,91 @@ function ReportingBanner({onGoReporting}) {
         <div style={{fontSize:9,color:"#9e9890",marginTop:4,textTransform:"uppercase",letterSpacing:".05em"}}>CA YTD</div>
       </div>
       <div style={{width:1,background:"#e2ddd6",flexShrink:0}}/>
-      {/* Middle: MB + EBITDA bars */}
-      <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",gap:10,justifyContent:"center"}}>
-        <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <span style={{fontSize:11,color:"#6b6560",minWidth:100,flexShrink:0}}>Marge Brute</span>
-          <div style={{flex:1,height:5,background:"#e2ddd6",borderRadius:3,overflow:"hidden"}}>
-            <div style={{width:`${Math.min(mbPct,100)}%`,height:"100%",background:"#2d6a4f",borderRadius:3}}/>
+      {/* Middle: MB - Charges = EBITDA equation */}
+      <div style={{flex:1,minWidth:0,display:"flex",alignItems:"center",justifyContent:"space-around",gap:8}}>
+        {[
+          {label:"Marge Brute",val:mbYTD,col:"#2d6a4f"},
+          {label:"−",val:null,col:"#9e9890",sep:true},
+          {label:"Charges expl.",val:Math.abs(chargesExplYTD),col:"#b5680f"},
+          {label:"=",val:null,col:"#9e9890",sep:true},
+          {label:"EBITDA",val:ebitdaYTD,col:ebitdaCol},
+        ].map((item,i)=>item.sep
+          ?<div key={i} style={{fontSize:28,color:item.col,fontWeight:300}}>−</div>
+          :<div key={i} style={{textAlign:"center",flexShrink:0}}>
+            <div style={{fontSize:28,fontWeight:700,color:item.col,lineHeight:1,fontFamily:"monospace"}}>{fmtK(item.val)}</div>
+            <div style={{fontSize:9,color:"#9e9890",marginTop:3,textTransform:"uppercase",letterSpacing:".05em"}}>{item.label}</div>
           </div>
-          <span style={{fontSize:11,fontWeight:600,color:"#2d6a4f",minWidth:60,textAlign:"right"}}>{Math.round(mbPct)}% · {fmtK(mbYTD)}</span>
-        </div>
-        <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <span style={{fontSize:11,color:"#6b6560",minWidth:100,flexShrink:0}}>EBITDA</span>
-          <div style={{flex:1,height:5,background:"#e2ddd6",borderRadius:3,overflow:"hidden"}}>
-            <div style={{width:`${Math.min(Math.abs(ebitdaYTD)/Math.max(caYTD,1)*100,100)}%`,height:"100%",background:ebitdaCol,borderRadius:3}}/>
-          </div>
-          <span style={{fontSize:11,fontWeight:600,color:ebitdaCol,minWidth:60,textAlign:"right"}}>{fmtK(ebitdaYTD)}</span>
-        </div>
+        )}
       </div>
       <div style={{width:1,background:"#e2ddd6",flexShrink:0}}/>
-      {/* Right: Résultat + button */}
+      {/* Right: Trésorerie + button */}
       <div style={{flexShrink:0,width:160,display:"flex",flexDirection:"column",justifyContent:"center",gap:8,alignItems:"center"}}>
         <div style={{textAlign:"center"}}>
-          <div style={{fontSize:28,fontWeight:700,fontFamily:"monospace",color:resultatCol}}>{fmtK(resultatYTD)}</div>
-          <div style={{fontSize:9,color:"#9e9890",marginTop:2,textTransform:"uppercase",letterSpacing:".05em"}}>Résultat net YTD</div>
+          <div style={{fontSize:28,fontWeight:700,color:"#1d4ed8",lineHeight:1,fontFamily:"monospace"}}>303k</div>
+          <div style={{fontSize:9,color:"#9e9890",marginTop:2,textTransform:"uppercase",letterSpacing:".05em"}}>Trésorerie</div>
         </div>
         <button onClick={onGoReporting}
-          style={{width:"100%",padding:"6px 10px",background:"#f5f3ef",color:"#1a1814",
-            border:"1px solid #e2ddd6",borderRadius:8,cursor:"pointer",fontSize:11,fontWeight:500,
-            transition:"background .15s"}}
-          onMouseEnter={e=>e.currentTarget.style.background="#e2ddd6"}
-          onMouseLeave={e=>e.currentTarget.style.background="#f5f3ef"}>
-          📈 Reporting financier
+          style={{display:"flex",alignItems:"center",gap:6,padding:"6px 14px",
+            background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,
+            cursor:"pointer",fontSize:11,fontWeight:500,width:"100%",justifyContent:"center",
+            transition:"opacity .15s"}}
+          onMouseEnter={e=>e.currentTarget.style.opacity=".85"}
+          onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+          📈 Voir le Reporting
         </button>
         {importedAt&&<div style={{fontSize:9,color:"#c5c0b8",textAlign:"center"}}>
           Au {new Date(importedAt).toLocaleDateString("fr-FR",{day:"numeric",month:"short"})}
         </div>}
       </div>
+    </div>
+  );
+}
+
+function FeedbackBox({currentUser, teamMember}) {
+  const [text, setText] = useState('');
+  const [sent, setSent] = useState(false);
+
+  async function send() {
+    if (!text.trim()) return;
+    await addDoc(collection(db, 'feedback'), {
+      from: teamMember?.prenom || currentUser?.email || 'Anonyme',
+      email: currentUser?.email || '',
+      message: text.trim(),
+      createdAt: Date.now(),
+      read: false,
+    });
+    setText('');
+    setSent(true);
+    setTimeout(() => setSent(false), 3000);
+  }
+
+  return (
+    <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"14px 16px",
+      boxShadow:"0 1px 3px rgba(0,0,0,.06)",display:"flex",flexDirection:"column",gap:10}}>
+      <div style={{fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em"}}>
+        💡 Idées & corrections
+      </div>
+      <div style={{fontSize:11,color:"#9e9890",lineHeight:1.4}}>
+        Suggestions d'amélioration ou corrections pour 🌼 Calendula
+      </div>
+      <textarea
+        value={text}
+        onChange={e=>setText(e.target.value)}
+        rows={3}
+        placeholder="Ton idée ou correction…"
+        style={{fontSize:12,border:"1px solid #e2ddd6",borderRadius:6,padding:"6px 8px",
+          fontFamily:"inherit",resize:"none",outline:"none",color:"#1a1814"}}
+      />
+      {sent
+        ? <div style={{fontSize:11,color:"#2d6a4f",fontWeight:500,textAlign:"center"}}>✓ Envoyé !</div>
+        : <button onClick={send} disabled={!text.trim()}
+            style={{padding:"6px 12px",background:text.trim()?"#2d6a4f":"#f5f3ef",
+              color:text.trim()?"#fff":"#c5c0b8",border:"none",borderRadius:6,
+              cursor:text.trim()?"pointer":"not-allowed",fontSize:11,fontWeight:500,
+              transition:"all .15s"}}>
+            Envoyer
+          </button>
+      }
     </div>
   );
 }
@@ -684,6 +733,12 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
     </div>
 
     <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
+
+      {/* ── TOP: Messages + Feedback ── */}
+      <div style={{display:"grid",gridTemplateColumns:"3fr 1fr",gap:12,marginBottom:16,alignItems:"stretch"}}>
+        <MessagesPanel managerNotifs={managerNotifs} teammateNotifs={teammateNotifs} onReadNotif={onReadNotif} teamMember={teamMember} myUpdates={myUpdates}/>
+        <FeedbackBox currentUser={currentUser} teamMember={teamMember}/>
+      </div>
 
       {/* ── SECTION OKR ── pleine largeur */}
       <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:20}}>
@@ -759,8 +814,34 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
           const{mon,fri}=getWeekBounds(wk);
           return{wk,u,mon,fri};
         });
+        // Exclude weeks where user indicated absence from denominator
+        const myActiveWeeks=my13Weeks.filter(w=>{
+          // Check previous week's q8 to see if this week was marked absent
+          const prevWkDate=new Date(w.mon);prevWkDate.setDate(w.mon.getDate()-7);
+          const prevWk=getWeekKey(prevWkDate);
+          const prevU=myUpdates.find(u=>u.weekKey===prevWk);
+          const q8=prevU?.answers?.q8||'';
+          const isClairePreg=teamMember?.email==='claire@oeforgood.com';
+          return !q8.includes('congés')&&!q8.includes('École')&&!q8.includes('école')&&!isClairePreg;
+        });
         const myUpdateCount=my13Weeks.filter(w=>w.u).length;
-        const myCompletionRate=Math.round(myUpdateCount/13*100);
+        const myCompletionRate=myActiveWeeks.length>0?Math.round(my13Weeks.filter(w=>w.u&&myActiveWeeks.includes(w)).length/myActiveWeeks.length*100):100;
+
+
+  // Get absence icon for a teammate based on their previous week's q8 answer
+  function getAbsenceIcon(email, prenom) {
+    if (email === 'claire@oeforgood.com') return '🤰';
+    const prevUpdate = allUpdates.find(u => u.email === email && u.weekKey === lastWkKey);
+    const q8 = prevUpdate?.answers?.q8 || '';
+    if (q8.includes('école') || q8.includes('École')) return '🎓';
+    if (q8.includes('congés') || q8.includes('vacances')) {
+      const now = new Date();
+      const m = now.getMonth() + 1;
+      if ((m >= 12 && now.getDate() >= 15) || m <= 4) return '🎿';
+      return '🌴';
+    }
+    return '🫥';
+  }
 
         function SmileysWithAbsents({done,absent,size=20}){
           const [hov,setHov]=useState(null);
@@ -771,8 +852,8 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
               onMouseEnter={()=>setHov(u.prenom)} onMouseLeave={()=>setHov(null)}>
               {u.answers?.q7||"😐"}
             </span>)}
-            {absent.map((m,i)=><span key={"a"+i} style={{fontSize:size,lineHeight:1,cursor:"default",opacity:0.5}}
-              onMouseEnter={()=>setHov(m.prenom)} onMouseLeave={()=>setHov(null)}>🫥</span>)}
+            {absent.map((m,i)=><span key={"a"+i} style={{fontSize:size,lineHeight:1,cursor:"default",opacity:0.7}}
+              onMouseEnter={()=>setHov(m.prenom)} onMouseLeave={()=>setHov(null)}>{getAbsenceIcon(m.email,m.prenom)}</span>)}
           </div>;
         }
 
@@ -797,7 +878,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
           {/* Team Updates banner */}
           <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"14px 20px",
             marginBottom:4,display:"flex",alignItems:"stretch",gap:16,
-            boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+            boxShadow:"0 1px 3px rgba(0,0,0,.04)",minHeight:110}}>
             {/* Left: team mood avg */}
             <div style={{flexShrink:0,textAlign:"center",width:100,display:"flex",flexDirection:"column",justifyContent:"center"}}>
               <div style={{fontSize:52,lineHeight:1}}>{teamMoodAvg?MOOD_FROM_SCORE(teamMoodAvg):"—"}</div>
@@ -817,23 +898,35 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             </div>
             <div style={{width:1,background:"#e2ddd6",flexShrink:0}}/>
             {/* Middle right: mood curve */}
-            <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",justifyContent:"center"}}>
+            <div style={{flex:"0 0 300px",minWidth:0,display:"flex",flexDirection:"column",justifyContent:"center"}}>
               <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} showDots={false} nWeeks={13}/>
             </div>
             <div style={{width:1,background:"#e2ddd6",flexShrink:0}}/>
-            {/* Right: ratio */}
+            {/* Right: ratio - exclude absent teammates */}
             <div style={{flexShrink:0,textAlign:"center",width:90,display:"flex",flexDirection:"column",justifyContent:"center"}}>
-              <div style={{fontSize:28,fontWeight:700,color:teamLastWk.length>=activeCount?"#2d6a4f":"#b5680f"}}>
-                {teamLastWk.length}/{activeCount}
-              </div>
-              <div style={{fontSize:9,color:"#9e9890",marginTop:2}}>updates sem. passée</div>
+              {(()=>{
+                // Exclude teammates who were absent last week (congés/école/maternité)
+                const presentTeam=activeTeam.filter(m=>{
+                  const prevU=allUpdates.find(u=>u.email===m.email&&u.weekKey===lastWkKey);
+                  const q8=prevU?.answers?.q8||'';
+                  return !q8.includes('congés')&&!q8.includes('École')&&!q8.includes('école')&&m.email!=='claire@oeforgood.com';
+                });
+                const denom=presentTeam.length||activeCount;
+                const num=teamLastWk.filter(u=>presentTeam.some(m=>m.email===u.email)).length;
+                return <>
+                  <div style={{fontSize:28,fontWeight:700,color:num>=denom?"#2d6a4f":"#b5680f"}}>
+                    {num}/{denom}
+                  </div>
+                  <div style={{fontSize:9,color:"#9e9890",marginTop:2}}>updates sem. passée</div>
+                </>;
+              })()}
             </div>
           </div>
 
           {/* Personal Updates banner */}
           <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"14px 20px",
             marginBottom:20,display:"flex",alignItems:"stretch",gap:16,
-            boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+            boxShadow:"0 1px 3px rgba(0,0,0,.04)",minHeight:110}}>
             {/* Left: my mood last week */}
             <div style={{flexShrink:0,textAlign:"center",width:100,display:"flex",flexDirection:"column",justifyContent:"center"}}>
               <div style={{fontSize:52,lineHeight:1}}>{myMoodLastWk||"—"}</div>
@@ -878,10 +971,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
         return <ReportingBanner onGoReporting={onGoReporting}/>;
       })()}
 
-      {/* Messages */}
-      <div style={{marginTop:16,marginBottom:16}}>
-        <MessagesPanel managerNotifs={managerNotifs} teammateNotifs={teammateNotifs} onReadNotif={onReadNotif} teamMember={teamMember} myUpdates={myUpdates}/>
-      </div>
+
 
     </div>
 
@@ -1453,7 +1543,7 @@ function DetailEcritures({rows, lastMonth, monthActive, isAU=false}) {
     });
   return <>
     {sorted.map((r,i)=>{
-      const label=`${isAU&&r.subcat?r.subcat+' · ':''}${MONTHS_FR[r.month-1]} · ${r.compte} · ${r.libCompte} · ${r.tiers||'—'} · ${r.facture||'—'} · ${r.libLigne}`;
+      const label=`${isAU&&r.subcat?r.subcat+' · ':''}${r.libLigne||'—'} · ${r.tiers||'—'} · ${r.facture||'—'} · ${r.compte} · ${r.libCompte}`;
       return <tr key={i} style={{background:'#fafaf8'}}>
       <td style={{padding:'3px 4px 3px 40px',fontSize:10,color:'#6b6560',
         position:'sticky',left:0,background:'#fafaf8',zIndex:1,
@@ -1921,6 +2011,51 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
     lastMonth={5}/>;
 }
 
+function FeedbackAdminTab() {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(()=>{
+    const unsub = onSnapshot(collection(db,'feedback'),(snap)=>{
+      setItems(snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>b.createdAt-a.createdAt));
+      setLoading(false);
+    });
+    return()=>unsub();
+  },[]);
+
+  async function markRead(id) {
+    await updateDoc(doc(db,'feedback',id),{read:true});
+  }
+
+  const unread = items.filter(i=>!i.read).length;
+
+  return <div>
+    <div style={{fontSize:13,fontWeight:600,color:"#1a1814",marginBottom:14}}>
+      Feedbacks & idées d'amélioration
+      {unread>0&&<span style={{marginLeft:10,background:"#2d6a4f",color:"#fff",fontSize:11,
+        borderRadius:10,padding:"2px 8px"}}>{unread} nouveau{unread>1?"x":""}</span>}
+    </div>
+    {loading?<div style={{color:"#9e9890",fontSize:13}}>Chargement…</div>
+    :items.length===0?<div style={{color:"#9e9890",fontSize:13}}>Aucun feedback pour l'instant.</div>
+    :<div style={{display:"flex",flexDirection:"column",gap:8}}>
+      {items.map(item=><div key={item.id} style={{background:item.read?"#f8f7f5":"#fff",
+        border:`1px solid ${item.read?"#e2ddd6":"#2d6a4f"}`,borderRadius:8,padding:"12px 16px",
+        opacity:item.read?0.7:1}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
+          <span style={{fontSize:12,fontWeight:600,color:"#1a1814"}}>{item.from}</span>
+          <span style={{fontSize:11,color:"#9e9890"}}>{new Date(item.createdAt).toLocaleDateString("fr-FR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</span>
+          {!item.read&&<button onClick={()=>markRead(item.id)}
+            style={{marginLeft:"auto",fontSize:11,color:"#2d6a4f",background:"none",
+              border:"1px solid #2d6a4f",borderRadius:4,padding:"2px 8px",cursor:"pointer"}}>
+            ✓ Lu
+          </button>}
+        </div>
+        <div style={{fontSize:13,color:"#1a1814",whiteSpace:"pre-wrap"}}>{item.message}</div>
+      </div>)}
+    </div>}
+  </div>;
+}
+
 function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions,catTypes,onSaveCatTypes,codeMap,onSaveCodeMap,customSubcatLabels,onSaveCustomSubcatLabels}){
   const [members,setMembers]=useState(teamMembers.map(m=>({...m})));
   const [newPrenom,setNewPrenom]=useState("");
@@ -1958,7 +2093,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
     <TopBar onBack={onBack} title="⚙️ Paramètres"/>
     <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
       <div style={{display:"flex",gap:10,marginBottom:20}}>
-        {([{k:"members",l:"👥 Membres & rôles"},...(currentUser?.email===OWNER_EMAIL?[{k:"questions",l:"❓ Questions Update"},{k:"history",l:"📋 Historique Updates"},{k:"reporting_params",l:"⚙️ Reporting"}]:[])]).map(t=><button key={t.k} onClick={()=>setTab(t.k)}
+        {([{k:"members",l:"👥 Membres & rôles"},...(currentUser?.email===OWNER_EMAIL?[{k:"questions",l:"❓ Questions Update"},{k:"history",l:"📋 Historique Updates"},{k:"feedback",l:"💡 Feedback"},{k:"reporting_params",l:"⚙️ Reporting"}]:[])]).map(t=><button key={t.k} onClick={()=>setTab(t.k)}
           style={{padding:"8px 16px",borderRadius:8,border:`1px solid ${tab===t.k?"#2d6a4f":"#e2ddd6"}`,background:tab===t.k?"#2d6a4f":"#fff",color:tab===t.k?"#fff":"#6b6560",cursor:"pointer",fontSize:13,fontWeight:500}}>
           {t.l}
         </button>)}
@@ -2037,6 +2172,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
       )}
 
       {tab==="history"&&<UpdatesHistoryTab/>}
+      {tab==="feedback"&&<FeedbackAdminTab/>}
       {tab==="reporting_params"&&<ReportingParamsTab
           codeMap={codeMap} onSaveCodeMap={onSaveCodeMap}
           customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={onSaveCustomSubcatLabels}
@@ -2223,7 +2359,7 @@ function SeasonBanner({seasonKey,avgProg,totalKR,doneKR}){
   const start=new Date(info.start),end=new Date(info.end);
   const fmt=d=>d.toLocaleDateString("fr-FR",{day:"numeric",month:"short"});
   const col=progColor(avgProg),krCol=progColor(doneKR/Math.max(totalKR,1)*100);
-  return <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"14px 20px",marginBottom:14,display:"flex",alignItems:"center",gap:20,flexWrap:"nowrap",overflow:"hidden"}}>
+  return <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"14px 20px",marginBottom:0,display:"flex",alignItems:"center",gap:20,flexWrap:"nowrap",overflow:"hidden",minHeight:110}}>
     <div style={{flexShrink:0,textAlign:"center",width:100}}>
       <div style={{fontSize:52,fontWeight:700,fontFamily:"monospace",color:col,lineHeight:1}}>{Math.round(avgProg)}%</div>
       <div style={{fontSize:10,color:"#9e9890",marginTop:3,textTransform:"uppercase",letterSpacing:".06em"}}>Avancement global</div>
@@ -2247,7 +2383,7 @@ function SeasonBanner({seasonKey,avgProg,totalKR,doneKR}){
 
 function PersonalBanner({prog,doneKR,totalKR,label,marginBottom=8,avgProg=0}){
   const col=progColorRel(prog,avgProg),krCol=progColorRel(doneKR/Math.max(totalKR,1)*100,avgProg);
-  return <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"14px 20px",marginBottom,display:"flex",alignItems:"center",gap:20,flexWrap:"nowrap",overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+  return <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"14px 20px",marginBottom,display:"flex",alignItems:"center",gap:20,flexWrap:"nowrap",overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,.04)",minHeight:110}}>
     <div style={{flexShrink:0,textAlign:"center",width:100}}>
       <div style={{fontSize:52,fontWeight:700,fontFamily:"monospace",color:col,lineHeight:1}}>{Math.round(prog)}%</div>
       <div style={{fontSize:10,color:"#6b6560",marginTop:3,textTransform:"uppercase",letterSpacing:".06em"}}>{label}</div>
