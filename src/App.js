@@ -289,7 +289,7 @@ function WeekDots({myUpdates, clickable=false, onClickUpdate}){
   </div>;
 }
 
-function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onClickUpdate, onGoUpdate, showDots=true, nWeeks=26}){
+function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onClickUpdate, onGoUpdate, showDots=true, nWeeks=26, curveHeight=64}){
   const MOOD_SCORE = {"😊":5,"🙂":4,"😐":3,"😕":2,"😩":1};
   const now = new Date();
   const currentWkKey = getWeekKey(now);
@@ -315,7 +315,7 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
   const fmtDShort=d=>`${d.getDate()} ${d.toLocaleString("fr-FR",{month:"short"})}`;
 
   // SVG dimensions
-  const W=560,DOT_Y=10,CURVE_TOP=30,CURVE_H=90,AXIS_H=18,pad=7;
+  const W=560,DOT_Y=10,CURVE_TOP=30,CURVE_H=Math.max(curveHeight-48,50),AXIS_H=18,pad=7;
   const dotSpacing=(W-2*pad)/(weeks.length-1);
   const dotX=i=>pad+i*dotSpacing;
   const minV=1,maxV=5;
@@ -641,7 +641,7 @@ function FeedbackBox({currentUser, teamMember}) {
 
   return (
     <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"14px 16px",
-      boxShadow:"0 1px 3px rgba(0,0,0,.06)",display:"flex",flexDirection:"column",gap:10,height:"100%"}}>
+      boxShadow:"0 1px 3px rgba(0,0,0,.06)",display:"flex",flexDirection:"column",gap:8}}>
       <div style={{fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em"}}>
         💡 Idées & corrections
       </div>
@@ -651,7 +651,7 @@ function FeedbackBox({currentUser, teamMember}) {
       <textarea
         value={text}
         onChange={e=>setText(e.target.value)}
-        rows={3}
+        rows={2}
         placeholder="Ton idée ou correction…"
         style={{fontSize:12,border:"1px solid #e2ddd6",borderRadius:6,padding:"6px 8px",
           fontFamily:"inherit",resize:"none",outline:"none",color:"#1a1814"}}
@@ -825,11 +825,15 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
 
         function SmileysOrdered({done,absent,size=22}){
           const [hov,setHov]=useState(null);
-          // Absents first, then done sorted by submittedAt
-          const absentItems=absent.map(m=>({key:'a'+m.email,emoji:getAbsenceIcon(m.email,m.prenom),name:m.prenom,isAbsent:true}));
-          const doneItems=done.map(u=>({key:'d'+u.email,emoji:u.answers?.q7||"😐",name:u.prenom,isAbsent:false}));
-          const all=[...absentItems,...doneItems];
-          return <div style={{display:"flex",gap:3,flexWrap:"nowrap",alignItems:"center",position:"relative"}}>
+          // Claire (🤰) always first if she's in done (not absent), then other absents, then done by order
+          const claireInDone=done.find(u=>u.email==='claire@oeforgood.com');
+          const claireAbsent=absent.find(m=>m.email==='claire@oeforgood.com');
+          const clairePinned=claireInDone?[{key:'claire',emoji:'🤰',name:'Claire',isAbsent:false}]:[];
+          const absentItems=absent.filter(m=>m.email!=='claire@oeforgood.com').map(m=>({key:'a'+m.email,emoji:getAbsenceIcon(m.email,m.prenom),name:m.prenom,isAbsent:true}));
+          if(claireAbsent)absentItems.unshift({key:'claire',emoji:'🤰',name:'Claire',isAbsent:true});
+          const doneItems=done.filter(u=>u.email!=='claire@oeforgood.com').map(u=>({key:'d'+u.email,emoji:u.answers?.q7||"😐",name:u.prenom,isAbsent:false}));
+          const all=[...clairePinned,...absentItems,...doneItems];
+          return <div style={{display:"flex",gap:3,flexWrap:"wrap",alignItems:"center",position:"relative"}}>
             {hov&&<div style={{position:"absolute",top:-22,left:0,background:"#1a1814",color:"#fff",
               fontSize:10,padding:"2px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:10,pointerEvents:"none"}}>{hov}</div>}
             {all.map(item=><span key={item.key} style={{fontSize:size,lineHeight:1,cursor:"default",opacity:item.isAbsent?0.7:1}}
@@ -878,8 +882,8 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             display:"flex",alignItems:"stretch",gap:12,
             boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
             {/* Left: team mood avg + ratio */}
-            <div style={{flexShrink:0,textAlign:"center",width:90,display:"flex",flexDirection:"column",justifyContent:"center",gap:4}}>
-              <div style={{fontSize:48,lineHeight:1}}>{teamMoodAvg?MOOD_FROM_SCORE(teamMoodAvg):"—"}</div>
+            <div style={{flexShrink:0,textAlign:"center",width:90,display:"flex",flexDirection:"column",justifyContent:"center",gap:6}}>
+              <div style={{fontSize:44,lineHeight:1}}>{teamMoodAvg?MOOD_FROM_SCORE(teamMoodAvg):"—"}</div>
               {(()=>{
                 const presentTeam2=activeTeam.filter(m=>{
                   const prevU=allUpdates.find(u=>u.email===m.email&&u.weekKey===lastWkKey);
@@ -888,9 +892,12 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
                 });
                 const num=teamLastWk.filter(u=>presentTeam2.some(m=>m.email===u.email)).length;
                 const denom=presentTeam2.length||activeCount;
-                return <div style={{fontSize:16,fontWeight:700,color:num>=denom?"#2d6a4f":"#b5680f"}}>{num}/{denom}</div>;
+                const krCol=num>=denom?"#2d6a4f":"#b5680f";
+                return <div style={{textAlign:"center"}}>
+                  <div style={{fontSize:22,fontWeight:600,fontFamily:"monospace",color:krCol,lineHeight:1}}>{num}/{denom}</div>
+                  <div style={{fontSize:10,color:"#9e9890",marginTop:2}}>updates sem. passée</div>
+                </div>;
               })()}
-              <div style={{fontSize:9,color:"#9e9890",textTransform:"uppercase",letterSpacing:".05em"}}>sem. passée</div>
             </div>
             <div style={{width:1,background:"#e2ddd6",flexShrink:0}}/>
             {/* Middle: smileys last week + this week */}
@@ -904,9 +911,9 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
                 <SmileysOrdered done={teamCurWk} absent={absentCurWk} size={22}/>
               </div>
             </div>
-            {/* Right: mood curve - full height */}
-            <div style={{flexShrink:0,width:240,alignSelf:"stretch",display:"flex",flexDirection:"column",justifyContent:"center",overflow:"hidden"}}>
-              <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} showDots={false} nWeeks={13}/>
+            {/* Right: mood curve - tall */}
+            <div style={{flexShrink:0,width:300,alignSelf:"stretch",display:"flex",flexDirection:"column",justifyContent:"center",overflow:"hidden"}}>
+              <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} showDots={false} nWeeks={13} curveHeight={160}/>
             </div>
             {/* Old ratio removed - now in left panel */}
 
