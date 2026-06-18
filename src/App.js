@@ -289,7 +289,7 @@ function WeekDots({myUpdates, clickable=false, onClickUpdate}){
   </div>;
 }
 
-function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onClickUpdate, onGoUpdate, showDots=true, nWeeks=26, curveHeight=64}){
+function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onClickUpdate, onGoUpdate, showDots=true, nWeeks=26, curveHeight=64, fillContainer=false}){
   const MOOD_SCORE = {"😊":5,"🙂":4,"😐":3,"😕":2,"😩":1};
   const now = new Date();
   const currentWkKey = getWeekKey(now);
@@ -348,7 +348,7 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
   }
 
   const [hoveredDot,setHoveredDot]=useState(null);
-  return <div style={{position:"relative"}}>
+  return <div style={{position:"relative",height:fillContainer?"100%":undefined,display:fillContainer?"flex":undefined,flexDirection:"column"}}>
     {hoveredDot!==null&&weeks[hoveredDot]&&(()=>{
       const w=weeks[hoveredDot];
       const sameM2=w.mon.getMonth()===w.fri.getMonth();
@@ -358,7 +358,7 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
       const xPct=dotX(hoveredDot)/W*100;
       return <div style={{position:"absolute",top:-28,left:`${xPct}%`,transform:"translateX(-50%)",background:"#1a1814",color:"#fff",fontSize:10,padding:"3px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:10,pointerEvents:"none"}}>{tip}</div>;
     })()}
-    <svg width="100%" viewBox={`0 0 ${W} ${totalH}`} style={{display:"block",overflow:"visible"}}>
+    <svg width="100%" height={fillContainer?"100%":undefined} viewBox={`0 0 ${W} ${totalH}`} preserveAspectRatio={fillContainer?"none":"xMidYMid meet"} style={{display:"block",overflow:fillContainer?"hidden":"visible"}}>
       {/* Month separator lines */}
       {monthSeps.map((s,i)=><line key={i} x1={s.x} x2={s.x} y1={0} y2={CURVE_H} stroke="#e2ddd6" strokeWidth="0.5" strokeDasharray="2,2"/>)}
       {/* Month labels overlaid at bottom of curve */}
@@ -777,9 +777,12 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
 
         // Build last week full list: done members + absent members
         const doneLastWkEmails=new Set(teamLastWk.map(u=>u.email));
-        const absentLastWk=activeTeam.filter(m=>!doneLastWkEmails.has(m.email)||m.forceAbsent||m.forceMat);
+        const absentLastWk=activeTeam.filter(m=>(!doneLastWkEmails.has(m.email))||m.forceAbsent||m.forceMat);
         const doneCurWkEmails=new Set(teamCurWk.map(u=>u.email));
-        const absentCurWk=activeTeam.filter(m=>!doneCurWkEmails.has(m.email)||m.forceAbsent||m.forceMat);
+        const absentCurWk=activeTeam.filter(m=>(!doneCurWkEmails.has(m.email))||m.forceAbsent||m.forceMat);
+        // Remove forceMat/forceAbsent from done lists
+        const teamLastWkFiltered=teamLastWk.filter(u=>!activeTeam.find(m=>m.email===u.email&&(m.forceMat||m.forceAbsent)));
+        const teamCurWkFiltered=teamCurWk.filter(u=>!activeTeam.find(m=>m.email===u.email&&(m.forceMat||m.forceAbsent)));
 
         const teamMoodScores=teamLastWk.filter(u=>u.answers?.q7).map(u=>MOOD_SCORE[u.answers.q7]||3);
         const teamMoodAvg=teamMoodScores.length?teamMoodScores.reduce((a,b)=>a+b,0)/teamMoodScores.length:null;
@@ -906,17 +909,21 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             {/* Middle: smileys last week + this week */}
             <div style={{flex:1,display:"flex",flexDirection:"column",gap:8,justifyContent:"center",minWidth:0}}>
               <div>
-                <div style={{fontSize:9,color:"#9e9890",marginBottom:4,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>Semaine passée</div>
-                <SmileysOrdered done={teamLastWk} absent={absentLastWk} size={22}/>
+                <div style={{fontSize:9,color:"#9e9890",marginBottom:4,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>
+                  Sem. passée {(()=>{const{mon,fri}=getWeekBounds(lastWkKey);const sameM=mon.getMonth()===fri.getMonth();return sameM?`${mon.getDate()}–${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`:`${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"short"})}–${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`;})()}
+                </div>
+                <SmileysOrdered done={teamLastWkFiltered} absent={absentLastWk} size={22}/>
               </div>
               <div>
-                <div style={{fontSize:9,color:"#9e9890",marginBottom:4,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>Semaine en cours</div>
-                <SmileysOrdered done={teamCurWk} absent={absentCurWk} size={22}/>
+                <div style={{fontSize:9,color:"#9e9890",marginBottom:4,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>
+                  Sem. en cours {(()=>{const{mon,fri}=getWeekBounds(curWkKey);const sameM=mon.getMonth()===fri.getMonth();return sameM?`${mon.getDate()}–${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`:`${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"short"})}–${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`;})()}
+                </div>
+                <SmileysOrdered done={teamCurWkFiltered} absent={absentCurWk} size={22}/>
               </div>
             </div>
             {/* Right: mood curve - tall */}
-            <div style={{flexShrink:0,width:300,alignSelf:"stretch",display:"flex",flexDirection:"column",justifyContent:"center",overflow:"hidden"}}>
-              <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} showDots={false} nWeeks={13} curveHeight={160}/>
+            <div style={{flexShrink:0,width:280,alignSelf:"stretch",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+              <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} showDots={false} nWeeks={13} fillContainer={true}/>
             </div>
             {/* Old ratio removed - now in left panel */}
 
@@ -1033,7 +1040,7 @@ function UpdateViewModal({notif,onClose,onRead}){
 }
 
 // ─── UPDATE QUESTIONNAIRE ─────────────────────────────────────────────────────
-const MOODS=["😊","🙂","😐","😕","😩"];
+const MOODS=["😩","😕","😐","🙂","😊"];
 const PRESENCES=["Au boulot au moins deux jours","En congés","À l'école"];
 
 function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates}){
