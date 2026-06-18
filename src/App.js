@@ -348,7 +348,7 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
   }
 
   const [hoveredDot,setHoveredDot]=useState(null);
-  return <div style={{position:"relative",width:"100%",height:stretchHeight?"100%":undefined}}>
+  return <div style={{position:"relative",width:"100%",height:stretchHeight?"100%":undefined,overflow:"hidden"}}>
     {hoveredDot!==null&&weeks[hoveredDot]&&(()=>{
       const w=weeks[hoveredDot];
       const sameM2=w.mon.getMonth()===w.fri.getMonth();
@@ -358,7 +358,7 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
       const xPct=dotX(hoveredDot)/W*100;
       return <div style={{position:"absolute",top:-28,left:`${xPct}%`,transform:"translateX(-50%)",background:"#1a1814",color:"#fff",fontSize:10,padding:"3px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:10,pointerEvents:"none"}}>{tip}</div>;
     })()}
-    <svg width="100%" height={stretchHeight?"100%":undefined} viewBox={`0 0 ${W} ${totalH}`} preserveAspectRatio={stretchHeight?"none":"xMidYMid meet"} style={{display:"block",overflow:"visible",position:stretchHeight?"absolute":undefined,inset:stretchHeight?"0":undefined}}>
+    <svg width="100%" height={curveHeight} viewBox={`0 0 ${W} ${totalH}`} preserveAspectRatio="none" style={{display:"block",overflow:"hidden"}}>
       {/* Month separator lines */}
       {monthSeps.map((s,i)=><line key={i} x1={s.x} x2={s.x} y1={0} y2={CURVE_H} stroke="#e2ddd6" strokeWidth="0.5" strokeDasharray="2,2"/>)}
       {/* Month labels overlaid at bottom of curve */}
@@ -871,20 +871,28 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
         function My13Smileys(){
           const [hov,setHov]=useState(null);
           const [pos,setPos]=useState({x:0,y:0});
-          // Last week with an update (most recent)
-          const lastDone=[...my13Weeks].reverse().find(w=>w.u);
+          // Get icon for week (mood or absence icon)
+          const getWeekIcon=(w)=>{
+            if(w.u?.answers?.q7) return w.u.answers.q7;
+            const member=(teamMembers||[]).find(m=>m.email===teamMember?.email);
+            if(teamMember?.email==='claire@oeforgood.com') return '🤰';
+            if(member?.forceMat) return '🤰';
+            if(member?.forceAbsent){const mo=w.mon.getMonth()+1;return((mo>=12&&w.mon.getDate()>=15)||mo<=4)?'🎿':'🌴';}
+            return '🫥';
+          };
           return <div style={{display:"flex",gap:3,flexWrap:"wrap",alignItems:"center"}}>
             {hov&&<div style={{position:"fixed",left:pos.x+10,top:pos.y-28,background:"#1a1814",color:"#fff",
               fontSize:10,padding:"2px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:9999,pointerEvents:"none"}}>{hov}</div>}
             {my13Weeks.map((w,i)=>{
-              const mood=w.u?.answers?.q7||"🫥";
-              const isLast=lastDone&&w===lastDone;
+              const isLast=i===12;
+              const icon=getWeekIcon(w);
               const sameM=w.mon.getMonth()===w.fri.getMonth();
               const tip=sameM?`Semaine du ${w.mon.getDate()} au ${w.fri.getDate()} ${w.fri.toLocaleString("fr-FR",{month:"long"})}`:`Semaine du ${w.mon.getDate()} ${w.mon.toLocaleString("fr-FR",{month:"short"})} au ${w.fri.getDate()} ${w.fri.toLocaleString("fr-FR",{month:"short"})}`;
-              return <span key={i} style={{fontSize:isLast?32:18,lineHeight:1,cursor:"default",opacity:w.u?1:0.4,transition:"font-size .2s"}}
+              return <span key={i} style={{fontSize:isLast?36:16,lineHeight:1,cursor:"default",
+                opacity:(w.u||isLast)?1:0.45}}
                 onMouseEnter={e=>{setHov(tip);setPos({x:e.clientX,y:e.clientY});}}
                 onMouseMove={e=>setPos({x:e.clientX,y:e.clientY})}
-                onMouseLeave={()=>setHov(null)}>{mood}</span>;
+                onMouseLeave={()=>setHov(null)}>{icon}</span>;
             })}
           </div>;
         }
@@ -897,7 +905,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
           {/* Team Updates banner */}
           <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"14px 20px",
             display:"flex",alignItems:"stretch",gap:12,
-            boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+            boxShadow:"0 1px 3px rgba(0,0,0,.04)",height:160,boxSizing:"border-box",overflow:"hidden"}}>
             {/* Left: team mood avg + ratio */}
             <div style={{flexShrink:0,textAlign:"center",width:90,display:"flex",flexDirection:"column",justifyContent:"center",gap:6}}>
               <div style={{fontSize:44,lineHeight:1}}>{teamMoodAvg?MOOD_FROM_SCORE(teamMoodAvg):"—"}</div>
@@ -934,7 +942,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             </div>
             {/* Right: mood curve - tall */}
             <div style={{flex:"0 0 340px",alignSelf:"stretch",overflow:"hidden"}}>
-              <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} showDots={false} nWeeks={13} stretchHeight={true}/>
+              <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} showDots={false} nWeeks={26} curveHeight={132}/>
             </div>
             {/* Old ratio removed - now in left panel */}
 
