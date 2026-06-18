@@ -493,7 +493,7 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,m
 
   const allMsgs=[...systemMsgs,...tmMsgs,...notifMsgs].sort((a,b)=>b.date-a.date);
 
-  return <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",marginBottom:16,boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
+  return <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",marginBottom:16,boxShadow:"0 1px 3px rgba(0,0,0,.06)",display:"flex",flexDirection:"column",height:"100%"}}>
     <div style={{padding:"12px 18px",borderBottom:"1px solid #f0ede8",fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em"}}>
       Messages {notifMsgs.filter(m=>!m.read).length>0&&<span style={{background:"#2d6a4f",color:"#fff",borderRadius:10,padding:"1px 7px",fontSize:10,marginLeft:6,fontWeight:500}}>{notifMsgs.filter(m=>!m.read).length}</span>}
     </div>
@@ -878,7 +878,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
           {/* Team Updates banner - 320px */}
           <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"14px 20px",
             display:"flex",alignItems:"stretch",gap:12,
-            boxShadow:"0 1px 3px rgba(0,0,0,.04)",height:320,boxSizing:"border-box"}}>
+            boxShadow:"0 1px 3px rgba(0,0,0,.04)",height:220,boxSizing:"border-box"}}>
             {/* Left: team mood avg */}
             <div style={{flexShrink:0,textAlign:"center",width:100,display:"flex",flexDirection:"column",justifyContent:"center"}}>
               <div style={{fontSize:52,lineHeight:1}}>{teamMoodAvg?MOOD_FROM_SCORE(teamMoodAvg):"—"}</div>
@@ -926,7 +926,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
           {/* Personal Updates banner - 320px */}
           <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"14px 20px",
             display:"flex",alignItems:"stretch",gap:12,flexDirection:"column",justifyContent:"space-between",
-            boxShadow:"0 1px 3px rgba(0,0,0,.04)",height:320,boxSizing:"border-box"}}>
+            boxShadow:"0 1px 3px rgba(0,0,0,.04)",height:220,boxSizing:"border-box"}}>
             {/* Perso: vertical layout for 320px height */}
             {/* Top: mood + name */}
             <div style={{display:"flex",alignItems:"center",gap:12,paddingBottom:12,borderBottom:"1px solid #86efac"}}>
