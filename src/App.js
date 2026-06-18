@@ -289,7 +289,7 @@ function WeekDots({myUpdates, clickable=false, onClickUpdate}){
   </div>;
 }
 
-function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onClickUpdate, onGoUpdate, showDots=true, nWeeks=26, curveHeight=64, fillContainer=false}){
+function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onClickUpdate, onGoUpdate, showDots=true, nWeeks=26, curveHeight=64, fillContainer=false, stretchHeight=false}){
   const MOOD_SCORE = {"😊":5,"🙂":4,"😐":3,"😕":2,"😩":1};
   const now = new Date();
   const currentWkKey = getWeekKey(now);
@@ -348,7 +348,7 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
   }
 
   const [hoveredDot,setHoveredDot]=useState(null);
-  return <div style={{position:"relative",width:"100%"}}>
+  return <div style={{position:"relative",width:"100%",height:stretchHeight?"100%":undefined}}>
     {hoveredDot!==null&&weeks[hoveredDot]&&(()=>{
       const w=weeks[hoveredDot];
       const sameM2=w.mon.getMonth()===w.fri.getMonth();
@@ -358,7 +358,7 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
       const xPct=dotX(hoveredDot)/W*100;
       return <div style={{position:"absolute",top:-28,left:`${xPct}%`,transform:"translateX(-50%)",background:"#1a1814",color:"#fff",fontSize:10,padding:"3px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:10,pointerEvents:"none"}}>{tip}</div>;
     })()}
-    <svg width="100%" viewBox={`0 0 ${W} ${totalH}`} preserveAspectRatio="xMidYMid meet" style={{display:"block",overflow:"visible"}}>
+    <svg width="100%" height={stretchHeight?"100%":undefined} viewBox={`0 0 ${W} ${totalH}`} preserveAspectRatio={stretchHeight?"none":"xMidYMid meet"} style={{display:"block",overflow:"visible",position:stretchHeight?"absolute":undefined,inset:stretchHeight?"0":undefined}}>
       {/* Month separator lines */}
       {monthSeps.map((s,i)=><line key={i} x1={s.x} x2={s.x} y1={0} y2={CURVE_H} stroke="#e2ddd6" strokeWidth="0.5" strokeDasharray="2,2"/>)}
       {/* Month labels overlaid at bottom of curve */}
@@ -777,12 +777,13 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
 
         // Build last week full list: done members + absent members
         const doneLastWkEmails=new Set(teamLastWk.map(u=>u.email));
-        const absentLastWk=activeTeam.filter(m=>(!doneLastWkEmails.has(m.email))||m.forceAbsent||m.forceMat);
+        const FORCE_MAT_EMAILS=['claire@oeforgood.com'];
+        const absentLastWk=activeTeam.filter(m=>(!doneLastWkEmails.has(m.email))||m.forceAbsent||m.forceMat||FORCE_MAT_EMAILS.includes(m.email));
         const doneCurWkEmails=new Set(teamCurWk.map(u=>u.email));
-        const absentCurWk=activeTeam.filter(m=>(!doneCurWkEmails.has(m.email))||m.forceAbsent||m.forceMat);
+        const absentCurWk=activeTeam.filter(m=>(!doneCurWkEmails.has(m.email))||m.forceAbsent||m.forceMat||FORCE_MAT_EMAILS.includes(m.email));
         // Remove forceMat/forceAbsent from done lists
-        const teamLastWkFiltered=teamLastWk.filter(u=>!activeTeam.find(m=>m.email===u.email&&(m.forceMat||m.forceAbsent)));
-        const teamCurWkFiltered=teamCurWk.filter(u=>!activeTeam.find(m=>m.email===u.email&&(m.forceMat||m.forceAbsent)));
+        const teamLastWkFiltered=teamLastWk.filter(u=>!activeTeam.find(m=>m.email===u.email&&(m.forceMat||m.forceAbsent))&&!FORCE_MAT_EMAILS.includes(u.email));
+        const teamCurWkFiltered=teamCurWk.filter(u=>!activeTeam.find(m=>m.email===u.email&&(m.forceMat||m.forceAbsent))&&!FORCE_MAT_EMAILS.includes(u.email));
 
         const teamMoodScores=teamLastWk.filter(u=>u.answers?.q7).map(u=>MOOD_SCORE[u.answers.q7]||3);
         const teamMoodAvg=teamMoodScores.length?teamMoodScores.reduce((a,b)=>a+b,0)/teamMoodScores.length:null;
@@ -817,7 +818,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
   // Get absence icon for a teammate based on forceAbsent/forceMat flags or previous week's q8 answer
   function getAbsenceIcon(email, prenom) {
     const member = (teamMembers||[]).find(m => m.email === email);
-    if (member?.forceMat) return '🤰';
+    if (member?.forceMat || email === 'claire@oeforgood.com') return '🤰';
     if (member?.forceAbsent) {
       const now = new Date();
       const mo = now.getMonth() + 1;
@@ -932,10 +933,8 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
               </div>
             </div>
             {/* Right: mood curve - tall */}
-            <div style={{flex:"0 0 340px",alignSelf:"stretch",display:"flex",flexDirection:"column",justifyContent:"stretch",overflow:"hidden",padding:"4px 0"}}>
-              <div style={{flex:1,minHeight:0}}>
-                <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} showDots={false} nWeeks={13}/>
-              </div>
+            <div style={{flex:"0 0 340px",alignSelf:"stretch",overflow:"hidden"}}>
+              <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} showDots={false} nWeeks={13} stretchHeight={true}/>
             </div>
             {/* Old ratio removed - now in left panel */}
 
@@ -947,7 +946,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             {/* Perso: vertical layout for 320px height */}
             {/* Top: mood + name */}
             <div style={{display:"flex",alignItems:"center",gap:12,paddingBottom:12,borderBottom:"1px solid #86efac"}}>
-              <div style={{fontSize:44,lineHeight:1}}>{myMoodDisplay||"—"}</div>
+              <div style={{fontSize:60,lineHeight:1}}>{myMoodDisplay||"🫥"}</div>
               <div>
                 <div style={{fontSize:13,fontWeight:600,color:"#1a1814"}}>{myPrenom}</div>
                 <div style={{fontSize:9,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em"}}>Semaine passée</div>
