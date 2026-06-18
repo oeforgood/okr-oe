@@ -315,7 +315,7 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
   const fmtDShort=d=>`${d.getDate()} ${d.toLocaleString("fr-FR",{month:"short"})}`;
 
   // SVG dimensions
-  const W=560,DOT_Y=4,CURVE_TOP=0,CURVE_H=Math.max(curveHeight-12,50),AXIS_H=0,pad=4;
+  const W=340,DOT_Y=4,CURVE_TOP=0,CURVE_H=Math.max(curveHeight-12,50),AXIS_H=0,pad=4;
   const dotSpacing=(W-2*pad)/(weeks.length-1);
   const dotX=i=>pad+i*dotSpacing;
   const minV=1,maxV=5;
@@ -362,7 +362,10 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
       {/* Month separator lines */}
       {monthSeps.map((s,i)=><line key={i} x1={s.x} x2={s.x} y1={0} y2={CURVE_H} stroke="#e2ddd6" strokeWidth="0.5" strokeDasharray="2,2"/>)}
       {/* Month labels overlaid at bottom of curve */}
-      {monthLabels.map((m,i)=><text key={i} x={m.x} y={curveY(1.15)} fontSize="8" fill="#c5c0b8" textAnchor="middle" style={{pointerEvents:"none"}}>{m.label}</text>)}
+      {monthLabels.map((m,i)=>{
+        const short=m.label.slice(0,3).toUpperCase().replace('É','É').replace('Û','Û');
+        return <text key={i} x={m.x} y={curveY(1.2)} fontSize="10" fill="#b5b0a8" textAnchor="middle" fontWeight="500" style={{pointerEvents:"none"}}>{short}</text>;
+      })}
       {/* Dots row */}
       {showDots&&weeks.map((w,i)=>{
         const c=DOT_C[w.status];
@@ -375,10 +378,7 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
       })}
       {/* Grid lines for curve */}
       {[1,2,3,4,5].map(v=><line key={v} x1={pad} x2={W-pad} y1={curveY(v)} y2={curveY(v)} stroke="#f0ede8" strokeWidth="0.8"/>)}
-      {/* Y labels */}
-      {[{v:5,l:"😊"},{v:3,l:"😐"},{v:1,l:"😩"}].map(({v,l})=>
-        <text key={v} x={2} y={curveY(v)+4} fontSize="8" fill="#9e9890">{l}</text>
-      )}
+
       {/* Curve */}
       {validPts.length>=2&&<path d={pathD} fill="none" stroke="#2d6a4f" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round"/>}
       {/* Curve dots */}
