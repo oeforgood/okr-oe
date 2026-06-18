@@ -789,7 +789,10 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
 
         // My personal data
         const myLastWkUpdate=myUpdates.find(u=>u.weekKey===lastWkKey);
+        const myCurWkUpdate=myUpdates.find(u=>u.weekKey===curWkKey);
+        const myMoodDisplay=myCurWkUpdate?.answers?.q7||myLastWkUpdate?.answers?.q7||null;
         const myMoodLastWk=myLastWkUpdate?.answers?.q7||null;
+        const myMoodLabel=myCurWkUpdate?"cette semaine":"sem. passée";
         const my13Weeks=Array.from({length:13},(_,i)=>{
           const d=new Date(now);d.setDate(now.getDate()-(12-i)*7);
           const wk=getWeekKey(d);
@@ -914,9 +917,9 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             </div>
             <div style={{width:1,background:"#e2ddd6",flexShrink:0}}/>
             {/* Middle: smileys last week + this week */}
-            <div style={{flex:1,display:"flex",flexDirection:"column",gap:8,justifyContent:"center",minWidth:0}}>
+            <div style={{flex:1,display:"flex",flexDirection:"column",gap:6,justifyContent:"center",minWidth:0}}>
               <div>
-                <div style={{fontSize:9,color:"#9e9890",marginBottom:4,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>
+                <div style={{fontSize:9,color:"#9e9890",marginBottom:2,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>
                   Sem. passée {(()=>{const{mon,fri}=getWeekBounds(lastWkKey);const sameM=mon.getMonth()===fri.getMonth();return sameM?`${mon.getDate()}–${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`:`${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"short"})}–${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`;})()}
                 </div>
                 <SmileysOrdered done={teamLastWkFiltered} absent={absentLastWk} size={22}/>
@@ -929,8 +932,10 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
               </div>
             </div>
             {/* Right: mood curve - tall */}
-            <div style={{flex:"0 0 260px",alignSelf:"stretch",display:"flex",alignItems:"center",overflow:"hidden"}}>
-              <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} showDots={false} nWeeks={13}/>
+            <div style={{flex:"0 0 340px",alignSelf:"stretch",display:"flex",flexDirection:"column",justifyContent:"stretch",overflow:"hidden",padding:"4px 0"}}>
+              <div style={{flex:1,minHeight:0}}>
+                <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} showDots={false} nWeeks={13}/>
+              </div>
             </div>
             {/* Old ratio removed - now in left panel */}
 
@@ -942,7 +947,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             {/* Perso: vertical layout for 320px height */}
             {/* Top: mood + name */}
             <div style={{display:"flex",alignItems:"center",gap:12,paddingBottom:12,borderBottom:"1px solid #86efac"}}>
-              <div style={{fontSize:44,lineHeight:1}}>{myMoodLastWk||"—"}</div>
+              <div style={{fontSize:44,lineHeight:1}}>{myMoodDisplay||"—"}</div>
               <div>
                 <div style={{fontSize:13,fontWeight:600,color:"#1a1814"}}>{myPrenom}</div>
                 <div style={{fontSize:9,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em"}}>Semaine passée</div>
@@ -2102,7 +2107,9 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
     setMembers(p=>p.map(m=>m.email===email?{...m,role}:m));
   }
   function toggleForce(email,field){
-    setMembers(p=>p.map(m=>m.email===email?{...m,[field]:!m[field]}:m));
+    const updated=members.map(m=>m.email===email?{...m,[field]:!m[field]}:m);
+    setMembers(updated);
+    onSaveMembers&&onSaveMembers(updated);
   }
   function setManager(email,managerEmail){
     setMembers(p=>p.map(m=>m.email===email?{...m,managerEmail}:m));
