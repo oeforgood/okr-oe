@@ -289,7 +289,7 @@ function WeekDots({myUpdates, clickable=false, onClickUpdate}){
   </div>;
 }
 
-function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onClickUpdate, onGoUpdate, showDots=true}){
+function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onClickUpdate, onGoUpdate, showDots=true, nWeeks=26, curveHeight=64, fillContainer=false, stretchHeight=false}){
   const MOOD_SCORE = {"😊":5,"🙂":4,"😐":3,"😕":2,"😩":1};
   const now = new Date();
   const currentWkKey = getWeekKey(now);
@@ -315,7 +315,7 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
   const fmtDShort=d=>`${d.getDate()} ${d.toLocaleString("fr-FR",{month:"short"})}`;
 
   // SVG dimensions
-  const W=560,DOT_Y=10,CURVE_TOP=30,CURVE_H=90,AXIS_H=18,pad=7;
+  const W=340,DOT_Y=4,CURVE_TOP=0,CURVE_H=Math.max(curveHeight-12,50),AXIS_H=0,pad=4;
   const dotSpacing=(W-2*pad)/(weeks.length-1);
   const dotX=i=>pad+i*dotSpacing;
   const minV=1,maxV=5;
@@ -348,7 +348,7 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
   }
 
   const [hoveredDot,setHoveredDot]=useState(null);
-  return <div style={{position:"relative"}}>
+  return <div style={{position:"relative",width:"100%",height:stretchHeight?"100%":undefined,overflow:"hidden"}}>
     {hoveredDot!==null&&weeks[hoveredDot]&&(()=>{
       const w=weeks[hoveredDot];
       const sameM2=w.mon.getMonth()===w.fri.getMonth();
@@ -358,11 +358,14 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
       const xPct=dotX(hoveredDot)/W*100;
       return <div style={{position:"absolute",top:-28,left:`${xPct}%`,transform:"translateX(-50%)",background:"#1a1814",color:"#fff",fontSize:10,padding:"3px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:10,pointerEvents:"none"}}>{tip}</div>;
     })()}
-    <svg width="100%" viewBox={`0 0 ${W} ${totalH}`} style={{display:"block",overflow:"visible"}}>
+    <svg width="100%" height={curveHeight} viewBox={`0 0 ${W} ${totalH}`} preserveAspectRatio="none" style={{display:"block",overflow:"hidden"}}>
       {/* Month separator lines */}
-      {monthSeps.map((s,i)=><line key={i} x1={s.x} x2={s.x} y1={0} y2={CURVE_TOP+CURVE_H} stroke="#d5d0ca" strokeWidth="0.5"/>)}
-      {/* Month labels on X axis */}
-      {monthLabels.map((m,i)=><text key={i} x={m.x} y={totalH-2} fontSize="8" fill="#9e9890" textAnchor="middle">{m.label}</text>)}
+      {monthSeps.map((s,i)=><line key={i} x1={s.x} x2={s.x} y1={0} y2={CURVE_H} stroke="#e2ddd6" strokeWidth="0.5" strokeDasharray="2,2"/>)}
+      {/* Month labels overlaid at bottom of curve */}
+      {monthLabels.map((m,i)=>{
+        const short=m.label.slice(0,3).toUpperCase().replace('É','É').replace('Û','Û');
+        return <text key={i} x={m.x} y={curveY(1.2)} fontSize="10" fill="#b5b0a8" textAnchor="middle" fontWeight="500" style={{pointerEvents:"none"}}>{short}</text>;
+      })}
       {/* Dots row */}
       {showDots&&weeks.map((w,i)=>{
         const c=DOT_C[w.status];
@@ -375,10 +378,7 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
       })}
       {/* Grid lines for curve */}
       {[1,2,3,4,5].map(v=><line key={v} x1={pad} x2={W-pad} y1={curveY(v)} y2={curveY(v)} stroke="#f0ede8" strokeWidth="0.8"/>)}
-      {/* Y labels */}
-      {[{v:5,l:"😊"},{v:3,l:"😐"},{v:1,l:"😩"}].map(({v,l})=>
-        <text key={v} x={2} y={curveY(v)+4} fontSize="8" fill="#9e9890">{l}</text>
-      )}
+
       {/* Curve */}
       {validPts.length>=2&&<path d={pathD} fill="none" stroke="#2d6a4f" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round"/>}
       {/* Curve dots */}
@@ -386,13 +386,7 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
         <title>{`Mood moyen : ${w.avg.toFixed(1)}/5 (${w.count} réponses)`}</title>
       </circle>)}
     </svg>
-    {/* Legend */}
-    {showDots&&<div style={{display:"flex",gap:16,marginTop:6,fontSize:11,color:"#9e9890"}}>
-      <span><span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#2d6a4f",marginRight:4,verticalAlign:"middle"}}/>Fait en semaine</span>
-      <span><span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#facc15",marginRight:4,verticalAlign:"middle"}}/>Fait le lundi</span>
-      <span><span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#ef4444",marginRight:4,verticalAlign:"middle"}}/>Non fait</span>
-      <span style={{marginLeft:"auto"}}>Courbe : mood équipe</span>
-    </div>}
+
   </div>;
 }
 
@@ -451,7 +445,8 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,m
   }
 
   // Build all messages: system first, then notifs (newest first)
-  const currentWkKey2=getWeekKey(now);
+  // On Monday, check previous week's update; otherwise check current week
+  const currentWkKey2=getUpdateWeekKey()||getWeekKey(now);
   const updateDone=myUpdates.find(u=>u.weekKey===currentWkKey2);
   const reminderMsgs=[];
 
@@ -498,7 +493,7 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,m
 
   const allMsgs=[...systemMsgs,...tmMsgs,...notifMsgs].sort((a,b)=>b.date-a.date);
 
-  return <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",marginBottom:16,boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
+  return <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",marginBottom:16,boxShadow:"0 1px 3px rgba(0,0,0,.06)",display:"flex",flexDirection:"column",height:"100%"}}>
     <div style={{padding:"12px 18px",borderBottom:"1px solid #f0ede8",fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em"}}>
       Messages {notifMsgs.filter(m=>!m.read).length>0&&<span style={{background:"#2d6a4f",color:"#fff",borderRadius:10,padding:"1px 7px",fontSize:10,marginLeft:6,fontWeight:500}}>{notifMsgs.filter(m=>!m.read).length}</span>}
     </div>
@@ -536,7 +531,146 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,m
   </div>;
 }
 
-function Dashboard({currentUser,teamMember,onGoOKR,onGoUpdate,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,okrData,isAdmin,onOpenSettings}){
+function ReportingBanner({onGoReporting}) {
+  const [caData, setCaData] = useState(null);
+  const [chargeData, setChargeData] = useState(null);
+  const [importedAt, setImportedAt] = useState(null);
+
+  useEffect(()=>{
+    const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists())setCaData(snap.data().caData);});
+    const u2=onSnapshot(doc(db,'reporting','charges'),(snap)=>{if(snap.exists())setChargeData(snap.data().chargeData);});
+    const u3=onSnapshot(doc(db,'reporting','meta'),(snap)=>{if(snap.exists())setImportedAt(snap.data().importedAt);});
+    return()=>{u1();u2();u3();};
+  },[]);
+
+  if (!caData) return null;
+
+  // Compute YTD from CA data
+  const REPORTING_CANALS_ALL = ['E-commerce B2C','CHR','Grands Comptes','Retail','Export','Autres B2B','Régénération'];
+  const CANAL_CSV_MAP2 = {'E-commerce B2C':'B2C','CHR':'CHR','Grands Comptes':'Grands Comptes','Retail':'Retail','Export':'Export','Autres B2B':'Autres B2B','Régénération':'Régénération'};
+  const CANAL_MARGIN2 = {'E-commerce B2C':0.270,'CHR':0.293,'Grands Comptes':0.266,'Retail':0.292,'Export':0.231,'Autres B2B':0.225,'Régénération':1.0};
+
+  function sumYTD(dataByKey) {
+    return Object.entries(dataByKey||{}).reduce((s,[,v])=>s+v,0);
+  }
+
+  let caYTD = 0, mbYTD = 0;
+  REPORTING_CANALS_ALL.forEach(canal => {
+    const csvKey = CANAL_CSV_MAP2[canal]||canal;
+    const canalData = caData[csvKey]||{};
+    const canalTotal = Object.values(canalData).reduce((a,b)=>a+b,0);
+    caYTD += canalTotal;
+    mbYTD += canalTotal * (CANAL_MARGIN2[canal]||0.263);
+  });
+
+  let chargesExplYTD = 0, autresChargesYTD = 0;
+  if (chargeData) {
+    Object.entries(chargeData).forEach(([subcat, data]) => {
+      const total = Object.values(data.months||{}).reduce((a,b)=>a+b,0);
+      // Simple: use Z2 = COGS, T1/I1 = autres, rest = charges expl
+      const code = subcat.slice(0,2);
+      if(['T1','I1'].includes(code)) autresChargesYTD += total;
+      else if(!['Z1','Z2'].includes(code)) chargesExplYTD += total;
+    });
+  }
+
+  const ebitdaYTD = mbYTD + chargesExplYTD;
+  const resultatYTD = ebitdaYTD + autresChargesYTD;
+  const mbPct = caYTD ? mbYTD/caYTD*100 : 0;
+
+  function fmtK(v) {
+    if (!v) return '—';
+    return new Intl.NumberFormat('fr-FR',{maximumFractionDigits:0}).format(Math.round(v/1000))+'k';
+  }
+
+  const ebitdaCol = ebitdaYTD >= 0 ? '#2d6a4f' : '#c0392b';
+  const resultatCol = resultatYTD >= 0 ? '#2d6a4f' : '#c0392b';
+
+  const items = [
+    {label:"CA YTD",val:caYTD,col:"#1a1814"},
+    {label:"Marge Brute",val:mbYTD,col:"#2d6a4f"},
+    {label:"Charges expl.",val:Math.abs(chargesExplYTD),col:"#b5680f"},
+    {label:"EBITDA",val:ebitdaYTD,col:ebitdaCol},
+    {label:"Trésorerie",val:303000,col:"#1d4ed8"},
+  ];
+
+  return (
+    <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"14px 20px",
+      display:"flex",alignItems:"center",gap:0,boxShadow:"0 1px 3px rgba(0,0,0,.04)",marginBottom:4}}>
+      {items.map((item,i)=><>
+        <div key={item.label} style={{flex:1,textAlign:"center",padding:"0 12px"}}>
+          <div style={{fontSize:26,fontWeight:700,color:item.col,lineHeight:1,fontFamily:"monospace"}}>{fmtK(item.val)}</div>
+          <div style={{fontSize:9,color:"#9e9890",marginTop:3,textTransform:"uppercase",letterSpacing:".05em"}}>{item.label}</div>
+        </div>
+        {i<4&&<div key={"sep"+i} style={{width:1,background:"#e2ddd6",alignSelf:"stretch",flexShrink:0}}/>}
+      </>)}
+      <div style={{width:1,background:"#e2ddd6",alignSelf:"stretch",flexShrink:0}}/>
+      {/* Button as 6th item */}
+      <div style={{flex:1,textAlign:"center",padding:"0 12px"}}>
+        <button onClick={onGoReporting}
+          style={{display:"inline-flex",alignItems:"center",gap:6,padding:"8px 16px",
+            background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,
+            cursor:"pointer",fontSize:12,fontWeight:500,
+            transition:"opacity .15s"}}
+          onMouseEnter={e=>e.currentTarget.style.opacity=".85"}
+          onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+          📈 Voir le Reporting
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function FeedbackBox({currentUser, teamMember}) {
+  const [text, setText] = useState('');
+  const [sent, setSent] = useState(false);
+
+  async function send() {
+    if (!text.trim()) return;
+    await addDoc(collection(db, 'feedback'), {
+      from: teamMember?.prenom || currentUser?.email || 'Anonyme',
+      email: currentUser?.email || '',
+      message: text.trim(),
+      createdAt: Date.now(),
+      read: false,
+    });
+    setText('');
+    setSent(true);
+    setTimeout(() => setSent(false), 3000);
+  }
+
+  return (
+    <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"14px 16px",
+      boxShadow:"0 1px 3px rgba(0,0,0,.06)",display:"flex",flexDirection:"column",gap:8}}>
+      <div style={{fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em"}}>
+        💡 Idées & corrections
+      </div>
+      <div style={{fontSize:11,color:"#9e9890",lineHeight:1.4}}>
+        Suggestions d'amélioration ou corrections pour 🌼 Calendula
+      </div>
+      <textarea
+        value={text}
+        onChange={e=>setText(e.target.value)}
+        rows={2}
+        placeholder="Ton idée ou correction…"
+        style={{fontSize:12,border:"1px solid #e2ddd6",borderRadius:6,padding:"6px 8px",
+          fontFamily:"inherit",resize:"none",outline:"none",color:"#1a1814"}}
+      />
+      {sent
+        ? <div style={{fontSize:11,color:"#2d6a4f",fontWeight:500,textAlign:"center"}}>✓ Envoyé !</div>
+        : <button onClick={send} disabled={!text.trim()}
+            style={{padding:"6px 12px",background:text.trim()?"#2d6a4f":"#f5f3ef",
+              color:text.trim()?"#fff":"#c5c0b8",border:"none",borderRadius:6,
+              cursor:text.trim()?"pointer":"not-allowed",fontSize:11,fontWeight:500,
+              transition:"all .15s"}}>
+            Envoyer
+          </button>
+      }
+    </div>
+  );
+}
+
+function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onGoReporting,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,okrData,isAdmin,onOpenSettings}){
   const {objectives=[],subobjectives=[],keyresults=[],seasonKey="printemps_2026"}=okrData||{};
   const avgProg=calcWeightedAvg(objectives,subobjectives,keyresults);
   const totalKR=keyresults.length,doneKR=keyresults.filter(k=>k.taux>=100).length;
@@ -580,53 +714,285 @@ function Dashboard({currentUser,teamMember,onGoOKR,onGoUpdate,myUpdates,allUpdat
 
     <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
 
+      {/* ── TOP: Notifications + Feedback ── */}
+      <div style={{display:"grid",gridTemplateColumns:"3fr 1fr",gap:12,marginBottom:16,alignItems:"stretch",gridAutoRows:"1fr"}}>
+        <MessagesPanel managerNotifs={managerNotifs} teammateNotifs={teammateNotifs} onReadNotif={onReadNotif} teamMember={teamMember} myUpdates={myUpdates}/>
+        <FeedbackBox currentUser={currentUser} teamMember={teamMember}/>
+      </div>
 
-      {/* Season banners */}
-      <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:16}}>
+      {/* ── SECTION OKR ── pleine largeur */}
+      <div style={{display:"flex",flexDirection:"column",gap:2,marginBottom:16}}>
         <SeasonBanner seasonKey={seasonKey||"printemps_2026"} avgProg={avgProg} totalKR={totalKR} doneKR={doneKR}/>
-        {myKRsOwned.length>0&&<PersonalBanner prog={myPersonalProg} doneKR={myKRDoneOwned} totalKR={myKRsOwned.length} label={myPrenom||"Moi"} marginBottom={0} avgProg={avgProg}/>}
+        {/* Personal banner with OKR button inside */}
+        {myKRsOwned.length>0&&(()=>{
+          const col=progColorRel(myPersonalProg,avgProg);
+          const krCol=progColorRel(myKRDoneOwned/Math.max(myKRsOwned.length,1)*100,avgProg);
+          return <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"14px 20px",
+            display:"flex",alignItems:"center",gap:20,boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+            {/* Left: % */}
+            <div style={{flexShrink:0,textAlign:"center",width:100}}>
+              <div style={{fontSize:52,fontWeight:700,fontFamily:"monospace",color:col,lineHeight:1}}>{Math.round(myPersonalProg)}%</div>
+              <div style={{fontSize:10,color:"#6b6560",marginTop:3,textTransform:"uppercase",letterSpacing:".06em"}}>{myPrenom||"Moi"}</div>
+            </div>
+            <div style={{width:1,background:"#86efac",alignSelf:"stretch",flexShrink:0}}/>
+            {/* Middle: bar + OKR button */}
+            <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",gap:8}}>
+              <Bar v={myPersonalProg} label="Mon avancement" w={0}/>
+              <div style={{display:"flex",justifyContent:"flex-end"}}>
+                <button onClick={onGoOKR} style={{
+                  display:"flex",alignItems:"center",gap:8,padding:"6px 16px",
+                  background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,
+                  cursor:"pointer",fontSize:12,fontWeight:500,
+                  transition:"opacity .15s"}}
+                  onMouseEnter={e=>e.currentTarget.style.opacity=".85"}
+                  onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+                  <span>📊</span> Aller aux OKR et mettre à jour
+                </button>
+              </div>
+            </div>
+            <div style={{width:1,background:"#86efac",alignSelf:"stretch",flexShrink:0}}/>
+            {/* Right: KR */}
+            <div style={{flexShrink:0,textAlign:"center",width:90}}>
+              <div style={{fontSize:22,fontWeight:600,fontFamily:"monospace",color:krCol}}>{myKRDoneOwned}/{myKRsOwned.length}</div>
+              <div style={{fontSize:10,color:"#6b6560",marginTop:2}}>KR complétés</div>
+            </div>
+          </div>;
+        })()}
       </div>
 
-      {/* KPIs */}
-      {/* Update card + buttons row */}
-      <div style={{display:"grid",gridTemplateColumns:"160px 1fr 1fr",gap:12,marginBottom:16,alignItems:"stretch"}}>
-        {/* Update cette semaine card */}
-        <div style={{background:"#fff",borderRadius:10,padding:"14px 16px",border:"1px solid #e2ddd6",boxShadow:"0 1px 3px rgba(0,0,0,.06)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center"}}>
-          <div style={{fontSize:10,color:"#9e9890",marginBottom:6,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>Update cette semaine</div>
-          {todayUpdate
-            ?<div style={{fontSize:44,lineHeight:1,marginBottom:4}}>{todayUpdate.answers?.q7||"✅"}</div>
-            :<button onClick={onGoUpdate} style={{marginTop:4,padding:"7px 10px",background:"#fef3c7",border:"1px solid #f59e0b",borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:500,color:"#92400e",textAlign:"center",width:"100%"}}>
-              ⏳ Compléter
-            </button>}
-          <div style={{fontSize:10,color:"#9e9890",marginTop:4}}>
-            {todayUpdate?"Mood de la semaine":weekKey===null?"Mardi : bloqué":"À compléter"}
+      {/* ── SECTION UPDATES ── pleine largeur */}
+      {(()=>{
+        const MOOD_SCORE={"😊":5,"🙂":4,"😐":3,"😕":2,"😩":1};
+        const MOOD_FROM_SCORE=s=>s>=4.5?"😊":s>=3.5?"🙂":s>=2.5?"😐":s>=1.5?"😕":"😩";
+        const now=new Date();
+        const lastWkDate=new Date(now);lastWkDate.setDate(now.getDate()-7);
+        const lastWkKey=getWeekKey(lastWkDate);
+        const curWkKey=getUpdateWeekKey()||getWeekKey(now);
+        const activeTeam=(teamMembers||[]).filter(m=>m.role!=="inactive"&&m.email);
+        const activeCount=activeTeam.length||10;
+
+        // Team updates sorted by submittedAt
+        const teamLastWk=[...allUpdates].filter(u=>u.weekKey===lastWkKey).sort((a,b)=>a.submittedAt-b.submittedAt);
+        const teamCurWk=[...allUpdates].filter(u=>u.weekKey===curWkKey).sort((a,b)=>a.submittedAt-b.submittedAt);
+
+        // Build last week full list: done members + absent members
+        const doneLastWkEmails=new Set(teamLastWk.map(u=>u.email));
+        const FORCE_MAT_EMAILS=['claire@oeforgood.com'];
+        const absentLastWk=activeTeam.filter(m=>(!doneLastWkEmails.has(m.email))||m.forceAbsent||m.forceMat||FORCE_MAT_EMAILS.includes(m.email));
+        const doneCurWkEmails=new Set(teamCurWk.map(u=>u.email));
+        const absentCurWk=activeTeam.filter(m=>(!doneCurWkEmails.has(m.email))||m.forceAbsent||m.forceMat||FORCE_MAT_EMAILS.includes(m.email));
+        // Remove forceMat/forceAbsent from done lists
+        const teamLastWkFiltered=teamLastWk.filter(u=>!activeTeam.find(m=>m.email===u.email&&(m.forceMat||m.forceAbsent))&&!FORCE_MAT_EMAILS.includes(u.email));
+        const teamCurWkFiltered=teamCurWk.filter(u=>!activeTeam.find(m=>m.email===u.email&&(m.forceMat||m.forceAbsent))&&!FORCE_MAT_EMAILS.includes(u.email));
+
+        const teamMoodScores=teamLastWk.filter(u=>u.answers?.q7).map(u=>MOOD_SCORE[u.answers.q7]||3);
+        const teamMoodAvg=teamMoodScores.length?teamMoodScores.reduce((a,b)=>a+b,0)/teamMoodScores.length:null;
+
+        // My personal data
+        const myLastWkUpdate=myUpdates.find(u=>u.weekKey===lastWkKey);
+        const myCurWkUpdate=myUpdates.find(u=>u.weekKey===curWkKey);
+        const myMoodDisplay=myCurWkUpdate?.answers?.q7||myLastWkUpdate?.answers?.q7||null;
+        const myMoodLastWk=myLastWkUpdate?.answers?.q7||null;
+        const myMoodLabel=myCurWkUpdate?"cette semaine":"sem. passée";
+        const my13Weeks=Array.from({length:13},(_,i)=>{
+          const d=new Date(now);d.setDate(now.getDate()-(12-i)*7);
+          const wk=getWeekKey(d);
+          const u=myUpdates.find(x=>x.weekKey===wk);
+          const{mon,fri}=getWeekBounds(wk);
+          return{wk,u,mon,fri};
+        });
+        // Exclude weeks where user indicated absence from denominator
+        const myActiveWeeks=my13Weeks.filter(w=>{
+          // Check previous week's q8 to see if this week was marked absent
+          const prevWkDate=new Date(w.mon);prevWkDate.setDate(w.mon.getDate()-7);
+          const prevWk=getWeekKey(prevWkDate);
+          const prevU=myUpdates.find(u=>u.weekKey===prevWk);
+          const q8=prevU?.answers?.q8||'';
+          const isClairePreg=teamMember?.email==='claire@oeforgood.com';
+          return !q8.includes('congés')&&!q8.includes('École')&&!q8.includes('école')&&!isClairePreg;
+        });
+        const myUpdateCount=my13Weeks.filter(w=>w.u).length;
+        const myCompletionRate=myActiveWeeks.length>0?Math.round(my13Weeks.filter(w=>w.u&&myActiveWeeks.includes(w)).length/myActiveWeeks.length*100):100;
+
+
+  // Get absence icon for a teammate based on forceAbsent/forceMat flags or previous week's q8 answer
+  function getAbsenceIcon(email, prenom) {
+    const member = (teamMembers||[]).find(m => m.email === email);
+    if (member?.forceMat || email === 'claire@oeforgood.com') return '🤰';
+    if (member?.forceAbsent) {
+      const now = new Date();
+      const mo = now.getMonth() + 1;
+      return ((mo >= 12 && now.getDate() >= 15) || mo <= 4) ? '🎿' : '🌴';
+    }
+    const prevUpdate = allUpdates.find(u => u.email === email && u.weekKey === lastWkKey);
+    const q8 = prevUpdate?.answers?.q8 || '';
+    if (q8.includes('école') || q8.includes('École')) return '🎓';
+    if (q8.includes('congés') || q8.includes('vacances')) {
+      const now = new Date();
+      const mo = now.getMonth() + 1;
+      return ((mo >= 12 && now.getDate() >= 15) || mo <= 4) ? '🎿' : '🌴';
+    }
+    return '🫥';
+  }
+
+        function SmileysOrdered({done,absent,size=22}){
+          const [hov,setHov]=useState(null);
+          const [pos,setPos]=useState({x:0,y:0});
+          const absentItems=absent.map(m=>({key:'a'+m.email,emoji:getAbsenceIcon(m.email,m.prenom),name:m.prenom,isAbsent:true}));
+          const absentEmails=new Set(absent.map(m=>m.email));
+          const doneItems=done.filter(u=>!absentEmails.has(u.email)).map(u=>({key:'d'+u.email,emoji:u.answers?.q7||"😐",name:u.prenom,isAbsent:false}));
+          const all=[...absentItems,...doneItems];
+          return <div style={{display:"flex",gap:3,flexWrap:"wrap",alignItems:"center"}}>
+            {hov&&<div style={{position:"fixed",left:pos.x+10,top:pos.y-28,background:"#1a1814",color:"#fff",
+              fontSize:10,padding:"2px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:9999,pointerEvents:"none"}}>{hov}</div>}
+            {all.map(item=><span key={item.key} style={{fontSize:size,lineHeight:1,cursor:"default",opacity:item.isAbsent?0.7:1}}
+              onMouseEnter={e=>{setHov(item.name);setPos({x:e.clientX,y:e.clientY});}}
+              onMouseMove={e=>setPos({x:e.clientX,y:e.clientY})}
+              onMouseLeave={()=>setHov(null)}>
+              {item.emoji}
+            </span>)}
+          </div>;
+        }
+
+        function SmileysWithAbsents({done,absent,size=20}){
+          const [hov,setHov]=useState(null);
+          return <div style={{display:"flex",gap:3,flexWrap:"wrap",alignItems:"center",position:"relative"}}>
+            {hov&&<div style={{position:"absolute",top:-22,left:0,background:"#1a1814",color:"#fff",
+              fontSize:10,padding:"2px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:10,pointerEvents:"none"}}>{hov}</div>}
+            {done.map((u,i)=><span key={"d"+i} style={{fontSize:size,lineHeight:1,cursor:"default"}}
+              onMouseEnter={()=>setHov(u.prenom)} onMouseLeave={()=>setHov(null)}>
+              {u.answers?.q7||"😐"}
+            </span>)}
+            {absent.map((m,i)=><span key={"a"+i} style={{fontSize:size,lineHeight:1,cursor:"default",opacity:0.7}}
+              onMouseEnter={()=>setHov(m.prenom)} onMouseLeave={()=>setHov(null)}>{getAbsenceIcon(m.email,m.prenom)}</span>)}
+          </div>;
+        }
+
+        function My13Smileys(){
+          const [hov,setHov]=useState(null);
+          const [pos,setPos]=useState({x:0,y:0});
+          // Get icon for week (mood or absence icon)
+          const getWeekIcon=(w)=>{
+            if(w.u?.answers?.q7) return w.u.answers.q7;
+            const member=(teamMembers||[]).find(m=>m.email===teamMember?.email);
+            if(teamMember?.email==='claire@oeforgood.com') return '🤰';
+            if(member?.forceMat) return '🤰';
+            if(member?.forceAbsent){const mo=w.mon.getMonth()+1;return((mo>=12&&w.mon.getDate()>=15)||mo<=4)?'🎿':'🌴';}
+            return '🫥';
+          };
+          return <div style={{display:"flex",gap:3,flexWrap:"wrap",alignItems:"center"}}>
+            {hov&&<div style={{position:"fixed",left:pos.x+10,top:pos.y-28,background:"#1a1814",color:"#fff",
+              fontSize:10,padding:"2px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:9999,pointerEvents:"none"}}>{hov}</div>}
+            {my13Weeks.map((w,i)=>{
+              const isLast=i===12;
+              const icon=getWeekIcon(w);
+              const sameM=w.mon.getMonth()===w.fri.getMonth();
+              const tip=sameM?`Semaine du ${w.mon.getDate()} au ${w.fri.getDate()} ${w.fri.toLocaleString("fr-FR",{month:"long"})}`:`Semaine du ${w.mon.getDate()} ${w.mon.toLocaleString("fr-FR",{month:"short"})} au ${w.fri.getDate()} ${w.fri.toLocaleString("fr-FR",{month:"short"})}`;
+              return <span key={i} style={{fontSize:isLast?36:16,lineHeight:1,cursor:"default",
+                opacity:(w.u||isLast)?1:0.45}}
+                onMouseEnter={e=>{setHov(tip);setPos({x:e.clientX,y:e.clientY});}}
+                onMouseMove={e=>setPos({x:e.clientX,y:e.clientY})}
+                onMouseLeave={()=>setHov(null)}>{icon}</span>;
+            })}
+          </div>;
+        }
+
+        const todayUpdate=weekKey?myUpdates.find(u=>u.weekKey===weekKey):null;
+
+        return <>
+          {/* Updates section: 2/3 team + 1/3 perso, 320px tall */}
+          <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:12,marginBottom:20}}>
+          {/* Team Updates banner */}
+          <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"14px 20px",
+            display:"flex",alignItems:"stretch",gap:12,
+            boxShadow:"0 1px 3px rgba(0,0,0,.04)",height:220,boxSizing:"border-box",overflow:"hidden"}}>
+            {/* Left: team mood avg + ratio */}
+            <div style={{flexShrink:0,textAlign:"center",width:90,display:"flex",flexDirection:"column",justifyContent:"center",gap:6}}>
+              <div style={{fontSize:44,lineHeight:1}}>{teamMoodAvg?MOOD_FROM_SCORE(teamMoodAvg):"—"}</div>
+              {(()=>{
+                const presentTeam2=activeTeam.filter(m=>{
+                  const prevU=allUpdates.find(u=>u.email===m.email&&u.weekKey===lastWkKey);
+                  const q8=prevU?.answers?.q8||'';
+                  return !q8.includes('congés')&&!q8.includes('École')&&!q8.includes('école')&&!m.forceMat&&!m.forceAbsent;
+                });
+                const num=teamLastWk.filter(u=>presentTeam2.some(m=>m.email===u.email)).length;
+                const denom=presentTeam2.length||activeCount;
+                const krCol=num>=denom?"#2d6a4f":"#b5680f";
+                return <div style={{textAlign:"center"}}>
+                  <div style={{fontSize:22,fontWeight:600,fontFamily:"monospace",color:krCol,lineHeight:1}}>{num}/{denom}</div>
+                  <div style={{fontSize:10,color:"#9e9890",marginTop:2}}>updates sem. passée</div>
+                </div>;
+              })()}
+            </div>
+            <div style={{width:1,background:"#e2ddd6",flexShrink:0}}/>
+            {/* Middle: smileys last week + this week */}
+            <div style={{flex:1,display:"flex",flexDirection:"column",gap:6,justifyContent:"center",minWidth:0}}>
+              <div>
+                <div style={{fontSize:9,color:"#9e9890",marginBottom:2,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>
+                  Sem. passée {(()=>{const{mon,fri}=getWeekBounds(lastWkKey);const sameM=mon.getMonth()===fri.getMonth();return sameM?`${mon.getDate()}–${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`:`${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"short"})}–${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`;})()}
+                </div>
+                <SmileysOrdered done={teamLastWkFiltered} absent={absentLastWk} size={22}/>
+              </div>
+              <div>
+                <div style={{fontSize:9,color:"#9e9890",marginBottom:4,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>
+                  Sem. en cours {(()=>{const{mon,fri}=getWeekBounds(curWkKey);const sameM=mon.getMonth()===fri.getMonth();return sameM?`${mon.getDate()}–${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`:`${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"short"})}–${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`;})()}
+                </div>
+                <SmileysOrdered done={teamCurWkFiltered} absent={absentCurWk} size={22}/>
+              </div>
+            </div>
+            {/* Right: mood curve - tall */}
+            <div style={{flex:"0 0 340px",alignSelf:"stretch",overflow:"hidden"}}>
+              <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} showDots={false} nWeeks={26} curveHeight={192}/>
+            </div>
+            {/* Old ratio removed - now in left panel */}
+
           </div>
-        </div>
-        {/* Big buttons */}
-        <button onClick={onGoOKR} style={{padding:"16px 20px",background:"#fff",color:"#1a1814",border:"1px solid #e2ddd6",borderRadius:10,cursor:"pointer",textAlign:"left",boxShadow:"0 1px 3px rgba(0,0,0,.06)",transition:"box-shadow .15s,transform .15s"}}
-          onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 12px rgba(0,0,0,.1)";e.currentTarget.style.transform="translateY(-1px)";}}
-          onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 1px 3px rgba(0,0,0,.06)";e.currentTarget.style.transform="none";}}>
-          <div style={{fontSize:22,marginBottom:6}}>📊</div>
-          <div style={{fontSize:14,fontWeight:500,color:"#1a1814",marginBottom:3,fontFamily:"system-ui,sans-serif"}}>Mettre à jour les OKR</div>
-          <div style={{fontSize:11,color:"#9e9890"}}>Suivre l'avancement de la saison</div>
-        </button>
-        <button onClick={onGoUpdate} style={{padding:"16px 20px",background:"#fff",color:"#1a1814",border:"1px solid #e2ddd6",borderRadius:10,cursor:"pointer",textAlign:"left",boxShadow:"0 1px 3px rgba(0,0,0,.06)",transition:"box-shadow .15s,transform .15s"}}
-          onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 12px rgba(0,0,0,.1)";e.currentTarget.style.transform="translateY(-1px)";}}
-          onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 1px 3px rgba(0,0,0,.06)";e.currentTarget.style.transform="none";}}>
-          <div style={{fontSize:22,marginBottom:6}}>✍️</div>
-          <div style={{fontSize:14,fontWeight:500,color:"#1a1814",marginBottom:3,fontFamily:"system-ui,sans-serif"}}>Mes Updates</div>
-          <div style={{fontSize:11,color:"#9e9890"}}>Partager mes priorités de la semaine</div>
-        </button>
-      </div>
+          {/* Personal Updates banner - 320px */}
+          <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"14px 20px",
+            display:"flex",alignItems:"stretch",gap:12,flexDirection:"column",justifyContent:"space-between",
+            boxShadow:"0 1px 3px rgba(0,0,0,.04)",height:220,boxSizing:"border-box",overflow:"hidden"}}>
+            {/* Perso: vertical layout for 320px height */}
+            {/* Top: mood + name */}
+            <div style={{display:"flex",alignItems:"center",gap:12,paddingBottom:12,borderBottom:"1px solid #86efac"}}>
+              <div style={{fontSize:60,lineHeight:1}}>{myMoodDisplay||"🫥"}</div>
+              <div>
+                <div style={{fontSize:13,fontWeight:600,color:"#1a1814"}}>{myPrenom}</div>
+                <div style={{fontSize:9,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em"}}>Semaine passée</div>
+              </div>
+              <div style={{marginLeft:"auto",textAlign:"right"}}>
+                <div style={{fontSize:24,fontWeight:700,color:myCompletionRate>=80?"#2d6a4f":myCompletionRate>=50?"#b5680f":"#c0392b"}}>{myCompletionRate}%</div>
+                <div style={{fontSize:9,color:"#6b6560"}}>complétion 13 sem.</div>
+              </div>
+            </div>
+            {/* Middle: 13 smileys */}
+            <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",gap:6}}>
+              <div style={{fontSize:9,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>Mes 13 dernières semaines</div>
+              <My13Smileys/>
+            </div>
+            {/* Bottom: button */}
+            <div style={{paddingTop:12,borderTop:"1px solid #86efac"}}>
+              <button onClick={onGoUpdate}
+                style={{width:"100%",padding:"8px 14px",background:"#2d6a4f",color:"#fff",border:"none",
+                  borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:500,
+                  transition:"opacity .15s",textAlign:"center"}}
+                onMouseEnter={e=>e.currentTarget.style.opacity=".85"}
+                onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+                ✍️ Aller aux updates et compléter
+              </button>
+              {todayUpdate&&<div style={{fontSize:10,color:"#166534",textAlign:"center",marginTop:4}}>✓ Update complété cette semaine</div>}
+            </div>
+          </div>
+          </div>{/* end updates 2/3+1/3 grid */}
+        </>;
+      })()}
 
-      {/* Messages panel */}
-      <MessagesPanel managerNotifs={managerNotifs} teammateNotifs={teammateNotifs} onReadNotif={onReadNotif} teamMember={teamMember} myUpdates={myUpdates}/>
+      {/* ── SECTION REPORTING ── pleine largeur */}
+      {(()=>{
+        const reportingData=window._reportingCache||null;
+        // Load from Firebase if not cached
+        return <ReportingBanner onGoReporting={onGoReporting}/>;
+      })()}
 
-      {/* Update streak */}
-      <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"16px 20px",marginBottom:16,boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
-        <div style={{fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",marginBottom:12}}>Mood de l'équipe</div>
-        <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} onGoUpdate={onGoUpdate} showDots={false}/>
-      </div>
 
 
     </div>
@@ -693,7 +1059,7 @@ function UpdateViewModal({notif,onClose,onRead}){
 }
 
 // ─── UPDATE QUESTIONNAIRE ─────────────────────────────────────────────────────
-const MOODS=["😊","🙂","😐","😕","😩"];
+const MOODS=["😩","😕","😐","🙂","😊"];
 const PRESENCES=["Au boulot au moins deux jours","En congés","À l'école"];
 
 function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates}){
@@ -723,7 +1089,11 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates}){
 
   function upd(qid,val){setAnswers(p=>({...p,[qid]:val}));}
   async function handleSubmit(){
-    await onSubmit({weekKey,answers,prenom:teamMember.prenom,email:teamMember.email,managerEmail:teamMember.managerEmail,submittedAt:Date.now(),notifyManager:isUpdateLocked()});
+    const now=new Date(),dow=now.getDay(),h=now.getHours();
+    // Notify immediately: Monday, or Fri after 15h, Sat, Sun
+    // Pending (wait for Fri 15h): Wed, Thu, Fri before 15h
+    const notifyNow=dow===1||(dow===5&&h>=15)||dow===6||dow===0;
+    await onSubmit({weekKey,answers,prenom:teamMember.prenom,email:teamMember.email,managerEmail:teamMember.managerEmail,submittedAt:Date.now(),notifyManager:notifyNow});
     setSubmitted(true);
   }
 
@@ -834,7 +1204,892 @@ function TopBar({onBack,title,extra,left}){
 }
 
 // ─── SETTINGS PAGE ────────────────────────────────────────────────────────────
-function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions}){
+function UpdatesHistoryTab(){
+  const [allUpdates,setAllUpdates]=useState([]);
+  const [allNotifs,setAllNotifs]=useState([]);
+  const [allTmNotifs,setAllTmNotifs]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [filterPrenom,setFilterPrenom]=useState("");
+  const [filterWeek,setFilterWeek]=useState("");
+  const [expanded,setExpanded]=useState({});
+
+  useEffect(()=>{
+    let done=0;
+    const check=()=>{done++;if(done===3)setLoading(false);};
+    const u1=onSnapshot(collection(db,"updates"),(snap)=>{
+      setAllUpdates(snap.docs.map(d=>({id:d.id,...d.data()})));check();
+    });
+    const u2=onSnapshot(collection(db,"update_notifications"),(snap)=>{
+      setAllNotifs(snap.docs.map(d=>({id:d.id,...d.data()})));check();
+    });
+    const u3=onSnapshot(collection(db,"teammate_notifications"),(snap)=>{
+      setAllTmNotifs(snap.docs.map(d=>({id:d.id,...d.data()})));check();
+    });
+    return()=>{u1();u2();u3();};
+  },[]);
+
+  const prenoms=[...new Set(allUpdates.map(u=>u.prenom).filter(Boolean))].sort();
+  const weeks=[...new Set(allUpdates.map(u=>u.weekKey).filter(Boolean))].sort().reverse();
+
+  const filtered=allUpdates
+    .filter(u=>!filterPrenom||u.prenom===filterPrenom)
+    .filter(u=>!filterWeek||u.weekKey===filterWeek)
+    .sort((a,b)=>(b.weekKey||"").localeCompare(a.weekKey||""));
+
+  const fmtTs=ts=>ts?new Date(ts).toLocaleDateString("fr-FR",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}):"—";
+
+  return <div>
+    {/* Filters */}
+    <div style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+      <select value={filterPrenom} onChange={e=>setFilterPrenom(e.target.value)} style={{...INP,width:"auto",fontSize:12}}>
+        <option value="">Toute l'équipe</option>
+        {prenoms.map(p=><option key={p}>{p}</option>)}
+      </select>
+      <select value={filterWeek} onChange={e=>setFilterWeek(e.target.value)} style={{...INP,width:"auto",fontSize:12}}>
+        <option value="">Toutes les semaines</option>
+        {weeks.map(w=>{const{mon,fri}=getWeekBounds(w);const sameM=mon.getMonth()===fri.getMonth();const label=sameM?`${w} · lundi ${mon.getDate()} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`:`${w} · lundi ${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"short"})} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`;return <option key={w} value={w}>{label}</option>;})}
+      </select>
+      <span style={{fontSize:12,color:"#9e9890",alignSelf:"center"}}>{filtered.length} update{filtered.length>1?"s":""}</span>
+    </div>
+
+    {loading?<div style={{textAlign:"center",padding:32,color:"#9e9890"}}>Chargement…</div>
+    :<div style={{display:"flex",flexDirection:"column",gap:8}}>
+      {filtered.map(u=>{
+        const notif=allNotifs.find(n=>n.fromEmail===u.email&&n.weekKey===u.weekKey);
+        const tmNotif=allTmNotifs.find(n=>n.toEmail===u.email&&n.weekKey===u.weekKey);
+        const isOpen=expanded[u.id];
+        const{mon,fri}=getWeekBounds(u.weekKey||"2026-W01");
+        const sameM=mon.getMonth()===fri.getMonth();
+        const weekLabel=sameM?`lundi ${mon.getDate()} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`:`lundi ${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"short"})} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`;
+
+        return <div key={u.id} style={{border:"1px solid #e2ddd6",borderRadius:8,overflow:"hidden"}}>
+          {/* Header row */}
+          <div onClick={()=>setExpanded(p=>({...p,[u.id]:!p[u.id]}))}
+            style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",background:"#f8f7f5",cursor:"pointer"}}>
+            <div style={{width:28,height:28,borderRadius:"50%",background:pBg(u.prenom,prenoms),color:pTx(u.prenom,prenoms),display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:600,flexShrink:0}}>{ini(u.prenom)}</div>
+            <div style={{flex:1}}>
+              <span style={{fontSize:13,fontWeight:500,color:"#1a1814"}}>{u.prenom}</span>
+              <span style={{fontSize:11,color:"#9e9890",marginLeft:10}}>{weekLabel}</span>
+            </div>
+            <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
+              {u.answers?.q7&&<span style={{fontSize:16}}>{u.answers.q7}</span>}
+              <span style={{fontSize:11,color:"#9e9890"}}>{fmtTs(u.updatedAt||u.submittedAt)}</span>
+              {/* Notif status */}
+              {notif?<span style={{fontSize:10,background:notif.read?"#f0fdf4":"#fef3c7",color:notif.read?"#166534":"#92400e",border:`1px solid ${notif.read?"#86efac":"#fcd34d"}`,borderRadius:10,padding:"1px 7px"}}>
+                {notif.read?`Lu ${fmtTs(notif.readAt)}`:"Notif envoyée"}
+              </span>:<span style={{fontSize:10,color:"#c5c0b8",border:"1px solid #e2ddd6",borderRadius:10,padding:"1px 7px"}}>Pas de notif</span>}
+              <span style={{fontSize:11,color:"#9e9890",transform:isOpen?"rotate(180deg)":"none",transition:"transform .2s"}}>▾</span>
+            </div>
+          </div>
+          {/* Expanded content */}
+          {isOpen&&<div style={{padding:"14px 16px",borderTop:"1px solid #e2ddd6"}}>
+            {/* Notif details */}
+            <div style={{background:"#f8f7f5",borderRadius:6,padding:"8px 12px",marginBottom:12,fontSize:11,color:"#6b6560"}}>
+              <div style={{fontWeight:600,marginBottom:4,color:"#1a1814"}}>📬 Messages liés</div>
+              {notif
+                ?<div style={{display:"flex",flexDirection:"column",gap:3}}>
+                  <div>• Notif envoyée au référent : {fmtTs(notif.updatedAt||notif.submittedAt)} {notif.pending?"(en attente)":""}</div>
+                  <div>• Lue par le référent : {notif.read?fmtTs(notif.readAt):"Non encore lue"}</div>
+                  {tmNotif&&<div>• Confirmation envoyée à {u.prenom} : {fmtTs(tmNotif.createdAt)} {tmNotif.read?`· vue le ${fmtTs(tmNotif.readAt||tmNotif.createdAt)}`:"· pas encore vue"}</div>}
+                </div>
+                :<div>Aucune notification envoyée (pas de référent ou délai non dépassé)</div>
+              }
+              {notif?.confidentiel&&<div style={{marginTop:6,padding:"6px 8px",background:"#fdf4ff",borderRadius:4,border:"1px solid #e9d5ff"}}>
+                <span style={{fontSize:10,color:"#a21caf",fontWeight:600}}>🔒 Message confidentiel : </span>
+                <span style={{color:"#1a1814"}}>{notif.confidentiel}</span>
+              </div>}
+            </div>
+            {/* Answers */}
+            {DEFAULT_QUESTIONS.filter(q=>u.answers?.[q.id]).map(q=>{
+              const val=u.answers[q.id];
+              if(q.type==="mood")return <div key={q.id} style={{marginBottom:8,display:"flex",gap:8,alignItems:"center"}}><span style={{fontSize:10,color:"#9e9890",flex:1}}>{q.text.replace(" *","")}</span><span style={{fontSize:20}}>{val}</span></div>;
+              if(q.type==="presence")return <div key={q.id} style={{marginBottom:8}}><div style={{fontSize:10,color:"#9e9890",marginBottom:2}}>{q.text.replace(" *","")}</div><div style={{fontSize:12,background:"#f5f3ef",borderRadius:4,padding:"3px 8px"}}>{val}</div></div>;
+              return <div key={q.id} style={{marginBottom:8,background:q.confidentiel?"#fdf4ff":"#f8f7f5",borderRadius:6,padding:"6px 10px",border:q.confidentiel?"1px solid #e9d5ff":"none"}}>
+                <div style={{fontSize:10,fontWeight:600,color:q.confidentiel?"#a21caf":"#9e9890",marginBottom:3}}>{q.confidentiel?"🔒 ":""}{q.text.replace(" *","")}</div>
+                <div style={{fontSize:12,whiteSpace:"pre-wrap",color:"#1a1814"}}>{val}</div>
+              </div>;
+            })}
+          </div>}
+        </div>;
+      })}
+      {filtered.length===0&&<div style={{textAlign:"center",padding:32,color:"#9e9890",fontSize:13}}>Aucun update trouvé.</div>}
+    </div>}
+  </div>;
+}
+
+
+// ─── REPORTING TAB ────────────────────────────────────────────────────────────
+
+const DEFAULT_SUBCAT_LABELS = {
+  "A1-31": "Subvention",
+  "B1-09": "Charges de personnel",
+  "B1-23": "Outils",
+  "C1-15": "Frais de déplacement",
+  "C1-18": "Honoraires",
+  "F1-07": "Autres achats et charges externes",
+  "F1-09": "Charges de personnel",
+  "F1-10": "Commissions sur ventes",
+  "F1-14": "Frais bancaires",
+  "F1-15": "Frais de déplacement",
+  "F1-18": "Honoraires",
+  "F1-23": "Outils",
+  "F1-31": "Subvention",
+  "F1-36": "Formations",
+  "G1-04": "Achats non stockés de matière et fournitures",
+  "G1-06": "Assurance",
+  "G1-09": "Charges de personnel",
+  "G1-12": "Entretiens et réparations",
+  "G1-17": "Frais postaux et de télécommunications",
+  "G1-18": "Honoraires",
+  "G1-20": "Impôts, taxes et versements assimilés",
+  "G1-22": "Locations immobilières",
+  "G1-23": "Outils",
+  "G1-30": "Sous-traitance",
+  "I1-11": "Dotation aux amortissements",
+  "J1-18": "Honoraires",
+  "L1-01": "Achat d'emballages",
+  "L1-04": "Achats non stockés de matière et fournitures",
+  "L1-09": "Charges de personnel",
+  "L1-12": "Entretiens et réparations",
+  "L1-15": "Frais de déplacement",
+  "L1-23": "Outils",
+  "L1-26": "Prestations de services",
+  "L1-31": "Subvention",
+  "M1-01": "Branding · Achat d'emballages",
+  "M1-04": "Branding · Achats non stockés",
+  "M1-15": "Branding · Frais de déplacement",
+  "M1-21": "Branding · Impressions de supports",
+  "M1-24": "Branding · PLV",
+  "M1-26": "Branding · Prestations de services",
+  "M1-AU": "Branding · Autre",
+  "M2-04": "Collab · Achats non stockés",
+  "M2-AU": "Collab · Autre",
+  "M3-27": "Partenariat/Visibilité · Publicité",
+  "M3-AU": "Partenariat/Visibilité · Autre",
+  "M4-23": "Outils web · Outils",
+  "M4-AU": "Outils web · Autre",
+  "M6-05": "Impact · Adhésions et concours",
+  "M6-26": "Impact · Prestations de services",
+  "M6-AU": "Impact · Autre",
+  "M7-05": "B2B · Adhésions et concours",
+  "M7-26": "B2B · Prestations de services",
+  "M7-29": "B2B · Salons",
+  "M7-AU": "B2B · Autre",
+  "M8-09": "Salaires et déplacements · Charges de personnel",
+  "M8-15": "Salaires et déplacements · Frais de déplacement",
+  "M8-31": "Salaires et déplacements · Subvention",
+  "M8-AU": "Salaires et déplacements · Autre",
+  "O1-09": "Charges de personnel",
+  "O1-13": "Etudes et recherches",
+  "O1-15": "Frais de déplacement",
+  "O1-31": "Subvention",
+  "R1-16": "Frais de recrutement",
+  "R1-23": "Outils",
+  "R1-36": "Formations",
+  "S1-03": "Retail · Achats de vin en vrac",
+  "S1-05": "Retail · Adhésions et concours",
+  "S1-09": "Retail · Charges de personnel",
+  "S1-10": "Retail · Commissions sur ventes",
+  "S1-15": "Retail · Frais de déplacement",
+  "S1-18": "Retail · Honoraires",
+  "S1-26": "Retail · Prestations de services",
+  "S1-30": "Retail · Sous-traitance",
+  "S1-31": "Retail · Subvention",
+  "S1-35": "Retail · Ventes de marchandises",
+  "S1-36": "Retail · Formations",
+  "S1-AU": "Retail · Autre",
+  "S2-04": "CHR · Achats non stockés",
+  "S2-05": "CHR · Adhésions et concours",
+  "S2-07": "CHR · Autres achats et charges",
+  "S2-09": "CHR · Charges de personnel",
+  "S2-10": "CHR · Commissions sur ventes",
+  "S2-15": "CHR · Frais de déplacement",
+  "S2-18": "CHR · Honoraires",
+  "S2-27": "CHR · Publicité",
+  "S2-31": "CHR · Subvention",
+  "S2-35": "CHR · Ventes de marchandises",
+  "S2-36": "CHR · Formations",
+  "S2-AU": "CHR · Autre",
+  "S3-05": "Export · Adhésions et concours",
+  "S3-09": "Export · Charges de personnel",
+  "S3-10": "Export · Commissions sur ventes",
+  "S3-15": "Export · Frais de déplacement",
+  "S3-18": "Export · Honoraires",
+  "S3-26": "Export · Prestations de services",
+  "S3-31": "Export · Subvention",
+  "S3-32": "Export · Transport",
+  "S3-36": "Export · Formations",
+  "S3-AU": "Export · Autre",
+  "S4-18": "X canal · Honoraires",
+  "S4-23": "X canal · Outils",
+  "S4-26": "X canal · Prestations de services",
+  "S4-27": "X canal · Publicité",
+  "S4-30": "X canal · Sous-traitance",
+  "S4-AU": "X canal · Autre",
+  "S5-05": "E-commerce · Adhésions et concours",
+  "S5-09": "E-commerce · Charges de personnel",
+  "S5-10": "E-commerce · Commissions sur ventes",
+  "S5-23": "E-commerce · Outils",
+  "S5-27": "E-commerce · Publicité",
+  "S5-AU": "E-commerce · Autre",
+  "S6-05": "Grands Comptes · Adhésions et concours",
+  "S6-09": "Grands Comptes · Charges de personnel",
+  "S6-15": "Grands Comptes · Frais de déplacement",
+  "S6-18": "Grands Comptes · Honoraires",
+  "S6-21": "Grands Comptes · Impressions de supports",
+  "S6-26": "Grands Comptes · Prestations de services",
+  "S6-27": "Grands Comptes · Publicité",
+  "S6-35": "Grands Comptes · Ventes de marchandises",
+  "S6-AU": "Grands Comptes · Autre",
+  "T1-06": "Assurance",
+  "T1-07": "Autres achats et charges externes",
+  "T1-14": "Frais bancaires",
+  "T1-28": "Remboursement de prêt et OS",
+  "Z1-34": "Vente de prestation de services",
+  "Z1-35": "Ventes de marchandises",
+  "Z2-01": "Achat d'emballages",
+  "Z2-02": "Achats de matières premières",
+  "Z2-03": "Achats de vin en vrac",
+  "Z2-25": "Prestation d'embouteillage",
+  "Z2-32": "Transport",
+  "Z2-33": "Variation des stocks"
+};
+
+const REPORTING_CANALS = ['E-commerce B2C','CHR','Grands Comptes','Retail','Export','Autres B2B','Régénération'];
+const CANAL_CSV_MAP = {'E-commerce B2C':'B2C','CHR':'CHR','Grands Comptes':'Grands Comptes','Retail':'Retail','Export':'Export','Autres B2B':'Autres B2B','Régénération':'Régénération'};
+const CANAL_MARGIN = {
+  'E-commerce B2C': 0.270,
+  'CHR': 0.293,
+  'Grands Comptes': 0.266,
+  'Retail': 0.292,
+  'Export': 0.231,
+  'Autres B2B': 0.225,
+  'Régénération': 1.0,
+};
+const DEFAULT_CANAL_MARGIN = 0.263;
+const MONTHS_FR = ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'];
+
+const DEFAULT_CODE_TO_CAT = {
+  A1:'Autres produits et charges',B1:'Bar',C1:'Culture et bien-être',
+  F1:'Comptabilité',G1:'Frais généraux',I1:'Immobilisations corporelles et incorporelles',
+  J1:'Juridique',L1:'Logistique',M1:'Marketing',M2:'Marketing',M3:'Marketing',
+  M4:'Marketing',M6:'Marketing',M7:'Marketing',M8:'Marketing',
+  O1:'Programme Oé pour la régénération',R1:'Ressources humaines',
+  S1:'Sales',S2:'Sales',S3:'Sales',S4:'Sales',S5:'Sales',S6:'Sales',
+  T1:'Frais financiers',Z1:'Ventes',Z2:'COGS',
+};
+const CODE_TO_CATEGORY = DEFAULT_CODE_TO_CAT;
+
+const DEFAULT_CAT_TYPE = {
+  'Marketing':'charges_expl','Sales':'charges_expl','Ressources humaines':'charges_expl',
+  'Juridique':'charges_expl','Comptabilité':'charges_expl','Logistique':'charges_expl',
+  'Culture et bien-être':'charges_expl','Programme Oé pour la régénération':'charges_expl',
+  'Bar':'charges_expl','Frais généraux':'charges_expl','Autres produits et charges':'charges_expl',
+  'Frais financiers':'autres_charges','Immobilisations corporelles et incorporelles':'autres_charges',
+  'COGS':'cogs','Ventes':'ventes',
+};
+
+const CATEGORIES_ORDER = [
+  'Marketing','Sales','Ressources humaines','Juridique','Comptabilité','Logistique',
+  'Culture et bien-être','Programme Oé pour la régénération','Bar','Frais généraux',
+  'Autres produits et charges','Frais financiers','Immobilisations corporelles et incorporelles',
+  'COGS','Ventes',
+];
+
+function fmtAmount(v, inKeur) {
+  if (v === 0 || v === null || v === undefined) return '—';
+  if (inKeur) return new Intl.NumberFormat('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:1}).format(v/1000);
+  return new Intl.NumberFormat('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:0}).format(v);
+}
+function fmtDetail(v) {
+  if (!v && v!==0) return '—';
+  return new Intl.NumberFormat('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}).format(v);
+}
+function fmtPct(v) {
+  return new Intl.NumberFormat('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:1}).format(v*100)+'%';
+}
+
+function ReportingRow({label, months, lastMonth, bold=false, highlight=false, isTotal=false,
+  indent=0, onClick, isOpen, inKeur, children, dotActive, onToggleDot}) {
+  const ytd = months.slice(0,lastMonth).reduce((a,b)=>a+b,0);
+  const total = months.reduce((a,b)=>a+b,0);
+  const col = total < 0 ? '#c0392b' : total > 0 ? '#166534' : '#9e9890';
+  const bg = isTotal ? '#f0fdf4' : highlight ? '#f8f7f5' : 'transparent';
+  const cell = {padding:'5px 4px',fontSize:11,textAlign:'right',fontFamily:'system-ui,sans-serif',fontVariantNumeric:'tabular-nums',width:44,minWidth:44,maxWidth:44,
+    borderBottom:'1px solid #f0ede8',whiteSpace:'nowrap'};
+  return <>
+    <tr onClick={onClick} style={{cursor:onClick?'pointer':'default',background:bg,
+      borderTop:isTotal?'2px solid #e2ddd6':'none'}}>
+      <td style={{padding:`5px 6px 5px ${6+indent*12}px`,fontSize:11,fontWeight:bold?600:400,
+        position:'sticky',left:0,background:bg||'#fff',zIndex:1,
+        borderBottom:'1px solid #f0ede8',minWidth:220,maxWidth:220,width:220,
+        overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+        <div style={{display:'flex',alignItems:'center',gap:4}}>
+          {onClick&&<span style={{fontSize:9,color:'#9e9890',flexShrink:0,
+            transform:isOpen?'rotate(90deg)':'none',transition:'transform .15s',display:'inline-block'}}>▶</span>}
+          <span>{label}</span>
+        </div>
+      </td>
+      {months.map((v,i)=>{
+        const isEmpty = i >= lastMonth;
+        const c = v<0?'#c0392b':v>0?'#1a1814':'#c5c0b8';
+        return <>
+          {i===lastMonth&&<td key="ytd" style={{...cell,borderLeft:'2px solid #2d6a4f',borderRight:'2px solid #2d6a4f',
+            color:ytd<0?'#c0392b':'#166534',fontWeight:600,background:'#f0fdf4'}}>
+            {fmtAmount(ytd,inKeur)}
+          </td>}
+          <td key={i} style={{...cell,color:isEmpty?'#c5c0b8':c,
+            background:isEmpty?'#fafafa':'transparent'}}>
+            {isEmpty ? '—' : fmtAmount(v,inKeur)}
+          </td>
+        </>;
+      })}
+      {lastMonth===12&&<td key="ytd" style={{...cell,borderLeft:'2px solid #2d6a4f',
+        color:ytd<0?'#c0392b':'#166534',fontWeight:600,background:'#f0fdf4'}}>
+        {fmtAmount(ytd,inKeur)}
+      </td>}
+      <td style={{...cell,borderLeft:'1px solid #e2ddd6',fontWeight:bold?600:400,color:col}}>
+        {fmtAmount(total,inKeur)}
+      </td>
+    </tr>
+    {isOpen&&children}
+  </>;
+}
+
+function DetailEcritures({rows, lastMonth, monthActive, isAU=false}) {
+  // For AU buckets, sort by subcat code (stored in row.subcat if set), then month, then compte
+  const sorted = [...rows].filter(r=>r.month<=lastMonth&&monthActive[r.month-1])
+    .sort((a,b)=>{
+      if(isAU){const sc=(a.subcat||'').localeCompare(b.subcat||'');if(sc!==0)return sc;}
+      return a.month-b.month||a.compte.localeCompare(b.compte);
+    });
+  return <>
+    {sorted.map((r,i)=>{
+      const label=`${isAU&&r.subcat?r.subcat+' · ':''}${r.libLigne||'—'} · ${r.tiers||'—'} · ${r.facture||'—'} · ${r.compte} · ${r.libCompte}`;
+      return <tr key={i} style={{background:'#fafaf8'}}>
+      <td style={{padding:'3px 4px 3px 40px',fontSize:10,color:'#6b6560',
+        position:'sticky',left:0,background:'#fafaf8',zIndex:1,
+        borderBottom:'1px solid #f5f5f3',width:220,minWidth:220,maxWidth:220,
+        overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
+        cursor:'default'}}
+        onMouseEnter={e=>{
+          const el=document.createElement('div');
+          el.id='rtip';
+          el.style.cssText='position:fixed;background:#1a1814;color:#fff;font-size:11px;padding:4px 10px;border-radius:5px;z-index:9999;pointer-events:none;max-width:600px;white-space:normal;line-height:1.4;box-shadow:0 2px 8px rgba(0,0,0,.3)';
+          el.textContent=label;
+          document.body.appendChild(el);
+          const rect=e.currentTarget.getBoundingClientRect();
+          el.style.left=Math.min(rect.left,window.innerWidth-620)+'px';
+          el.style.top=(rect.top-el.offsetHeight-4)+'px';
+        }}
+        onMouseLeave={()=>{const el=document.getElementById('rtip');if(el)el.remove();}}>
+        {label}
+      </td>
+      {Array(12).fill(0).map((_,i)=>{
+        const isThisMonth = i===r.month-1;
+        return <>
+          {i===lastMonth&&<td key="ytd" style={{borderBottom:'1px solid #f5f5f3',borderLeft:'2px solid #2d6a4f',borderRight:'2px solid #2d6a4f',background:'#f0fdf4'}}/>}
+          <td key={i} style={{padding:'3px 10px',fontSize:10,textAlign:'right',
+            fontFamily:'system-ui,sans-serif',borderBottom:'1px solid #f5f5f3',
+            color:r.amount<0?'#c0392b':'#1a1814',background:i>=lastMonth?'#fafafa':'transparent'}}>
+            {isThisMonth && i<lastMonth ? fmtDetail(r.amount) : ''}
+          </td>
+        </>;
+      })}
+      {lastMonth===12&&<td style={{borderBottom:'1px solid #f5f5f3',borderLeft:'2px solid #2d6a4f',background:'#f0fdf4'}}/>}
+      <td style={{borderBottom:'1px solid #f5f5f3',borderLeft:'1px solid #e2ddd6'}}/>
+    </tr>;
+    })}
+  </>;
+}
+
+function SubcatsDnD({codeMap, setCodeMap, onSaveCodeMap, subcatLabels, knownSubcats=new Set(), customLabels={}, setCustomLabels, catTypes, onSaveCatTypes, activeSubcats={}, onToggleSubcat, chargeData={}, lastMonth=5}) {
+  const [editingKey, setEditingKey] = useState(null);
+  const [editVal, setEditVal] = useState('');
+
+  // Group full subcategory codes (e.g. M1-04) by category code prefix (e.g. M1 -> Marketing)
+  const byCategory = {};
+  const uncat = [];
+  // Collect all known subcats from DEFAULT_SUBCAT_LABELS + knownSubcats from data
+  const allSubcatCodes = new Set([...Object.keys(DEFAULT_SUBCAT_LABELS), ...(knownSubcats||new Set())]);
+  
+  [...allSubcatCodes].sort().forEach(subcat => {
+    const prefix = subcat.slice(0,2);
+    const cat = codeMap[prefix];
+    if (cat) { if (!byCategory[cat]) byCategory[cat] = []; byCategory[cat].push(subcat); }
+    else uncat.push(subcat);
+  });
+
+  function saveLabel(key, val) {
+    const n = {...customLabels, [key]: val};
+    setCustomLabels(n);
+    setEditingKey(null);
+  }
+  function resetLabel(key) {
+    const n = {...customLabels};
+    delete n[key];
+    setCustomLabels(n);
+  }
+
+  const [collapsedCats, setCollapsedCats] = useState({});
+  const toggleCat = cat => setCollapsedCats(p=>({...p,[cat]:!p[cat]}));
+
+  return (
+    <div>
+      {uncat.filter((v,i,a)=>a.indexOf(v)===i).length > 0 && <div style={{background:'#fdecea',border:'1px solid #fca5a5',borderRadius:8,padding:'8px 14px',marginBottom:16,fontSize:12,color:'#c0392b'}}>
+        ⚠️ Codes non affectés : <strong>{[...new Set(uncat.map(s=>s.slice(0,2)))].join(', ')}</strong>
+      </div>}
+
+      <div style={{ display: 'flex', flexDirection:'column', gap: 8 }}>
+        {CATEGORIES_ORDER.map(cat => {
+          const subcats = [...new Set(byCategory[cat]||[])].filter(s=>knownSubcats?.has(s));
+          const isCollapsed = collapsedCats[cat];
+          const typeLabel = catTypes[cat]==='charges_expl'?"Charges d'exploitation":catTypes[cat]==='autres_charges'?"Autres charges":catTypes[cat]==='cogs'?"COGS":"Ventes";
+          // Compute monthly avg for display
+          return <div key={cat} style={{borderRadius:10,border:'1px solid #e2ddd6',background:'#fafaf8',overflow:'hidden'}}>
+            {/* Category header - clickable */}
+            <div onClick={()=>toggleCat(cat)} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 16px',cursor:'pointer',background:'#f5f3ef',userSelect:'none'}}
+              onMouseEnter={e=>e.currentTarget.style.background='#ede9e3'}
+              onMouseLeave={e=>e.currentTarget.style.background='#f5f3ef'}>
+              <span style={{fontSize:12,transform:isCollapsed?'rotate(-90deg)':'rotate(0deg)',transition:'transform .2s',color:'#9e9890',display:'inline-block'}}>▾</span>
+              <span style={{fontSize:13,fontWeight:600,color:'#1a1814',flex:1}}>{cat}</span>
+              <span style={{fontSize:11,color:'#9e9890'}}>{subcats.length} sous-cat{subcats.length>1?'s':''}</span>
+              <span style={{fontSize:11,color:'#6b6560',background:'#fff',border:'1px solid #e2ddd6',padding:'2px 10px',borderRadius:10}}>{typeLabel}</span>
+            </div>
+            {/* Subcategories grid - 3 columns */}
+            {!isCollapsed&&<div style={{padding:'12px 16px'}}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gridAutoFlow: 'column', gridTemplateRows: `repeat(${Math.ceil((subcats.filter(s=>knownSubcats?.has(s)).length)/3)}, auto)`, gap: 6 }}>
+              {subcats.map(subcat => {
+                const hasData = knownSubcats?.has(subcat);
+                if (!hasData) return null; // Hide subcats with no transactions
+                
+                // Compute monthly average
+                const subcatMonths = chargeData?.[subcat]?.months || {};
+                const subcatTotal = Object.values(subcatMonths).reduce((a,b)=>a+b,0);
+                const subcatCount = Object.keys(subcatMonths).filter(k=>parseInt(k.split('-')[1])<=lastMonth).length||1;
+                const monthlyAvg = subcatTotal / subcatCount;
+                
+                const defaultLbl = DEFAULT_SUBCAT_LABELS[subcat];
+                const currentLbl = subcatLabels[subcat] || (defaultLbl ? '' : '— À nommer —');
+                const isCustom = !!customLabels[subcat];
+                const isNew = !defaultLbl && hasData;
+                const isActive = activeSubcats[subcat] !== false;
+                
+                return <div key={subcat} style={{
+                  background:'#fff',borderRadius:6,border:'1px solid #e2ddd6',
+                  padding:'5px 8px',
+                  display:'flex',alignItems:'center',gap:6,
+                  opacity:isActive?1:0.6,
+                }}>
+                  <span style={{fontSize:10,fontWeight:600,color:'#2d6a4f',fontFamily:'monospace',flexShrink:0,minWidth:40}}>{subcat}</span>
+                  {editingKey===subcat
+                    ?<input autoFocus value={editVal}
+                        onChange={e=>setEditVal(e.target.value)}
+                        onBlur={()=>saveLabel(subcat,editVal)}
+                        onKeyDown={e=>{if(e.key==='Enter')saveLabel(subcat,editVal);if(e.key==='Escape')setEditingKey(null);}}
+                        style={{flex:1,fontSize:10,border:'1px solid #2d6a4f',borderRadius:4,padding:'2px 4px',outline:'none'}}/>
+                    :<span onClick={()=>{setEditingKey(subcat);setEditVal(currentLbl||defaultLbl||'');}}
+                        style={{flex:1,fontSize:10,color:isNew?'#c0392b':'#6b6560',cursor:'pointer'}}
+                        title="Cliquer pour modifier le libellé">
+                        {currentLbl||defaultLbl||'— À nommer —'}
+                      </span>}
+                  {isCustom&&<span title="Libellé modifié — cliquer pour restaurer l'original" onClick={()=>resetLabel(subcat)}
+                    style={{fontSize:9,color:'#f59e0b',cursor:'pointer',flexShrink:0}}>↩</span>}
+                  {isNew&&<span style={{fontSize:9,color:'#c0392b',flexShrink:0}}>NEW</span>}
+                  <span style={{fontSize:9,color:'#9e9890',flexShrink:0}}>
+                    {new Intl.NumberFormat('fr-FR',{maximumFractionDigits:0}).format(Math.abs(monthlyAvg)/1000)}k/m
+                  </span>
+                  {/* Active/inactive toggle dot */}
+                  <span title={isActive?"Désactiver (sera regroupé dans XX-AU)":"Activer"}
+                    onClick={()=>onToggleSubcat&&onToggleSubcat(subcat)}
+                    style={{width:8,height:8,borderRadius:'50%',
+                      background:isActive?'#2d6a4f':'#c5c0b8',flexShrink:0,cursor:'pointer',
+                      border:`1px solid ${isActive?'#2d6a4f':'#e2ddd6'}`,display:'inline-block'}}/>
+                </div>;
+              })}
+              {subcats.length===0&&<span style={{fontSize:11,color:'#c5c0b8',fontStyle:'italic'}}>Aucune sous-catégorie</span>}
+              </div>
+            </div>}
+          </div>;
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMap, savedCustomLabels={}, onSaveCustomLabels, readOnly=false}) {
+  const [caData, setCaData] = useState(null);
+  const [chargeData, setChargeData] = useState(null);
+  const [subcatLabels, setSubcatLabels] = useState({});
+  const [importedAt, setImportedAt] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [catTypes, setCatTypes] = useState(savedCatTypes || DEFAULT_CAT_TYPE);
+  const [codeMap, setCodeMap] = useState(savedCodeMap || DEFAULT_CODE_TO_CAT);
+  const [customLabels, setCustomLabels] = useState(savedCustomLabels||{});  // user-edited labels
+  const [activeSubcats, setActiveSubcats] = useState({});  // false = inactive (merged into XX-AU)
+  
+  // Merge: customLabels override DEFAULT_SUBCAT_LABELS
+  const effectiveLabels = useMemo(()=>({...DEFAULT_SUBCAT_LABELS, ...customLabels}),[customLabels]);
+  
+  // All known subcats from data
+  const knownSubcats = useMemo(()=>{
+    if(!chargeData) return new Set();
+    return new Set(Object.keys(chargeData));
+  },[chargeData]);
+  const [activeTab, setActiveTab] = useState('report');
+  const [expanded, setExpanded] = useState({});
+  const [monthActive, setMonthActive] = useState(Array(12).fill(true));
+  const [inKeur, setInKeur] = useState(true);
+
+  useEffect(()=>{
+    const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists())setCaData(snap.data().caData);});
+    const u2=onSnapshot(doc(db,'reporting','charges'),(snap)=>{if(snap.exists())setChargeData(snap.data().chargeData);});
+    const u3=onSnapshot(doc(db,'reporting','meta'),(snap)=>{
+      if(snap.exists()){
+        setSubcatLabels(snap.data().subcatLabels||{});
+        setImportedAt(snap.data().importedAt);
+        if(snap.data().activeSubcats) setActiveSubcats(snap.data().activeSubcats);
+      }
+      setLoading(false);
+    });
+    return()=>{u1();u2();u3();};
+  },[]);
+  
+  async function saveActiveSubcats(a){
+    await updateDoc(doc(db,'reporting','meta'),{activeSubcats:a}).catch(()=>{});
+    setActiveSubcats(a);
+  }
+
+  // Detect last month with data
+  const lastMonth = useMemo(()=>{
+    if (!caData && !chargeData) return 5;
+    const months = new Set();
+    if (caData) Object.values(caData).forEach(cm=>Object.keys(cm).forEach(k=>{const m=parseInt(k.split('-')[1]);if(m)months.add(m);}));
+    if (chargeData) Object.values(chargeData).forEach(d=>Object.keys(d.months||{}).forEach(k=>{const m=parseInt(k.split('-')[1]);if(m)months.add(m);}));
+    return months.size ? Math.max(...months) : 5;
+  },[caData,chargeData]);
+
+  // Build month arrays (12 months + 1 YTD slot = 13 cols)
+  function getMonthArray(dataByKey) {
+    const arr = Array(12).fill(0);
+    if (!dataByKey) return arr;
+    Object.entries(dataByKey).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]+=v;});
+    return arr;
+  }
+
+  // CA
+  const caByCanal = useMemo(()=>{
+    const res={};
+    REPORTING_CANALS.forEach(c=>{
+      const csvKey=CANAL_CSV_MAP[c]||c;
+      res[c]=getMonthArray(caData?.[csvKey]);
+    });
+    return res;
+  },[caData]);
+  const caTotal = useMemo(()=>Array(12).fill(0).map((_,i)=>REPORTING_CANALS.reduce((s,c)=>s+(caByCanal[c]?.[i]||0),0)),[caByCanal]);
+
+  // Marge brute - use actual canal rates
+  const mbByCanal = useMemo(()=>{
+    const res={};
+    REPORTING_CANALS.forEach(c=>{const rate=CANAL_MARGIN[c]??DEFAULT_CANAL_MARGIN;res[c]=(caByCanal[c]||[]).map(v=>v*rate);});
+    return res;
+  },[caByCanal]);
+  // MB total = sum of (CA per canal * rate per canal)
+  const mbTotal = useMemo(()=>Array(12).fill(0).map((_,i)=>REPORTING_CANALS.reduce((s,c)=>s+(mbByCanal[c]?.[i]||0),0)),[mbByCanal]);
+
+  // Unassigned codes
+  const unassigned = useMemo(()=>{
+    if(!chargeData) return [];
+    const ua=new Set();
+    Object.keys(chargeData).forEach(subcat=>{
+      const code=subcat.slice(0,2);
+      const cat=codeMap[code];
+      if(!cat||!catTypes[cat]) ua.add(code);
+    });
+    return [...ua];
+  },[chargeData,codeMap,catTypes]);
+
+  // Charge data by type > category > subcat
+  const chargeByType = useMemo(()=>{
+    if(!chargeData) return {};
+    const res={};
+    Object.entries(chargeData).forEach(([subcat,data])=>{
+      const code=subcat.slice(0,2);
+      const cat=codeMap[code]||'Non affecté';
+      const type=catTypes[cat]||'charges_expl';
+      if(!res[type]) res[type]={};
+      if(!res[type][cat]) res[type][cat]={};
+      
+      // If subcat is inactive, merge into XX-AU bucket
+      const isActive = activeSubcats[subcat] !== false; // default true
+      const targetSubcat = isActive ? subcat : `${code}-AU`;
+      
+      if(!res[type][cat][targetSubcat]) res[type][cat][targetSubcat]={months:Array(12).fill(0),rows:[],isAU:!isActive};
+      const months=getMonthArray(data.months);
+      months.forEach((v,i)=>res[type][cat][targetSubcat].months[i]+=v);
+      // Store rows with subcat code for AU buckets sorting
+      const rowsWithSubcat=(data.rows||[]).map(r=>({...r,subcat:isActive?undefined:subcat}));
+      res[type][cat][targetSubcat].rows=(res[type][cat][targetSubcat].rows||[]).concat(rowsWithSubcat);
+    });
+    return res;
+  },[chargeData,codeMap,catTypes,activeSubcats]);
+
+  function getGroupTotal(type) {
+    const cats=chargeByType[type]||{};
+    return Array(12).fill(0).map((_,i)=>Object.values(cats).reduce((s,subcats)=>s+Object.values(subcats).reduce((s2,d)=>s2+(d.months[i]||0),0),0));
+  }
+
+  const chargesExpl = useMemo(()=>getGroupTotal('charges_expl'),[chargeByType]);
+  const autresCharges = useMemo(()=>getGroupTotal('autres_charges'),[chargeByType]);
+  const ebitda = useMemo(()=>mbTotal.map((v,i)=>v+chargesExpl[i]),[mbTotal,chargesExpl]);
+  const resultat = useMemo(()=>ebitda.map((v,i)=>v+autresCharges[i]),[ebitda,autresCharges]);
+
+  const toggle = k => setExpanded(p=>({...p,[k]:!p[k]}));
+
+  // 13 col header: 12 months + YTD slot inserted after lastMonth
+  const headerCols = [...Array(12).keys()].map(i=>i).reduce((acc,i)=>{
+    acc.push(i);
+    if(i===lastMonth-1) acc.push('ytd');
+    return acc;
+  },[]);
+  if(lastMonth===0) headerCols.unshift('ytd');
+
+  function renderGroup(type, label) {
+    const cats=chargeByType[type]||{};
+    const groupMonths=getGroupTotal(type);
+    const ordCats=CATEGORIES_ORDER.filter(c=>cats[c]&&catTypes[c]===type);
+    return <ReportingRow key={type} label={label} months={groupMonths} lastMonth={lastMonth}
+      bold bg='#f0fdf4' inKeur={inKeur} onClick={()=>toggle(type)} isOpen={expanded[type]}>
+      {ordCats.map(cat=>{
+        const catMonths=Array(12).fill(0).map((_,i)=>Object.values(cats[cat]||{}).reduce((s,d)=>s+(d.months[i]||0),0));
+        const catKey=type+'-'+cat;
+        return <ReportingRow key={cat} label={cat} months={catMonths} lastMonth={lastMonth}
+          indent={1} inKeur={inKeur} onClick={()=>toggle(catKey)} isOpen={expanded[catKey]}>
+          {Object.entries(cats[cat]||{}).sort(([a],[b])=>a.localeCompare(b)).map(([subcat,d])=>{
+            const subcatKey=catKey+'-'+subcat;
+            const label2=`${subcat} · ${effectiveLabels[subcat]||subcatLabels[subcat]||''}`;
+            return <ReportingRow key={subcat} label={label2} months={d.months} lastMonth={lastMonth}
+              indent={2} inKeur={inKeur} onClick={()=>toggle(subcatKey)} isOpen={expanded[subcatKey]}>
+              <DetailEcritures rows={d.rows} lastMonth={lastMonth} monthActive={monthActive} isAU={d.isAU}/>
+            </ReportingRow>;
+          })}
+        </ReportingRow>;
+      })}
+    </ReportingRow>;
+  }
+
+  return <div>
+    {/* Tabs */}
+    <div style={{display:'flex',gap:8,marginBottom:16}}>
+      {(readOnly?[{k:'report',l:'📊 Tableau'}]:[{k:'report',l:'📊 Tableau'},{k:'subcats',l:'⚙️'}]).map(t=>
+        <button key={t.k} onClick={()=>setActiveTab(t.k)} title={t.k==='subcats'?'Paramétrage':undefined}
+          style={{padding:'5px 12px',borderRadius:6,border:`1px solid ${activeTab===t.k?'#2d6a4f':'#e2ddd6'}`,
+            background:activeTab===t.k?'#2d6a4f':'#fff',color:activeTab===t.k?'#fff':'#6b6560',
+            cursor:'pointer',fontSize:12,fontWeight:500}}>
+          {t.l}
+        </button>
+      )}
+    </div>
+
+
+
+    {/* Subcats tab - drag and drop */}
+    {activeTab==='subcats'&&<SubcatsDnD codeMap={codeMap} setCodeMap={setCodeMap} onSaveCodeMap={onSaveCodeMap} subcatLabels={effectiveLabels} knownSubcats={knownSubcats} customLabels={customLabels} setCustomLabels={(cl)=>{setCustomLabels(cl);onSaveCustomLabels&&onSaveCustomLabels(cl);}} catTypes={catTypes} onSaveCatTypes={onSaveCatTypes} activeSubcats={activeSubcats} onToggleSubcat={(k)=>{const n={...activeSubcats,[k]:activeSubcats[k]===false};saveActiveSubcats(n);}} chargeData={chargeData} lastMonth={lastMonth}/>}
+
+    {/* Report tab */}
+    {activeTab==='report'&&<>
+      {/* Header bar */}
+      <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:12,flexWrap:'wrap'}}>
+        {importedAt&&<span style={{fontSize:11,color:'#9e9890'}}>
+          Données au {new Date(importedAt).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})} à {new Date(importedAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}
+        </span>}
+        <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:8}}>
+          <span style={{fontSize:11,color:'#9e9890'}}>Affichage :</span>
+          <button onClick={()=>setInKeur(false)} style={{padding:'3px 10px',borderRadius:10,border:`1px solid ${!inKeur?'#2d6a4f':'#e2ddd6'}`,background:!inKeur?'#2d6a4f':'#fff',color:!inKeur?'#fff':'#6b6560',cursor:'pointer',fontSize:11}}>€</button>
+          <button onClick={()=>setInKeur(true)} style={{padding:'3px 10px',borderRadius:10,border:`1px solid ${inKeur?'#2d6a4f':'#e2ddd6'}`,background:inKeur?'#2d6a4f':'#fff',color:inKeur?'#fff':'#6b6560',cursor:'pointer',fontSize:11}}>k€</button>
+        </div>
+      </div>
+
+      {/* Unassigned alert */}
+      {unassigned.length>0&&<div style={{background:'#fef3c7',border:'1px solid #fcd34d',borderRadius:8,padding:'8px 14px',marginBottom:12,fontSize:12,color:'#92400e'}}>
+        ⚠️ Codes non affectés : <strong>{unassigned.join(', ')}</strong> — Allez dans l'onglet "Sous-catégories".
+      </div>}
+
+      {loading?<div style={{textAlign:'center',padding:40,color:'#9e9890',fontSize:13}}>
+        Chargement des données…
+      </div>:!caData&&!chargeData?<div style={{textAlign:'center',padding:40}}>
+        <div style={{fontSize:32,marginBottom:8}}>📂</div>
+        <div style={{fontSize:14,fontWeight:500,color:'#1a1814',marginBottom:8}}>Aucune donnée importée</div>
+        <div style={{fontSize:12,color:'#9e9890'}}>Lancez <code style={{background:'#f5f3ef',padding:'2px 6px',borderRadius:4}}>node import_reporting.js</code> dans le dossier Calendula.</div>
+      </div>:<div style={{overflowX:'auto',borderRadius:10,border:'1px solid #e2ddd6',boxShadow:'0 1px 3px rgba(0,0,0,.06)'}}>
+        <table style={{width:'100%',borderCollapse:'collapse',minWidth:900}}>
+          <thead>
+            <tr style={{background:'#f5f3ef'}}>
+              <th style={{padding:'8px 6px',textAlign:'left',fontSize:11,fontWeight:600,color:'#6b6560',
+                position:'sticky',left:0,background:'#f5f3ef',zIndex:2,
+                width:220,minWidth:220,maxWidth:220,borderBottom:'1px solid #e2ddd6'}}>
+                Ligne P&L
+              </th>
+              {MONTHS_FR.map((m,i)=><>
+                {i===lastMonth&&<th key="ytd" style={{padding:'8px 8px',textAlign:'right',fontSize:11,fontWeight:700,
+                  color:'#2d6a4f',borderLeft:'2px solid #2d6a4f',borderRight:'2px solid #2d6a4f',
+                  background:'#f0fdf4',borderBottom:'1px solid #e2ddd6',whiteSpace:'nowrap',width:44}}>YTD</th>}
+                <th key={i} style={{padding:'8px 8px',textAlign:'right',fontSize:11,fontWeight:600,
+                  color:i<lastMonth?'#1a1814':'#c5c0b8',borderBottom:'1px solid #e2ddd6',
+                  background:i<lastMonth?'transparent':'#fafafa',whiteSpace:'nowrap',width:44}}>
+                  {m}
+                  {i<lastMonth&&<span style={{display:'inline-block',width:6,height:6,borderRadius:'50%',
+                    background:monthActive[i]?'#2d6a4f':'#c5c0b8',marginLeft:6,cursor:'pointer',verticalAlign:'middle'}}
+                    onClick={()=>setMonthActive(p=>p.map((v,j)=>j===i?!v:v))}/>}
+                </th>
+              </>)}
+              {lastMonth===12&&<th key="ytd" style={{padding:'8px 8px',textAlign:'right',fontSize:11,fontWeight:700,
+                color:'#2d6a4f',borderLeft:'2px solid #2d6a4f',background:'#f0fdf4',
+                borderBottom:'1px solid #e2ddd6',whiteSpace:'nowrap',width:44}}>YTD</th>}
+              <th style={{padding:'8px 8px',textAlign:'right',fontSize:11,fontWeight:600,
+                color:'#6b6560',borderLeft:'1px solid #e2ddd6',borderBottom:'1px solid #e2ddd6',width:44}}>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <ReportingRow label="Chiffre d'Affaires" months={caTotal} lastMonth={lastMonth} bold inKeur={inKeur} onClick={()=>toggle('ca')} isOpen={expanded['ca']}>
+              {REPORTING_CANALS.map(c=><ReportingRow key={c} label={c} months={caByCanal[c]||Array(12).fill(0)} lastMonth={lastMonth} indent={1} inKeur={inKeur}/>)}
+            </ReportingRow>
+            <ReportingRow label="Marge Brute" months={mbTotal} lastMonth={lastMonth} bold inKeur={inKeur} highlight onClick={()=>toggle('mb')} isOpen={expanded['mb']}>
+              {REPORTING_CANALS.map(c=>{
+                const rate=CANAL_MARGIN[c]??DEFAULT_CANAL_MARGIN;
+                return <tr key={c} style={{background:'#f8fffd'}}>
+                  <td style={{padding:'5px 8px 5px 22px',fontSize:11,fontWeight:400,
+                    position:'sticky',left:0,background:'#f8fffd',zIndex:1,
+                    borderBottom:'1px solid #f0ede8',minWidth:280}}>
+                    <span style={{color:'#9e9890',marginRight:4}}>▸</span>{c}
+                  </td>
+                  {Array(12).fill(0).map((_,i)=>{
+                    const isEmpty=i>=lastMonth;
+                    return <>
+                      {i===lastMonth&&<td key="ytd" style={{padding:'5px 8px',fontSize:11,textAlign:'right',
+                        fontFamily:'system-ui,sans-serif',borderBottom:'1px solid #f0ede8',width:44,
+                        borderLeft:'2px solid #2d6a4f',borderRight:'2px solid #2d6a4f',background:'#f0fdf4',
+                        fontWeight:600,color:'#166534'}}>{fmtPct(rate)}</td>}
+                      <td key={i} style={{padding:'5px 8px',fontSize:11,textAlign:'right',
+                        fontFamily:'system-ui,sans-serif',borderBottom:'1px solid #f0ede8',width:44,
+                        color:isEmpty?'#c5c0b8':'#166534',background:isEmpty?'#fafafa':'transparent'}}>
+                        {isEmpty?'—':fmtPct(rate)}
+                      </td>
+                    </>;
+                  })}
+                  {lastMonth===12&&<td style={{padding:'5px 8px',fontSize:11,textAlign:'right',width:44,
+                    borderLeft:'2px solid #2d6a4f',background:'#f0fdf4',borderBottom:'1px solid #f0ede8',
+                    fontWeight:600,color:'#166534'}}>{fmtPct(rate)}</td>}
+                  <td style={{padding:'5px 8px',fontSize:11,textAlign:'right',width:44,
+                    borderLeft:'1px solid #e2ddd6',borderBottom:'1px solid #f0ede8',color:'#166534'}}>{fmtPct(rate)}</td>
+                </tr>;
+              })}
+            </ReportingRow>
+            {renderGroup('charges_expl',"Charges d'exploitation")}
+            <ReportingRow label="EBITDA" months={ebitda} lastMonth={lastMonth} bold isTotal inKeur={inKeur}/>
+            {renderGroup('autres_charges',"Autres charges")}
+            <ReportingRow label="Résultat net" months={resultat} lastMonth={lastMonth} bold isTotal inKeur={inKeur}/>
+          </tbody>
+        </table>
+      </div>}
+    </>}
+  </div>;
+}
+
+
+function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSaveCustomSubcatLabels, catTypes, onSaveCatTypes}) {
+  const [chargeData, setChargeData] = useState(null);
+  const [activeSubcats, setActiveSubcats] = useState({});
+  const [localCodeMap, setLocalCodeMap] = useState(codeMap || DEFAULT_CODE_TO_CAT);
+  const [localCustomLabels, setLocalCustomLabels] = useState(customSubcatLabels || {});
+
+  useEffect(()=>{
+    const u1 = onSnapshot(doc(db,'reporting','charges'),(snap)=>{if(snap.exists())setChargeData(snap.data().chargeData);});
+    const u2 = onSnapshot(doc(db,'reporting','meta'),(snap)=>{if(snap.exists()&&snap.data().activeSubcats)setActiveSubcats(snap.data().activeSubcats);});
+    return()=>{u1();u2();};
+  },[]);
+
+  const knownSubcats = useMemo(()=>new Set(chargeData?Object.keys(chargeData):Object.keys(DEFAULT_SUBCAT_LABELS)),[chargeData]);
+  const effectiveLabels = useMemo(()=>({...DEFAULT_SUBCAT_LABELS,...localCustomLabels}),[localCustomLabels]);
+
+  async function saveActiveSubcats(a) {
+    await updateDoc(doc(db,'reporting','meta'),{activeSubcats:a}).catch(()=>{});
+    setActiveSubcats(a);
+  }
+
+  return <SubcatsDnD
+    codeMap={localCodeMap}
+    setCodeMap={cm=>{setLocalCodeMap(cm);onSaveCodeMap&&onSaveCodeMap(cm);}}
+    onSaveCodeMap={onSaveCodeMap}
+    subcatLabels={effectiveLabels}
+    knownSubcats={knownSubcats}
+    customLabels={localCustomLabels}
+    setCustomLabels={cl=>{setLocalCustomLabels(cl);onSaveCustomSubcatLabels&&onSaveCustomSubcatLabels(cl);}}
+    catTypes={catTypes}
+    onSaveCatTypes={onSaveCatTypes}
+    activeSubcats={activeSubcats}
+    onToggleSubcat={k=>{const n={...activeSubcats,[k]:activeSubcats[k]===false};saveActiveSubcats(n);}}
+    chargeData={chargeData}
+    lastMonth={5}/>;
+}
+
+function FeedbackAdminTab() {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(()=>{
+    const unsub = onSnapshot(collection(db,'feedback'),(snap)=>{
+      setItems(snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>b.createdAt-a.createdAt));
+      setLoading(false);
+    });
+    return()=>unsub();
+  },[]);
+
+  async function markRead(id) {
+    await updateDoc(doc(db,'feedback',id),{read:true});
+  }
+  async function deleteItem(id) {
+    if(!window.confirm('Supprimer ce feedback ?'))return;
+    await deleteDoc(doc(db,'feedback',id));
+  }
+
+  const unread = items.filter(i=>!i.read).length;
+
+  return <div>
+    <div style={{fontSize:13,fontWeight:600,color:"#1a1814",marginBottom:14}}>
+      Feedbacks & idées d'amélioration
+      {unread>0&&<span style={{marginLeft:10,background:"#2d6a4f",color:"#fff",fontSize:11,
+        borderRadius:10,padding:"2px 8px"}}>{unread} nouveau{unread>1?"x":""}</span>}
+    </div>
+    {loading?<div style={{color:"#9e9890",fontSize:13}}>Chargement…</div>
+    :items.length===0?<div style={{color:"#9e9890",fontSize:13}}>Aucun feedback pour l'instant.</div>
+    :<div style={{display:"flex",flexDirection:"column",gap:8}}>
+      {items.map(item=><div key={item.id} style={{background:item.read?"#f8f7f5":"#fff",
+        border:`1px solid ${item.read?"#e2ddd6":"#2d6a4f"}`,borderRadius:8,padding:"12px 16px",
+        opacity:item.read?0.7:1}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
+          <span style={{fontSize:12,fontWeight:600,color:"#1a1814"}}>{item.from}</span>
+          <span style={{fontSize:11,color:"#9e9890"}}>{new Date(item.createdAt).toLocaleDateString("fr-FR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</span>
+          <div style={{marginLeft:"auto",display:"flex",gap:6}}>
+            {!item.read&&<button onClick={()=>markRead(item.id)}
+              style={{fontSize:11,color:"#2d6a4f",background:"none",
+                border:"1px solid #2d6a4f",borderRadius:4,padding:"2px 8px",cursor:"pointer"}}>
+              ✓ Lu
+            </button>}
+            <button onClick={()=>deleteItem(item.id)}
+              style={{fontSize:11,color:"#c0392b",background:"none",
+                border:"1px solid #fca5a5",borderRadius:4,padding:"2px 8px",cursor:"pointer"}}>
+              🗑️
+            </button>
+          </div>
+        </div>
+        <div style={{fontSize:13,color:"#1a1814",whiteSpace:"pre-wrap"}}>{item.message}</div>
+      </div>)}
+    </div>}
+  </div>;
+}
+
+function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions,catTypes,onSaveCatTypes,codeMap,onSaveCodeMap,customSubcatLabels,onSaveCustomSubcatLabels}){
   const [members,setMembers]=useState(teamMembers.map(m=>({...m})));
   const [newPrenom,setNewPrenom]=useState("");
   const [newManager,setNewManager]=useState("");
@@ -858,6 +2113,11 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
     if(email===OWNER_EMAIL)return;
     setMembers(p=>p.map(m=>m.email===email?{...m,role}:m));
   }
+  function toggleForce(email,field){
+    const updated=members.map(m=>m.email===email?{...m,[field]:!m[field]}:m);
+    setMembers(updated);
+    onSaveMembers&&onSaveMembers(updated);
+  }
   function setManager(email,managerEmail){
     setMembers(p=>p.map(m=>m.email===email?{...m,managerEmail}:m));
   }
@@ -869,9 +2129,9 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
 
   return <div style={{minHeight:"100vh",background:"#f5f3ef",fontFamily:"system-ui,sans-serif"}}>
     <TopBar onBack={onBack} title="⚙️ Paramètres"/>
-    <div style={{maxWidth:800,margin:"0 auto",padding:"24px 16px 60px"}}>
+    <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
       <div style={{display:"flex",gap:10,marginBottom:20}}>
-        {([{k:"members",l:"👥 Membres & rôles"},...(currentUser?.email===OWNER_EMAIL?[{k:"questions",l:"❓ Questions Update"}]:[])]).map(t=><button key={t.k} onClick={()=>setTab(t.k)}
+        {([{k:"members",l:"👥 Membres & rôles"},...(currentUser?.email===OWNER_EMAIL?[{k:"questions",l:"❓ Questions Update"},{k:"history",l:"📋 Historique Updates"},{k:"feedback",l:"💡 Feedback"},{k:"reporting_params",l:"⚙️ Reporting"}]:[])]).map(t=><button key={t.k} onClick={()=>setTab(t.k)}
           style={{padding:"8px 16px",borderRadius:8,border:`1px solid ${tab===t.k?"#2d6a4f":"#e2ddd6"}`,background:tab===t.k?"#2d6a4f":"#fff",color:tab===t.k?"#fff":"#6b6560",cursor:"pointer",fontSize:13,fontWeight:500}}>
           {t.l}
         </button>)}
@@ -892,7 +2152,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
         <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",overflow:"hidden"}}>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
             <thead><tr style={{background:"#f5f3ef"}}>
-              {["Prénom","Email","Manager","Rôle",""].map(h=><th key={h} style={{fontSize:11,fontWeight:600,color:"#9e9890",textTransform:"uppercase",letterSpacing:".05em",padding:"10px 14px",textAlign:"left",borderBottom:"1px solid #e2ddd6"}}>{h}</th>)}
+              {["Prénom","Email","Manager","Rôle","🌴 Absent","🤰 Mat.",""].map(h=><th key={h} style={{fontSize:11,fontWeight:600,color:"#9e9890",textTransform:"uppercase",letterSpacing:".05em",padding:"10px 14px",textAlign:"left",borderBottom:"1px solid #e2ddd6"}}>{h}</th>)}
             </tr></thead>
             <tbody>
               {members.map(m=><tr key={m.email} style={{borderBottom:"1px solid #f0ede8"}}>
@@ -910,6 +2170,14 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
                     :<select value={m.role||"teammate"} onChange={e=>setRole(m.email,e.target.value)} style={{...INP,fontSize:12}}>
                       <option value="admin">Admin</option><option value="teammate">Teammate actif</option><option value="inactive">Teammate inactif</option>
                     </select>}
+                </td>
+                <td style={{padding:"10px 14px",textAlign:"center"}}>
+                  <input type="checkbox" checked={!!m.forceAbsent} onChange={()=>toggleForce(m.email,'forceAbsent')}
+                    style={{width:16,height:16,cursor:"pointer",accentColor:"#2d6a4f"}}/>
+                </td>
+                <td style={{padding:"10px 14px",textAlign:"center"}}>
+                  <input type="checkbox" checked={!!m.forceMat} onChange={()=>toggleForce(m.email,'forceMat')}
+                    style={{width:16,height:16,cursor:"pointer",accentColor:"#c0392b"}}/>
                 </td>
                 <td style={{padding:"10px 14px"}}>
                   {m.email!==OWNER_EMAIL&&<button onClick={()=>removeMember(m.email)} style={{fontSize:12,color:"#c0392b",background:"#fdecea",border:"1px solid #fca5a5",borderRadius:6,padding:"4px 10px",cursor:"pointer"}}>Retirer</button>}
@@ -949,10 +2217,18 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
         </div>
       )}
 
-      <button onClick={save} style={{marginTop:20,padding:"12px 28px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600}}>
+      {tab==="history"&&<UpdatesHistoryTab/>}
+      {tab==="feedback"&&<FeedbackAdminTab/>}
+      {tab==="reporting_params"&&<ReportingParamsTab
+          codeMap={codeMap} onSaveCodeMap={onSaveCodeMap}
+          customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={onSaveCustomSubcatLabels}
+          catTypes={catTypes} onSaveCatTypes={onSaveCatTypes}/>}
+
+
+      {tab!=="history"&&tab!=="reporting"&&<><button onClick={save} style={{marginTop:20,padding:"12px 28px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600}}>
         💾 Enregistrer
       </button>
-      {saved&&<span style={{marginLeft:12,fontSize:13,color:"#2d6a4f"}}>✓ Sauvegardé !</span>}
+      {saved&&<span style={{marginLeft:12,fontSize:13,color:"#2d6a4f"}}>✓ Sauvegardé !</span>}</>}
     </div>
   </div>;
 }
@@ -1477,6 +2753,16 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
 }
 
 // ─── APP ROOT ─────────────────────────────────────────────────────────────────
+function ReportingPagePublic({onBack, catTypes, codeMap, customSubcatLabels={}}) {
+  return <div style={{minHeight:"100vh",background:"#f5f3ef",fontFamily:"system-ui,sans-serif"}}>
+    <TopBar onBack={onBack} title="Reporting financier"/>
+    <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
+      <ReportingTab onSaveCatTypes={null} savedCatTypes={catTypes} savedCodeMap={codeMap}
+        onSaveCodeMap={null} savedCustomLabels={customSubcatLabels} onSaveCustomLabels={null} readOnly={true}/>
+    </div>
+  </div>;
+}
+
 export default function App(){
   const [authUser,setAuthUser]=useState(null);
   const [authLoading,setAuthLoading]=useState(true);
@@ -1484,6 +2770,8 @@ export default function App(){
   const [page,setPage]=useState("dashboard"); // dashboard | okr | update | settings
   const [teamMembers,setTeamMembers]=useState([]);
   const [questions,setQuestions]=useState(DEFAULT_QUESTIONS);
+  const [catTypes,setCatTypes]=useState(DEFAULT_CAT_TYPE);
+  const [codeMap,setCodeMap]=useState(CODE_TO_CATEGORY);
   const [myUpdates,setMyUpdates]=useState([]);
   const [allUpdates,setAllUpdates]=useState([]);
   const [managerNotifs,setManagerNotifs]=useState([]);
@@ -1509,6 +2797,9 @@ export default function App(){
         const d=snap.data();
         if(d.teamMembers)setTeamMembers(d.teamMembers);
         if(d.questions)setQuestions(d.questions);
+        if(d.catTypes)setCatTypes(d.catTypes);
+        if(d.codeMap)setCodeMap(d.codeMap);
+        if(d.customSubcatLabels)setCustomSubcatLabels(d.customSubcatLabels);
       } else {
         // Init with defaults
         const defaultMembers=[
@@ -1660,8 +2951,21 @@ export default function App(){
     setTeamMembers(members);
   }
   async function handleSaveQuestions(qs){
-    await setDoc(doc(db,"app_config","main"),{teamMembers,questions:qs});
+    await setDoc(doc(db,"app_config","main"),{teamMembers,questions:qs,catTypes});
     setQuestions(qs);
+  }
+  async function handleSaveCatTypes(ct){
+    await setDoc(doc(db,"app_config","main"),{teamMembers,questions,catTypes:ct,codeMap});
+    setCatTypes(ct);
+  }
+  async function handleSaveCodeMap(cm){
+    await setDoc(doc(db,"app_config","main"),{teamMembers,questions,catTypes,codeMap:cm,customSubcatLabels});
+    setCodeMap(cm);
+  }
+  const [customSubcatLabels,setCustomSubcatLabels]=useState({});
+  async function handleSaveCustomLabels(cl){
+    await setDoc(doc(db,"app_config","main"),{teamMembers,questions,catTypes,codeMap,customSubcatLabels:cl});
+    setCustomSubcatLabels(cl);
   }
 
   if(authLoading)return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f5f3ef",fontFamily:"system-ui"}}>
@@ -1688,11 +2992,15 @@ export default function App(){
 
   if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers}/>;
   if(page==="update")return <UpdatePage teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} myUpdates={myUpdates}/>;
-  if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions}/>;
+  if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels}/>;
+  if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels}/>;
+  if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels}/>;
 
   return <Dashboard
     currentUser={authUser}
     teamMember={currentTeamMember}
+    teamMembers={teamMembers}
+    onGoReporting={()=>setPage("reporting")}
     onGoOKR={()=>setPage("okr")}
     onGoUpdate={()=>setPage("update")}
     onGoSettings={()=>setPage("settings")}
