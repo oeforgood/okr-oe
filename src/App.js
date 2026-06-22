@@ -230,7 +230,7 @@ function LoginPage({onLogin,error}){
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
 
-function toDateStr(d){return d.toISOString().slice(0,10);}
+function toDateStr(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function get26Weeks(myUpdates){
   const now = new Date();
   const currentWk = getWeekKey(now);
