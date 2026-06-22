@@ -231,7 +231,7 @@ function LoginPage({onLogin,error}){
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
 
 function toDateStr(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-function get26Weeks(myUpdates){
+ function get26Weeks(myUpdates, email){
   const now = new Date();
   const currentWk = getWeekKey(now);
   const weeks = [];
@@ -241,15 +241,20 @@ function get26Weeks(myUpdates){
     const wk = getWeekKey(d);
     const {mon,fri} = getWeekBounds(wk);
     const update = myUpdates.find(u=>u.weekKey===wk);
+    const monStr = toDateStr(mon);
+    const declared = email && (window._absences||[]).find(a=>
+      a.email===email && monStr>=a.dateFrom && monStr<=a.dateTo
+    );
     let status = "none";
-    if(update){
+    if(declared){ status = "absent"; }
+    else if(update){
       const submDay = new Date(update.submittedAt).getDay();
       status = submDay===1 ? "late" : "done";
-    }
-    if(!update && wk===currentWk) status = "pending";
-    weeks.push({wk,mon,fri,status,update,isCurrentWeek:wk===currentWk});
+    } else if(wk===currentWk){ status = "pending"; }
+    weeks.push({wk,mon,fri,status,update,isCurrentWeek:wk===currentWk,declared});
   }
   return weeks;
+}
 }
 
 const DOT_COLORS = {
@@ -257,10 +262,11 @@ const DOT_COLORS = {
   late:    {bg:"#f59e0b", border:"#f59e0b"},
   none:    {bg:"#fca5a5", border:"#ef4444"},
   pending: {bg:"#e2ddd6", border:"#c5c0b8"},
+  absent:  {bg:"#e2ddd6", border:"#c5c0b8"},
 };
 
-function WeekDots({myUpdates, clickable=false, onClickUpdate, dotSize=14}){
-  const weeks = get26Weeks(myUpdates);
+function WeekDots({myUpdates, clickable=false, onClickUpdate, dotSize=14, email}){
+  const weeks = get26Weeks(myUpdates, email);
   const [hov,setHov]=useState(null);
   return <div style={{position:"relative",display:"flex",gap:0,flexWrap:"nowrap",alignItems:"center"}}>
     {hov!==null&&weeks[hov]&&(()=>{
@@ -282,11 +288,13 @@ function WeekDots({myUpdates, clickable=false, onClickUpdate, dotSize=14}){
           width:22,height:22,display:"flex",alignItems:"center",justifyContent:"center",
           flexShrink:0,cursor:clickable&&w.update?"pointer":"default",
         }}>
-        <div style={{
-          width:dotSize,height:dotSize,borderRadius:"50%",
-          background:c.bg,border:`1.5px solid ${c.border}`,
-          boxSizing:"border-box",transition:"transform .1s",
-        }}/>
+        {w.declared
+          ? <span style={{fontSize:12,lineHeight:1}}>{w.declared.type}</span>
+          : <div style={{
+              width:dotSize,height:dotSize,borderRadius:"50%",
+              background:c.bg,border:`1.5px solid ${c.border}`,
+              boxSizing:"border-box",transition:"transform .1s",
+            }}/>}
       </div>;
     })}
   </div>;
@@ -397,10 +405,15 @@ function UpdateStreak({myUpdates, allUpdates=[], onGoUpdate}){
   return <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} onGoUpdate={onGoUpdate}/>;
 }
 
-function NotifDetail({notif}){
+function NotifDetail({notif, teamMember, teamMembers=[]}) {
   const answers=notif?.answers||{};
   const moodVal=answers.q7||"";
-  const visibleQs=DEFAULT_QUESTIONS.filter(q=>answers[q.id]);
+  // q6 visible if viewer is author's manager
+  const viewerEmail=teamMember?.email;
+  const authorEmail=notif?.fromEmail||notif?.email;
+  const isManager=!!(viewerEmail&&authorEmail&&
+    teamMembers.find(m=>m.email===authorEmail&&m.manager===viewerEmail));
+  const visibleQs=DEFAULT_QUESTIONS.filter(q=>answers[q.id]&&(q.id!=='q6'||isManager));
   return <div>
     {moodVal&&<div style={{fontSize:28,marginBottom:12}}>{moodVal}</div>}
     {visibleQs.map(q=>{
@@ -418,7 +431,7 @@ function NotifDetail({notif}){
   </div>;
 }
 
-function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,myUpdates=[]}){
+function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,teamMembers=[],myUpdates=[]}){
   const [selected,setSelected]=useState(null);
   // Include manager notifs (update notifications) + system messages
   // System messages: Monday morning greeting, season prep reminder
@@ -526,7 +539,7 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,m
         {selected.isSystem&&<div style={{marginBottom:14}}/>}
         {selected.isSystem
           ?<div style={{fontSize:13,color:"#1a1814",lineHeight:1.6}}>{selected.content}</div>
-          :<NotifDetail notif={selected.notif} onRead={()=>{onReadNotif&&onReadNotif(selected.notif);setSelected(null);}}/>
+          :<NotifDetail notif={selected.notif} teamMember={teamMember} teamMembers={teamMembers||[]} onRead={()=>{onReadNotif&&onReadNotif(selected.notif);setSelected(null);}}/>
         }
 
       </div>
@@ -719,7 +732,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
 
       {/* ── TOP: Notifications + Feedback ── */}
       <div style={{display:"grid",gridTemplateColumns:"3fr 1fr",gap:12,marginBottom:16,alignItems:"stretch",gridAutoRows:"1fr"}}>
-        <MessagesPanel managerNotifs={managerNotifs} teammateNotifs={teammateNotifs} onReadNotif={onReadNotif} teamMember={teamMember} myUpdates={myUpdates}/>
+        <MessagesPanel managerNotifs={managerNotifs} teammateNotifs={teammateNotifs} onReadNotif={onReadNotif} teamMember={teamMember} teamMembers={teamMembers} myUpdates={myUpdates}/>
         <FeedbackBox currentUser={currentUser} teamMember={teamMember}/>
       </div>
 
@@ -1251,7 +1264,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
           <div style={{width:90,flexShrink:0,fontSize:11,fontWeight:600,color:"#1a1814",paddingRight:8}}>
             {teamMember?.prenom||"Moi"}
           </div>
-          <WeekDots myUpdates={myUpdates} clickable={true} onClickUpdate={w=>setSelectedWeek(w)} dotSize={14} gap={0}/>
+          <WeekDots myUpdates={myUpdates} clickable={true} onClickUpdate={w=>setSelectedWeek(w)} dotSize={14} gap={0} email={teamMember?.email}/>
         </div>
         {/* Team rows */}
         {showTeam&&(()=>{
