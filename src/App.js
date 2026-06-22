@@ -300,13 +300,11 @@ function WeekDots({myUpdates, clickable=false, onClickUpdate, dotSize=14, email}
         onMouseEnter={()=>setHov(i)}
         onMouseLeave={()=>setHov(null)}
         style={{
-          width:22,height:32,display:"flex",alignItems:"center",justifyContent:"center",
+          width:22,height:22,display:"flex",alignItems:"center",justifyContent:"center",
           flexShrink:0,cursor:clickable&&w.update?"pointer":"default",
           fontSize:15,lineHeight:1,opacity,
         }}>
-        <span style={{transform:`translateY(${translateY}px)`,display:"inline-block",transition:"transform .2s"}}>
-          {emoji}
-        </span>
+        {emoji}
       </div>;
     })}
   </div>;
@@ -904,12 +902,23 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
           return <div style={{display:"flex",gap:3,flexWrap:"wrap",alignItems:"center"}}>
             {hov&&<div style={{position:"fixed",left:pos.x+10,top:pos.y-28,background:"#1a1814",color:"#fff",
               fontSize:10,padding:"2px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:9999,pointerEvents:"none"}}>{hov}</div>}
-            {all.map(item=><span key={item.key} style={{fontSize:size,lineHeight:1,cursor:"default",opacity:item.isAbsent?0.8:item.notDone?0.5:1}}
-              onMouseEnter={e=>{setHov(item.name);setPos({x:e.clientX,y:e.clientY});}}
-              onMouseMove={e=>setPos({x:e.clientX,y:e.clientY})}
-              onMouseLeave={()=>setHov(null)}>
-              {item.emoji}
-            </span>)}
+            {(()=>{
+              const MS={'😊':5,'🙂':4,'😐':3,'😕':2,'😩':1};
+              const scores=all.filter(i=>MS[i.emoji]).map(i=>MS[i.emoji]);
+              return all.map(item=>{
+                const sc=MS[item.emoji]||3;
+                const ty=(3-sc)*4;
+                return <span key={item.key} style={{fontSize:size,lineHeight:1,cursor:"default",
+                  opacity:item.isAbsent?0.8:item.notDone?0.5:1,
+                  display:"inline-block",transform:`translateY(${ty}px)`,transition:"transform .15s",
+                  marginRight:3}}
+                  onMouseEnter={e=>{setHov(item.name);setPos({x:e.clientX,y:e.clientY});}}
+                  onMouseMove={e=>setPos({x:e.clientX,y:e.clientY})}
+                  onMouseLeave={()=>setHov(null)}>
+                  {item.emoji}
+                </span>;
+              });
+            })()}
           </div>;
         }
 
@@ -945,10 +954,14 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             {my13Weeks.map((w,i)=>{
               const isLast=i===12;
               const icon=getWeekIcon(w);
+              const MS={'😊':5,'🙂':4,'😐':3,'😕':2,'😩':1};
+              const sc=MS[icon]||3;
+              const ty=isLast?0:(3-sc)*4;
               const sameM=w.mon.getMonth()===w.fri.getMonth();
               const tip=sameM?`Semaine du ${w.mon.getDate()} au ${w.fri.getDate()} ${w.fri.toLocaleString("fr-FR",{month:"long"})}`:`Semaine du ${w.mon.getDate()} ${w.mon.toLocaleString("fr-FR",{month:"short"})} au ${w.fri.getDate()} ${w.fri.toLocaleString("fr-FR",{month:"short"})}`;
               return <span key={i} style={{fontSize:isLast?36:16,lineHeight:1,cursor:"default",
-                opacity:(w.u||isLast)?1:0.45}}
+                display:"inline-block",transform:`translateY(${ty}px)`,transition:"transform .15s",
+                opacity:(w.u||isLast)?1:0.45,marginRight:isLast?0:2}}
                 onMouseEnter={e=>{setHov(tip);setPos({x:e.clientX,y:e.clientY});}}
                 onMouseMove={e=>setPos({x:e.clientX,y:e.clientY})}
                 onMouseLeave={()=>setHov(null)}>{icon}</span>;
@@ -1311,14 +1324,11 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
                     if(declaredAbsW){emoji=declaredAbsW.type;}
                     else if(update){emoji=update.answers?.q7||'😐';}
                     else{emoji='🫥';}
-                    const MOOD_SC={'😊':5,'🙂':4,'😐':3,'😕':2,'😩':1};
-                    const sc=MOOD_SC[emoji]||3;
-                    const ty=(3-sc)*5;
                     return <div key={wi} onClick={update?()=>setSelectedWeek({wk:w.wk,update,prenom:m.prenom,isOwn:false,authorEmail:m.email}):undefined}
-                      style={{width:22,height:32,flexShrink:0,display:"flex",alignItems:"center",
+                      style={{width:22,height:22,flexShrink:0,display:"flex",alignItems:"center",
                         justifyContent:"center",cursor:update?"pointer":"default",fontSize:15,lineHeight:1,
                         opacity:(!update&&emoji==='🫥')?0.35:1}}>
-                      <span style={{transform:`translateY(${ty}px)`,display:"inline-block"}}>{emoji}</span>
+                      {emoji}
                     </div>;
                   })}
                 </div>
