@@ -1043,13 +1043,20 @@ function UpdateCalendar({myUpdates,onView}){
   </div>;
 }
 
-function UpdateViewModal({notif,onClose,onRead}){
+function UpdateViewModal({notif,onClose,onRead,teamMembers=[]}){
   const u=notif.updateData||notif;
   const weekLabel=notif.weekKey?fmtWeekLabel(notif.weekKey):"";
   const answers=u.answers||u.updateData?.answers||{};
   const moodVal=answers.q7||"";
-  // Show questions in DEFAULT_QUESTIONS order, skip q7 (shown in title), include q6 if present
-  const visibleQs=DEFAULT_QUESTIONS.filter(q=>q.id!=="q7"&&answers[q.id]);
+  // Show questions in DEFAULT_QUESTIONS order, skip q7 (shown in title)
+  // q6 visible only if own update or viewer is the manager
+  const isOwn=notif.isOwn!==false;
+  const viewerEmail=notif.teamMember?.email;
+  const authorEmail=notif.fromEmail;
+  const isManager=notif.teamMember&&teamMembers&&teamMembers.find&&
+    teamMembers.find(m=>m.email===authorEmail)?.manager===viewerEmail;
+  const canSeeQ6=isOwn||isManager;
+  const visibleQs=DEFAULT_QUESTIONS.filter(q=>q.id!=="q7"&&answers[q.id]&&(q.id!=="q6"||canSeeQ6));
   return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
     <div style={{background:"#fff",borderRadius:12,padding:28,width:"90%",maxWidth:580,maxHeight:"85vh",overflowY:"auto"}}>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
@@ -1083,10 +1090,101 @@ function UpdateViewModal({notif,onClose,onRead}){
 const MOODS=["😩","😕","😐","🙂","😊"];
 const PRESENCES=["Au boulot au moins deux jours","En congés","À l'école"];
 
-function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates}){
+function TeamUpdatesSection({allUpdates, teamMembers=[], teamMember, onSelectWeek}) {
+  const WEEKS = 13;
+  const now = new Date();
+
+  // Build 13-week keys
+  const weekKeys = Array.from({length:WEEKS},(_,i)=>{
+    const d=new Date(now); d.setDate(now.getDate()-(WEEKS-1-i)*7);
+    return getWeekKey(d);
+  });
+
+  // Sort teammates: self first, then direct reports, then others
+  const myEmail = teamMember?.email;
+  const teammates = teamMembers.filter(m=>m.role!=="inactive"&&m.email&&m.email!==myEmail);
+  const myReports = teammates.filter(m=>m.manager===myEmail);
+  const others = teammates.filter(m=>m.manager!==myEmail);
+  const ordered = [...myReports, ...others];
+
+  // Build update lookup: email+weekKey → update
+  const lookup = {};
+  allUpdates.forEach(u=>{ lookup[`${u.email}_${u.weekKey}`]=u; });
+
+  function getDotColor(update, weekKey) {
+    if (!update) return '#e2ddd6'; // grey = not done
+    const sub = new Date(update.submittedAt);
+    const {fri} = getWeekBounds(weekKey);
+    const fridayEvening = new Date(fri); fridayEvening.setHours(15,0,0,0);
+    if (sub <= fridayEvening) return '#2d6a4f'; // green = on time
+    return '#f59e0b'; // orange = late (submitted after friday 15h)
+  }
+
+  return (
+    <div style={{marginTop:16,background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"16px 20px"}}>
+      <div style={{fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",marginBottom:14}}>
+        Updates de l'équipe — 13 dernières semaines
+      </div>
+      {/* Header: week labels */}
+      <div style={{display:"flex",alignItems:"center",gap:0,marginBottom:8}}>
+        <div style={{width:120,flexShrink:0}}/>
+        {weekKeys.map((wk,i)=>{
+          const {mon}=getWeekBounds(wk);
+          const isLast=i===WEEKS-1;
+          return <div key={wk} style={{flex:1,textAlign:"center",fontSize:isLast?9:8,
+            color:isLast?"#2d6a4f":"#c5c0b8",fontWeight:isLast?600:400}}>
+            {mon.getDate()}/{mon.getMonth()+1}
+          </div>;
+        })}
+      </div>
+      {/* Each teammate row */}
+      {ordered.map((m,rowIdx)=>{
+        const isReport=m.manager===myEmail;
+        return (
+          <div key={m.email} style={{display:"flex",alignItems:"center",gap:0,
+            padding:"5px 0",borderTop:rowIdx===myReports.length&&rowIdx>0?"2px dashed #e2ddd6":
+            rowIdx>0?"1px solid #f5f3ef":"none"}}>
+            {/* Name */}
+            <div style={{width:120,flexShrink:0,display:"flex",alignItems:"center",gap:6}}>
+              <span style={{fontSize:11,fontWeight:isReport?600:400,color:isReport?"#1a1814":"#6b6560",
+                overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.prenom}</span>
+              {isReport&&<span style={{fontSize:9,color:"#9e9890"}}>↳</span>}
+            </div>
+            {/* Dots */}
+            {weekKeys.map((wk,i)=>{
+              const update=lookup[`${m.email}_${wk}`];
+              const col=getDotColor(update,wk);
+              const isLast=i===WEEKS-1;
+              return <div key={wk} style={{flex:1,display:"flex",justifyContent:"center",alignItems:"center"}}>
+                <div onClick={update?()=>onSelectWeek(wk,update,m.prenom,false):undefined}
+                  style={{width:isLast?14:10,height:isLast?14:10,borderRadius:"50%",
+                    background:col,cursor:update?"pointer":"default",
+                    boxShadow:isLast?"0 0 0 2px #fff, 0 0 0 3px "+col:"none",
+                    transition:"transform .1s"}}
+                  onMouseEnter={e=>{if(update)e.currentTarget.style.transform="scale(1.3)";}}
+                  onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}
+                  title={update?`${m.prenom} — ${fmtWeekLabel(wk)}`:`Pas d'update`}
+                />
+              </div>;
+            })}
+          </div>
+        );
+      })}
+      {/* Legend */}
+      <div style={{display:"flex",gap:16,marginTop:12,fontSize:11,color:"#9e9890"}}>
+        <span><span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#2d6a4f",marginRight:4}}/> Dans les temps</span>
+        <span><span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#f59e0b",marginRight:4}}/> En retard</span>
+        <span><span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#e2ddd6",marginRight:4}}/> Non complété</span>
+      </div>
+    </div>
+  );
+}
+
+function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,allUpdates=[],teamMembers=[]}){
   const weekKey=getUpdateWeekKey();
   const existing=weekKey?myUpdates.find(u=>u.weekKey===weekKey):null;
   const [answers,setAnswers]=useState(existing?.answers||{});
+  const [showTeam,setShowTeam]=useState(false);
   // Show as submitted only if existing update exists (regardless of lock)
   // User can still submit even after 15h if they haven't submitted yet
   const [submitted,setSubmitted]=useState(!!existing);
@@ -1123,7 +1221,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates}){
 
   return <div style={{minHeight:"100vh",background:"#f5f3ef",fontFamily:"system-ui,sans-serif"}}>
     <TopBar onBack={onBack} title="Mes Updates" left={<span style={{fontSize:16,fontWeight:700,color:"#2d6a4f",cursor:"pointer"}} onClick={onBack}>🌼 Calendula</span>}/>
-    <div style={{maxWidth:680,margin:"0 auto",padding:"24px 16px 60px"}}>
+    <div style={{maxWidth:1000,margin:"0 auto",padding:"24px 16px 60px"}}>
 
       {/* 26-week dots */}
       <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"16px 20px",marginBottom:20,boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
@@ -1135,6 +1233,18 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates}){
           <span><span style={{display:"inline-block",width:10,height:10,borderRadius:"50%",background:"#fca5a5",marginRight:4,verticalAlign:"middle"}}/>Non fait</span>
         </div>
       </div>
+
+      {/* Team updates toggle button */}
+      <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
+        <button onClick={()=>setShowTeam(p=>!p)}
+          style={{fontSize:12,fontWeight:500,padding:"6px 16px",borderRadius:8,cursor:"pointer",
+            background:showTeam?"#2d6a4f":"#fff",color:showTeam?"#fff":"#6b6560",
+            border:`1px solid ${showTeam?"#2d6a4f":"#e2ddd6"}`,transition:"all .15s",
+            display:"flex",alignItems:"center",gap:6}}>
+          {showTeam?"✕ Masquer l'équipe":"👥 Voir les updates de l'équipe"}
+        </button>
+      </div>
+
 
       <div style={{fontSize:13,color:"#6b6560",marginBottom:16}}>Semaine du {weekLabel}</div>
 
@@ -1206,7 +1316,10 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates}){
         })()}
       </>}
     </div>
-    {selectedWeek&&<UpdateViewModal notif={{updateData:selectedWeek.update,fromPrenom:teamMember?.prenom,weekKey:selectedWeek.wk,isOwn:true}} onClose={()=>setSelectedWeek(null)} onRead={()=>setSelectedWeek(null)}/>}
+    {selectedWeek&&<UpdateViewModal notif={{updateData:selectedWeek.update,fromPrenom:selectedWeek.prenom||teamMember?.prenom,weekKey:selectedWeek.wk,isOwn:selectedWeek.isOwn,teamMember:teamMember}} onClose={()=>setSelectedWeek(null)} onRead={()=>setSelectedWeek(null)}/>}
+
+  {/* Team updates toggle */}
+  {showTeam&&<TeamUpdatesSection allUpdates={allUpdates} teamMembers={teamMembers} teamMember={teamMember} onSelectWeek={(wk,update,prenom,isOwn)=>setSelectedWeek({wk,update,prenom,isOwn})}/>}
   </div>;
 }
 
@@ -3012,7 +3125,7 @@ export default function App(){
   }
 
   if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers}/>;
-  if(page==="update")return <UpdatePage teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} myUpdates={myUpdates}/>;
+  if(page==="update")return <UpdatePage teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers}/>;
   if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels}/>;
   if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels}/>;
   if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels}/>;
