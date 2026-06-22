@@ -778,13 +778,12 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
 
         // Build last week full list: done members + absent members
         const doneLastWkEmails=new Set(teamLastWk.map(u=>u.email));
-        const FORCE_MAT_EMAILS=['claire@oeforgood.com'];
-        const absentLastWk=activeTeam.filter(m=>(!doneLastWkEmails.has(m.email))||m.forceAbsent||m.forceMat||FORCE_MAT_EMAILS.includes(m.email));
+        const absentLastWk=activeTeam.filter(m=>(!doneLastWkEmails.has(m.email))||m.forceAbsent||m.forceMat);
         const doneCurWkEmails=new Set(teamCurWk.map(u=>u.email));
-        const absentCurWk=activeTeam.filter(m=>(!doneCurWkEmails.has(m.email))||m.forceAbsent||m.forceMat||FORCE_MAT_EMAILS.includes(m.email));
+        const absentCurWk=activeTeam.filter(m=>(!doneCurWkEmails.has(m.email))||m.forceAbsent||m.forceMat);
         // Remove forceMat/forceAbsent from done lists
-        const teamLastWkFiltered=teamLastWk.filter(u=>!activeTeam.find(m=>m.email===u.email&&(m.forceMat||m.forceAbsent))&&!FORCE_MAT_EMAILS.includes(u.email));
-        const teamCurWkFiltered=teamCurWk.filter(u=>!activeTeam.find(m=>m.email===u.email&&(m.forceMat||m.forceAbsent))&&!FORCE_MAT_EMAILS.includes(u.email));
+        const teamLastWkFiltered=teamLastWk.filter(u=>!activeTeam.find(m=>m.email===u.email&&(m.forceMat||m.forceAbsent)));
+        const teamCurWkFiltered=teamCurWk.filter(u=>!activeTeam.find(m=>m.email===u.email&&(m.forceMat||m.forceAbsent)));
 
         const teamMoodScores=teamLastWk.filter(u=>u.answers?.q7).map(u=>MOOD_SCORE[u.answers.q7]||3);
         const teamMoodAvg=teamMoodScores.length?teamMoodScores.reduce((a,b)=>a+b,0)/teamMoodScores.length:null;
@@ -825,7 +824,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
       a.email===email && checkDate>=new Date(a.dateFrom) && checkDate<=new Date(a.dateTo+'T23:59:59')
     );
     if (declaredAbs) return declaredAbs.type;
-    if (member?.forceMat || email === 'claire@oeforgood.com') return '🤰';
+    if (member?.forceMat) return '🤰';
     if (member?.forceAbsent) {
       const mo = checkDate.getMonth() + 1;
       return ((mo >= 12 && checkDate.getDate() >= 15) || mo <= 4) ? '🎿' : '🌴';
@@ -847,13 +846,13 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
           const absentEmails=new Set(absent.map(m=>m.email));
           const realAbsents=absent.filter(m=>{
             const icon=getAbsenceIcon(m.email,m.prenom);
-            return icon==='🤰'||icon==='🎓'||icon==='🌴'||icon==='🎿';
+            return icon!=='🫥';
           });
           const realAbsentEmails=new Set(realAbsents.map(m=>m.email));
           // Sort: 🤰 first, then others
           const absentSorted=[...realAbsents].sort((a,b)=>{
-            const aFirst=(a.forceMat||a.email==='claire@oeforgood.com')?0:1;
-            const bFirst=(b.forceMat||b.email==='claire@oeforgood.com')?0:1;
+            const aFirst=(a.forceMat)?0:1;
+            const bFirst=(b.forceMat)?0:1;
             return aFirst-bFirst;
           });
           const absentItems=absentSorted.map(m=>({key:'a'+m.email,emoji:getAbsenceIcon(m.email,m.prenom),name:m.prenom,isAbsent:true}));
@@ -1274,23 +1273,14 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
                 {weeks.map((w,i)=>{
                   const update=lookup[`${m.email}_${w.wk}`];
                   // Determine emoji to show
-                  let emoji=null;
-                  if(FORCE_MAT_EMAILS.includes(m.email)){emoji='🤰';}
-                  else if(m.forceMat){emoji='🤰';}
-                  else if(m.forceAbsent){const mo=w.mon.getMonth()+1;emoji=((mo>=12&&w.mon.getDate()>=15)||mo<=4)?'🎿':'🌴';}
-                  else if(update){
-                    const q8prev=(()=>{
-                      const prevD=new Date(w.mon);prevD.setDate(w.mon.getDate()-7);
-                      const prevWk=getWeekKey(prevD);
-                      const prevU=allUpdates.find(u=>u.email===m.email&&u.weekKey===prevWk);
-                      return prevU?.answers?.q8||'';
-                    })();
-                    if(q8prev.includes('école')||q8prev.includes('École'))emoji='🎓';
-                    else if(q8prev.includes('congés'))emoji=((new Date().getMonth()+1>=12)||(new Date().getMonth()+1<=4))?'🎿':'🌴';
-                    else emoji=update.answers?.q7||'😐';
-                  } else {
-                    emoji='🫥';
-                  }
+                   // Check declared absences for this specific week
+                   const declaredAbsW=(window._absences||[]).find(a=>
+                     a.email===m.email&&w.mon>=new Date(a.dateFrom)&&w.mon<=new Date(a.dateTo+'T23:59:59')
+                   );
+                   let emoji=null;
+                   if(declaredAbsW){emoji=declaredAbsW.type;}
+                   else if(update){emoji=update.answers?.q7||'😐';}
+                   else{emoji='🫥';}
                   const isLast=i===weeks.length-1;
                   return <div key={i} onClick={update?()=>setSelectedWeek({wk:w.wk,update,prenom:m.prenom,isOwn:false}):undefined}
                     style={{width:22,height:22,flexShrink:0,display:"flex",alignItems:"center",
@@ -2444,7 +2434,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
     <TopBar onBack={onBack} title="⚙️ Paramètres"/>
     <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
       <div style={{display:"flex",gap:10,marginBottom:20}}>
-        {([{k:"members",l:"👥 Membres & rôles"},...(currentUser?.email===OWNER_EMAIL?[{k:"questions",l:"❓ Questions Update"},{k:"history",l:"📋 Historique Updates"},{k:"feedback",l:"💡 Feedback"},{k:"absences",l:"🌴 Absences"},{k:"reporting_params",l:"⚙️ Reporting"}]:[])]).map(t=><button key={t.k} onClick={()=>setTab(t.k)}
+        {([{k:"members",l:"👥 Membres & rôles"},...(currentUser?.email===OWNER_EMAIL?[{k:"questions",l:"❓ Questions Update"},{k:"history",l:"📋 Historique Updates"},{k:"feedback",l:"💡 Feedback"},{k:"reporting_params",l:"⚙️ Reporting"}]:[])]).map(t=><button key={t.k} onClick={()=>setTab(t.k)}
           style={{padding:"8px 16px",borderRadius:8,border:`1px solid ${tab===t.k?"#2d6a4f":"#e2ddd6"}`,background:tab===t.k?"#2d6a4f":"#fff",color:tab===t.k?"#fff":"#6b6560",cursor:"pointer",fontSize:13,fontWeight:500}}>
           {t.l}
         </button>)}
@@ -2465,7 +2455,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
         <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",overflow:"hidden"}}>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
             <thead><tr style={{background:"#f5f3ef"}}>
-              {["Prénom","Email","Manager","Rôle","🌴 Absent","🤰 Mat.",""].map(h=><th key={h} style={{fontSize:11,fontWeight:600,color:"#9e9890",textTransform:"uppercase",letterSpacing:".05em",padding:"10px 14px",textAlign:"left",borderBottom:"1px solid #e2ddd6"}}>{h}</th>)}
+              {["Prénom","Email","Manager","Rôle",""].map(h=><th key={h} style={{fontSize:11,fontWeight:600,color:"#9e9890",textTransform:"uppercase",letterSpacing:".05em",padding:"10px 14px",textAlign:"left",borderBottom:"1px solid #e2ddd6"}}>{h}</th>)}
             </tr></thead>
             <tbody>
               {members.map(m=><tr key={m.email} style={{borderBottom:"1px solid #f0ede8"}}>
@@ -2484,20 +2474,18 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
                       <option value="admin">Admin</option><option value="teammate">Teammate actif</option><option value="inactive">Teammate inactif</option>
                     </select>}
                 </td>
-                <td style={{padding:"10px 14px",textAlign:"center"}}>
-                  <input type="checkbox" checked={!!m.forceAbsent} onChange={()=>toggleForce(m.email,'forceAbsent')}
-                    style={{width:16,height:16,cursor:"pointer",accentColor:"#2d6a4f"}}/>
-                </td>
-                <td style={{padding:"10px 14px",textAlign:"center"}}>
-                  <input type="checkbox" checked={!!m.forceMat} onChange={()=>toggleForce(m.email,'forceMat')}
-                    style={{width:16,height:16,cursor:"pointer",accentColor:"#c0392b"}}/>
-                </td>
                 <td style={{padding:"10px 14px"}}>
                   {m.email!==OWNER_EMAIL&&<button onClick={()=>removeMember(m.email)} style={{fontSize:12,color:"#c0392b",background:"#fdecea",border:"1px solid #fca5a5",borderRadius:6,padding:"4px 10px",cursor:"pointer"}}>Retirer</button>}
                 </td>
               </tr>)}
             </tbody>
           </table>
+        </div>
+
+        {/* Declared absences section */}
+        <div style={{marginTop:28}}>
+          <div style={{width:"100%",height:1,background:"#e2ddd6",marginBottom:20}}/>
+          <AbsencesTab teamMembers={members}/>
         </div>
       </>}
 
@@ -2532,7 +2520,6 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
 
       {tab==="history"&&<UpdatesHistoryTab/>}
       {tab==="feedback"&&<FeedbackAdminTab/>}
-      {tab==="absences"&&<AbsencesTab teamMembers={members} onSave={save}/>}
       {tab==="reporting_params"&&<ReportingParamsTab
           codeMap={codeMap} onSaveCodeMap={onSaveCodeMap}
           customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={onSaveCustomSubcatLabels}
