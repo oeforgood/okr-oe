@@ -1209,7 +1209,10 @@ function TeamUpdatesSection({allUpdates, teamMembers=[], teamMember, onSelectWee
 }
 
 function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,allUpdates=[],teamMembers=[]}){
-  const weekKey=getUpdateWeekKey();
+  const _rawWeekKey=getUpdateWeekKey();
+  // On Tuesday weekKey is null - use last week for display purposes (read-only)
+  const weekKey=_rawWeekKey||(()=>{const d=new Date();d.setDate(d.getDate()-8);return getWeekKey(d);})();
+  const isTuesdayReadOnly=!_rawWeekKey;
   const existing=weekKey?myUpdates.find(u=>u.weekKey===weekKey):null;
   const [answers,setAnswers]=useState(existing?.answers||{});
   const [showTeam,setShowTeam]=useState(false);
@@ -1218,15 +1221,6 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
   const [submitted,setSubmitted]=useState(!!existing);
   const [viewUpdate,setViewUpdate]=useState(null);
   const [selectedWeek,setSelectedWeek]=useState(null);
-
-  if(!weekKey)return <div style={{minHeight:"100vh",background:"#f5f3ef",display:"flex",flexDirection:"column"}}>
-    <TopBar onBack={onBack} title="Mes Updates"/>
-    <div style={{display:"flex",flex:1,alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12}}>
-      <div style={{fontSize:48}}>🚫</div>
-      <div style={{fontSize:16,fontWeight:600,color:"#1a1814"}}>Pas d'update le mardi</div>
-      <div style={{fontSize:13,color:"#9e9890"}}>L'update se complète le lundi (semaine passée) ou du mercredi au vendredi (semaine en cours).</div>
-    </div>
-  </div>;
 
 
 
@@ -1249,6 +1243,9 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
 
   return <div style={{minHeight:"100vh",background:"#f5f3ef",fontFamily:"system-ui,sans-serif"}}>
     <TopBar onBack={onBack} title="Mes Updates" left={<span style={{fontSize:16,fontWeight:700,color:"#2d6a4f",cursor:"pointer"}} onClick={onBack}>🌼 Calendula</span>}/>
+    {isTuesdayReadOnly&&<div style={{background:"#fef3c7",borderBottom:"1px solid #f59e0b",padding:"8px 20px",fontSize:12,color:"#92400e",textAlign:"center"}}>
+      📅 Mardi : pas de saisie d'update aujourd'hui — consultation uniquement.
+    </div>}
     <div style={{maxWidth:1000,margin:"0 auto",padding:"24px 16px 60px"}}>
 
       {/* 26-week dots - integrated team view */}
@@ -1285,15 +1282,15 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
           return ordered.map((m,rowIdx)=>{
             const isReport=m.manager===myEmail;
             const sep=rowIdx===reports.length&&reports.length>0;
-            return <div key={m.email} style={{display:"flex",alignItems:"center",gap:0,
-              marginTop:sep?8:4,paddingTop:sep?8:0,
-              borderTop:sep?"1px dashed #e2ddd6":"none"}}>
-              <div style={{width:90,flexShrink:0,fontSize:11,
-                fontWeight:isReport?600:400,color:isReport?"#1a1814":"#6b6560",
-                paddingRight:8,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                {m.prenom}
-              </div>
-              <div style={{display:"flex",gap:0,flexWrap:"nowrap",alignItems:"center"}}>
+             return <div key={m.email} style={{display:"flex",alignItems:"center",gap:0,
+               marginTop:sep?8:4,paddingTop:sep?8:0,
+               borderTop:sep?"2px dashed #2d6a4f":"none",
+               background:isReport?"#f8fffc":"transparent",borderRadius:isReport?6:0,padding:"2px 4px"}}>
+               <div style={{width:90,flexShrink:0,paddingRight:8,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                 {isReport
+                   ? <><span style={{fontSize:12,fontWeight:700,color:"#2d6a4f"}}>{m.prenom}</span><span style={{fontSize:9,color:"#9e9890",marginLeft:3}}>↳</span></>
+                   : <span style={{fontSize:11,color:"#6b6560"}}>{m.prenom}</span>}
+               </div>
                 {weeks.map((w,i)=>{
                   const update=lookup[`${m.email}_${w.wk}`];
                   // Determine emoji to show
