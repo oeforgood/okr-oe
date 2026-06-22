@@ -229,6 +229,8 @@ function LoginPage({onLogin,error}){
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
+
+function toDateStr(d){return d.toISOString().slice(0,10);}
 function get26Weeks(myUpdates){
   const now = new Date();
   const currentWk = getWeekKey(now);
@@ -821,7 +823,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
     const checkDate = refDate || new Date();
     // Check declared absences
     const declaredAbs = (window._absences||[]).find(a=>
-      a.email===email && checkDate>=new Date(a.dateFrom) && checkDate<=new Date(a.dateTo+'T23:59:59')
+      a.email===email && toDateStr(checkDate)>=a.dateFrom && toDateStr(checkDate)<=a.dateTo
     );
     if (declaredAbs) return declaredAbs.type;
     if (member?.forceMat) return '🤰';
@@ -1275,7 +1277,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
                   // Determine emoji to show
                    // Check declared absences for this specific week
                    const declaredAbsW=(window._absences||[]).find(a=>
-                     a.email===m.email&&w.mon>=new Date(a.dateFrom)&&w.mon<=new Date(a.dateTo+'T23:59:59')
+                     a.email===m.email&&toDateStr(w.mon)>=a.dateFrom&&toDateStr(w.mon)<=a.dateTo
                    );
                    let emoji=null;
                    if(declaredAbsW){emoji=declaredAbsW.type;}
@@ -2279,22 +2281,34 @@ function FeedbackAdminTab() {
   </div>;
 }
 
-function AbsencesTab({teamMembers=[], onSave}) {
-  const ABSENCE_TYPES = [
-    {emoji:'🌴', label:'Congés / Vacances'},
-    {emoji:'🎿', label:'Vacances hiver'},
-    {emoji:'🎓', label:'École / Formation'},
-    {emoji:'🤰', label:'Congé maternité'},
-  ];
-
+function AbsencesTab({teamMembers=[]}) {
   const [absences, setAbsences] = useState([]);
   const [loading, setLoading] = useState(true);
-  // New absence form
-  const [form, setForm] = useState({email:'', type:'🌴', dateFrom:'', dateTo:''});
+  const [form, setForm] = useState({email:'', type:'vacances', dateFrom:'', dateTo:''});
+
+  // Derive vacation emoji from end date: 🌴 if Apr 15 – Nov 30, 🎿 otherwise
+  function vacEmoji(dateTo) {
+    if (!dateTo) return '🌴';
+    const d = new Date(dateTo);
+    const mo = d.getMonth() + 1, day = d.getDate();
+    if ((mo > 4 || (mo === 4 && day >= 15)) && mo < 12) return '🌴';
+    if (mo <= 4 || mo === 12) return '🎿';
+    return '🌴';
+  }
+
+  function getEmoji() {
+    if (form.type === 'vacances') return vacEmoji(form.dateTo);
+    if (form.type === 'école') return '🎓';
+    if (form.type === 'maternité') return '🤰';
+    return '🌴';
+  }
+
+  const ABSENCE_LABELS = {vacances:'Congés / Vacances', école:'École / Formation', maternité:'Congé maternité'};
 
   useEffect(()=>{
     const unsub = onSnapshot(doc(db,'app_config','absences'),(snap)=>{
       if(snap.exists()) setAbsences(snap.data().list||[]);
+      else setAbsences([]);
       setLoading(false);
     });
     return()=>unsub();
@@ -2302,14 +2316,16 @@ function AbsencesTab({teamMembers=[], onSave}) {
 
   async function saveAbsences(list) {
     await setDoc(doc(db,'app_config','absences'),{list});
+    window._absences = list;
     setAbsences(list);
   }
 
   async function addAbsence() {
     if(!form.email||!form.dateFrom||!form.dateTo) return;
-    const entry = {id:Date.now().toString(), ...form};
+    const emoji = getEmoji();
+    const entry = {id:Date.now().toString(), email:form.email, type:emoji, label:ABSENCE_LABELS[form.type], dateFrom:form.dateFrom, dateTo:form.dateTo};
     await saveAbsences([...absences, entry]);
-    setForm({email:'', type:'🌴', dateFrom:'', dateTo:''});
+    setForm({email:'', type:'vacances', dateFrom:'', dateTo:''});
   }
 
   async function removeAbsence(id) {
@@ -2317,75 +2333,67 @@ function AbsencesTab({teamMembers=[], onSave}) {
   }
 
   const activeMembers = teamMembers.filter(m=>m.role!=='inactive'&&m.email);
-
-  const inputStyle = {
-    fontSize:12, border:'1px solid #e2ddd6', borderRadius:6,
-    padding:'6px 10px', fontFamily:'inherit', outline:'none', background:'#fff'
-  };
+  const inp = {fontSize:12,border:'1px solid #e2ddd6',borderRadius:6,padding:'6px 10px',fontFamily:'inherit',outline:'none',background:'#fff',width:'100%'};
+  const sorted = [...absences].sort((a,b)=>b.dateTo.localeCompare(a.dateTo));
+  const canAdd = form.email && form.dateFrom && form.dateTo;
 
   return <div>
-    <div style={{fontSize:13,fontWeight:600,color:'#1a1814',marginBottom:16}}>Gestion des absences</div>
-
-    {/* Add form */}
-    <div style={{background:'#f8f7f5',borderRadius:10,border:'1px solid #e2ddd6',padding:'16px',marginBottom:20}}>
-      <div style={{fontSize:12,fontWeight:600,color:'#6b6560',marginBottom:12,textTransform:'uppercase',letterSpacing:'.05em'}}>Déclarer une absence</div>
-      <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'flex-end'}}>
-        {/* Teammate */}
-        <div style={{display:'flex',flexDirection:'column',gap:4}}>
-          <label style={{fontSize:11,color:'#9e9890'}}>Teammate</label>
-          <select value={form.email} onChange={e=>setForm(p=>({...p,email:e.target.value}))} style={inputStyle}>
+    {/* New absence form at top */}
+    <div style={{background:'#f8f7f5',borderRadius:8,border:'1px solid #e2ddd6',padding:'14px',marginBottom:16}}>
+      <div style={{fontSize:11,fontWeight:600,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:10}}>Nouvelle absence</div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
+        <div style={{display:'flex',flexDirection:'column',gap:3}}>
+          <label style={{fontSize:10,color:'#9e9890'}}>Teammate</label>
+          <select value={form.email} onChange={e=>setForm(p=>({...p,email:e.target.value}))} style={inp}>
             <option value="">— Choisir —</option>
-            {activeMembers.map(m=><option key={m.email} value={m.email}>{m.prenom} ({m.email})</option>)}
+            {activeMembers.map(m=><option key={m.email} value={m.email}>{m.prenom}</option>)}
           </select>
         </div>
-        {/* Type */}
-        <div style={{display:'flex',flexDirection:'column',gap:4}}>
-          <label style={{fontSize:11,color:'#9e9890'}}>Type d'absence</label>
-          <select value={form.type} onChange={e=>setForm(p=>({...p,type:e.target.value}))} style={inputStyle}>
-            {ABSENCE_TYPES.map(t=><option key={t.emoji} value={t.emoji}>{t.emoji} {t.label}</option>)}
+        <div style={{display:'flex',flexDirection:'column',gap:3}}>
+          <label style={{fontSize:10,color:'#9e9890'}}>Type</label>
+          <select value={form.type} onChange={e=>setForm(p=>({...p,type:e.target.value}))} style={inp}>
+            <option value="vacances">🌴/🎿 Congés / Vacances</option>
+            <option value="école">🎓 École / Formation</option>
+            <option value="maternité">🤰 Congé maternité</option>
           </select>
         </div>
-        {/* Date from */}
-        <div style={{display:'flex',flexDirection:'column',gap:4}}>
-          <label style={{fontSize:11,color:'#9e9890'}}>Du</label>
-          <input type="date" value={form.dateFrom} onChange={e=>setForm(p=>({...p,dateFrom:e.target.value}))} style={inputStyle}/>
+        <div style={{display:'flex',flexDirection:'column',gap:3}}>
+          <label style={{fontSize:10,color:'#9e9890'}}>Du</label>
+          <input type="date" value={form.dateFrom} onChange={e=>setForm(p=>({...p,dateFrom:e.target.value}))} style={inp}/>
         </div>
-        {/* Date to */}
-        <div style={{display:'flex',flexDirection:'column',gap:4}}>
-          <label style={{fontSize:11,color:'#9e9890'}}>Au</label>
-          <input type="date" value={form.dateTo} onChange={e=>setForm(p=>({...p,dateTo:e.target.value}))} style={inputStyle}/>
+        <div style={{display:'flex',flexDirection:'column',gap:3}}>
+          <label style={{fontSize:10,color:'#9e9890'}}>Au</label>
+          <input type="date" value={form.dateTo} onChange={e=>setForm(p=>({...p,dateTo:e.target.value}))} style={inp}/>
         </div>
-        {/* Submit */}
-        <button onClick={addAbsence}
-          disabled={!form.email||!form.dateFrom||!form.dateTo}
-          style={{padding:'7px 18px',background:form.email&&form.dateFrom&&form.dateTo?'#2d6a4f':'#e2ddd6',
-            color:form.email&&form.dateFrom&&form.dateTo?'#fff':'#9e9890',
-            border:'none',borderRadius:7,cursor:form.email&&form.dateFrom&&form.dateTo?'pointer':'not-allowed',
-            fontSize:12,fontWeight:500,alignSelf:'flex-end'}}>
+      </div>
+      <div style={{display:'flex',alignItems:'center',gap:8}}>
+        {form.dateTo&&form.type==='vacances'&&<span style={{fontSize:18}}>{vacEmoji(form.dateTo)}</span>}
+        <button onClick={addAbsence} disabled={!canAdd}
+          style={{flex:1,padding:'7px',background:canAdd?'#2d6a4f':'#e2ddd6',color:canAdd?'#fff':'#9e9890',
+            border:'none',borderRadius:6,cursor:canAdd?'pointer':'not-allowed',fontSize:12,fontWeight:500}}>
           ✓ Valider
         </button>
       </div>
     </div>
 
-    {/* Absences list */}
-    {loading?<div style={{color:'#9e9890',fontSize:13}}>Chargement…</div>
-    :absences.length===0?<div style={{color:'#9e9890',fontSize:13}}>Aucune absence déclarée.</div>
-    :<div style={{display:'flex',flexDirection:'column',gap:6}}>
-      {[...absences].sort((a,b)=>a.dateFrom.localeCompare(b.dateFrom)).map(a=>{
-        const m=activeMembers.find(x=>x.email===a.email);
-        const type=ABSENCE_TYPES.find(t=>t.emoji===a.type);
-        return <div key={a.id} style={{display:'flex',alignItems:'center',gap:12,
-          background:'#fff',border:'1px solid #e2ddd6',borderRadius:8,padding:'10px 14px'}}>
-          <span style={{fontSize:20}}>{a.type}</span>
-          <div style={{flex:1}}>
-            <div style={{fontSize:12,fontWeight:600,color:'#1a1814'}}>{m?.prenom||a.email}</div>
-            <div style={{fontSize:11,color:'#9e9890'}}>{type?.label} · du {new Date(a.dateFrom).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})} au {new Date(a.dateTo).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}</div>
+    {/* List sorted by dateTo desc */}
+    {loading?<div style={{color:'#9e9890',fontSize:12}}>Chargement…</div>
+    :sorted.length===0?<div style={{color:'#c5c0b8',fontSize:12,fontStyle:'italic'}}>Aucune absence déclarée.</div>
+    :<div style={{display:'flex',flexDirection:'column',gap:5}}>
+      {sorted.map(a=>{
+        const mem=activeMembers.find(x=>x.email===a.email);
+        const dFrom=new Date(a.dateFrom).toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+        const dTo=new Date(a.dateTo).toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'});
+        return <div key={a.id} style={{display:'flex',alignItems:'center',gap:8,
+          background:'#fff',border:'1px solid #e2ddd6',borderRadius:7,padding:'8px 12px'}}>
+          <span style={{fontSize:18,flexShrink:0}}>{a.type}</span>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:12,fontWeight:600,color:'#1a1814'}}>{mem?.prenom||a.email}</div>
+            <div style={{fontSize:10,color:'#9e9890'}}>{a.label||''} · {dFrom} → {dTo}</div>
           </div>
           <button onClick={()=>removeAbsence(a.id)}
-            style={{fontSize:11,color:'#c0392b',background:'#fdecea',border:'1px solid #fca5a5',
-              borderRadius:5,padding:'3px 10px',cursor:'pointer'}}>
-            🗑️ Supprimer
-          </button>
+            style={{fontSize:10,color:'#c0392b',background:'none',border:'1px solid #fca5a5',
+              borderRadius:5,padding:'2px 8px',cursor:'pointer',flexShrink:0}}>🗑️</button>
         </div>;
       })}
     </div>}
@@ -2440,7 +2448,8 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
         </button>)}
       </div>
 
-      {tab==="members"&&<>
+      {tab==="members"&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,alignItems:"start"}}>
+        <div>{/* LEFT COL */}
         <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"18px 20px",marginBottom:16}}>
           <div style={{fontSize:13,fontWeight:600,marginBottom:14}}>Ajouter un membre</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr auto",gap:10,alignItems:"end"}}>
@@ -2482,12 +2491,16 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
           </table>
         </div>
 
-        {/* Declared absences section */}
-        <div style={{marginTop:28}}>
-          <div style={{width:"100%",height:1,background:"#e2ddd6",marginBottom:20}}/>
-          <AbsencesTab teamMembers={members}/>
+        </div>{/* end left col */}
+
+        {/* RIGHT COL: Absences */}
+        <div>
+          <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"16px 20px"}}>
+            <div style={{fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",marginBottom:14}}>🌴 Absences déclarées</div>
+            <AbsencesTab teamMembers={members}/>
+          </div>
         </div>
-      </>}
+      </div>}
 
       {tab==="questions"&&(
         <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"18px 20px"}}>
