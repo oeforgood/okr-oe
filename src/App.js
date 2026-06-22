@@ -1269,48 +1269,50 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
           <WeekDots myUpdates={myUpdates} clickable={true} onClickUpdate={w=>setSelectedWeek(w)} dotSize={14} gap={0} email={teamMember?.email}/>
         </div>
         {/* Team rows */}
-        {showTeam&&(()=>{
-          const myEmail=teamMember?.email;
-          const FORCE_MAT_EMAILS=['claire@oeforgood.com'];
-          const active=teamMembers.filter(m=>m.role!=="inactive"&&m.email&&m.email!==myEmail);
-          const reports=active.filter(m=>m.manager===myEmail);
-          const others=active.filter(m=>m.manager!==myEmail);
-          const ordered=[...reports,...others];
-          const weeks=get26Weeks([]);
-          const lookup={};
-          allUpdates.forEach(u=>{lookup[`${u.email}_${u.weekKey}`]=u;});
-          return ordered.map((m,rowIdx)=>{
-            const isReport=m.manager===myEmail;
-            const sep=rowIdx===reports.length&&reports.length>0;
-             return <div key={m.email} style={{display:"flex",alignItems:"center",gap:0,
-               marginTop:sep?8:4,paddingTop:sep?8:0,
-               borderTop:sep?"2px dashed #2d6a4f":"none",
-               background:isReport?"#f8fffc":"transparent",borderRadius:isReport?6:0,padding:"2px 4px"}}>
-               <div style={{width:90,flexShrink:0,paddingRight:8,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                 {isReport
-                   ? <><span style={{fontSize:12,fontWeight:700,color:"#2d6a4f"}}>{m.prenom}</span><span style={{fontSize:9,color:"#9e9890",marginLeft:3}}>↳</span></>
-                   : <span style={{fontSize:11,color:"#6b6560"}}>{m.prenom}</span>}
-               </div>
-               <div style={{display:"flex",gap:0,flexWrap:"nowrap",alignItems:"center"}}>
-                 {weeks.map((w,wi)=>{
-                   const update=lookup[`${m.email}_${w.wk}`];
-                   const declaredAbsW=(window._absences||[]).find(a=>
-                     a.email===m.email&&toDateStr(w.mon)>=a.dateFrom&&toDateStr(w.mon)<=a.dateTo
-                   );
-                   let emoji=null;
-                   if(declaredAbsW){emoji=declaredAbsW.type;}
-                   else if(update){emoji=update.answers?.q7||'😐';}
-                   else{emoji='🫥';}
-                   return <div key={wi} onClick={update?()=>setSelectedWeek({wk:w.wk,update,prenom:m.prenom,isOwn:false,authorEmail:m.email}):undefined}
-                     style={{width:22,height:22,flexShrink:0,display:"flex",alignItems:"center",
-                       justifyContent:"center",cursor:update?"pointer":"default",fontSize:15,lineHeight:1,
-                       opacity:(!update&&emoji==='🫥')?0.35:1}}>
-                     {emoji}
-                   </div>;
-                 })}
-               </div>
-             </div>
-        })()}
+        {showTeam&&<>
+          {(()=>{
+            const myEmail=teamMember?.email;
+            const active=teamMembers.filter(m=>m.role!=="inactive"&&m.email&&m.email!==myEmail);
+            const reports=active.filter(m=>m.manager===myEmail);
+            const others=active.filter(m=>m.manager!==myEmail);
+            const ordered=[...reports,...others];
+            const weeks=get26Weeks([]);
+            const lookup={};
+            allUpdates.forEach(u=>{lookup[`${u.email}_${u.weekKey}`]=u;});
+            return ordered.map((m,rowIdx)=>{
+              const isReport=m.manager===myEmail;
+              const sep=rowIdx===reports.length&&reports.length>0;
+              return <div key={m.email} style={{display:"flex",alignItems:"center",gap:0,
+                marginTop:sep?8:4,paddingTop:sep?8:0,
+                borderTop:sep?"2px dashed #2d6a4f":"none",
+                background:isReport?"#f8fffc":"transparent",borderRadius:isReport?6:0,padding:"2px 4px"}}>
+                <div style={{width:90,flexShrink:0,paddingRight:8,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                  {isReport
+                    ?<><span style={{fontSize:12,fontWeight:700,color:"#2d6a4f"}}>{m.prenom}</span><span style={{fontSize:9,color:"#9e9890",marginLeft:3}}>↳</span></>
+                    :<span style={{fontSize:11,color:"#6b6560"}}>{m.prenom}</span>}
+                </div>
+                <div style={{display:"flex",gap:0,flexWrap:"nowrap",alignItems:"center"}}>
+                  {weeks.map((w,wi)=>{
+                    const update=lookup[`${m.email}_${w.wk}`];
+                    const declaredAbsW=(window._absences||[]).find(a=>
+                      a.email===m.email&&toDateStr(w.mon)>=a.dateFrom&&toDateStr(w.mon)<=a.dateTo
+                    );
+                    let emoji=null;
+                    if(declaredAbsW){emoji=declaredAbsW.type;}
+                    else if(update){emoji=update.answers?.q7||'😐';}
+                    else{emoji='🫥';}
+                    return <div key={wi} onClick={update?()=>setSelectedWeek({wk:w.wk,update,prenom:m.prenom,isOwn:false,authorEmail:m.email}):undefined}
+                      style={{width:22,height:22,flexShrink:0,display:"flex",alignItems:"center",
+                        justifyContent:"center",cursor:update?"pointer":"default",fontSize:15,lineHeight:1,
+                        opacity:(!update&&emoji==='🫥')?0.35:1}}>
+                      {emoji}
+                    </div>;
+                  })}
+                </div>
+              </div>;
+            });
+          })()}
+        </>}
         {/* Legend */}
         <div style={{display:"flex",gap:16,marginTop:10,fontSize:11,color:"#9e9890"}}>
           <span><span style={{display:"inline-block",width:10,height:10,borderRadius:"50%",background:"#2d6a4f",marginRight:4,verticalAlign:"middle"}}/>Fait en semaine</span>
