@@ -1309,7 +1309,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
                    </div>;
                  })}
                </div>
-             </div>;
+             </div>
         })()}
         {/* Legend */}
         <div style={{display:"flex",gap:16,marginTop:10,fontSize:11,color:"#9e9890"}}>
