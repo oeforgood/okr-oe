@@ -127,21 +127,26 @@ function getWeekBounds(weekKey){
   return{mon,fri};
 }
 function getUpdateWeekKey(){
-  // Mon = previous week, Tue = blocked, Wed-Sun = current week
+  // Always returns WN-1 (the week being filled in)
+  // Tue WN = blocked (return null)
+  // Wed WN-1 to Mon WN = WN-1
   const now=new Date();
-  const dow=now.getDay();
-  if(dow===2)return null; // Tuesday blocked
-  if(dow===1){
-    const prev=new Date(now);prev.setDate(now.getDate()-7);
-    return getWeekKey(prev);
-  }
-  return getWeekKey(now);
+  const dow=now.getDay(); // 0=Sun,1=Mon,2=Tue,3=Wed,4=Thu,5=Fri,6=Sat
+  if(dow===2)return null; // Tuesday: blocked
+  // Always return last week's key (WN-1)
+  const prev=new Date(now);
+  // Go back to previous Monday
+  const daysToLastMon = dow===1 ? 7 : (dow===0 ? 6 : dow-1+7);
+  prev.setDate(now.getDate()-daysToLastMon);
+  return getWeekKey(prev);
 }
-function isUpdateLocked(){
-  // Locked (non modifiable) if already submitted: Friday after 15h
+function isUpdateLocked(submitted){
+  // Locked if submitted AND past Friday 15h (Fri>=15h, Sat, Sun, Mon)
+  if(!submitted)return false;
   const now=new Date();
   const dow=now.getDay();
-  if(dow===5&&now.getHours()>=15)return true;
+  if(dow===5&&now.getHours()>=15)return true; // Fri after 15h
+  if(dow===6||dow===0||dow===1)return true;   // Sat, Sun, Mon
   return false;
 }
 function isUpdateDeadlinePassed(){
@@ -412,7 +417,7 @@ function NotifDetail({notif, teamMember, teamMembers=[]}) {
   const viewerEmail=teamMember?.email;
   const authorEmail=notif?.fromEmail||notif?.email;
   const isManager=!!(viewerEmail&&authorEmail&&
-    teamMembers.find(m=>m.email===authorEmail&&m.manager===viewerEmail));
+    teamMembers.find(m=>m.email===authorEmail&&m.managerEmail===viewerEmail));
   const visibleQs=DEFAULT_QUESTIONS.filter(q=>answers[q.id]&&(q.id!=='q6'||isManager));
   return <div>
     {moodVal&&<div style={{fontSize:28,marginBottom:12}}>{moodVal}</div>}
@@ -1082,7 +1087,7 @@ function UpdateViewModal({notif,onClose,onRead,teamMembers=[]}){
   const authorEmail=notif.authorEmail||notif.fromEmail||notif.email;
   // viewer is manager if the author's manager field = viewerEmail
   const isManager=!!(viewerEmail&&authorEmail&&teamMembers&&
-    teamMembers.find(m=>m.email===authorEmail&&m.manager===viewerEmail));
+    teamMembers.find(m=>m.email===authorEmail&&m.managerEmail===viewerEmail));
   const canSeeQ6=isOwn||isManager;
   const visibleQs=DEFAULT_QUESTIONS.filter(q=>q.id!=="q7"&&answers[q.id]&&(q.id!=="q6"||canSeeQ6));
   return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
@@ -1131,8 +1136,8 @@ function TeamUpdatesSection({allUpdates, teamMembers=[], teamMember, onSelectWee
   // Sort teammates: self first, then direct reports, then others
   const myEmail = teamMember?.email;
   const teammates = teamMembers.filter(m=>m.role!=="inactive"&&m.email&&m.email!==myEmail);
-  const myReports = teammates.filter(m=>m.manager===myEmail);
-  const others = teammates.filter(m=>m.manager!==myEmail);
+  const myReports = teammates.filter(m=>m.managerEmail===myEmail);
+  const others = teammates.filter(m=>m.managerEmail!==myEmail);
   const ordered = [...myReports, ...others];
 
   // Build update lookup: email+weekKey → update
@@ -1167,7 +1172,7 @@ function TeamUpdatesSection({allUpdates, teamMembers=[], teamMember, onSelectWee
       </div>
       {/* Each teammate row */}
       {ordered.map((m,rowIdx)=>{
-        const isReport=m.manager===myEmail;
+        const isReport=m.managerEmail===myEmail;
         return (
           <div key={m.email} style={{display:"flex",alignItems:"center",gap:0,
             padding:"5px 0",borderTop:rowIdx===myReports.length&&rowIdx>0?"2px dashed #e2ddd6":
@@ -1273,14 +1278,14 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
           {(()=>{
             const myEmail=teamMember?.email;
             const active=teamMembers.filter(m=>m.role!=="inactive"&&m.email&&m.email!==myEmail);
-            const reports=active.filter(m=>m.manager===myEmail);
-            const others=active.filter(m=>m.manager!==myEmail);
+            const reports=active.filter(m=>m.managerEmail===myEmail);
+            const others=active.filter(m=>m.managerEmail!==myEmail);
             const ordered=[...reports,...others];
             const weeks=get26Weeks([]);
             const lookup={};
             allUpdates.forEach(u=>{lookup[`${u.email}_${u.weekKey}`]=u;});
             return ordered.map((m,rowIdx)=>{
-              const isReport=m.manager===myEmail;
+              const isReport=m.managerEmail===myEmail;
               const sep=rowIdx===reports.length&&reports.length>0;
               return <div key={m.email} style={{display:"flex",alignItems:"center",gap:0,
                 marginTop:sep?8:4,paddingTop:sep?8:0,
