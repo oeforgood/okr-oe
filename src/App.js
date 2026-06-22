@@ -798,15 +798,15 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
 
         // Build last week full list: done members + absent members
         const doneLastWkEmails=new Set(teamLastWk.map(u=>u.email));
-        const lastWkMon=lastWkDate;
-        const curWkMon=new Date(now);curWkMon.setDate(now.getDate()-now.getDay()+1);
+        const lastWkMon=_7daysAgo;
+        const curWkMonRef=_thisMon;
         const isAbsentDeclared=(email,refDate)=>(window._absences||[]).some(a=>a.email===email&&toDateStr(refDate)>=a.dateFrom&&toDateStr(refDate)<=a.dateTo);
         const absentLastWk=activeTeam.filter(m=>(!doneLastWkEmails.has(m.email))||m.forceAbsent||m.forceMat||isAbsentDeclared(m.email,lastWkMon));
         const doneCurWkEmails=new Set(teamCurWk.map(u=>u.email));
-        const absentCurWk=activeTeam.filter(m=>(!doneCurWkEmails.has(m.email))||m.forceAbsent||m.forceMat||isAbsentDeclared(m.email,curWkMon));
+        const absentCurWk=activeTeam.filter(m=>(!doneCurWkEmails.has(m.email))||m.forceAbsent||m.forceMat||isAbsentDeclared(m.email,curWkMonRef));
         // Remove forceMat/forceAbsent from done lists
         const teamLastWkFiltered=teamLastWk.filter(u=>!activeTeam.find(m=>m.email===u.email&&(m.forceMat||m.forceAbsent))&&!isAbsentDeclared(u.email,lastWkMon));
-        const teamCurWkFiltered=teamCurWk.filter(u=>!activeTeam.find(m=>m.email===u.email&&(m.forceMat||m.forceAbsent))&&!isAbsentDeclared(u.email,curWkMon));
+        const teamCurWkFiltered=teamCurWk.filter(u=>!activeTeam.find(m=>m.email===u.email&&(m.forceMat||m.forceAbsent))&&!isAbsentDeclared(u.email,curWkMonRef));
 
         const teamMoodScores=teamLastWk.filter(u=>u.answers?.q7).map(u=>MOOD_SCORE[u.answers.q7]||3);
         const teamMoodAvg=teamMoodScores.length?teamMoodScores.reduce((a,b)=>a+b,0)/teamMoodScores.length:null;
