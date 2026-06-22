@@ -780,12 +780,15 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
 
         // Build last week full list: done members + absent members
         const doneLastWkEmails=new Set(teamLastWk.map(u=>u.email));
-        const absentLastWk=activeTeam.filter(m=>(!doneLastWkEmails.has(m.email))||m.forceAbsent||m.forceMat);
+        const lastWkMon=lastWkDate;
+        const curWkMon=new Date(now);curWkMon.setDate(now.getDate()-now.getDay()+1);
+        const isAbsentDeclared=(email,refDate)=>(window._absences||[]).some(a=>a.email===email&&toDateStr(refDate)>=a.dateFrom&&toDateStr(refDate)<=a.dateTo);
+        const absentLastWk=activeTeam.filter(m=>(!doneLastWkEmails.has(m.email))||m.forceAbsent||m.forceMat||isAbsentDeclared(m.email,lastWkMon));
         const doneCurWkEmails=new Set(teamCurWk.map(u=>u.email));
-        const absentCurWk=activeTeam.filter(m=>(!doneCurWkEmails.has(m.email))||m.forceAbsent||m.forceMat);
+        const absentCurWk=activeTeam.filter(m=>(!doneCurWkEmails.has(m.email))||m.forceAbsent||m.forceMat||isAbsentDeclared(m.email,curWkMon));
         // Remove forceMat/forceAbsent from done lists
-        const teamLastWkFiltered=teamLastWk.filter(u=>!activeTeam.find(m=>m.email===u.email&&(m.forceMat||m.forceAbsent)));
-        const teamCurWkFiltered=teamCurWk.filter(u=>!activeTeam.find(m=>m.email===u.email&&(m.forceMat||m.forceAbsent)));
+        const teamLastWkFiltered=teamLastWk.filter(u=>!activeTeam.find(m=>m.email===u.email&&(m.forceMat||m.forceAbsent))&&!isAbsentDeclared(u.email,lastWkMon));
+        const teamCurWkFiltered=teamCurWk.filter(u=>!activeTeam.find(m=>m.email===u.email&&(m.forceMat||m.forceAbsent))&&!isAbsentDeclared(u.email,curWkMon));
 
         const teamMoodScores=teamLastWk.filter(u=>u.answers?.q7).map(u=>MOOD_SCORE[u.answers.q7]||3);
         const teamMoodAvg=teamMoodScores.length?teamMoodScores.reduce((a,b)=>a+b,0)/teamMoodScores.length:null;
@@ -1058,9 +1061,10 @@ function UpdateViewModal({notif,onClose,onRead,teamMembers=[]}){
   // q6 visible only if own update or viewer is the manager
   const isOwn=notif.isOwn!==false;
   const viewerEmail=notif.teamMember?.email;
-  const authorEmail=notif.fromEmail;
-  const isManager=notif.teamMember&&teamMembers&&teamMembers.find&&
-    teamMembers.find(m=>m.email===authorEmail)?.manager===viewerEmail;
+  const authorEmail=notif.authorEmail||notif.fromEmail||notif.email;
+  // viewer is manager if the author's manager field = viewerEmail
+  const isManager=!!(viewerEmail&&authorEmail&&teamMembers&&
+    teamMembers.find(m=>m.email===authorEmail&&m.manager===viewerEmail));
   const canSeeQ6=isOwn||isManager;
   const visibleQs=DEFAULT_QUESTIONS.filter(q=>q.id!=="q7"&&answers[q.id]&&(q.id!=="q6"||canSeeQ6));
   return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
@@ -1284,7 +1288,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
                    else if(update){emoji=update.answers?.q7||'😐';}
                    else{emoji='🫥';}
                   const isLast=i===weeks.length-1;
-                  return <div key={i} onClick={update?()=>setSelectedWeek({wk:w.wk,update,prenom:m.prenom,isOwn:false}):undefined}
+                  return <div key={i} onClick={update?()=>setSelectedWeek({wk:w.wk,update,prenom:m.prenom,isOwn:false,authorEmail:m.email}):undefined}
                     style={{width:22,height:22,flexShrink:0,display:"flex",alignItems:"center",
                       justifyContent:"center",cursor:update?"pointer":"default",fontSize:15,lineHeight:1,
                       opacity:(!update&&emoji==='🫥')?0.35:1}}>
@@ -1374,7 +1378,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
         })()}
       </>}
     </div>
-    {selectedWeek&&<UpdateViewModal notif={{updateData:selectedWeek.update,fromPrenom:selectedWeek.prenom||teamMember?.prenom,weekKey:selectedWeek.wk,isOwn:selectedWeek.isOwn,teamMember:teamMember}} onClose={()=>setSelectedWeek(null)} onRead={()=>setSelectedWeek(null)}/>}
+    {selectedWeek&&<UpdateViewModal notif={{updateData:selectedWeek.update,fromPrenom:selectedWeek.prenom||teamMember?.prenom,weekKey:selectedWeek.wk,isOwn:selectedWeek.isOwn,teamMember:teamMember,authorEmail:selectedWeek.authorEmail}} onClose={()=>setSelectedWeek(null)} onRead={()=>setSelectedWeek(null)} teamMembers={teamMembers}/>}
 
   {/* Team updates toggle */}
 
@@ -2333,7 +2337,7 @@ function AbsencesTab({teamMembers=[]}) {
   }
 
   const activeMembers = teamMembers.filter(m=>m.role!=='inactive'&&m.email);
-  const inp = {fontSize:12,border:'1px solid #e2ddd6',borderRadius:6,padding:'6px 10px',fontFamily:'inherit',outline:'none',background:'#fff',width:'100%'};
+  const inp = {fontSize:11,border:'1px solid #e2ddd6',borderRadius:6,padding:'4px 8px',fontFamily:'inherit',outline:'none',background:'#fff',width:'100%',boxSizing:'border-box'};
   const sorted = [...absences].sort((a,b)=>b.dateTo.localeCompare(a.dateTo));
   const canAdd = form.email && form.dateFrom && form.dateTo;
 
@@ -2341,7 +2345,7 @@ function AbsencesTab({teamMembers=[]}) {
     {/* New absence form at top */}
     <div style={{background:'#f8f7f5',borderRadius:8,border:'1px solid #e2ddd6',padding:'14px',marginBottom:16}}>
       <div style={{fontSize:11,fontWeight:600,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:10}}>Nouvelle absence</div>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:8}}>
         <div style={{display:'flex',flexDirection:'column',gap:3}}>
           <label style={{fontSize:10,color:'#9e9890'}}>Teammate</label>
           <select value={form.email} onChange={e=>setForm(p=>({...p,email:e.target.value}))} style={inp}>
@@ -2448,7 +2452,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
         </button>)}
       </div>
 
-      {tab==="members"&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,alignItems:"start"}}>
+      {tab==="members"&&<div style={{display:"grid",gridTemplateColumns:"3fr 2fr",gap:16,alignItems:"start"}}>
         <div>{/* LEFT COL */}
         <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"18px 20px",marginBottom:16}}>
           <div style={{fontSize:13,fontWeight:600,marginBottom:14}}>Ajouter un membre</div>
@@ -2484,7 +2488,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
                     </select>}
                 </td>
                 <td style={{padding:"10px 14px"}}>
-                  {m.email!==OWNER_EMAIL&&<button onClick={()=>removeMember(m.email)} style={{fontSize:12,color:"#c0392b",background:"#fdecea",border:"1px solid #fca5a5",borderRadius:6,padding:"4px 10px",cursor:"pointer"}}>Retirer</button>}
+                  {m.email!==OWNER_EMAIL&&<button onClick={()=>removeMember(m.email)} style={{fontSize:14,color:"#c0392b",background:"none",border:"none",cursor:"pointer",fontWeight:700,lineHeight:1,padding:"0 4px"}}>×</button>}
                 </td>
               </tr>)}
             </tbody>
