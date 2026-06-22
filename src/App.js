@@ -1291,11 +1291,9 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
                    ? <><span style={{fontSize:12,fontWeight:700,color:"#2d6a4f"}}>{m.prenom}</span><span style={{fontSize:9,color:"#9e9890",marginLeft:3}}>↳</span></>
                    : <span style={{fontSize:11,color:"#6b6560"}}>{m.prenom}</span>}
                </div>
-                </div>
-                <div style={{display:"flex",gap:0,flexWrap:"nowrap",alignItems:"center"}}>
-                  const update=lookup[`${m.email}_${w.wk}`];
-                  // Determine emoji to show
-                   // Check declared absences for this specific week
+               <div style={{display:"flex",gap:0,flexWrap:"nowrap",alignItems:"center"}}>
+                 {weeks.map((w,wi)=>{
+                   const update=lookup[`${m.email}_${w.wk}`];
                    const declaredAbsW=(window._absences||[]).find(a=>
                      a.email===m.email&&toDateStr(w.mon)>=a.dateFrom&&toDateStr(w.mon)<=a.dateTo
                    );
@@ -1303,17 +1301,15 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
                    if(declaredAbsW){emoji=declaredAbsW.type;}
                    else if(update){emoji=update.answers?.q7||'😐';}
                    else{emoji='🫥';}
-                  const isLast=i===weeks.length-1;
-                  return <div key={i} onClick={update?()=>setSelectedWeek({wk:w.wk,update,prenom:m.prenom,isOwn:false,authorEmail:m.email}):undefined}
-                    style={{width:22,height:22,flexShrink:0,display:"flex",alignItems:"center",
-                      justifyContent:"center",cursor:update?"pointer":"default",fontSize:15,lineHeight:1,
-                      opacity:(!update&&emoji==='🫥')?0.35:1}}>
-                    {emoji}
-                   </div>
-                    </div>
-                </div>
-                </div>
-          });
+                   return <div key={wi} onClick={update?()=>setSelectedWeek({wk:w.wk,update,prenom:m.prenom,isOwn:false,authorEmail:m.email}):undefined}
+                     style={{width:22,height:22,flexShrink:0,display:"flex",alignItems:"center",
+                       justifyContent:"center",cursor:update?"pointer":"default",fontSize:15,lineHeight:1,
+                       opacity:(!update&&emoji==='🫥')?0.35:1}}>
+                     {emoji}
+                   </div>;
+                 })}
+               </div>
+             </div>;
         })()}
         {/* Legend */}
         <div style={{display:"flex",gap:16,marginTop:10,fontSize:11,color:"#9e9890"}}>
