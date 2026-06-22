@@ -781,14 +781,14 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
         const MOOD_SCORE={"😊":5,"🙂":4,"😐":3,"😕":2,"😩":1};
         const MOOD_FROM_SCORE=s=>s>=4.5?"😊":s>=3.5?"🙂":s>=2.5?"😐":s>=1.5?"😕":"😩";
         const now=new Date();
-        // lastWkKey = always the calendar week that just ended (Mon-Sun of last week)
-        const lastWkDate=new Date(now);
-        const dow=now.getDay()||7; // 1=Mon...7=Sun
-        lastWkDate.setDate(now.getDate()-dow-6); // go to last week's Monday
-        const lastWkKey=getWeekKey(lastWkDate);
-        // curWkKey = always the current calendar week
-        const curWkMon=new Date(now);curWkMon.setDate(now.getDate()-(now.getDay()||7)+1);
-        const curWkKey=getWeekKey(curWkMon);
+        // lastWkKey = calendar week 7 days ago
+        const _7daysAgo=new Date(now);_7daysAgo.setDate(now.getDate()-7);
+        const lastWkKey=getWeekKey(_7daysAgo);
+        // curWkKey = current calendar week (always based on Monday of this week)
+        const _thisMon=new Date(now);
+        const _dow=_thisMon.getDay()||7;
+        _thisMon.setDate(_thisMon.getDate()-_dow+1);
+        const curWkKey=getWeekKey(_thisMon);
         const activeTeam=(teamMembers||[]).filter(m=>m.role!=="inactive"&&m.email);
         const activeCount=activeTeam.length||10;
 
