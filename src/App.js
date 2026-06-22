@@ -899,7 +899,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             !doneEmails.has(m.email)
           ).map(m=>({key:'n'+m.email,emoji:"🫥",name:m.prenom,isAbsent:false,notDone:true}));
           const all=[...absentItems,...doneItems,...notDoneItems];
-          return <div style={{display:"flex",gap:3,flexWrap:"wrap",alignItems:"center"}}>
+          return <div style={{display:"flex",gap:2,flexWrap:"nowrap",alignItems:"center"}}>
             {hov&&<div style={{position:"fixed",left:pos.x+10,top:pos.y-28,background:"#1a1814",color:"#fff",
               fontSize:10,padding:"2px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:9999,pointerEvents:"none"}}>{hov}</div>}
             {all.map(item=><span key={item.key} style={{fontSize:size,lineHeight:1,cursor:"default",
@@ -938,7 +938,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             if(member?.forceAbsent){const mo=w.mon.getMonth()+1;return((mo>=12&&w.mon.getDate()>=15)||mo<=4)?'🎿':'🌴';}
             return '🫥';
           };
-          return <div style={{display:"flex",gap:3,flexWrap:"wrap",alignItems:"center"}}>
+          return <div style={{display:"flex",gap:2,flexWrap:"nowrap",alignItems:"center"}}>
             {hov&&<div style={{position:"fixed",left:pos.x+10,top:pos.y-28,background:"#1a1814",color:"#fff",
               fontSize:10,padding:"2px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:9999,pointerEvents:"none"}}>{hov}</div>}
             {my13Weeks.map((w,i)=>{
@@ -959,7 +959,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
 
         return <>
           {/* Updates section: 2/3 team + 1/3 perso, 320px tall */}
-          <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:12,marginBottom:20}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 380px",gap:12,marginBottom:20}}>
           {/* Team Updates banner */}
           <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"14px 20px",
             display:"flex",alignItems:"stretch",gap:12,
