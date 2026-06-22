@@ -680,7 +680,7 @@ function FeedbackBox({currentUser, teamMember}) {
         rows={2}
         placeholder="Ton idée ou correction…"
         style={{fontSize:12,border:"1px solid #e2ddd6",borderRadius:6,padding:"6px 8px",
-          fontFamily:"inherit",resize:"none",outline:"none",color:"#1a1814"}}
+          fontFamily:"inherit",resize:"none",outline:"none",color:"#1a1814",flex:1,minHeight:0}}
       />
       {sent
         ? <div style={{fontSize:11,color:"#2d6a4f",fontWeight:500,textAlign:"center"}}>✓ Envoyé !</div>
@@ -741,7 +741,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
     <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
 
       {/* ── TOP: Notifications + Feedback ── */}
-      <div style={{display:"grid",gridTemplateColumns:"3fr 1fr",gap:12,marginBottom:16,alignItems:"stretch",gridAutoRows:"1fr"}}>
+      <div style={{display:"grid",gridTemplateColumns:"3fr 1fr",gap:12,marginBottom:16,alignItems:"stretch"}}>
         <MessagesPanel managerNotifs={managerNotifs} teammateNotifs={teammateNotifs} onReadNotif={onReadNotif} teamMember={teamMember} teamMembers={teamMembers} myUpdates={myUpdates}/>
         <FeedbackBox currentUser={currentUser} teamMember={teamMember}/>
       </div>
