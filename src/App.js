@@ -899,7 +899,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             !doneEmails.has(m.email)
           ).map(m=>({key:'n'+m.email,emoji:"🫥",name:m.prenom,isAbsent:false,notDone:true}));
           const all=[...absentItems,...doneItems,...notDoneItems];
-          return <div style={{display:"flex",gap:2,flexWrap:"nowrap",alignItems:"center"}}>
+          return <div style={{display:"flex",gap:2,flexWrap:"wrap",alignItems:"center"}}>
             {hov&&<div style={{position:"fixed",left:pos.x+10,top:pos.y-28,background:"#1a1814",color:"#fff",
               fontSize:10,padding:"2px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:9999,pointerEvents:"none"}}>{hov}</div>}
             {all.map(item=><span key={item.key} style={{fontSize:size,lineHeight:1,cursor:"default",
