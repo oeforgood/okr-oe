@@ -286,7 +286,14 @@ function WeekDots({myUpdates, clickable=false, onClickUpdate, dotSize=14, email}
       return <div style={{position:"absolute",top:-26,left:`${pct}%`,transform:"translateX(-50%)",background:"#1a1814",color:"#fff",fontSize:10,padding:"3px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:10,pointerEvents:"none"}}>{tip}</div>;
     })()}
     {weeks.map((w,i)=>{
-      const c = DOT_COLORS[w.status];
+      // Determine emoji to show
+      let emoji;
+      if(w.declared){emoji=w.declared.type;}
+      else if(w.status==='done'){emoji=w.update?.answers?.q7||'😐';}
+      else if(w.status==='late'){emoji=w.update?.answers?.q7||'😐';}
+      else if(w.status==='absent'){emoji='🫥';}
+      else{emoji='🫥';}
+      const opacity=w.status==='none'||w.status==='absent'||w.status==='pending'?0.3:1;
       return <div key={i}
         onClick={()=>clickable&&w.update&&onClickUpdate&&onClickUpdate(w)}
         onMouseEnter={()=>setHov(i)}
@@ -294,14 +301,9 @@ function WeekDots({myUpdates, clickable=false, onClickUpdate, dotSize=14, email}
         style={{
           width:22,height:22,display:"flex",alignItems:"center",justifyContent:"center",
           flexShrink:0,cursor:clickable&&w.update?"pointer":"default",
+          fontSize:15,lineHeight:1,opacity,
         }}>
-        {w.declared
-          ? <span style={{fontSize:12,lineHeight:1}}>{w.declared.type}</span>
-          : <div style={{
-              width:dotSize,height:dotSize,borderRadius:"50%",
-              background:c.bg,border:`1.5px solid ${c.border}`,
-              boxSizing:"border-box",transition:"transform .1s",
-            }}/>}
+        {emoji}
       </div>;
     })}
   </div>;
@@ -1319,12 +1321,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
             });
           })()}
         </>}
-        {/* Legend */}
-        <div style={{display:"flex",gap:16,marginTop:10,fontSize:11,color:"#9e9890"}}>
-          <span><span style={{display:"inline-block",width:10,height:10,borderRadius:"50%",background:"#2d6a4f",marginRight:4,verticalAlign:"middle"}}/>Fait en semaine</span>
-          <span><span style={{display:"inline-block",width:10,height:10,borderRadius:"50%",background:"#facc15",marginRight:4,verticalAlign:"middle"}}/>Fait le lundi</span>
-          <span><span style={{display:"inline-block",width:10,height:10,borderRadius:"50%",background:"#fca5a5",marginRight:4,verticalAlign:"middle"}}/>Non fait</span>
-        </div>
+
       </div>
 
 
