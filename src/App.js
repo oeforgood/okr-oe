@@ -257,7 +257,7 @@ const DOT_COLORS = {
   pending: {bg:"#e2ddd6", border:"#c5c0b8"},
 };
 
-function WeekDots({myUpdates, clickable=false, onClickUpdate}){
+function WeekDots({myUpdates, clickable=false, onClickUpdate, dotSize=14}){
   const weeks = get26Weeks(myUpdates);
   const [hov,setHov]=useState(null);
   return <div style={{position:"relative",display:"flex",gap:4,flexWrap:"nowrap",alignItems:"center"}}>
@@ -277,7 +277,7 @@ function WeekDots({myUpdates, clickable=false, onClickUpdate}){
         onMouseEnter={()=>setHov(i)}
         onMouseLeave={()=>setHov(null)}
         style={{
-          width:14,height:14,borderRadius:"50%",
+          width:dotSize,height:dotSize,borderRadius:"50%",
           background:c.bg,border:`1.5px solid ${c.border}`,
           flexShrink:0,
           cursor:clickable&&w.update?"pointer":"default",
@@ -1223,26 +1223,87 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
     <TopBar onBack={onBack} title="Mes Updates" left={<span style={{fontSize:16,fontWeight:700,color:"#2d6a4f",cursor:"pointer"}} onClick={onBack}>🌼 Calendula</span>}/>
     <div style={{maxWidth:1000,margin:"0 auto",padding:"24px 16px 60px"}}>
 
-      {/* 26-week dots */}
+      {/* 26-week dots - integrated team view */}
       <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"16px 20px",marginBottom:20,boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
-        <div style={{fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",marginBottom:12}}>Mes updates ces 6 derniers mois</div>
-        <WeekDots myUpdates={myUpdates} clickable={true} onClickUpdate={w=>setSelectedWeek(w)}/>
+        {/* Header row: title + button */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+          <div style={{fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em"}}>Mes updates ces 6 derniers mois</div>
+          <button onClick={()=>setShowTeam(p=>!p)}
+            style={{fontSize:11,fontWeight:500,padding:"4px 12px",borderRadius:7,cursor:"pointer",
+              background:showTeam?"#2d6a4f":"#fff",color:showTeam?"#fff":"#6b6560",
+              border:`1px solid ${showTeam?"#2d6a4f":"#e2ddd6"}`,transition:"all .15s",
+              display:"flex",alignItems:"center",gap:5}}>
+            {showTeam?"✕ Masquer":"👥 Voir l'équipe"}
+          </button>
+        </div>
+        {/* My dots row */}
+        <div style={{display:"flex",alignItems:"center",gap:0}}>
+          <div style={{width:90,flexShrink:0,fontSize:11,fontWeight:600,color:"#1a1814",paddingRight:8}}>
+            {teamMember?.prenom||"Moi"}
+          </div>
+          <WeekDots myUpdates={myUpdates} clickable={true} onClickUpdate={w=>setSelectedWeek(w)} dotSize={14}/>
+        </div>
+        {/* Team rows */}
+        {showTeam&&(()=>{
+          const myEmail=teamMember?.email;
+          const FORCE_MAT_EMAILS=['claire@oeforgood.com'];
+          const active=teamMembers.filter(m=>m.role!=="inactive"&&m.email&&m.email!==myEmail);
+          const reports=active.filter(m=>m.manager===myEmail);
+          const others=active.filter(m=>m.manager!==myEmail);
+          const ordered=[...reports,...others];
+          const weeks=get26Weeks([]);
+          const lookup={};
+          allUpdates.forEach(u=>{lookup[`${u.email}_${u.weekKey}`]=u;});
+          return ordered.map((m,rowIdx)=>{
+            const isReport=m.manager===myEmail;
+            const sep=rowIdx===reports.length&&reports.length>0;
+            return <div key={m.email} style={{display:"flex",alignItems:"center",gap:0,
+              marginTop:sep?8:4,paddingTop:sep?8:0,
+              borderTop:sep?"1px dashed #e2ddd6":"none"}}>
+              <div style={{width:90,flexShrink:0,fontSize:11,
+                fontWeight:isReport?600:400,color:isReport?"#1a1814":"#6b6560",
+                paddingRight:8,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                {m.prenom}
+              </div>
+              <div style={{display:"flex",gap:4,flexWrap:"nowrap",alignItems:"center"}}>
+                {weeks.map((w,i)=>{
+                  const update=lookup[`${m.email}_${w.wk}`];
+                  // Determine emoji to show
+                  let emoji=null;
+                  if(FORCE_MAT_EMAILS.includes(m.email)){emoji='🤰';}
+                  else if(m.forceMat){emoji='🤰';}
+                  else if(m.forceAbsent){const mo=w.mon.getMonth()+1;emoji=((mo>=12&&w.mon.getDate()>=15)||mo<=4)?'🎿':'🌴';}
+                  else if(update){
+                    const q8prev=(()=>{
+                      const prevD=new Date(w.mon);prevD.setDate(w.mon.getDate()-7);
+                      const prevWk=getWeekKey(prevD);
+                      const prevU=allUpdates.find(u=>u.email===m.email&&u.weekKey===prevWk);
+                      return prevU?.answers?.q8||'';
+                    })();
+                    if(q8prev.includes('école')||q8prev.includes('École'))emoji='🎓';
+                    else if(q8prev.includes('congés'))emoji=((new Date().getMonth()+1>=12)||(new Date().getMonth()+1<=4))?'🎿':'🌴';
+                    else emoji=update.answers?.q7||'😐';
+                  } else {
+                    emoji='🫥';
+                  }
+                  const isLast=i===weeks.length-1;
+                  return <div key={i} onClick={update?()=>setSelectedWeek({wk:w.wk,update,prenom:m.prenom,isOwn:false}):undefined}
+                    style={{width:14,height:14,flexShrink:0,display:"flex",alignItems:"center",
+                      justifyContent:"center",cursor:update?"pointer":"default",fontSize:12,lineHeight:1,
+                      opacity:(!update&&emoji==='🫥')?0.35:1}}>
+                    {emoji}
+                  </div>;
+                })}
+              </div>
+            </div>;
+          });
+        })()}
+        {/* Legend */}
         <div style={{display:"flex",gap:16,marginTop:10,fontSize:11,color:"#9e9890"}}>
           <span><span style={{display:"inline-block",width:10,height:10,borderRadius:"50%",background:"#2d6a4f",marginRight:4,verticalAlign:"middle"}}/>Fait en semaine</span>
           <span><span style={{display:"inline-block",width:10,height:10,borderRadius:"50%",background:"#facc15",marginRight:4,verticalAlign:"middle"}}/>Fait le lundi</span>
           <span><span style={{display:"inline-block",width:10,height:10,borderRadius:"50%",background:"#fca5a5",marginRight:4,verticalAlign:"middle"}}/>Non fait</span>
         </div>
-      </div>
-
-      {/* Team updates toggle button */}
-      <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
-        <button onClick={()=>setShowTeam(p=>!p)}
-          style={{fontSize:12,fontWeight:500,padding:"6px 16px",borderRadius:8,cursor:"pointer",
-            background:showTeam?"#2d6a4f":"#fff",color:showTeam?"#fff":"#6b6560",
-            border:`1px solid ${showTeam?"#2d6a4f":"#e2ddd6"}`,transition:"all .15s",
-            display:"flex",alignItems:"center",gap:6}}>
-          {showTeam?"✕ Masquer l'équipe":"👥 Voir les updates de l'équipe"}
-        </button>
       </div>
 
 
@@ -1319,7 +1380,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
     {selectedWeek&&<UpdateViewModal notif={{updateData:selectedWeek.update,fromPrenom:selectedWeek.prenom||teamMember?.prenom,weekKey:selectedWeek.wk,isOwn:selectedWeek.isOwn,teamMember:teamMember}} onClose={()=>setSelectedWeek(null)} onRead={()=>setSelectedWeek(null)}/>}
 
   {/* Team updates toggle */}
-  {showTeam&&<TeamUpdatesSection allUpdates={allUpdates} teamMembers={teamMembers} teamMember={teamMember} onSelectWeek={(wk,update,prenom,isOwn)=>setSelectedWeek({wk,update,prenom,isOwn})}/>}
+
   </div>;
 }
 
