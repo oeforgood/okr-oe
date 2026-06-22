@@ -956,7 +956,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             boxShadow:"0 1px 3px rgba(0,0,0,.04)",height:220,boxSizing:"border-box",overflow:"hidden"}}>
             {/* Left: team mood avg + ratio */}
             <div style={{flexShrink:0,textAlign:"center",width:90,display:"flex",flexDirection:"column",justifyContent:"center",gap:6}}>
-              <div style={{fontSize:44,lineHeight:1}}>{teamMoodAvg?MOOD_FROM_SCORE(teamMoodAvg):"—"}</div>
+              <div style={{fontSize:60,lineHeight:1}}>{teamMoodAvg?MOOD_FROM_SCORE(teamMoodAvg):"—"}</div>
               {(()=>{
                 const presentTeam2=activeTeam.filter(m=>{
                   const prevU=allUpdates.find(u=>u.email===m.email&&u.weekKey===lastWkKey);
@@ -1311,7 +1311,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
                   </div>;
                 })}
               </div>
-            </div>;
+            </div>
           });
         })()}
         {/* Legend */}
