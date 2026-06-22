@@ -286,24 +286,27 @@ function WeekDots({myUpdates, clickable=false, onClickUpdate, dotSize=14, email}
       return <div style={{position:"absolute",top:-26,left:`${pct}%`,transform:"translateX(-50%)",background:"#1a1814",color:"#fff",fontSize:10,padding:"3px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:10,pointerEvents:"none"}}>{tip}</div>;
     })()}
     {weeks.map((w,i)=>{
-      // Determine emoji to show
+      const MOOD_SCORE={'😊':5,'🙂':4,'😐':3,'😕':2,'😩':1};
       let emoji;
       if(w.declared){emoji=w.declared.type;}
-      else if(w.status==='done'){emoji=w.update?.answers?.q7||'😐';}
-      else if(w.status==='late'){emoji=w.update?.answers?.q7||'😐';}
-      else if(w.status==='absent'){emoji='🫥';}
+      else if(w.status==='done'||w.status==='late'){emoji=w.update?.answers?.q7||'😐';}
       else{emoji='🫥';}
-      const opacity=w.status==='none'||w.status==='absent'||w.status==='pending'?0.3:1;
+      const opacity=(w.status==='none'||w.status==='absent'||w.status==='pending'||w.declared)?0.35:1;
+      // Vertical offset based on mood: each level = 5px shift (mood 3 = center)
+      const score=MOOD_SCORE[emoji]||3;
+      const translateY=(3-score)*5; // mood5=-10px (top), mood1=+10px (bottom)
       return <div key={i}
         onClick={()=>clickable&&w.update&&onClickUpdate&&onClickUpdate(w)}
         onMouseEnter={()=>setHov(i)}
         onMouseLeave={()=>setHov(null)}
         style={{
-          width:22,height:22,display:"flex",alignItems:"center",justifyContent:"center",
+          width:22,height:32,display:"flex",alignItems:"center",justifyContent:"center",
           flexShrink:0,cursor:clickable&&w.update?"pointer":"default",
           fontSize:15,lineHeight:1,opacity,
         }}>
-        {emoji}
+        <span style={{transform:`translateY(${translateY}px)`,display:"inline-block",transition:"transform .2s"}}>
+          {emoji}
+        </span>
       </div>;
     })}
   </div>;
@@ -834,17 +837,16 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
           return{wk,u,mon,fri};
         });
         // Exclude weeks where user indicated absence from denominator
-        const myActiveWeeks=my13Weeks.filter(w=>{
-          // Check previous week's q8 to see if this week was marked absent
-          const prevWkDate=new Date(w.mon);prevWkDate.setDate(w.mon.getDate()-7);
-          const prevWk=getWeekKey(prevWkDate);
-          const prevU=myUpdates.find(u=>u.weekKey===prevWk);
-          const q8=prevU?.answers?.q8||'';
-          const isClairePreg=teamMember?.email==='claire@oeforgood.com';
-          return !q8.includes('congés')&&!q8.includes('École')&&!q8.includes('école')&&!isClairePreg;
+        // Completion rate: only the 12 past weeks (exclude current week = index 12)
+        const my12PastWeeks=my13Weeks.slice(0,12);
+        const myActiveWeeks=my12PastWeeks.filter(w=>{
+          const declaredAbs=(window._absences||[]).find(a=>
+            a.email===teamMember?.email&&toDateStr(w.mon)>=a.dateFrom&&toDateStr(w.mon)<=a.dateTo
+          );
+          return !declaredAbs;
         });
         const myUpdateCount=my13Weeks.filter(w=>w.u).length;
-        const myCompletionRate=myActiveWeeks.length>0?Math.round(my13Weeks.filter(w=>w.u&&myActiveWeeks.includes(w)).length/myActiveWeeks.length*100):100;
+        const myCompletionRate=myActiveWeeks.length>0?Math.round(my12PastWeeks.filter(w=>w.u&&myActiveWeeks.includes(w)).length/myActiveWeeks.length*100):100;
 
 
   // Get absence icon for a teammate based on forceAbsent/forceMat flags or previous week's q8 answer
@@ -1309,11 +1311,14 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
                     if(declaredAbsW){emoji=declaredAbsW.type;}
                     else if(update){emoji=update.answers?.q7||'😐';}
                     else{emoji='🫥';}
+                    const MOOD_SC={'😊':5,'🙂':4,'😐':3,'😕':2,'😩':1};
+                    const sc=MOOD_SC[emoji]||3;
+                    const ty=(3-sc)*5;
                     return <div key={wi} onClick={update?()=>setSelectedWeek({wk:w.wk,update,prenom:m.prenom,isOwn:false,authorEmail:m.email}):undefined}
-                      style={{width:22,height:22,flexShrink:0,display:"flex",alignItems:"center",
+                      style={{width:22,height:32,flexShrink:0,display:"flex",alignItems:"center",
                         justifyContent:"center",cursor:update?"pointer":"default",fontSize:15,lineHeight:1,
                         opacity:(!update&&emoji==='🫥')?0.35:1}}>
-                      {emoji}
+                      <span style={{transform:`translateY(${ty}px)`,display:"inline-block"}}>{emoji}</span>
                     </div>;
                   })}
                 </div>
