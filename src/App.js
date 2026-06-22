@@ -1288,7 +1288,6 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
             allUpdates.forEach(u=>{lookup[`${u.email}_${u.weekKey}`]=u;});
             return ordered.map((m,rowIdx)=>{
               const isReport=m.managerEmail===myEmail;
-               const isReport=m.managerEmail===myEmail;
                return <div key={m.email} style={{display:"flex",alignItems:"center",gap:0,
                  marginTop:4,padding:"2px 0"}}>
                  <div style={{width:90,flexShrink:0,paddingRight:8,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
