@@ -1291,7 +1291,8 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
                    ? <><span style={{fontSize:12,fontWeight:700,color:"#2d6a4f"}}>{m.prenom}</span><span style={{fontSize:9,color:"#9e9890",marginLeft:3}}>↳</span></>
                    : <span style={{fontSize:11,color:"#6b6560"}}>{m.prenom}</span>}
                </div>
-                {weeks.map((w,i)=>{
+                </div>
+                <div style={{display:"flex",gap:0,flexWrap:"nowrap",alignItems:"center"}}>
                   const update=lookup[`${m.email}_${w.wk}`];
                   // Determine emoji to show
                    // Check declared absences for this specific week
@@ -1308,10 +1309,10 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
                       justifyContent:"center",cursor:update?"pointer":"default",fontSize:15,lineHeight:1,
                       opacity:(!update&&emoji==='🫥')?0.35:1}}>
                     {emoji}
-                  </div>;
-                })}
-              </div>
-            </div>
+                   </div>
+                    </div>
+                </div>
+                </div>
           });
         })()}
         {/* Legend */}
