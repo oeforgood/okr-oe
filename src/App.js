@@ -902,23 +902,13 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
           return <div style={{display:"flex",gap:3,flexWrap:"wrap",alignItems:"center"}}>
             {hov&&<div style={{position:"fixed",left:pos.x+10,top:pos.y-28,background:"#1a1814",color:"#fff",
               fontSize:10,padding:"2px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:9999,pointerEvents:"none"}}>{hov}</div>}
-            {(()=>{
-              const MS={'😊':5,'🙂':4,'😐':3,'😕':2,'😩':1};
-              const scores=all.filter(i=>MS[i.emoji]).map(i=>MS[i.emoji]);
-              return all.map(item=>{
-                const sc=MS[item.emoji]||3;
-                const ty=(3-sc)*4;
-                return <span key={item.key} style={{fontSize:size,lineHeight:1,cursor:"default",
-                  opacity:item.isAbsent?0.8:item.notDone?0.5:1,
-                  display:"inline-block",transform:`translateY(${ty}px)`,transition:"transform .15s",
-                  marginRight:3}}
-                  onMouseEnter={e=>{setHov(item.name);setPos({x:e.clientX,y:e.clientY});}}
-                  onMouseMove={e=>setPos({x:e.clientX,y:e.clientY})}
-                  onMouseLeave={()=>setHov(null)}>
-                  {item.emoji}
-                </span>;
-              });
-            })()}
+            {all.map(item=><span key={item.key} style={{fontSize:size,lineHeight:1,cursor:"default",
+              opacity:item.isAbsent?0.8:item.notDone?0.5:1}}
+              onMouseEnter={e=>{setHov(item.name);setPos({x:e.clientX,y:e.clientY});}}
+              onMouseMove={e=>setPos({x:e.clientX,y:e.clientY})}
+              onMouseLeave={()=>setHov(null)}>
+              {item.emoji}
+            </span>)}
           </div>;
         }
 
@@ -954,14 +944,10 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             {my13Weeks.map((w,i)=>{
               const isLast=i===12;
               const icon=getWeekIcon(w);
-              const MS={'😊':5,'🙂':4,'😐':3,'😕':2,'😩':1};
-              const sc=MS[icon]||3;
-              const ty=isLast?0:(3-sc)*4;
               const sameM=w.mon.getMonth()===w.fri.getMonth();
               const tip=sameM?`Semaine du ${w.mon.getDate()} au ${w.fri.getDate()} ${w.fri.toLocaleString("fr-FR",{month:"long"})}`:`Semaine du ${w.mon.getDate()} ${w.mon.toLocaleString("fr-FR",{month:"short"})} au ${w.fri.getDate()} ${w.fri.toLocaleString("fr-FR",{month:"short"})}`;
-              return <span key={i} style={{fontSize:isLast?36:16,lineHeight:1,cursor:"default",
-                display:"inline-block",transform:`translateY(${ty}px)`,transition:"transform .15s",
-                opacity:(w.u||isLast)?1:0.45,marginRight:isLast?0:2}}
+              return <span key={i} style={{fontSize:isLast?36:22,lineHeight:1,cursor:"default",
+                opacity:(w.u||isLast)?1:0.45}}
                 onMouseEnter={e=>{setHov(tip);setPos({x:e.clientX,y:e.clientY});}}
                 onMouseMove={e=>setPos({x:e.clientX,y:e.clientY})}
                 onMouseLeave={()=>setHov(null)}>{icon}</span>;
