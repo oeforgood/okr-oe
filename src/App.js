@@ -260,7 +260,7 @@ const DOT_COLORS = {
 function WeekDots({myUpdates, clickable=false, onClickUpdate, dotSize=14}){
   const weeks = get26Weeks(myUpdates);
   const [hov,setHov]=useState(null);
-  return <div style={{position:"relative",display:"flex",gap:4,flexWrap:"nowrap",alignItems:"center"}}>
+  return <div style={{position:"relative",display:"flex",gap:0,flexWrap:"nowrap",alignItems:"center"}}>
     {hov!==null&&weeks[hov]&&(()=>{
       const w=weeks[hov];
       const sameM2=w.mon.getMonth()===w.fri.getMonth();
@@ -277,14 +277,15 @@ function WeekDots({myUpdates, clickable=false, onClickUpdate, dotSize=14}){
         onMouseEnter={()=>setHov(i)}
         onMouseLeave={()=>setHov(null)}
         style={{
+          width:22,height:22,display:"flex",alignItems:"center",justifyContent:"center",
+          flexShrink:0,cursor:clickable&&w.update?"pointer":"default",
+        }}>
+        <div style={{
           width:dotSize,height:dotSize,borderRadius:"50%",
           background:c.bg,border:`1.5px solid ${c.border}`,
-          flexShrink:0,
-          cursor:clickable&&w.update?"pointer":"default",
-          transition:"transform .1s",
-          boxSizing:"border-box",
-        }}
-      />;
+          boxSizing:"border-box",transition:"transform .1s",
+        }}/>
+      </div>;
     })}
   </div>;
 }
@@ -816,21 +817,25 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
 
 
   // Get absence icon for a teammate based on forceAbsent/forceMat flags or previous week's q8 answer
-  function getAbsenceIcon(email, prenom) {
+  function getAbsenceIcon(email, prenom, refDate) {
     const member = (teamMembers||[]).find(m => m.email === email);
+    const checkDate = refDate || new Date();
+    // Check declared absences
+    const declaredAbs = (window._absences||[]).find(a=>
+      a.email===email && checkDate>=new Date(a.dateFrom) && checkDate<=new Date(a.dateTo+'T23:59:59')
+    );
+    if (declaredAbs) return declaredAbs.type;
     if (member?.forceMat || email === 'claire@oeforgood.com') return '🤰';
     if (member?.forceAbsent) {
-      const now = new Date();
-      const mo = now.getMonth() + 1;
-      return ((mo >= 12 && now.getDate() >= 15) || mo <= 4) ? '🎿' : '🌴';
+      const mo = checkDate.getMonth() + 1;
+      return ((mo >= 12 && checkDate.getDate() >= 15) || mo <= 4) ? '🎿' : '🌴';
     }
     const prevUpdate = allUpdates.find(u => u.email === email && u.weekKey === lastWkKey);
     const q8 = prevUpdate?.answers?.q8 || '';
     if (q8.includes('école') || q8.includes('École')) return '🎓';
     if (q8.includes('congés') || q8.includes('vacances')) {
-      const now = new Date();
-      const mo = now.getMonth() + 1;
-      return ((mo >= 12 && now.getDate() >= 15) || mo <= 4) ? '🎿' : '🌴';
+      const mo = checkDate.getMonth() + 1;
+      return ((mo >= 12 && checkDate.getDate() >= 15) || mo <= 4) ? '🎿' : '🌴';
     }
     return '🫥';
   }
@@ -1241,7 +1246,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
           <div style={{width:90,flexShrink:0,fontSize:11,fontWeight:600,color:"#1a1814",paddingRight:8}}>
             {teamMember?.prenom||"Moi"}
           </div>
-          <WeekDots myUpdates={myUpdates} clickable={true} onClickUpdate={w=>setSelectedWeek(w)} dotSize={14}/>
+          <WeekDots myUpdates={myUpdates} clickable={true} onClickUpdate={w=>setSelectedWeek(w)} dotSize={14} gap={0}/>
         </div>
         {/* Team rows */}
         {showTeam&&(()=>{
@@ -1265,7 +1270,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
                 paddingRight:8,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                 {m.prenom}
               </div>
-              <div style={{display:"flex",gap:4,flexWrap:"nowrap",alignItems:"center"}}>
+              <div style={{display:"flex",gap:0,flexWrap:"nowrap",alignItems:"center"}}>
                 {weeks.map((w,i)=>{
                   const update=lookup[`${m.email}_${w.wk}`];
                   // Determine emoji to show
@@ -1288,8 +1293,8 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
                   }
                   const isLast=i===weeks.length-1;
                   return <div key={i} onClick={update?()=>setSelectedWeek({wk:w.wk,update,prenom:m.prenom,isOwn:false}):undefined}
-                    style={{width:14,height:14,flexShrink:0,display:"flex",alignItems:"center",
-                      justifyContent:"center",cursor:update?"pointer":"default",fontSize:12,lineHeight:1,
+                    style={{width:22,height:22,flexShrink:0,display:"flex",alignItems:"center",
+                      justifyContent:"center",cursor:update?"pointer":"default",fontSize:15,lineHeight:1,
                       opacity:(!update&&emoji==='🫥')?0.35:1}}>
                     {emoji}
                   </div>;
@@ -2284,6 +2289,119 @@ function FeedbackAdminTab() {
   </div>;
 }
 
+function AbsencesTab({teamMembers=[], onSave}) {
+  const ABSENCE_TYPES = [
+    {emoji:'🌴', label:'Congés / Vacances'},
+    {emoji:'🎿', label:'Vacances hiver'},
+    {emoji:'🎓', label:'École / Formation'},
+    {emoji:'🤰', label:'Congé maternité'},
+  ];
+
+  const [absences, setAbsences] = useState([]);
+  const [loading, setLoading] = useState(true);
+  // New absence form
+  const [form, setForm] = useState({email:'', type:'🌴', dateFrom:'', dateTo:''});
+
+  useEffect(()=>{
+    const unsub = onSnapshot(doc(db,'app_config','absences'),(snap)=>{
+      if(snap.exists()) setAbsences(snap.data().list||[]);
+      setLoading(false);
+    });
+    return()=>unsub();
+  },[]);
+
+  async function saveAbsences(list) {
+    await setDoc(doc(db,'app_config','absences'),{list});
+    setAbsences(list);
+  }
+
+  async function addAbsence() {
+    if(!form.email||!form.dateFrom||!form.dateTo) return;
+    const entry = {id:Date.now().toString(), ...form};
+    await saveAbsences([...absences, entry]);
+    setForm({email:'', type:'🌴', dateFrom:'', dateTo:''});
+  }
+
+  async function removeAbsence(id) {
+    await saveAbsences(absences.filter(a=>a.id!==id));
+  }
+
+  const activeMembers = teamMembers.filter(m=>m.role!=='inactive'&&m.email);
+
+  const inputStyle = {
+    fontSize:12, border:'1px solid #e2ddd6', borderRadius:6,
+    padding:'6px 10px', fontFamily:'inherit', outline:'none', background:'#fff'
+  };
+
+  return <div>
+    <div style={{fontSize:13,fontWeight:600,color:'#1a1814',marginBottom:16}}>Gestion des absences</div>
+
+    {/* Add form */}
+    <div style={{background:'#f8f7f5',borderRadius:10,border:'1px solid #e2ddd6',padding:'16px',marginBottom:20}}>
+      <div style={{fontSize:12,fontWeight:600,color:'#6b6560',marginBottom:12,textTransform:'uppercase',letterSpacing:'.05em'}}>Déclarer une absence</div>
+      <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'flex-end'}}>
+        {/* Teammate */}
+        <div style={{display:'flex',flexDirection:'column',gap:4}}>
+          <label style={{fontSize:11,color:'#9e9890'}}>Teammate</label>
+          <select value={form.email} onChange={e=>setForm(p=>({...p,email:e.target.value}))} style={inputStyle}>
+            <option value="">— Choisir —</option>
+            {activeMembers.map(m=><option key={m.email} value={m.email}>{m.prenom} ({m.email})</option>)}
+          </select>
+        </div>
+        {/* Type */}
+        <div style={{display:'flex',flexDirection:'column',gap:4}}>
+          <label style={{fontSize:11,color:'#9e9890'}}>Type d'absence</label>
+          <select value={form.type} onChange={e=>setForm(p=>({...p,type:e.target.value}))} style={inputStyle}>
+            {ABSENCE_TYPES.map(t=><option key={t.emoji} value={t.emoji}>{t.emoji} {t.label}</option>)}
+          </select>
+        </div>
+        {/* Date from */}
+        <div style={{display:'flex',flexDirection:'column',gap:4}}>
+          <label style={{fontSize:11,color:'#9e9890'}}>Du</label>
+          <input type="date" value={form.dateFrom} onChange={e=>setForm(p=>({...p,dateFrom:e.target.value}))} style={inputStyle}/>
+        </div>
+        {/* Date to */}
+        <div style={{display:'flex',flexDirection:'column',gap:4}}>
+          <label style={{fontSize:11,color:'#9e9890'}}>Au</label>
+          <input type="date" value={form.dateTo} onChange={e=>setForm(p=>({...p,dateTo:e.target.value}))} style={inputStyle}/>
+        </div>
+        {/* Submit */}
+        <button onClick={addAbsence}
+          disabled={!form.email||!form.dateFrom||!form.dateTo}
+          style={{padding:'7px 18px',background:form.email&&form.dateFrom&&form.dateTo?'#2d6a4f':'#e2ddd6',
+            color:form.email&&form.dateFrom&&form.dateTo?'#fff':'#9e9890',
+            border:'none',borderRadius:7,cursor:form.email&&form.dateFrom&&form.dateTo?'pointer':'not-allowed',
+            fontSize:12,fontWeight:500,alignSelf:'flex-end'}}>
+          ✓ Valider
+        </button>
+      </div>
+    </div>
+
+    {/* Absences list */}
+    {loading?<div style={{color:'#9e9890',fontSize:13}}>Chargement…</div>
+    :absences.length===0?<div style={{color:'#9e9890',fontSize:13}}>Aucune absence déclarée.</div>
+    :<div style={{display:'flex',flexDirection:'column',gap:6}}>
+      {[...absences].sort((a,b)=>a.dateFrom.localeCompare(b.dateFrom)).map(a=>{
+        const m=activeMembers.find(x=>x.email===a.email);
+        const type=ABSENCE_TYPES.find(t=>t.emoji===a.type);
+        return <div key={a.id} style={{display:'flex',alignItems:'center',gap:12,
+          background:'#fff',border:'1px solid #e2ddd6',borderRadius:8,padding:'10px 14px'}}>
+          <span style={{fontSize:20}}>{a.type}</span>
+          <div style={{flex:1}}>
+            <div style={{fontSize:12,fontWeight:600,color:'#1a1814'}}>{m?.prenom||a.email}</div>
+            <div style={{fontSize:11,color:'#9e9890'}}>{type?.label} · du {new Date(a.dateFrom).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})} au {new Date(a.dateTo).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}</div>
+          </div>
+          <button onClick={()=>removeAbsence(a.id)}
+            style={{fontSize:11,color:'#c0392b',background:'#fdecea',border:'1px solid #fca5a5',
+              borderRadius:5,padding:'3px 10px',cursor:'pointer'}}>
+            🗑️ Supprimer
+          </button>
+        </div>;
+      })}
+    </div>}
+  </div>;
+}
+
 function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions,catTypes,onSaveCatTypes,codeMap,onSaveCodeMap,customSubcatLabels,onSaveCustomSubcatLabels}){
   const [members,setMembers]=useState(teamMembers.map(m=>({...m})));
   const [newPrenom,setNewPrenom]=useState("");
@@ -2326,7 +2444,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
     <TopBar onBack={onBack} title="⚙️ Paramètres"/>
     <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
       <div style={{display:"flex",gap:10,marginBottom:20}}>
-        {([{k:"members",l:"👥 Membres & rôles"},...(currentUser?.email===OWNER_EMAIL?[{k:"questions",l:"❓ Questions Update"},{k:"history",l:"📋 Historique Updates"},{k:"feedback",l:"💡 Feedback"},{k:"reporting_params",l:"⚙️ Reporting"}]:[])]).map(t=><button key={t.k} onClick={()=>setTab(t.k)}
+        {([{k:"members",l:"👥 Membres & rôles"},...(currentUser?.email===OWNER_EMAIL?[{k:"questions",l:"❓ Questions Update"},{k:"history",l:"📋 Historique Updates"},{k:"feedback",l:"💡 Feedback"},{k:"absences",l:"🌴 Absences"},{k:"reporting_params",l:"⚙️ Reporting"}]:[])]).map(t=><button key={t.k} onClick={()=>setTab(t.k)}
           style={{padding:"8px 16px",borderRadius:8,border:`1px solid ${tab===t.k?"#2d6a4f":"#e2ddd6"}`,background:tab===t.k?"#2d6a4f":"#fff",color:tab===t.k?"#fff":"#6b6560",cursor:"pointer",fontSize:13,fontWeight:500}}>
           {t.l}
         </button>)}
@@ -2414,6 +2532,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
 
       {tab==="history"&&<UpdatesHistoryTab/>}
       {tab==="feedback"&&<FeedbackAdminTab/>}
+      {tab==="absences"&&<AbsencesTab teamMembers={members} onSave={save}/>}
       {tab==="reporting_params"&&<ReportingParamsTab
           codeMap={codeMap} onSaveCodeMap={onSaveCodeMap}
           customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={onSaveCustomSubcatLabels}
@@ -2978,6 +3097,14 @@ export default function App(){
   useEffect(()=>{
     const unsub=onAuthStateChanged(auth,(user)=>{setAuthUser(user);setAuthLoading(false);});
     return()=>unsub();
+  },[]);
+
+  // Load declared absences globally
+  useEffect(()=>{
+    const unsubAbs = onSnapshot(doc(db,'app_config','absences'),(snap)=>{
+      window._absences = snap.exists() ? (snap.data().list||[]) : [];
+    });
+    return()=>unsubAbs();
   },[]);
 
   // Load app config from Firestore when logged in
