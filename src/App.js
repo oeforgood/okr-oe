@@ -938,7 +938,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             if(member?.forceAbsent){const mo=w.mon.getMonth()+1;return((mo>=12&&w.mon.getDate()>=15)||mo<=4)?'🎿':'🌴';}
             return '🫥';
           };
-          return <div style={{display:"flex",gap:2,flexWrap:"nowrap",alignItems:"center"}}>
+          return <div style={{display:"flex",gap:2,flexWrap:"nowrap",alignItems:"flex-end"}}>
             {hov&&<div style={{position:"fixed",left:pos.x+10,top:pos.y-28,background:"#1a1814",color:"#fff",
               fontSize:10,padding:"2px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:9999,pointerEvents:"none"}}>{hov}</div>}
             {my13Weeks.map((w,i)=>{
@@ -946,8 +946,14 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
               const icon=getWeekIcon(w);
               const sameM=w.mon.getMonth()===w.fri.getMonth();
               const tip=sameM?`Semaine du ${w.mon.getDate()} au ${w.fri.getDate()} ${w.fri.toLocaleString("fr-FR",{month:"long"})}`:`Semaine du ${w.mon.getDate()} ${w.mon.toLocaleString("fr-FR",{month:"short"})} au ${w.fri.getDate()} ${w.fri.toLocaleString("fr-FR",{month:"short"})}`;
-              return <span key={i} style={{fontSize:isLast?36:22,lineHeight:1,cursor:"default",
-                opacity:(w.u||isLast)?1:0.45}}
+              return <span key={i} style={{
+                fontSize:isLast?44:22,
+                lineHeight:1,
+                cursor:"default",
+                opacity:(w.u||isLast)?1:0.45,
+                display:"inline-block",
+                verticalAlign:"bottom",
+              }}
                 onMouseEnter={e=>{setHov(tip);setPos({x:e.clientX,y:e.clientY});}}
                 onMouseMove={e=>setPos({x:e.clientX,y:e.clientY})}
                 onMouseLeave={()=>setHov(null)}>{icon}</span>;
