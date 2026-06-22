@@ -141,10 +141,12 @@ function getUpdateWeekKey(){
   return getWeekKey(prev);
 }
 function isUpdateLocked(submitted){
-  // Locked if submitted AND past Friday 15h (Fri>=15h, Sat, Sun, Mon)
-  if(!submitted)return false;
   const now=new Date();
   const dow=now.getDay();
+  // Tuesday = always locked (no editing)
+  if(dow===2)return true;
+  // Locked if submitted AND past Friday 15h (Fri>=15h, Sat, Sun, Mon)
+  if(!submitted)return false;
   if(dow===5&&now.getHours()>=15)return true; // Fri after 15h
   if(dow===6||dow===0||dow===1)return true;   // Sat, Sun, Mon
   return false;
@@ -1286,16 +1288,16 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
             allUpdates.forEach(u=>{lookup[`${u.email}_${u.weekKey}`]=u;});
             return ordered.map((m,rowIdx)=>{
               const isReport=m.managerEmail===myEmail;
-              const sep=rowIdx===reports.length&&reports.length>0;
-              return <div key={m.email} style={{display:"flex",alignItems:"center",gap:0,
-                marginTop:sep?8:4,paddingTop:sep?8:0,
-                borderTop:sep?"2px dashed #2d6a4f":"none",
-                background:isReport?"#f8fffc":"transparent",borderRadius:isReport?6:0,padding:"2px 4px"}}>
-                <div style={{width:90,flexShrink:0,paddingRight:8,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                  {isReport
-                    ?<><span style={{fontSize:12,fontWeight:700,color:"#2d6a4f"}}>{m.prenom}</span><span style={{fontSize:9,color:"#9e9890",marginLeft:3}}>↳</span></>
-                    :<span style={{fontSize:11,color:"#6b6560"}}>{m.prenom}</span>}
-                </div>
+               const isReport=m.managerEmail===myEmail;
+               return <div key={m.email} style={{display:"flex",alignItems:"center",gap:0,
+                 marginTop:4,padding:"2px 0"}}>
+                 <div style={{width:90,flexShrink:0,paddingRight:8,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                   {isReport
+                     ?<span style={{display:"inline-block",background:"#2d6a4f",color:"#fff",
+                         fontSize:11,fontWeight:600,borderRadius:20,padding:"2px 9px",
+                         whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:86}}>{m.prenom}</span>
+                     :<span style={{fontSize:11,color:"#6b6560"}}>{m.prenom}</span>}
+                 </div>
                 <div style={{display:"flex",gap:0,flexWrap:"nowrap",alignItems:"center"}}>
                   {weeks.map((w,wi)=>{
                     const update=lookup[`${m.email}_${w.wk}`];
