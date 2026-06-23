@@ -300,9 +300,9 @@ function WeekDots({myUpdates, clickable=false, onClickUpdate, dotSize=14, email}
         onMouseEnter={()=>setHov(i)}
         onMouseLeave={()=>setHov(null)}
         style={{
-          width:18,height:18,display:"flex",alignItems:"center",justifyContent:"center",
+          width:22,height:22,display:"flex",alignItems:"center",justifyContent:"center",
           flexShrink:0,cursor:clickable&&w.update?"pointer":"default",
-          fontSize:13,lineHeight:1,opacity,
+          fontSize:15,lineHeight:1,opacity,
         }}>
         {emoji}
       </div>;
@@ -1320,8 +1320,8 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
                     else if(update){emoji=update.answers?.q7||'😐';}
                     else{emoji='🫥';}
                     return <div key={wi} onClick={update?()=>setSelectedWeek({wk:w.wk,update,prenom:m.prenom,isOwn:false,authorEmail:m.email}):undefined}
-                      style={{width:18,height:18,flexShrink:0,display:"flex",alignItems:"center",
-                        justifyContent:"center",cursor:update?"pointer":"default",fontSize:13,lineHeight:1,
+                      style={{width:22,height:22,flexShrink:0,display:"flex",alignItems:"center",
+                        justifyContent:"center",cursor:update?"pointer":"default",fontSize:15,lineHeight:1,
                         opacity:(!update&&emoji==='🫥')?0.35:1}}>
                       {emoji}
                     </div>;
