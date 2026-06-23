@@ -531,7 +531,7 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,t
          if(!msg.isSystem&&msg.notif&&!msg.notif.read){onReadNotif&&onReadNotif(msg.notif);}
          if(msg.isTmNotif&&!msg.read){updateDoc(doc(db,"teammate_notifications",msg.tmNotifId),{read:true}).catch(()=>{});}
        }}
-         style={{display:"flex",alignItems:"center",gap:10,padding:"7px 18px",cursor:"pointer",borderBottom:"1px solid #f8f7f5",background:"transparent"}}
+         style={{display:"flex",alignItems:"center",gap:10,padding:"3px 18px",cursor:"pointer",borderBottom:"1px solid #f8f7f5",background:"transparent"}}
          onMouseEnter={e=>e.currentTarget.style.background="#f8f7f5"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
          {!msg.read?<span style={{width:8,height:8,borderRadius:"50%",background:"#2d6a4f",flexShrink:0,display:"inline-block"}}/>:<span style={{width:8,flexShrink:0}}/>}
          <span style={{fontSize:11,color:msg.read?"#c5c0b8":"#9e9890",minWidth:90,flexShrink:0}}>{msg.date.toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})} {msg.date.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}</span>
@@ -1030,8 +1030,10 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             </div>
             {/* Middle: 13 smileys */}
             <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",gap:6}}>
-              <div style={{fontSize:9,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>Mes 13 dernières semaines</div>
-              <My13Smileys/>
+              <div style={{display:"flex",flexDirection:"column",gap:0}}>
+                <div style={{fontSize:9,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",fontWeight:500,lineHeight:1,paddingBottom:2}}>Mes 13 dernières semaines</div>
+                <My13Smileys/>
+              </div>
             </div>
             {/* Bottom: button */}
             <div style={{paddingTop:12,borderTop:"1px solid #86efac"}}>
