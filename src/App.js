@@ -127,21 +127,28 @@ function getWeekBounds(weekKey){
   return{mon,fri};
 }
 function getUpdateWeekKey(){
-  // Mon = previous week, Tue = blocked, Wed-Sun = current week
+  // Always returns WN-1 (the week being filled in)
+  // Tue WN = blocked (return null)
+  // Wed WN-1 to Mon WN = WN-1
   const now=new Date();
-  const dow=now.getDay();
-  if(dow===2)return null; // Tuesday blocked
-  if(dow===1){
-    const prev=new Date(now);prev.setDate(now.getDate()-7);
-    return getWeekKey(prev);
-  }
-  return getWeekKey(now);
+  const dow=now.getDay(); // 0=Sun,1=Mon,2=Tue,3=Wed,4=Thu,5=Fri,6=Sat
+  if(dow===2)return null; // Tuesday: blocked
+  // Always return last week's key (WN-1)
+  const prev=new Date(now);
+  // Go back to previous Monday
+  const daysToLastMon = dow===1 ? 7 : (dow===0 ? 6 : dow-1+7);
+  prev.setDate(now.getDate()-daysToLastMon);
+  return getWeekKey(prev);
 }
-function isUpdateLocked(){
-  // Locked (non modifiable) if already submitted: Friday after 15h
+function isUpdateLocked(submitted){
   const now=new Date();
   const dow=now.getDay();
-  if(dow===5&&now.getHours()>=15)return true;
+  // Tuesday = always locked (no editing)
+  if(dow===2)return true;
+  // Locked if submitted AND past Friday 15h (Fri>=15h, Sat, Sun, Mon)
+  if(!submitted)return false;
+  if(dow===5&&now.getHours()>=15)return true; // Fri after 15h
+  if(dow===6||dow===0||dow===1)return true;   // Sat, Sun, Mon
   return false;
 }
 function isUpdateDeadlinePassed(){
@@ -229,7 +236,9 @@ function LoginPage({onLogin,error}){
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
-function get26Weeks(myUpdates){
+
+function toDateStr(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+ function get26Weeks(myUpdates, email){
   const now = new Date();
   const currentWk = getWeekKey(now);
   const weeks = [];
@@ -239,28 +248,34 @@ function get26Weeks(myUpdates){
     const wk = getWeekKey(d);
     const {mon,fri} = getWeekBounds(wk);
     const update = myUpdates.find(u=>u.weekKey===wk);
+    const monStr = toDateStr(mon);
+    const declared = email && (window._absences||[]).find(a=>
+      a.email===email && monStr>=a.dateFrom && monStr<=a.dateTo
+    );
     let status = "none";
-    if(update){
+    if(declared){ status = "absent"; }
+    else if(update){
       const submDay = new Date(update.submittedAt).getDay();
       status = submDay===1 ? "late" : "done";
-    }
-    if(!update && wk===currentWk) status = "pending";
-    weeks.push({wk,mon,fri,status,update,isCurrentWeek:wk===currentWk});
+    } else if(wk===currentWk){ status = "pending"; }
+    weeks.push({wk,mon,fri,status,update,isCurrentWeek:wk===currentWk,declared});
   }
   return weeks;
 }
+
 
 const DOT_COLORS = {
   done:    {bg:"#2d6a4f", border:"#2d6a4f"},
   late:    {bg:"#f59e0b", border:"#f59e0b"},
   none:    {bg:"#fca5a5", border:"#ef4444"},
   pending: {bg:"#e2ddd6", border:"#c5c0b8"},
+  absent:  {bg:"#e2ddd6", border:"#c5c0b8"},
 };
 
-function WeekDots({myUpdates, clickable=false, onClickUpdate}){
-  const weeks = get26Weeks(myUpdates);
+function WeekDots({myUpdates, clickable=false, onClickUpdate, dotSize=14, email}){
+  const weeks = get26Weeks(myUpdates, email);
   const [hov,setHov]=useState(null);
-  return <div style={{position:"relative",display:"flex",gap:4,flexWrap:"nowrap",alignItems:"center"}}>
+  return <div style={{position:"relative",display:"flex",gap:0,flexWrap:"nowrap",alignItems:"center"}}>
     {hov!==null&&weeks[hov]&&(()=>{
       const w=weeks[hov];
       const sameM2=w.mon.getMonth()===w.fri.getMonth();
@@ -271,20 +286,26 @@ function WeekDots({myUpdates, clickable=false, onClickUpdate}){
       return <div style={{position:"absolute",top:-26,left:`${pct}%`,transform:"translateX(-50%)",background:"#1a1814",color:"#fff",fontSize:10,padding:"3px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:10,pointerEvents:"none"}}>{tip}</div>;
     })()}
     {weeks.map((w,i)=>{
-      const c = DOT_COLORS[w.status];
+      const MOOD_SCORE={'😊':5,'🙂':4,'😐':3,'😕':2,'😩':1};
+      let emoji;
+      if(w.declared){emoji=w.declared.type;}
+      else if(w.status==='done'||w.status==='late'){emoji=w.update?.answers?.q7||'😐';}
+      else{emoji='🫥';}
+      const opacity=(w.status==='none'||w.status==='absent'||w.status==='pending'||w.declared)?0.35:1;
+      // Vertical offset based on mood: each level = 5px shift (mood 3 = center)
+      const score=MOOD_SCORE[emoji]||3;
+      const translateY=(3-score)*5; // mood5=-10px (top), mood1=+10px (bottom)
       return <div key={i}
         onClick={()=>clickable&&w.update&&onClickUpdate&&onClickUpdate(w)}
         onMouseEnter={()=>setHov(i)}
         onMouseLeave={()=>setHov(null)}
         style={{
-          width:14,height:14,borderRadius:"50%",
-          background:c.bg,border:`1.5px solid ${c.border}`,
-          flexShrink:0,
-          cursor:clickable&&w.update?"pointer":"default",
-          transition:"transform .1s",
-          boxSizing:"border-box",
-        }}
-      />;
+          width:22,height:22,display:"flex",alignItems:"center",justifyContent:"center",
+          flexShrink:0,cursor:clickable&&w.update?"pointer":"default",
+          fontSize:15,lineHeight:1,opacity,
+        }}>
+        {emoji}
+      </div>;
     })}
   </div>;
 }
@@ -394,10 +415,15 @@ function UpdateStreak({myUpdates, allUpdates=[], onGoUpdate}){
   return <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} onGoUpdate={onGoUpdate}/>;
 }
 
-function NotifDetail({notif}){
+function NotifDetail({notif, teamMember, teamMembers=[]}) {
   const answers=notif?.answers||{};
   const moodVal=answers.q7||"";
-  const visibleQs=DEFAULT_QUESTIONS.filter(q=>answers[q.id]);
+  // q6 visible if viewer is author's manager
+  const viewerEmail=teamMember?.email;
+  const authorEmail=notif?.fromEmail||notif?.email;
+  const isManager=!!(viewerEmail&&authorEmail&&
+    teamMembers.find(m=>m.email===authorEmail&&m.managerEmail===viewerEmail));
+  const visibleQs=DEFAULT_QUESTIONS.filter(q=>answers[q.id]&&(q.id!=='q6'||isManager));
   return <div>
     {moodVal&&<div style={{fontSize:28,marginBottom:12}}>{moodVal}</div>}
     {visibleQs.map(q=>{
@@ -415,7 +441,7 @@ function NotifDetail({notif}){
   </div>;
 }
 
-function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,myUpdates=[]}){
+function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,teamMembers=[],myUpdates=[]}){
   const [selected,setSelected]=useState(null);
   // Include manager notifs (update notifications) + system messages
   // System messages: Monday morning greeting, season prep reminder
@@ -493,7 +519,7 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,m
 
   const allMsgs=[...systemMsgs,...tmMsgs,...notifMsgs].sort((a,b)=>b.date-a.date);
 
-  return <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",marginBottom:16,boxShadow:"0 1px 3px rgba(0,0,0,.06)",display:"flex",flexDirection:"column",height:"100%"}}>
+  return <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",boxShadow:"0 1px 3px rgba(0,0,0,.06)",display:"flex",flexDirection:"column",height:145,overflow:"hidden"}}>
     <div style={{padding:"12px 18px",borderBottom:"1px solid #f0ede8",fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em"}}>
       Messages {notifMsgs.filter(m=>!m.read).length>0&&<span style={{background:"#2d6a4f",color:"#fff",borderRadius:10,padding:"1px 7px",fontSize:10,marginLeft:6,fontWeight:500}}>{notifMsgs.filter(m=>!m.read).length}</span>}
     </div>
@@ -505,7 +531,7 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,m
          if(!msg.isSystem&&msg.notif&&!msg.notif.read){onReadNotif&&onReadNotif(msg.notif);}
          if(msg.isTmNotif&&!msg.read){updateDoc(doc(db,"teammate_notifications",msg.tmNotifId),{read:true}).catch(()=>{});}
        }}
-         style={{display:"flex",alignItems:"center",gap:10,padding:"7px 18px",cursor:"pointer",borderBottom:"1px solid #f8f7f5",background:"transparent"}}
+         style={{display:"flex",alignItems:"center",gap:10,padding:"3px 18px",cursor:"pointer",borderBottom:"1px solid #f8f7f5",background:"transparent"}}
          onMouseEnter={e=>e.currentTarget.style.background="#f8f7f5"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
          {!msg.read?<span style={{width:8,height:8,borderRadius:"50%",background:"#2d6a4f",flexShrink:0,display:"inline-block"}}/>:<span style={{width:8,flexShrink:0}}/>}
          <span style={{fontSize:11,color:msg.read?"#c5c0b8":"#9e9890",minWidth:90,flexShrink:0}}>{msg.date.toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})} {msg.date.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}</span>
@@ -523,7 +549,7 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,m
         {selected.isSystem&&<div style={{marginBottom:14}}/>}
         {selected.isSystem
           ?<div style={{fontSize:13,color:"#1a1814",lineHeight:1.6}}>{selected.content}</div>
-          :<NotifDetail notif={selected.notif} onRead={()=>{onReadNotif&&onReadNotif(selected.notif);setSelected(null);}}/>
+          :<NotifDetail notif={selected.notif} teamMember={teamMember} teamMembers={teamMembers||[]} onRead={()=>{onReadNotif&&onReadNotif(selected.notif);setSelected(null);}}/>
         }
 
       </div>
@@ -640,8 +666,8 @@ function FeedbackBox({currentUser, teamMember}) {
   }
 
   return (
-    <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"14px 16px",
-      boxShadow:"0 1px 3px rgba(0,0,0,.06)",display:"flex",flexDirection:"column",gap:8}}>
+    <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"10px 14px",
+      boxShadow:"0 1px 3px rgba(0,0,0,.06)",display:"flex",flexDirection:"column",gap:6,height:145,boxSizing:"border-box"}}>
       <div style={{fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em"}}>
         💡 Idées & corrections
       </div>
@@ -654,7 +680,7 @@ function FeedbackBox({currentUser, teamMember}) {
         rows={2}
         placeholder="Ton idée ou correction…"
         style={{fontSize:12,border:"1px solid #e2ddd6",borderRadius:6,padding:"6px 8px",
-          fontFamily:"inherit",resize:"none",outline:"none",color:"#1a1814"}}
+          fontFamily:"inherit",resize:"none",outline:"none",color:"#1a1814",flex:1,minHeight:0}}
       />
       {sent
         ? <div style={{fontSize:11,color:"#2d6a4f",fontWeight:500,textAlign:"center"}}>✓ Envoyé !</div>
@@ -715,8 +741,8 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
     <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
 
       {/* ── TOP: Notifications + Feedback ── */}
-      <div style={{display:"grid",gridTemplateColumns:"3fr 1fr",gap:12,marginBottom:16,alignItems:"stretch",gridAutoRows:"1fr"}}>
-        <MessagesPanel managerNotifs={managerNotifs} teammateNotifs={teammateNotifs} onReadNotif={onReadNotif} teamMember={teamMember} myUpdates={myUpdates}/>
+      <div style={{display:"grid",gridTemplateColumns:"3fr 1fr",gap:12,marginBottom:16,alignItems:"stretch"}}>
+        <MessagesPanel managerNotifs={managerNotifs} teammateNotifs={teammateNotifs} onReadNotif={onReadNotif} teamMember={teamMember} teamMembers={teamMembers} myUpdates={myUpdates}/>
         <FeedbackBox currentUser={currentUser} teamMember={teamMember}/>
       </div>
 
@@ -765,9 +791,14 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
         const MOOD_SCORE={"😊":5,"🙂":4,"😐":3,"😕":2,"😩":1};
         const MOOD_FROM_SCORE=s=>s>=4.5?"😊":s>=3.5?"🙂":s>=2.5?"😐":s>=1.5?"😕":"😩";
         const now=new Date();
-        const lastWkDate=new Date(now);lastWkDate.setDate(now.getDate()-7);
-        const lastWkKey=getWeekKey(lastWkDate);
-        const curWkKey=getUpdateWeekKey()||getWeekKey(now);
+        // lastWkKey = calendar week 7 days ago
+        const _7daysAgo=new Date(now);_7daysAgo.setDate(now.getDate()-7);
+        const lastWkKey=getWeekKey(_7daysAgo);
+        // curWkKey = current calendar week (always based on Monday of this week)
+        const _thisMon=new Date(now);
+        const _dow=_thisMon.getDay()||7;
+        _thisMon.setDate(_thisMon.getDate()-_dow+1);
+        const curWkKey=getWeekKey(_thisMon);
         const activeTeam=(teamMembers||[]).filter(m=>m.role!=="inactive"&&m.email);
         const activeCount=activeTeam.length||10;
 
@@ -777,13 +808,15 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
 
         // Build last week full list: done members + absent members
         const doneLastWkEmails=new Set(teamLastWk.map(u=>u.email));
-        const FORCE_MAT_EMAILS=['claire@oeforgood.com'];
-        const absentLastWk=activeTeam.filter(m=>(!doneLastWkEmails.has(m.email))||m.forceAbsent||m.forceMat||FORCE_MAT_EMAILS.includes(m.email));
+        const lastWkMon=_7daysAgo;
+        const curWkMonRef=_thisMon;
+        const isAbsentDeclared=(email,refDate)=>(window._absences||[]).some(a=>a.email===email&&toDateStr(refDate)>=a.dateFrom&&toDateStr(refDate)<=a.dateTo);
+        const absentLastWk=activeTeam.filter(m=>(!doneLastWkEmails.has(m.email))||m.forceAbsent||m.forceMat||isAbsentDeclared(m.email,lastWkMon));
         const doneCurWkEmails=new Set(teamCurWk.map(u=>u.email));
-        const absentCurWk=activeTeam.filter(m=>(!doneCurWkEmails.has(m.email))||m.forceAbsent||m.forceMat||FORCE_MAT_EMAILS.includes(m.email));
+        const absentCurWk=activeTeam.filter(m=>(!doneCurWkEmails.has(m.email))||m.forceAbsent||m.forceMat||isAbsentDeclared(m.email,curWkMonRef));
         // Remove forceMat/forceAbsent from done lists
-        const teamLastWkFiltered=teamLastWk.filter(u=>!activeTeam.find(m=>m.email===u.email&&(m.forceMat||m.forceAbsent))&&!FORCE_MAT_EMAILS.includes(u.email));
-        const teamCurWkFiltered=teamCurWk.filter(u=>!activeTeam.find(m=>m.email===u.email&&(m.forceMat||m.forceAbsent))&&!FORCE_MAT_EMAILS.includes(u.email));
+        const teamLastWkFiltered=teamLastWk.filter(u=>!activeTeam.find(m=>m.email===u.email&&(m.forceMat||m.forceAbsent))&&!isAbsentDeclared(u.email,lastWkMon));
+        const teamCurWkFiltered=teamCurWk.filter(u=>!activeTeam.find(m=>m.email===u.email&&(m.forceMat||m.forceAbsent))&&!isAbsentDeclared(u.email,curWkMonRef));
 
         const teamMoodScores=teamLastWk.filter(u=>u.answers?.q7).map(u=>MOOD_SCORE[u.answers.q7]||3);
         const teamMoodAvg=teamMoodScores.length?teamMoodScores.reduce((a,b)=>a+b,0)/teamMoodScores.length:null;
@@ -802,35 +835,38 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
           return{wk,u,mon,fri};
         });
         // Exclude weeks where user indicated absence from denominator
-        const myActiveWeeks=my13Weeks.filter(w=>{
-          // Check previous week's q8 to see if this week was marked absent
-          const prevWkDate=new Date(w.mon);prevWkDate.setDate(w.mon.getDate()-7);
-          const prevWk=getWeekKey(prevWkDate);
-          const prevU=myUpdates.find(u=>u.weekKey===prevWk);
-          const q8=prevU?.answers?.q8||'';
-          const isClairePreg=teamMember?.email==='claire@oeforgood.com';
-          return !q8.includes('congés')&&!q8.includes('École')&&!q8.includes('école')&&!isClairePreg;
+        // Completion rate: only the 12 past weeks (exclude current week = index 12)
+        const my12PastWeeks=my13Weeks.slice(0,12);
+        const myActiveWeeks=my12PastWeeks.filter(w=>{
+          const declaredAbs=(window._absences||[]).find(a=>
+            a.email===teamMember?.email&&toDateStr(w.mon)>=a.dateFrom&&toDateStr(w.mon)<=a.dateTo
+          );
+          return !declaredAbs;
         });
         const myUpdateCount=my13Weeks.filter(w=>w.u).length;
-        const myCompletionRate=myActiveWeeks.length>0?Math.round(my13Weeks.filter(w=>w.u&&myActiveWeeks.includes(w)).length/myActiveWeeks.length*100):100;
+        const myCompletionRate=myActiveWeeks.length>0?Math.round(my12PastWeeks.filter(w=>w.u&&myActiveWeeks.includes(w)).length/myActiveWeeks.length*100):100;
 
 
   // Get absence icon for a teammate based on forceAbsent/forceMat flags or previous week's q8 answer
-  function getAbsenceIcon(email, prenom) {
+  function getAbsenceIcon(email, prenom, refDate) {
     const member = (teamMembers||[]).find(m => m.email === email);
-    if (member?.forceMat || email === 'claire@oeforgood.com') return '🤰';
+    const checkDate = refDate || new Date();
+    // Check declared absences
+    const declaredAbs = (window._absences||[]).find(a=>
+      a.email===email && toDateStr(checkDate)>=a.dateFrom && toDateStr(checkDate)<=a.dateTo
+    );
+    if (declaredAbs) return declaredAbs.type;
+    if (member?.forceMat) return '🤰';
     if (member?.forceAbsent) {
-      const now = new Date();
-      const mo = now.getMonth() + 1;
-      return ((mo >= 12 && now.getDate() >= 15) || mo <= 4) ? '🎿' : '🌴';
+      const mo = checkDate.getMonth() + 1;
+      return ((mo >= 12 && checkDate.getDate() >= 15) || mo <= 4) ? '🎿' : '🌴';
     }
     const prevUpdate = allUpdates.find(u => u.email === email && u.weekKey === lastWkKey);
     const q8 = prevUpdate?.answers?.q8 || '';
     if (q8.includes('école') || q8.includes('École')) return '🎓';
     if (q8.includes('congés') || q8.includes('vacances')) {
-      const now = new Date();
-      const mo = now.getMonth() + 1;
-      return ((mo >= 12 && now.getDate() >= 15) || mo <= 4) ? '🎿' : '🌴';
+      const mo = checkDate.getMonth() + 1;
+      return ((mo >= 12 && checkDate.getDate() >= 15) || mo <= 4) ? '🎿' : '🌴';
     }
     return '🫥';
   }
@@ -842,13 +878,13 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
           const absentEmails=new Set(absent.map(m=>m.email));
           const realAbsents=absent.filter(m=>{
             const icon=getAbsenceIcon(m.email,m.prenom);
-            return icon==='🤰'||icon==='🎓'||icon==='🌴'||icon==='🎿';
+            return icon!=='🫥';
           });
           const realAbsentEmails=new Set(realAbsents.map(m=>m.email));
           // Sort: 🤰 first, then others
           const absentSorted=[...realAbsents].sort((a,b)=>{
-            const aFirst=(a.forceMat||a.email==='claire@oeforgood.com')?0:1;
-            const bFirst=(b.forceMat||b.email==='claire@oeforgood.com')?0:1;
+            const aFirst=(a.forceMat)?0:1;
+            const bFirst=(b.forceMat)?0:1;
             return aFirst-bFirst;
           });
           const absentItems=absentSorted.map(m=>({key:'a'+m.email,emoji:getAbsenceIcon(m.email,m.prenom),name:m.prenom,isAbsent:true}));
@@ -863,10 +899,11 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             !doneEmails.has(m.email)
           ).map(m=>({key:'n'+m.email,emoji:"🫥",name:m.prenom,isAbsent:false,notDone:true}));
           const all=[...absentItems,...doneItems,...notDoneItems];
-          return <div style={{display:"flex",gap:3,flexWrap:"wrap",alignItems:"center"}}>
+          return <div style={{display:"flex",gap:2,flexWrap:"wrap",alignItems:"center"}}>
             {hov&&<div style={{position:"fixed",left:pos.x+10,top:pos.y-28,background:"#1a1814",color:"#fff",
               fontSize:10,padding:"2px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:9999,pointerEvents:"none"}}>{hov}</div>}
-            {all.map(item=><span key={item.key} style={{fontSize:size,lineHeight:1,cursor:"default",opacity:item.isAbsent?0.8:item.notDone?0.5:1}}
+            {all.map(item=><span key={item.key} style={{fontSize:size,lineHeight:1,cursor:"default",
+              opacity:item.isAbsent?0.8:item.notDone?0.5:1}}
               onMouseEnter={e=>{setHov(item.name);setPos({x:e.clientX,y:e.clientY});}}
               onMouseMove={e=>setPos({x:e.clientX,y:e.clientY})}
               onMouseLeave={()=>setHov(null)}>
@@ -901,7 +938,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             if(member?.forceAbsent){const mo=w.mon.getMonth()+1;return((mo>=12&&w.mon.getDate()>=15)||mo<=4)?'🎿':'🌴';}
             return '🫥';
           };
-          return <div style={{display:"flex",gap:3,flexWrap:"wrap",alignItems:"center"}}>
+          return <div style={{display:"flex",gap:2,flexWrap:"nowrap",alignItems:"flex-end"}}>
             {hov&&<div style={{position:"fixed",left:pos.x+10,top:pos.y-28,background:"#1a1814",color:"#fff",
               fontSize:10,padding:"2px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:9999,pointerEvents:"none"}}>{hov}</div>}
             {my13Weeks.map((w,i)=>{
@@ -909,8 +946,14 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
               const icon=getWeekIcon(w);
               const sameM=w.mon.getMonth()===w.fri.getMonth();
               const tip=sameM?`Semaine du ${w.mon.getDate()} au ${w.fri.getDate()} ${w.fri.toLocaleString("fr-FR",{month:"long"})}`:`Semaine du ${w.mon.getDate()} ${w.mon.toLocaleString("fr-FR",{month:"short"})} au ${w.fri.getDate()} ${w.fri.toLocaleString("fr-FR",{month:"short"})}`;
-              return <span key={i} style={{fontSize:isLast?36:16,lineHeight:1,cursor:"default",
-                opacity:(w.u||isLast)?1:0.45}}
+              return <span key={i} style={{
+                fontSize:isLast?44:22,
+                lineHeight:1,
+                cursor:"default",
+                opacity:(w.u||isLast)?1:0.45,
+                display:"inline-block",
+                verticalAlign:"bottom",
+              }}
                 onMouseEnter={e=>{setHov(tip);setPos({x:e.clientX,y:e.clientY});}}
                 onMouseMove={e=>setPos({x:e.clientX,y:e.clientY})}
                 onMouseLeave={()=>setHov(null)}>{icon}</span>;
@@ -922,14 +965,14 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
 
         return <>
           {/* Updates section: 2/3 team + 1/3 perso, 320px tall */}
-          <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:12,marginBottom:20}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 380px",gap:12,marginBottom:20}}>
           {/* Team Updates banner */}
           <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"14px 20px",
             display:"flex",alignItems:"stretch",gap:12,
             boxShadow:"0 1px 3px rgba(0,0,0,.04)",height:220,boxSizing:"border-box",overflow:"hidden"}}>
             {/* Left: team mood avg + ratio */}
             <div style={{flexShrink:0,textAlign:"center",width:90,display:"flex",flexDirection:"column",justifyContent:"center",gap:6}}>
-              <div style={{fontSize:44,lineHeight:1}}>{teamMoodAvg?MOOD_FROM_SCORE(teamMoodAvg):"—"}</div>
+              <div style={{fontSize:60,lineHeight:1}}>{teamMoodAvg?MOOD_FROM_SCORE(teamMoodAvg):"—"}</div>
               {(()=>{
                 const presentTeam2=activeTeam.filter(m=>{
                   const prevU=allUpdates.find(u=>u.email===m.email&&u.weekKey===lastWkKey);
@@ -987,8 +1030,10 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             </div>
             {/* Middle: 13 smileys */}
             <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",gap:6}}>
-              <div style={{fontSize:9,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>Mes 13 dernières semaines</div>
-              <My13Smileys/>
+              <div style={{display:"flex",flexDirection:"column",gap:0}}>
+                <div style={{fontSize:9,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",fontWeight:500,lineHeight:1,paddingBottom:2}}>Mes 13 dernières semaines</div>
+                <My13Smileys/>
+              </div>
             </div>
             {/* Bottom: button */}
             <div style={{paddingTop:12,borderTop:"1px solid #86efac"}}>
@@ -1043,13 +1088,21 @@ function UpdateCalendar({myUpdates,onView}){
   </div>;
 }
 
-function UpdateViewModal({notif,onClose,onRead}){
+function UpdateViewModal({notif,onClose,onRead,teamMembers=[]}){
   const u=notif.updateData||notif;
   const weekLabel=notif.weekKey?fmtWeekLabel(notif.weekKey):"";
   const answers=u.answers||u.updateData?.answers||{};
   const moodVal=answers.q7||"";
-  // Show questions in DEFAULT_QUESTIONS order, skip q7 (shown in title), include q6 if present
-  const visibleQs=DEFAULT_QUESTIONS.filter(q=>q.id!=="q7"&&answers[q.id]);
+  // Show questions in DEFAULT_QUESTIONS order, skip q7 (shown in title)
+  // q6 visible only if own update or viewer is the manager
+  const isOwn=notif.isOwn!==false;
+  const viewerEmail=notif.teamMember?.email;
+  const authorEmail=notif.authorEmail||notif.fromEmail||notif.email;
+  // viewer is manager if the author's manager field = viewerEmail
+  const isManager=!!(viewerEmail&&authorEmail&&teamMembers&&
+    teamMembers.find(m=>m.email===authorEmail&&m.managerEmail===viewerEmail));
+  const canSeeQ6=isOwn||isManager;
+  const visibleQs=DEFAULT_QUESTIONS.filter(q=>q.id!=="q7"&&answers[q.id]&&(q.id!=="q6"||canSeeQ6));
   return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
     <div style={{background:"#fff",borderRadius:12,padding:28,width:"90%",maxWidth:580,maxHeight:"85vh",overflowY:"auto"}}>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
@@ -1083,24 +1136,109 @@ function UpdateViewModal({notif,onClose,onRead}){
 const MOODS=["😩","😕","😐","🙂","😊"];
 const PRESENCES=["Au boulot au moins deux jours","En congés","À l'école"];
 
-function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates}){
-  const weekKey=getUpdateWeekKey();
+function TeamUpdatesSection({allUpdates, teamMembers=[], teamMember, onSelectWeek}) {
+  const WEEKS = 13;
+  const now = new Date();
+
+  // Build 13-week keys
+  const weekKeys = Array.from({length:WEEKS},(_,i)=>{
+    const d=new Date(now); d.setDate(now.getDate()-(WEEKS-1-i)*7);
+    return getWeekKey(d);
+  });
+
+  // Sort teammates: self first, then direct reports, then others
+  const myEmail = teamMember?.email;
+  const teammates = teamMembers.filter(m=>m.role!=="inactive"&&m.email&&m.email!==myEmail);
+  const myReports = teammates.filter(m=>m.managerEmail===myEmail);
+  const others = teammates.filter(m=>m.managerEmail!==myEmail);
+  const ordered = [...myReports, ...others];
+
+  // Build update lookup: email+weekKey → update
+  const lookup = {};
+  allUpdates.forEach(u=>{ lookup[`${u.email}_${u.weekKey}`]=u; });
+
+  function getDotColor(update, weekKey) {
+    if (!update) return '#e2ddd6'; // grey = not done
+    const sub = new Date(update.submittedAt);
+    const {fri} = getWeekBounds(weekKey);
+    const fridayEvening = new Date(fri); fridayEvening.setHours(15,0,0,0);
+    if (sub <= fridayEvening) return '#2d6a4f'; // green = on time
+    return '#f59e0b'; // orange = late (submitted after friday 15h)
+  }
+
+  return (
+    <div style={{marginTop:16,background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"16px 20px"}}>
+      <div style={{fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",marginBottom:14}}>
+        Updates de l'équipe — 13 dernières semaines
+      </div>
+      {/* Header: week labels */}
+      <div style={{display:"flex",alignItems:"center",gap:0,marginBottom:8}}>
+        <div style={{width:120,flexShrink:0}}/>
+        {weekKeys.map((wk,i)=>{
+          const {mon}=getWeekBounds(wk);
+          const isLast=i===WEEKS-1;
+          return <div key={wk} style={{flex:1,textAlign:"center",fontSize:isLast?9:8,
+            color:isLast?"#2d6a4f":"#c5c0b8",fontWeight:isLast?600:400}}>
+            {mon.getDate()}/{mon.getMonth()+1}
+          </div>;
+        })}
+      </div>
+      {/* Each teammate row */}
+      {ordered.map((m,rowIdx)=>{
+        const isReport=m.managerEmail===myEmail;
+        return (
+          <div key={m.email} style={{display:"flex",alignItems:"center",gap:0,
+            padding:"5px 0",borderTop:rowIdx===myReports.length&&rowIdx>0?"2px dashed #e2ddd6":
+            rowIdx>0?"1px solid #f5f3ef":"none"}}>
+            {/* Name */}
+            <div style={{width:120,flexShrink:0,display:"flex",alignItems:"center",gap:6}}>
+              <span style={{fontSize:11,fontWeight:isReport?600:400,color:isReport?"#1a1814":"#6b6560",
+                overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.prenom}</span>
+              {isReport&&<span style={{fontSize:9,color:"#9e9890"}}>↳</span>}
+            </div>
+            {/* Dots */}
+            {weekKeys.map((wk,i)=>{
+              const update=lookup[`${m.email}_${wk}`];
+              const col=getDotColor(update,wk);
+              const isLast=i===WEEKS-1;
+              return <div key={wk} style={{flex:1,display:"flex",justifyContent:"center",alignItems:"center"}}>
+                <div onClick={update?()=>onSelectWeek(wk,update,m.prenom,false):undefined}
+                  style={{width:isLast?14:10,height:isLast?14:10,borderRadius:"50%",
+                    background:col,cursor:update?"pointer":"default",
+                    boxShadow:isLast?"0 0 0 2px #fff, 0 0 0 3px "+col:"none",
+                    transition:"transform .1s"}}
+                  onMouseEnter={e=>{if(update)e.currentTarget.style.transform="scale(1.3)";}}
+                  onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}
+                  title={update?`${m.prenom} — ${fmtWeekLabel(wk)}`:`Pas d'update`}
+                />
+              </div>;
+            })}
+          </div>
+        );
+      })}
+      {/* Legend */}
+      <div style={{display:"flex",gap:16,marginTop:12,fontSize:11,color:"#9e9890"}}>
+        <span><span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#2d6a4f",marginRight:4}}/> Dans les temps</span>
+        <span><span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#f59e0b",marginRight:4}}/> En retard</span>
+        <span><span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#e2ddd6",marginRight:4}}/> Non complété</span>
+      </div>
+    </div>
+  );
+}
+
+function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,allUpdates=[],teamMembers=[]}){
+  const _rawWeekKey=getUpdateWeekKey();
+  // On Tuesday weekKey is null - use last week for display purposes (read-only)
+  const weekKey=_rawWeekKey||(()=>{const d=new Date();d.setDate(d.getDate()-8);return getWeekKey(d);})();
+  const isTuesdayReadOnly=!_rawWeekKey;
   const existing=weekKey?myUpdates.find(u=>u.weekKey===weekKey):null;
   const [answers,setAnswers]=useState(existing?.answers||{});
+  const [showTeam,setShowTeam]=useState(false);
   // Show as submitted only if existing update exists (regardless of lock)
   // User can still submit even after 15h if they haven't submitted yet
   const [submitted,setSubmitted]=useState(!!existing);
   const [viewUpdate,setViewUpdate]=useState(null);
   const [selectedWeek,setSelectedWeek]=useState(null);
-
-  if(!weekKey)return <div style={{minHeight:"100vh",background:"#f5f3ef",display:"flex",flexDirection:"column"}}>
-    <TopBar onBack={onBack} title="Mes Updates"/>
-    <div style={{display:"flex",flex:1,alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12}}>
-      <div style={{fontSize:48}}>🚫</div>
-      <div style={{fontSize:16,fontWeight:600,color:"#1a1814"}}>Pas d'update le mardi</div>
-      <div style={{fontSize:13,color:"#9e9890"}}>L'update se complète le lundi (semaine passée) ou du mercredi au vendredi (semaine en cours).</div>
-    </div>
-  </div>;
 
 
 
@@ -1123,18 +1261,78 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates}){
 
   return <div style={{minHeight:"100vh",background:"#f5f3ef",fontFamily:"system-ui,sans-serif"}}>
     <TopBar onBack={onBack} title="Mes Updates" left={<span style={{fontSize:16,fontWeight:700,color:"#2d6a4f",cursor:"pointer"}} onClick={onBack}>🌼 Calendula</span>}/>
-    <div style={{maxWidth:680,margin:"0 auto",padding:"24px 16px 60px"}}>
+    {isTuesdayReadOnly&&<div style={{background:"#fef3c7",borderBottom:"1px solid #f59e0b",padding:"8px 20px",fontSize:12,color:"#92400e",textAlign:"center"}}>
+      📅 Mardi : pas de saisie d'update aujourd'hui — consultation uniquement.
+    </div>}
+    <div style={{maxWidth:1000,margin:"0 auto",padding:"24px 16px 60px"}}>
 
-      {/* 26-week dots */}
+      {/* 26-week dots - integrated team view */}
       <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"16px 20px",marginBottom:20,boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
-        <div style={{fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",marginBottom:12}}>Mes updates ces 6 derniers mois</div>
-        <WeekDots myUpdates={myUpdates} clickable={true} onClickUpdate={w=>setSelectedWeek(w)}/>
-        <div style={{display:"flex",gap:16,marginTop:10,fontSize:11,color:"#9e9890"}}>
-          <span><span style={{display:"inline-block",width:10,height:10,borderRadius:"50%",background:"#2d6a4f",marginRight:4,verticalAlign:"middle"}}/>Fait en semaine</span>
-          <span><span style={{display:"inline-block",width:10,height:10,borderRadius:"50%",background:"#facc15",marginRight:4,verticalAlign:"middle"}}/>Fait le lundi</span>
-          <span><span style={{display:"inline-block",width:10,height:10,borderRadius:"50%",background:"#fca5a5",marginRight:4,verticalAlign:"middle"}}/>Non fait</span>
+        {/* Header row: title + button */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+          <div style={{fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em"}}>Mes updates ces 6 derniers mois</div>
+          <button onClick={()=>setShowTeam(p=>!p)}
+            style={{fontSize:11,fontWeight:500,padding:"4px 12px",borderRadius:7,cursor:"pointer",
+              background:showTeam?"#2d6a4f":"#fff",color:showTeam?"#fff":"#6b6560",
+              border:`1px solid ${showTeam?"#2d6a4f":"#e2ddd6"}`,transition:"all .15s",
+              display:"flex",alignItems:"center",gap:5}}>
+            {showTeam?"✕ Masquer":"👥 Voir l'équipe"}
+          </button>
         </div>
+        {/* My dots row */}
+        <div style={{display:"flex",alignItems:"center",gap:0}}>
+          <div style={{width:90,flexShrink:0,fontSize:11,fontWeight:600,color:"#1a1814",paddingRight:8}}>
+            {teamMember?.prenom||"Moi"}
+          </div>
+          <WeekDots myUpdates={myUpdates} clickable={true} onClickUpdate={w=>setSelectedWeek(w)} dotSize={14} gap={0} email={teamMember?.email}/>
+        </div>
+        {/* Team rows */}
+        {showTeam&&<>
+          {(()=>{
+            const myEmail=teamMember?.email;
+            const active=teamMembers.filter(m=>m.role!=="inactive"&&m.email&&m.email!==myEmail);
+            const reports=active.filter(m=>m.managerEmail===myEmail);
+            const others=active.filter(m=>m.managerEmail!==myEmail);
+            const ordered=[...reports,...others];
+            const weeks=get26Weeks([]);
+            const lookup={};
+            allUpdates.forEach(u=>{lookup[`${u.email}_${u.weekKey}`]=u;});
+            return ordered.map((m,rowIdx)=>{
+              const isReport=m.managerEmail===myEmail;
+               return <div key={m.email} style={{display:"flex",alignItems:"center",gap:0,
+                 marginTop:4,padding:"2px 0"}}>
+                 <div style={{width:90,flexShrink:0,paddingRight:8,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                   {isReport
+                     ?<span style={{display:"inline-block",background:"#2d6a4f",color:"#fff",
+                         fontSize:11,fontWeight:600,borderRadius:20,padding:"2px 9px",
+                         whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:86}}>{m.prenom}</span>
+                     :<span style={{fontSize:11,color:"#6b6560"}}>{m.prenom}</span>}
+                 </div>
+                <div style={{display:"flex",gap:0,flexWrap:"nowrap",alignItems:"center"}}>
+                  {weeks.map((w,wi)=>{
+                    const update=lookup[`${m.email}_${w.wk}`];
+                    const declaredAbsW=(window._absences||[]).find(a=>
+                      a.email===m.email&&toDateStr(w.mon)>=a.dateFrom&&toDateStr(w.mon)<=a.dateTo
+                    );
+                    let emoji=null;
+                    if(declaredAbsW){emoji=declaredAbsW.type;}
+                    else if(update){emoji=update.answers?.q7||'😐';}
+                    else{emoji='🫥';}
+                    return <div key={wi} onClick={update?()=>setSelectedWeek({wk:w.wk,update,prenom:m.prenom,isOwn:false,authorEmail:m.email}):undefined}
+                      style={{width:22,height:22,flexShrink:0,display:"flex",alignItems:"center",
+                        justifyContent:"center",cursor:update?"pointer":"default",fontSize:15,lineHeight:1,
+                        opacity:(!update&&emoji==='🫥')?0.35:1}}>
+                      {emoji}
+                    </div>;
+                  })}
+                </div>
+              </div>;
+            });
+          })()}
+        </>}
+
       </div>
+
 
       <div style={{fontSize:13,color:"#6b6560",marginBottom:16}}>Semaine du {weekLabel}</div>
 
@@ -1206,7 +1404,10 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates}){
         })()}
       </>}
     </div>
-    {selectedWeek&&<UpdateViewModal notif={{updateData:selectedWeek.update,fromPrenom:teamMember?.prenom,weekKey:selectedWeek.wk,isOwn:true}} onClose={()=>setSelectedWeek(null)} onRead={()=>setSelectedWeek(null)}/>}
+    {selectedWeek&&<UpdateViewModal notif={{updateData:selectedWeek.update,fromPrenom:selectedWeek.prenom||teamMember?.prenom,weekKey:selectedWeek.wk,isOwn:selectedWeek.isOwn,teamMember:teamMember,authorEmail:selectedWeek.authorEmail}} onClose={()=>setSelectedWeek(null)} onRead={()=>setSelectedWeek(null)} teamMembers={teamMembers}/>}
+
+  {/* Team updates toggle */}
+
   </div>;
 }
 
@@ -2110,6 +2311,125 @@ function FeedbackAdminTab() {
   </div>;
 }
 
+function AbsencesTab({teamMembers=[]}) {
+  const [absences, setAbsences] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({email:'', type:'vacances', dateFrom:'', dateTo:''});
+
+  // Derive vacation emoji from end date: 🌴 if Apr 15 – Nov 30, 🎿 otherwise
+  function vacEmoji(dateTo) {
+    if (!dateTo) return '🌴';
+    const d = new Date(dateTo);
+    const mo = d.getMonth() + 1, day = d.getDate();
+    if ((mo > 4 || (mo === 4 && day >= 15)) && mo < 12) return '🌴';
+    if (mo <= 4 || mo === 12) return '🎿';
+    return '🌴';
+  }
+
+  function getEmoji() {
+    if (form.type === 'vacances') return vacEmoji(form.dateTo);
+    if (form.type === 'école') return '🎓';
+    if (form.type === 'maternité') return '🤰';
+    return '🌴';
+  }
+
+  const ABSENCE_LABELS = {vacances:'Congés / Vacances', école:'École / Formation', maternité:'Congé maternité'};
+
+  useEffect(()=>{
+    const unsub = onSnapshot(doc(db,'app_config','absences'),(snap)=>{
+      if(snap.exists()) setAbsences(snap.data().list||[]);
+      else setAbsences([]);
+      setLoading(false);
+    });
+    return()=>unsub();
+  },[]);
+
+  async function saveAbsences(list) {
+    await setDoc(doc(db,'app_config','absences'),{list});
+    window._absences = list;
+    setAbsences(list);
+  }
+
+  async function addAbsence() {
+    if(!form.email||!form.dateFrom||!form.dateTo) return;
+    const emoji = getEmoji();
+    const entry = {id:Date.now().toString(), email:form.email, type:emoji, label:ABSENCE_LABELS[form.type], dateFrom:form.dateFrom, dateTo:form.dateTo};
+    await saveAbsences([...absences, entry]);
+    setForm({email:'', type:'vacances', dateFrom:'', dateTo:''});
+  }
+
+  async function removeAbsence(id) {
+    await saveAbsences(absences.filter(a=>a.id!==id));
+  }
+
+  const activeMembers = teamMembers.filter(m=>m.role!=='inactive'&&m.email);
+  const inp = {fontSize:11,border:'1px solid #e2ddd6',borderRadius:6,padding:'4px 8px',fontFamily:'inherit',outline:'none',background:'#fff',width:'100%',boxSizing:'border-box'};
+  const sorted = [...absences].sort((a,b)=>b.dateTo.localeCompare(a.dateTo));
+  const canAdd = form.email && form.dateFrom && form.dateTo;
+
+  return <div>
+    {/* New absence form at top */}
+    <div style={{background:'#f8f7f5',borderRadius:8,border:'1px solid #e2ddd6',padding:'14px',marginBottom:16}}>
+      <div style={{fontSize:11,fontWeight:600,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:10}}>Nouvelle absence</div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:8}}>
+        <div style={{display:'flex',flexDirection:'column',gap:3}}>
+          <label style={{fontSize:10,color:'#9e9890'}}>Teammate</label>
+          <select value={form.email} onChange={e=>setForm(p=>({...p,email:e.target.value}))} style={inp}>
+            <option value="">— Choisir —</option>
+            {activeMembers.map(m=><option key={m.email} value={m.email}>{m.prenom}</option>)}
+          </select>
+        </div>
+        <div style={{display:'flex',flexDirection:'column',gap:3}}>
+          <label style={{fontSize:10,color:'#9e9890'}}>Type</label>
+          <select value={form.type} onChange={e=>setForm(p=>({...p,type:e.target.value}))} style={inp}>
+            <option value="vacances">🌴/🎿 Congés / Vacances</option>
+            <option value="école">🎓 École / Formation</option>
+            <option value="maternité">🤰 Congé maternité</option>
+          </select>
+        </div>
+        <div style={{display:'flex',flexDirection:'column',gap:3}}>
+          <label style={{fontSize:10,color:'#9e9890'}}>Du</label>
+          <input type="date" value={form.dateFrom} onChange={e=>setForm(p=>({...p,dateFrom:e.target.value}))} style={inp}/>
+        </div>
+        <div style={{display:'flex',flexDirection:'column',gap:3}}>
+          <label style={{fontSize:10,color:'#9e9890'}}>Au</label>
+          <input type="date" value={form.dateTo} onChange={e=>setForm(p=>({...p,dateTo:e.target.value}))} style={inp}/>
+        </div>
+      </div>
+      <div style={{display:'flex',alignItems:'center',gap:8}}>
+        {form.dateTo&&form.type==='vacances'&&<span style={{fontSize:18}}>{vacEmoji(form.dateTo)}</span>}
+        <button onClick={addAbsence} disabled={!canAdd}
+          style={{flex:1,padding:'7px',background:canAdd?'#2d6a4f':'#e2ddd6',color:canAdd?'#fff':'#9e9890',
+            border:'none',borderRadius:6,cursor:canAdd?'pointer':'not-allowed',fontSize:12,fontWeight:500}}>
+          ✓ Valider
+        </button>
+      </div>
+    </div>
+
+    {/* List sorted by dateTo desc */}
+    {loading?<div style={{color:'#9e9890',fontSize:12}}>Chargement…</div>
+    :sorted.length===0?<div style={{color:'#c5c0b8',fontSize:12,fontStyle:'italic'}}>Aucune absence déclarée.</div>
+    :<div style={{display:'flex',flexDirection:'column',gap:5}}>
+      {sorted.map(a=>{
+        const mem=activeMembers.find(x=>x.email===a.email);
+        const dFrom=new Date(a.dateFrom).toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+        const dTo=new Date(a.dateTo).toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'});
+        return <div key={a.id} style={{display:'flex',alignItems:'center',gap:8,
+          background:'#fff',border:'1px solid #e2ddd6',borderRadius:7,padding:'8px 12px'}}>
+          <span style={{fontSize:18,flexShrink:0}}>{a.type}</span>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:12,fontWeight:600,color:'#1a1814'}}>{mem?.prenom||a.email}</div>
+            <div style={{fontSize:10,color:'#9e9890'}}>{a.label||''} · {dFrom} → {dTo}</div>
+          </div>
+          <button onClick={()=>removeAbsence(a.id)}
+            style={{fontSize:10,color:'#c0392b',background:'none',border:'1px solid #fca5a5',
+              borderRadius:5,padding:'2px 8px',cursor:'pointer',flexShrink:0}}>🗑️</button>
+        </div>;
+      })}
+    </div>}
+  </div>;
+}
+
 function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions,catTypes,onSaveCatTypes,codeMap,onSaveCodeMap,customSubcatLabels,onSaveCustomSubcatLabels}){
   const [members,setMembers]=useState(teamMembers.map(m=>({...m})));
   const [newPrenom,setNewPrenom]=useState("");
@@ -2158,7 +2478,8 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
         </button>)}
       </div>
 
-      {tab==="members"&&<>
+      {tab==="members"&&<div style={{display:"grid",gridTemplateColumns:"3fr 2fr",gap:16,alignItems:"start"}}>
+        <div>{/* LEFT COL */}
         <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"18px 20px",marginBottom:16}}>
           <div style={{fontSize:13,fontWeight:600,marginBottom:14}}>Ajouter un membre</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr auto",gap:10,alignItems:"end"}}>
@@ -2173,7 +2494,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
         <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",overflow:"hidden"}}>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
             <thead><tr style={{background:"#f5f3ef"}}>
-              {["Prénom","Email","Manager","Rôle","🌴 Absent","🤰 Mat.",""].map(h=><th key={h} style={{fontSize:11,fontWeight:600,color:"#9e9890",textTransform:"uppercase",letterSpacing:".05em",padding:"10px 14px",textAlign:"left",borderBottom:"1px solid #e2ddd6"}}>{h}</th>)}
+              {["Prénom","Email","Manager","Rôle",""].map(h=><th key={h} style={{fontSize:11,fontWeight:600,color:"#9e9890",textTransform:"uppercase",letterSpacing:".05em",padding:"10px 14px",textAlign:"left",borderBottom:"1px solid #e2ddd6"}}>{h}</th>)}
             </tr></thead>
             <tbody>
               {members.map(m=><tr key={m.email} style={{borderBottom:"1px solid #f0ede8"}}>
@@ -2192,22 +2513,24 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
                       <option value="admin">Admin</option><option value="teammate">Teammate actif</option><option value="inactive">Teammate inactif</option>
                     </select>}
                 </td>
-                <td style={{padding:"10px 14px",textAlign:"center"}}>
-                  <input type="checkbox" checked={!!m.forceAbsent} onChange={()=>toggleForce(m.email,'forceAbsent')}
-                    style={{width:16,height:16,cursor:"pointer",accentColor:"#2d6a4f"}}/>
-                </td>
-                <td style={{padding:"10px 14px",textAlign:"center"}}>
-                  <input type="checkbox" checked={!!m.forceMat} onChange={()=>toggleForce(m.email,'forceMat')}
-                    style={{width:16,height:16,cursor:"pointer",accentColor:"#c0392b"}}/>
-                </td>
                 <td style={{padding:"10px 14px"}}>
-                  {m.email!==OWNER_EMAIL&&<button onClick={()=>removeMember(m.email)} style={{fontSize:12,color:"#c0392b",background:"#fdecea",border:"1px solid #fca5a5",borderRadius:6,padding:"4px 10px",cursor:"pointer"}}>Retirer</button>}
+                  {m.email!==OWNER_EMAIL&&<button onClick={()=>removeMember(m.email)} style={{fontSize:14,color:"#c0392b",background:"none",border:"none",cursor:"pointer",fontWeight:700,lineHeight:1,padding:"0 4px"}}>×</button>}
                 </td>
               </tr>)}
             </tbody>
           </table>
         </div>
-      </>}
+
+        </div>{/* end left col */}
+
+        {/* RIGHT COL: Absences */}
+        <div>
+          <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"16px 20px"}}>
+            <div style={{fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",marginBottom:14}}>🌴 Absences déclarées</div>
+            <AbsencesTab teamMembers={members}/>
+          </div>
+        </div>
+      </div>}
 
       {tab==="questions"&&(
         <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"18px 20px"}}>
@@ -2806,6 +3129,14 @@ export default function App(){
     return()=>unsub();
   },[]);
 
+  // Load declared absences globally
+  useEffect(()=>{
+    const unsubAbs = onSnapshot(doc(db,'app_config','absences'),(snap)=>{
+      window._absences = snap.exists() ? (snap.data().list||[]) : [];
+    });
+    return()=>unsubAbs();
+  },[]);
+
   // Load app config from Firestore when logged in
   useEffect(()=>{
     if(!authUser)return;
@@ -3012,7 +3343,7 @@ export default function App(){
   }
 
   if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers}/>;
-  if(page==="update")return <UpdatePage teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} myUpdates={myUpdates}/>;
+  if(page==="update")return <UpdatePage teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers}/>;
   if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels}/>;
   if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels}/>;
   if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels}/>;
