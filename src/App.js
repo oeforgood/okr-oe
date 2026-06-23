@@ -519,7 +519,7 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,t
 
   const allMsgs=[...systemMsgs,...tmMsgs,...notifMsgs].sort((a,b)=>b.date-a.date);
 
-  return <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",boxShadow:"0 1px 3px rgba(0,0,0,.06)",display:"flex",flexDirection:"column",height:195,overflow:"hidden"}}>
+  return <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",boxShadow:"0 1px 3px rgba(0,0,0,.06)",display:"flex",flexDirection:"column",height:160,overflow:"hidden"}}>
     <div style={{padding:"12px 18px",borderBottom:"1px solid #f0ede8",fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em"}}>
       Messages {notifMsgs.filter(m=>!m.read).length>0&&<span style={{background:"#2d6a4f",color:"#fff",borderRadius:10,padding:"1px 7px",fontSize:10,marginLeft:6,fontWeight:500}}>{notifMsgs.filter(m=>!m.read).length}</span>}
     </div>
@@ -667,7 +667,7 @@ function FeedbackBox({currentUser, teamMember}) {
 
   return (
     <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"10px 14px",
-      boxShadow:"0 1px 3px rgba(0,0,0,.06)",display:"flex",flexDirection:"column",gap:6,height:195,boxSizing:"border-box"}}>
+      boxShadow:"0 1px 3px rgba(0,0,0,.06)",display:"flex",flexDirection:"column",gap:6,height:160,boxSizing:"border-box"}}>
       <div style={{fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em"}}>
         💡 Idées & corrections
       </div>
