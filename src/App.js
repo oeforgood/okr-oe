@@ -756,8 +756,11 @@ function FeedbackBox({currentUser, teamMember}) {
 function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onGoReporting,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,okrData,isAdmin,onOpenSettings}){
   const {objectives=[],subobjectives=[],keyresults=[]}=okrData||{};
   // Always use the current real season on Dashboard, regardless of OKR tab selection
-  const now_=new Date();
-  const seasonKey=SEASONS_KEYS.find(k=>{const s=getSeasonInfo(k);return now_>=new Date(s.start)&&now_<=new Date(s.end);})||"printemps_2026";
+  const seasonKey=(()=>{
+    const now_=new Date();
+    const keys=["printemps_2026","ete_2026","automne_2026","hiver_2027","printemps_2027","ete_2027","automne_2027"];
+    return keys.find(k=>{const s=getSeasonInfo(k);return now_>=new Date(s.start)&&now_<=new Date(s.end);})||"printemps_2026";
+  })();
   const avgProg=calcWeightedAvg(objectives,subobjectives,keyresults);
   const totalKR=keyresults.length,doneKR=keyresults.filter(k=>k.taux>=100).length;
   const myPrenom=teamMember?.prenom;
