@@ -328,8 +328,9 @@ const DOT_COLORS = {
   absent:  {bg:"#e2ddd6", border:"#c5c0b8"},
 };
 
-function WeekDots({myUpdates, clickable=false, onClickUpdate, dotSize=14, email}){
-  const weeks = get26Weeks(myUpdates, email);
+function WeekDots({myUpdates, clickable=false, onClickUpdate, dotSize=14, email, hideCurrentWeek=false}){
+  const rawWeeks = get26Weeks(myUpdates, email);
+  const weeks = hideCurrentWeek ? rawWeeks.slice(0,-1) : rawWeeks;
   const [hov,setHov]=useState(null);
   return <div style={{position:"relative",display:"flex",gap:0,flexWrap:"nowrap",alignItems:"center"}}>
     {hov!==null&&weeks[hov]&&(()=>{
@@ -1343,7 +1344,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
           <div style={{width:90,flexShrink:0,fontSize:11,fontWeight:600,color:"#1a1814",paddingRight:8}}>
             {teamMember?.prenom||"Moi"}
           </div>
-          <WeekDots myUpdates={myUpdates} clickable={true} onClickUpdate={w=>setSelectedWeek(w)} dotSize={14} gap={0} email={teamMember?.email}/>
+          {(()=>{const now=new Date();const dow=now.getDay();const hide=!(dow===6||dow===0||dow===1||(dow===5&&now.getHours()>=15));return <WeekDots myUpdates={myUpdates} clickable={true} onClickUpdate={w=>setSelectedWeek(w)} dotSize={14} gap={0} email={teamMember?.email} hideCurrentWeek={hide}/>;})()}
         </div>
         {/* Team rows */}
         {showTeam&&<>
@@ -1353,7 +1354,8 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
             const reports=active.filter(m=>m.managerEmail===myEmail);
             const others=active.filter(m=>m.managerEmail!==myEmail);
             const ordered=[...reports,...others];
-            const weeks=get26Weeks([]);
+            const now2=new Date();const dow2=now2.getDay();const hideCur=!(dow2===6||dow2===0||dow2===1||(dow2===5&&now2.getHours()>=15));
+            const allWeeks=get26Weeks([]);const weeks=hideCur?allWeeks.slice(0,-1):allWeeks;
             const lookup={};
             allUpdates.forEach(u=>{lookup[`${u.email}_${u.weekKey}`]=u;});
             return ordered.map((m,rowIdx)=>{
