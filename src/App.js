@@ -3235,7 +3235,7 @@ export default function App(){
     });
 
     // Load OKR data for dashboard
-    const unsubOkr=onSnapshot(doc(db,"okr","data"),(snap)=>{if(snap.exists()&&snap.data().allSeasons){const d=snap.data();const sk=d.seasonKey||"printemps_2026";const s=d.allSeasons[sk]||{};setOkrData({objectives:s.objectives||[],subobjectives:s.subobjectives||[],keyresults:s.keyresults||[],seasonKey:sk});}});
+    const unsubOkr=onSnapshot(doc(db,"okr","data"),(snap)=>{if(snap.exists()&&snap.data().allSeasons){const d=snap.data();const curSk=(()=>{const n=new Date();return SEASONS.find(s=>n>=new Date(s.start)&&n<=new Date(s.end))?.key||"printemps_2026";})();const s=d.allSeasons[curSk]||{};setOkrData({objectives:s.objectives||[],subobjectives:s.subobjectives||[],keyresults:s.keyresults||[],seasonKey:curSk});}});
 
     return()=>{unsub();unsubOkr();};
   },[authUser]);
@@ -3418,11 +3418,6 @@ export default function App(){
   if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels}/>;
   if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels}/>;
 
-  // Current calendar season data for Dashboard
-  const _curSk=(()=>{const n=new Date();return SEASONS.find(s=>n>=new Date(s.start)&&n<=new Date(s.end))?.key||"printemps_2026";})();
-  const _curSeason=allSeasons[_curSk]||{};
-  const currentSeasonOkrData={objectives:_curSeason.objectives||[],subobjectives:_curSeason.subobjectives||[],keyresults:_curSeason.keyresults||[],seasonKey:_curSk};
-
   return <Dashboard
     currentUser={authUser}
     teamMember={currentTeamMember}
@@ -3436,7 +3431,7 @@ export default function App(){
     managerNotifs={managerNotifs}
     teammateNotifs={teammateNotifs}
     onReadNotif={handleReadNotif}
-    okrData={currentSeasonOkrData}
+    okrData={okrData}
     isAdmin={isAdmin}
     onOpenSettings={()=>setPage("settings")}
   />;
