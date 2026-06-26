@@ -1061,8 +1061,8 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
                   Sem. en cours {(()=>{const{mon,fri}=getWeekBounds(curWkKey);const sameM=mon.getMonth()===fri.getMonth();return sameM?`${mon.getDate()}–${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`:`${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"short"})}–${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`;})()}
                 </div>
                 <SmileysOrdered done={teamCurWkFiltered} absent={absentCurWk} size={22}/>
-                <SmileysOrdered done={teamCurWkFiltered} absent={absentCurWk} size={22}/>
               </div>}
+            </div>
             {/* Right: mood curve - tall */}
             <div style={{flex:"0 0 340px",alignSelf:"stretch",overflow:"hidden"}}>
               <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} showDots={false} nWeeks={26} curveHeight={192}/>
