@@ -329,8 +329,7 @@ const DOT_COLORS = {
 };
 
 function WeekDots({myUpdates, clickable=false, onClickUpdate, dotSize=14, email, hideCurrentWeek=false}){
-  const rawWeeks = get26Weeks(myUpdates, email);
-  const weeks = hideCurrentWeek ? rawWeeks.slice(0,-1) : rawWeeks;
+  const weeks = get26Weeks(myUpdates, email);
   const [hov,setHov]=useState(null);
   return <div style={{position:"relative",display:"flex",gap:0,flexWrap:"nowrap",alignItems:"center"}}>
     {hov!==null&&weeks[hov]&&(()=>{
@@ -344,9 +343,10 @@ function WeekDots({myUpdates, clickable=false, onClickUpdate, dotSize=14, email,
     })()}
     {weeks.map((w,i)=>{
       const MOOD_SCORE={'😊':5,'🙂':4,'😐':3,'😕':2,'😩':1};
+      const isCurWk=w.status!=='none'&&w.isCurrentWeek;
       let emoji;
       if(w.declared){emoji=w.declared.type;}
-      else if(w.status==='done'||w.status==='late'){emoji=w.update?.answers?.q7||'😐';}
+      else if(w.status==='done'||w.status==='late'){emoji=(hideCurrentWeek&&w.isCurrentWeek)?'🫥':(w.update?.answers?.q7||'😐');}
       else{emoji='🫥';}
       const opacity=(w.status==='none'||w.status==='absent'||w.status==='pending'||w.declared)?0.35:1;
       // Vertical offset based on mood: each level = 5px shift (mood 3 = center)
@@ -754,7 +754,10 @@ function FeedbackBox({currentUser, teamMember}) {
 }
 
 function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onGoReporting,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,okrData,isAdmin,onOpenSettings}){
-  const {objectives=[],subobjectives=[],keyresults=[],seasonKey="printemps_2026"}=okrData||{};
+  const {objectives=[],subobjectives=[],keyresults=[]}=okrData||{};
+  // Always use the current real season on Dashboard, regardless of OKR tab selection
+  const now_=new Date();
+  const seasonKey=SEASONS_KEYS.find(k=>{const s=getSeasonInfo(k);return now_>=new Date(s.start)&&now_<=new Date(s.end);})||"printemps_2026";
   const avgProg=calcWeightedAvg(objectives,subobjectives,keyresults);
   const totalKR=keyresults.length,doneKR=keyresults.filter(k=>k.taux>=100).length;
   const myPrenom=teamMember?.prenom;
@@ -930,7 +933,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
     return '🫥';
   }
 
-        function SmileysOrdered({done,absent,size=22}){
+        function SmileysOrdered({done,absent,size=22,hideMood=false}){
           const [hov,setHov]=useState(null);
           const [pos,setPos]=useState({x:0,y:0});
           // Absents = ceux avec 🤰/🎓/🌴/🎿 (forceMat, forceAbsent, ou q8 congés/école)
@@ -948,7 +951,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
           });
           const absentItems=absentSorted.map(m=>({key:'a'+m.email,emoji:getAbsenceIcon(m.email,m.prenom),name:m.prenom,isAbsent:true}));
           // Done (excl. real absents), sorted by submittedAt
-          const doneItems=done.filter(u=>!realAbsentEmails.has(u.email)).sort((a,b)=>a.submittedAt-b.submittedAt).map(u=>({key:'d'+u.email,emoji:u.answers?.q7||"😐",name:u.prenom,isAbsent:false}));
+          const doneItems=done.filter(u=>!realAbsentEmails.has(u.email)).sort((a,b)=>a.submittedAt-b.submittedAt).map(u=>({key:'d'+u.email,emoji:hideMood?'🫥':(u.answers?.q7||"😐"),name:u.prenom,isAbsent:false}));
           // Not done = present actifs qui n'ont ni soumis ni sont absents → 🫥
           const doneEmails=new Set(done.map(u=>u.email));
           // notDone = actifs, non absents réels (🤰🎓🌴🎿), non complétés
@@ -1057,12 +1060,12 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
                 </div>
                 <SmileysOrdered done={teamLastWkFiltered} absent={absentLastWk} size={22}/>
               </div>
-              {curWkVisible&&<div>
+              <div>
                 <div style={{fontSize:9,color:"#9e9890",marginBottom:4,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>
                   Sem. en cours {(()=>{const{mon,fri}=getWeekBounds(curWkKey);const sameM=mon.getMonth()===fri.getMonth();return sameM?`${mon.getDate()}–${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`:`${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"short"})}–${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`;})()}
                 </div>
-                <SmileysOrdered done={teamCurWkFiltered} absent={absentCurWk} size={22}/>
-              </div>}
+                <SmileysOrdered done={teamCurWkFiltered} absent={absentCurWk} size={22} hideMood={!curWkVisible}/>
+              </div>
             </div>
             {/* Right: mood curve - tall */}
             <div style={{flex:"0 0 340px",alignSelf:"stretch",overflow:"hidden"}}>
@@ -1377,8 +1380,8 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
                     );
                     let emoji=null;
                     if(declaredAbsW){emoji=declaredAbsW.type;}
-                    else if(update){emoji=update.answers?.q7||'😐';}
-                    else{emoji='🫥';}
+                     if(declaredAbsW){emoji=declaredAbsW.type;}
+                     else if(update){emoji=(hideCur&&wi===weeks.length-1)?'🫥':(update.answers?.q7||'😐');}
                     return <div key={wi} onClick={update?()=>setSelectedWeek({wk:w.wk,update,prenom:m.prenom,isOwn:false,authorEmail:m.email}):undefined}
                       style={{width:31,height:31,flexShrink:0,display:"flex",alignItems:"center",
                         justifyContent:"center",cursor:update?"pointer":"default",fontSize:22,lineHeight:1,
