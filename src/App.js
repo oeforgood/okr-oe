@@ -127,19 +127,75 @@ function getWeekBounds(weekKey){
   return{mon,fri};
 }
 function getUpdateWeekKey(){
-  // Always returns WN-1 (the week being filled in)
-  // Tue WN = blocked (return null)
-  // Wed WN-1 to Mon WN = WN-1
-  const now=new Date();
-  const dow=now.getDay(); // 0=Sun,1=Mon,2=Tue,3=Wed,4=Thu,5=Fri,6=Sat
-  if(dow===2)return null; // Tuesday: blocked
-  // Always return last week's key (WN-1)
-  const prev=new Date(now);
-  // Go back to previous Monday
-  const daysToLastMon = dow===1 ? 7 : (dow===0 ? 6 : dow-1+7);
-  prev.setDate(now.getDate()-daysToLastMon);
-  return getWeekKey(prev);
+  // weekKey rules:
+  // Mon           → WN-1 (last chance, locked once submitted)
+  // Tue           → null (blocked, no update possible)
+  // Wed and after → WN (new week opens)
+  // Fri <15h      → WN-1 still (within the WN-1 fill window... wait)
+  //
+  // Correct interpretation:
+  // The "fill window" for WN-1 is: from Wed of WN-1 to Mon of WN
+  // So: Wed WN-1, Thu WN-1, Fri WN-1 (<15h) → WN-1
+  //     Fri WN-1 ≥15h, Sat, Sun, Mon WN → WN-1 but locked if submitted
+  //     Tue WN → null
+  //     Wed WN and beyond → WN
+  //
+  // In terms of day of week relative to NOW:
+  // Mon(1) → WN-1
+  // Tue(2) → null
+  // Wed(3), Thu(4), Fri(5), Sat(6), Sun(0) → WN-1 of the CURRENT calendar week
+  //   i.e. the week that started last Monday
+  //
+  // Wait - "mercredi et après weekKey = N" means:
+  // After Tuesday of WN → WN becomes the active weekKey
+  // So: Wed WN, Thu WN, Fri WN, Sat WN, Sun WN, Mon WN → WN-1
+  //     Tue WN → null
+  //     Wed WN+1 → WN (new cycle)
+  //
+  // Simpler: weekKey = week of the PREVIOUS Monday always, EXCEPT:
+  // - Tuesday → null
+  // - Wednesday → the week starting YESTERDAY (last Monday was 6 days ago... no)
+  //
+  // Let me re-read the rule:
+  // "jusqu'à vendredi 15h de N-1, weekkey = N-1"  → Mon/Tue/Wed/Thu/Fri<15h all refer to WN-1
+  // "de vendredi 15h à lundi, weekkey = N-1 but locked if submitted"
+  // "mardi = pas d'update"
+  // "mercredi et après weekkey = N"
+  //
+  // So the CYCLE is:
+  // Wed WN-1 → first day you can fill WN-1 (weekKey = WN-1 = previous week)
+  // ...
+  // Mon WN → last day to fill WN-1
+  // Tue WN → blocked
+  // Wed WN → NOW weekKey switches to WN (which was "current" week)
+  //
+  // Implementation: always return WN-1 except Tue(null) and Wed+(return WN)
+  // But Wed onwards means: the week starting THIS Monday (5 days ago on Wed)
+  // No wait: on Wednesday June 25, WN = week of June 23-27
+  // WN-1 = week of June 16-20
+  // weekKey should be WN = 2026-W26 on Wednesday June 25
+  
+  const now = new Date();
+  const dow = now.getDay(); // 0=Sun,1=Mon,2=Tue,3=Wed,4=Thu,5=Fri,6=Sat
+  
+  if(dow===2) return null; // Tuesday: blocked
+  
+  // Get WN-1 monday (last week's monday)
+  const wn1Mon = new Date(now);
+  wn1Mon.setDate(now.getDate() - (dow===0?13:dow===1?7:dow+6));
+  const wkN1 = getWeekKey(wn1Mon);
+  
+  // Get WN monday (this week's monday)  
+  const wnMon = new Date(now);
+  wnMon.setDate(now.getDate() - (dow===0?6:dow-1));
+  const wkN = getWeekKey(wnMon);
+  
+  // Wednesday(3), Thursday(4), Friday(5), Saturday(6), Sunday(0) after Tuesday → WN
+  // Monday(1) → WN-1
+  if(dow===1) return wkN1; // Monday: WN-1
+  return wkN; // Wed-Sun: WN
 }
+
 function isUpdateLocked(submitted){
   const now=new Date();
   const dow=now.getDay();
