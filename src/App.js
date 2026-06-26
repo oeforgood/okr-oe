@@ -860,7 +860,9 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
 
         // Team updates sorted by submittedAt
         const teamLastWk=[...allUpdates].filter(u=>u.weekKey===lastWkKey).sort((a,b)=>a.submittedAt-b.submittedAt);
-        const teamCurWk=[...allUpdates].filter(u=>u.weekKey===curWkKey).sort((a,b)=>a.submittedAt-b.submittedAt);
+        // Only show current week updates after Friday 15h (locked)
+        const curWkVisible=(()=>{const now=new Date();const dow=now.getDay();return dow===6||dow===0||dow===1||(dow===5&&now.getHours()>=15);})();
+        const teamCurWk=curWkVisible?[...allUpdates].filter(u=>u.weekKey===curWkKey).sort((a,b)=>a.submittedAt-b.submittedAt):[];
 
         // Build last week full list: done members + absent members
         const doneLastWkEmails=new Set(teamLastWk.map(u=>u.email));
@@ -1054,13 +1056,13 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
                 </div>
                 <SmileysOrdered done={teamLastWkFiltered} absent={absentLastWk} size={22}/>
               </div>
-              <div>
+              {curWkVisible&&<div>
                 <div style={{fontSize:9,color:"#9e9890",marginBottom:4,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>
                   Sem. en cours {(()=>{const{mon,fri}=getWeekBounds(curWkKey);const sameM=mon.getMonth()===fri.getMonth();return sameM?`${mon.getDate()}–${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`:`${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"short"})}–${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`;})()}
                 </div>
                 <SmileysOrdered done={teamCurWkFiltered} absent={absentCurWk} size={22}/>
-              </div>
-            </div>
+                <SmileysOrdered done={teamCurWkFiltered} absent={absentCurWk} size={22}/>
+              </div>}
             {/* Right: mood curve - tall */}
             <div style={{flex:"0 0 340px",alignSelf:"stretch",overflow:"hidden"}}>
               <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} showDots={false} nWeeks={26} curveHeight={192}/>
@@ -3248,8 +3250,9 @@ export default function App(){
       setAllUpdates(all);
     });
 
-    // Flush pending notifications when app opens after Friday 15h
-    if(isUpdateLocked()){
+    // Flush pending notifications when manager opens app on Mon, Fri>=15h, Sat, Sun
+    const shouldFlush=(()=>{const now=new Date();const dow=now.getDay();return dow===1||dow===6||dow===0||(dow===5&&now.getHours()>=15);})();
+    if(shouldFlush){
       const flushPending=async()=>{
         try{
           const snap=await getDocs(query(collection(db,"update_notifications"),where("pending","==",true)));
@@ -3313,7 +3316,14 @@ export default function App(){
         updatedAt:Date.now(),
         answers:answersWithoutConfidential,confidentiel,
         read:false,readAt:null,
-        pending:!isUpdateLocked(), // pending = not yet delivered to manager
+        // Immediate delivery: Mon, or Fri>=15h, Sat, Sun
+        // Pending (flush at app open): Wed, Thu, Fri<15h
+        pending:(()=>{
+          const now=new Date();const dow=now.getDay();
+          if(dow===1||dow===6||dow===0)return false; // Mon/Sat/Sun → immediate
+          if(dow===5&&now.getHours()>=15)return false; // Fri>=15h → immediate
+          return true; // Wed/Thu/Fri<15h → pending
+        })(),
       };
       await setDoc(doc(db,"update_notifications",notifId),notifData);
 
