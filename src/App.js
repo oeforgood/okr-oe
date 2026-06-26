@@ -755,8 +755,6 @@ function FeedbackBox({currentUser, teamMember}) {
 
 function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onGoReporting,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,okrData,isAdmin,onOpenSettings}){
   const {objectives=[],subobjectives=[],keyresults=[],seasonKey:_sk}=okrData||{};
-  // Use the stored seasonKey from Firebase (set by admin), NOT user's OKR tab selection
-  // okrData.seasonKey is always the active season stored in Firestore
   const seasonKey=okrData?.seasonKey||"printemps_2026";
   const avgProg=calcWeightedAvg(objectives,subobjectives,keyresults);
   const totalKR=keyresults.length,doneKR=keyresults.filter(k=>k.taux>=100).length;
@@ -3420,6 +3418,11 @@ export default function App(){
   if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels}/>;
   if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels}/>;
 
+  // Current calendar season data for Dashboard
+  const _curSk=(()=>{const n=new Date();return SEASONS.find(s=>n>=new Date(s.start)&&n<=new Date(s.end))?.key||"printemps_2026";})();
+  const _curSeason=allSeasons[_curSk]||{};
+  const currentSeasonOkrData={objectives:_curSeason.objectives||[],subobjectives:_curSeason.subobjectives||[],keyresults:_curSeason.keyresults||[],seasonKey:_curSk};
+
   return <Dashboard
     currentUser={authUser}
     teamMember={currentTeamMember}
@@ -3433,7 +3436,7 @@ export default function App(){
     managerNotifs={managerNotifs}
     teammateNotifs={teammateNotifs}
     onReadNotif={handleReadNotif}
-    okrData={okrData}
+    okrData={currentSeasonOkrData}
     isAdmin={isAdmin}
     onOpenSettings={()=>setPage("settings")}
   />;
