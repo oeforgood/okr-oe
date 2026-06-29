@@ -921,7 +921,14 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
       const mo = checkDate.getMonth() + 1;
       return ((mo >= 12 && checkDate.getDate() >= 15) || mo <= 4) ? '🎿' : '🌴';
     }
-    const prevUpdate = allUpdates.find(u => u.email === email && u.weekKey === lastWkKey);
+    // q8 is filled in WN-2 to announce absence for WN-1
+    // So to know if someone is absent in lastWkKey (WN-1), read their WN-2 update's q8
+    const lastWkDate2=new Date();
+    const dow2=lastWkDate2.getDay();
+    const wn2Date=new Date(lastWkDate2);
+    wn2Date.setDate(lastWkDate2.getDate()-(dow2===0?13:dow2===1?14:dow2+6+7));
+    const wn2Key=getWeekKey(wn2Date);
+    const prevUpdate = allUpdates.find(u => u.email === email && u.weekKey === wn2Key);
     const q8 = prevUpdate?.answers?.q8 || '';
     if (q8.includes('école') || q8.includes('École')) return '🎓';
     if (q8.includes('congés') || q8.includes('vacances')) {
