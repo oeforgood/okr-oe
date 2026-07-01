@@ -2019,6 +2019,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
   const [caData, setCaData] = useState(null);
 
   const [chargeData, setChargeData] = useState(null);
+  const [bfrData, setBfrData] = useState(null);
   const [subcatLabels, setSubcatLabels] = useState({});
   const [importedAt, setImportedAt] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -2052,7 +2053,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
       }
       setLoading(false);
     });
-    return()=>{u1();u2();u3();};
+    return()=>{u1();u2();u3();u4();};
   },[]);
   
   async function saveActiveSubcats(a){
