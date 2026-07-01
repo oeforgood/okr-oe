@@ -2648,7 +2648,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
           catTypes={catTypes} onSaveCatTypes={onSaveCatTypes}/>}
 
 
-      {tab!=="history"&&tab!=="reporting"&&<><button onClick={save} style={{marginTop:20,padding:"12px 28px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600}}>
+      {tab!=="history"&&tab!=="reporting"&&tab!=="reporting_params"&&<><button onClick={save} style={{marginTop:20,padding:"12px 28px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600}}>
         💾 Enregistrer
       </button>
       {saved&&<span style={{marginLeft:12,fontSize:13,color:"#2d6a4f"}}>✓ Sauvegardé !</span>}</>}
@@ -3408,7 +3408,7 @@ export default function App(){
     setQuestions(qs);
   }
   async function handleSaveCatTypes(ct){
-    await setDoc(doc(db,"app_config","main"),{teamMembers,questions,catTypes:ct,codeMap});
+    await setDoc(doc(db,"app_config","main"),{teamMembers,questions,catTypes:ct,codeMap,customSubcatLabels},{merge:true});
     setCatTypes(ct);
   }
   async function handleSaveCodeMap(cm){
@@ -3417,7 +3417,7 @@ export default function App(){
   }
   const [customSubcatLabels,setCustomSubcatLabels]=useState({});
   async function handleSaveCustomLabels(cl){
-    await setDoc(doc(db,"app_config","main"),{teamMembers,questions,catTypes,codeMap,customSubcatLabels:cl});
+    await setDoc(doc(db,"app_config","main"),{teamMembers,questions,catTypes,codeMap,customSubcatLabels:cl},{ merge: true });
     setCustomSubcatLabels(cl);
   }
 
