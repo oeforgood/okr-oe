@@ -616,14 +616,12 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,t
 
 function ReportingBanner({onGoReporting}) {
   const [caData, setCaData] = useState(null);
-  const [caRows, setCaRows] = useState({});
-  const [expandedCanal,setExpandedCanal]=useState({});
-  const [expandedTiers,setExpandedTiers]=useState({});
+
   const [chargeData, setChargeData] = useState(null);
   const [importedAt, setImportedAt] = useState(null);
 
   useEffect(()=>{
-    const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists()){setCaData(snap.data().caData);const cr=snap.data().caRows||{};console.log('caRows keys:',Object.keys(cr));setCaRows(cr);}});
+    const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists()){setCaData(snap.data().caData);}});
     const u2=onSnapshot(doc(db,'reporting','charges'),(snap)=>{if(snap.exists())setChargeData(snap.data().chargeData);});
     const u3=onSnapshot(doc(db,'reporting','meta'),(snap)=>{if(snap.exists())setImportedAt(snap.data().importedAt);});
     return()=>{u1();u2();u3();};
@@ -2019,9 +2017,7 @@ function SubcatsDnD({codeMap, setCodeMap, onSaveCodeMap, subcatLabels, knownSubc
 
 function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMap, savedCustomLabels={}, onSaveCustomLabels, readOnly=false}) {
   const [caData, setCaData] = useState(null);
-  const [caRows, setCaRows] = useState({});
-  const [expandedCanal,setExpandedCanal]=useState({});
-  const [expandedTiers,setExpandedTiers]=useState({});
+
   const [chargeData, setChargeData] = useState(null);
   const [subcatLabels, setSubcatLabels] = useState({});
   const [importedAt, setImportedAt] = useState(null);
@@ -2045,7 +2041,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
   const [inKeur, setInKeur] = useState(true);
 
   useEffect(()=>{
-    const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists()){setCaData(snap.data().caData);const cr=snap.data().caRows||{};console.log('caRows keys:',Object.keys(cr));setCaRows(cr);}});
+    const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists()){setCaData(snap.data().caData);}});
     const u2=onSnapshot(doc(db,'reporting','charges'),(snap)=>{if(snap.exists())setChargeData(snap.data().chargeData);});
     const u3=onSnapshot(doc(db,'reporting','meta'),(snap)=>{
       if(snap.exists()){
@@ -2255,33 +2251,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
           </thead>
           <tbody>
             <ReportingRow label="Chiffre d'Affaires" months={caTotal} lastMonth={lastMonth} bold inKeur={inKeur} onClick={()=>toggle('ca')} isOpen={expanded['ca']}>
-              {REPORTING_CANALS.map(c=>{
-                const csvKey=CANAL_CSV_MAP[c]||c;
-                const canalRowsData=caRows[csvKey]||[];
-                const tierMap={};
-                canalRowsData.forEach(r=>{
-                  const t=r.tiers||'—';
-                  if(!tierMap[t])tierMap[t]=0;
-                  tierMap[t]+=r.amount;
-                });
-                const tiers=Object.entries(tierMap).sort((a,b)=>b[1]-a[1]);
-                const fmtVal=v=>inKeur?((v/1000).toFixed(1)+'k'):(v.toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:0})+'€');
-                return <ReportingRow key={c} label={c} months={caByCanal[c]||Array(12).fill(0)} lastMonth={lastMonth} indent={1} inKeur={inKeur}
-                  onClick={()=>setExpandedCanal(p=>({...p,[`ca_${c}`]:!p[`ca_${c}`]}))}
-                  isOpen={expandedCanal[`ca_${c}`]}>
-                  {tiers.length===0&&<tr><td colSpan={lastMonth+3} style={{padding:'4px 36px',fontSize:10,color:'#9e9890',fontStyle:'italic'}}>Aucune donnée — relancez l'import</td></tr>}
-                  {tiers.map(([tName,tTotal])=>(
-                    <tr key={tName} style={{background:'#f0fff8'}}>
-                      <td style={{padding:'3px 8px 3px 40px',fontSize:10,position:'sticky',left:0,background:'#f0fff8',zIndex:1,borderBottom:'1px solid #e8f5ee',color:'#1a1814'}}>
-                        {tName}
-                      </td>
-                      <td colSpan={lastMonth+3} style={{padding:'3px 8px',fontSize:10,textAlign:'right',color:'#2d6a4f',fontWeight:500,fontFamily:'monospace',borderBottom:'1px solid #e8f5ee'}}>
-                        {fmtVal(tTotal)}
-                      </td>
-                    </tr>
-                  ))}
-                </ReportingRow>;
-              })}
+              {REPORTING_CANALS.map(c=><ReportingRow key={c} label={c} months={caByCanal[c]||Array(12).fill(0)} lastMonth={lastMonth} indent={1} inKeur={inKeur}/>)}
             </ReportingRow>
             <ReportingRow label="Marge Brute" months={mbTotal} lastMonth={lastMonth} bold inKeur={inKeur} highlight onClick={()=>toggle('mb')} isOpen={expanded['mb']}>
               {REPORTING_CANALS.map(c=>{
