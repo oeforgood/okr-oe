@@ -2286,6 +2286,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                 </tr>;
               })}
             </ReportingRow>
+            {renderGroup('charges_expl',"Charges d'exploitation")}
             <ReportingRow label="EBITDA" months={ebitda} lastMonth={lastMonth} bold isTotal inKeur={inKeur}/>
             {renderGroup('autres_charges',"Autres charges")}
             <ReportingRow label="Résultat net" months={resultat} lastMonth={lastMonth} bold isTotal inKeur={inKeur}/>
