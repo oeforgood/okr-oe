@@ -2260,16 +2260,21 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
               {REPORTING_CANALS.map(c=><ReportingRow key={c} label={c} months={caByCanal[c]||Array(12).fill(0)} lastMonth={lastMonth} indent={1} inKeur={inKeur}/>)}
             </ReportingRow>
             {(()=>{
-              const COGS_KEYS=['Z2-01','Z2-02','Z2-03','Z2-25','Z2-32','Z2-33'];
+              if(!chargeData)return null;
+              const COGS_KEYS=['Z2-01','Z2-02','Z2-03','Z2-25','Z2-32','Z2-33','Z2-AU'];
+              const getSubcatMonths=k=>{
+                const d=chargeData[k];
+                if(!d)return Array(12).fill(0);
+                return getMonthArray(d.months);
+              };
               const cogsMonths=Array(12).fill(0).map((_,i)=>
-                COGS_KEYS.reduce((s,k)=>s+(chargeBySubcat[k]?.[i]||0),0)+
-                (chargeBySubcat['Z2-AU']?.[i]||0)
+                COGS_KEYS.reduce((s,k)=>s+getSubcatMonths(k)[i],0)
               );
               return <ReportingRow label="CoGS" months={cogsMonths} lastMonth={lastMonth} bold inKeur={inKeur}
                 onClick={()=>toggle('cogs')} isOpen={expanded['cogs']}>
-                {[...COGS_KEYS,'Z2-AU'].map(k=>{
-                  const label=effectiveSubcatLabels[k]||k;
-                  const months=chargeBySubcat[k]||Array(12).fill(0);
+                {COGS_KEYS.map(k=>{
+                  const label=effectiveSubcatLabels[k]||subcatLabels[k]||k;
+                  const months=getSubcatMonths(k);
                   return <ReportingRow key={k} label={label} months={months} lastMonth={lastMonth} indent={1} inKeur={inKeur}/>;
                 })}
               </ReportingRow>;
