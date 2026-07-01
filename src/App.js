@@ -3296,7 +3296,20 @@ export default function App(){
     });
 
     // Load OKR data for dashboard
-    const unsubOkr=onSnapshot(doc(db,"okr","data"),(snap)=>{if(snap.exists()&&snap.data().allSeasons){const d=snap.data();const curSk=(()=>{const n=new Date();return SEASONS.find(s=>n>=new Date(s.start)&&n<=new Date(s.end))?.key||"printemps_2026";})();const s=d.allSeasons[curSk]||{};setOkrData({objectives:s.objectives||[],subobjectives:s.subobjectives||[],keyresults:s.keyresults||[],seasonKey:curSk});}});
+    const unsubOkr=onSnapshot(doc(db,"okr","data"),(snap)=>{if(snap.exists()&&snap.data().allSeasons){const d=snap.data();const curSk=(()=>{
+  const n=new Date();
+  // Find the season whose date range contains today
+  const idx=SEASONS.findIndex(s=>n>=new Date(s.start)&&n<=new Date(s.end));
+  if(idx<0)return "printemps_2026";
+  const s=SEASONS[idx];
+  const startDate=new Date(s.start);
+  // Don't switch to new season until the 15th of its first month
+  const switchDate=new Date(startDate.getFullYear(),startDate.getMonth(),15);
+  if(n<switchDate&&idx>0){
+    return SEASONS[idx-1].key; // use previous season
+  }
+  return s.key;
+})();const s=d.allSeasons[curSk]||{};setOkrData({objectives:s.objectives||[],subobjectives:s.subobjectives||[],keyresults:s.keyresults||[],seasonKey:curSk});}});
 
     return()=>{unsub();unsubOkr();};
   },[authUser]);
