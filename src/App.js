@@ -2256,7 +2256,6 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
           <tbody>
             <ReportingRow label="Chiffre d'Affaires" months={caTotal} lastMonth={lastMonth} bold inKeur={inKeur} onClick={()=>toggle('ca')} isOpen={expanded['ca']}>
               {REPORTING_CANALS.map(c=>{
-                const canalKey=`ca_${c}`;
                 const canalRowsData=caRows[c]||[];
                 const tierMap={};
                 canalRowsData.forEach(r=>{
@@ -2265,13 +2264,11 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                   tierMap[t]+=r.amount;
                 });
                 const tiers=Object.entries(tierMap).sort((a,b)=>b[1]-a[1]);
-                const isOpen=expandedCanal[canalKey];
                 const fmtVal=v=>inKeur?((v/1000).toFixed(1)+'k'):(v.toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:0})+'€');
-                return <React.Fragment key={c}>
-                  <ReportingRow label={c} months={caByCanal[c]||Array(12).fill(0)} lastMonth={lastMonth} indent={1} inKeur={inKeur}
-                    onClick={tiers.length>0?()=>setExpandedCanal(p=>({...p,[canalKey]:!p[canalKey]})):undefined}
-                    isOpen={isOpen}/>
-                  {isOpen&&tiers.map(([tName,tTotal])=>(
+                return <ReportingRow key={c} label={c} months={caByCanal[c]||Array(12).fill(0)} lastMonth={lastMonth} indent={1} inKeur={inKeur}
+                  onClick={tiers.length>0?()=>setExpandedCanal(p=>({...p,[`ca_${c}`]:!p[`ca_${c}`]})):undefined}
+                  isOpen={expandedCanal[`ca_${c}`]}>
+                  {tiers.map(([tName,tTotal])=>(
                     <tr key={tName} style={{background:'#f0fff8'}}>
                       <td style={{padding:'4px 8px 4px 36px',fontSize:10,position:'sticky',left:0,background:'#f0fff8',zIndex:1,borderBottom:'1px solid #e8f5ee',color:'#1a1814'}}>
                         {tName}
@@ -2281,10 +2278,8 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                       </td>
                     </tr>
                   ))}
-                </React.Fragment>;
+                </ReportingRow>;
               })}
-            </ReportingRow>
-            <ReportingRow label="Marge Brute" months={mbTotal} lastMonth={lastMonth} bold inKeur={inKeur} highlight onClick={()=>toggle('mb')} isOpen={expanded['mb']}>
               {REPORTING_CANALS.map(c=>{
                 const rate=CANAL_MARGIN[c]??DEFAULT_CANAL_MARGIN;
                 return <tr key={c} style={{background:'#f8fffd'}}>
