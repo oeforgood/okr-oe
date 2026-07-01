@@ -624,7 +624,8 @@ function ReportingBanner({onGoReporting}) {
     const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists()){setCaData(snap.data().caData);}});
     const u2=onSnapshot(doc(db,'reporting','charges'),(snap)=>{if(snap.exists())setChargeData(snap.data().chargeData);});
     const u3=onSnapshot(doc(db,'reporting','meta'),(snap)=>{if(snap.exists())setImportedAt(snap.data().importedAt);});
-    return()=>{u1();u2();u3();u4();};
+    return()=>{u1();u2();u3();};
+
   },[]);
 
   if (!caData) return null;
