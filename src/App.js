@@ -2256,7 +2256,8 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
           <tbody>
             <ReportingRow label="Chiffre d'Affaires" months={caTotal} lastMonth={lastMonth} bold inKeur={inKeur} onClick={()=>toggle('ca')} isOpen={expanded['ca']}>
               {REPORTING_CANALS.map(c=>{
-                const canalRowsData=caRows[c]||[];
+                const csvKey=CANAL_CSV_MAP[c]||c;
+                const canalRowsData=caRows[csvKey]||[];
                 const tierMap={};
                 canalRowsData.forEach(r=>{
                   const t=r.tiers||'—';
