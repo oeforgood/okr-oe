@@ -2022,7 +2022,15 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
 
   const [chargeData, setChargeData] = useState(null);
   const [bfrData, setBfrData] = useState(null);
-  const [canalMargin, setCanalMargin] = useState(savedCanalMargin||CANAL_MARGIN);
+  const [canalMargin, setCanalMargin] = useState(()=>{
+    const src=savedCanalMargin||CANAL_MARGIN;
+    const result={};
+    REPORTING_CANALS.forEach(c=>{
+      if(src[c]&&typeof src[c]==='object'){result[c]=src[c];}
+      else{const r=src[c]??CANAL_MARGIN[c]??DEFAULT_CANAL_MARGIN;result[c]={};for(let m=1;m<=12;m++)result[c][m]=r;}
+    });
+    return result;
+  });
   const [subcatLabels, setSubcatLabels] = useState({});
   const [importedAt, setImportedAt] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -2096,9 +2104,16 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
   // Marge brute - use actual canal rates
   const mbByCanal = useMemo(()=>{
     const res={};
-    REPORTING_CANALS.forEach(c=>{const rate=canalMargin[c]??DEFAULT_CANAL_MARGIN;res[c]=(caByCanal[c]||[]).map(v=>v*rate);});
+    REPORTING_CANALS.forEach(c=>{
+      const defaultRate=CANAL_MARGIN[c]??DEFAULT_CANAL_MARGIN;
+      res[c]=(caByCanal[c]||[]).map((v,i)=>{
+        // month i+1, get rate for that month or fall back to canal default
+        const rate=canalMargin[c]?.[i+1]??canalMargin[c]??defaultRate;
+        return v*rate;
+      });
+    });
     return res;
-  },[caByCanal]);
+  },[caByCanal,canalMargin]);
   // MB total = sum of (CA per canal * rate per canal)
   const mbTotal = useMemo(()=>Array(12).fill(0).map((_,i)=>REPORTING_CANALS.reduce((s,c)=>s+(mbByCanal[c]?.[i]||0),0)),[mbByCanal]);
 
@@ -2281,7 +2296,6 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
             })()}
                         <ReportingRow label="Marge Brute" months={mbTotal} lastMonth={lastMonth} bold inKeur={inKeur} highlight onClick={()=>toggle('mb')} isOpen={expanded['mb']}>
               {REPORTING_CANALS.map(c=>{
-                const rate=canalMargin[c]??DEFAULT_CANAL_MARGIN;
                 return <tr key={c} style={{background:'#f8fffd'}}>
                   <td style={{padding:'5px 8px 5px 22px',fontSize:11,fontWeight:400,
                     position:'sticky',left:0,background:'#f8fffd',zIndex:1,
@@ -2456,7 +2470,16 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
 
 function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSaveCustomSubcatLabels, catTypes, onSaveCatTypes, savedCanalMargin, onSaveCanalMargin}) {
   const [chargeData, setChargeData] = useState(null);
-  const [localMargin, setLocalMargin] = useState(savedCanalMargin||CANAL_MARGIN);
+  const [localMargin, setLocalMargin] = useState(()=>{
+    const src=savedCanalMargin||CANAL_MARGIN;
+    // Convert old format {canal:rate} to new {canal:{1:rate,...,12:rate}} if needed
+    const result={};
+    REPORTING_CANALS.forEach(c=>{
+      if(src[c]&&typeof src[c]==='object'){result[c]=src[c];}
+      else{const r=src[c]??CANAL_MARGIN[c]??DEFAULT_CANAL_MARGIN;result[c]={};for(let m=1;m<=12;m++)result[c][m]=r;}
+    });
+    return result;
+  });
   const [activeSubcats, setActiveSubcats] = useState({});
   const [localCodeMap, setLocalCodeMap] = useState(codeMap || DEFAULT_CODE_TO_CAT);
   const [localCustomLabels, setLocalCustomLabels] = useState(customSubcatLabels || {});
@@ -2476,23 +2499,43 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
   }
 
   return <>
-    <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'16px 20px',marginBottom:20}}>
-      <div style={{fontSize:12,fontWeight:600,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:12}}>Taux de marge brute par canal</div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}}>
-        {REPORTING_CANALS.map(c=>(
-          <div key={c} style={{display:'flex',alignItems:'center',gap:8}}>
-            <label style={{fontSize:11,color:'#6b6560',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c}</label>
-            <div style={{display:'flex',alignItems:'center',gap:2}}>
-              <input type="number" min="0" max="100" step="0.1"
-                value={Math.round((localMargin[c]??DEFAULT_CANAL_MARGIN)*1000)/10}
-                onChange={e=>{const v=parseFloat(e.target.value)/100;const nm={...localMargin,[c]:isNaN(v)?localMargin[c]:v};setLocalMargin(nm);onSaveCanalMargin&&onSaveCanalMargin(nm);}}
-                style={{width:60,fontSize:12,border:'1px solid #e2ddd6',borderRadius:6,padding:'4px 6px',textAlign:'right'}}
-              />
-              <span style={{fontSize:11,color:'#9e9890'}}>%</span>
-            </div>
-          </div>
-        ))}
-      </div>
+    <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'16px 20px',marginBottom:20,overflowX:'auto'}}>
+      <div style={{fontSize:12,fontWeight:600,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:12}}>Taux de marge brute par canal (%)</div>
+      <table style={{borderCollapse:'collapse',fontSize:11,width:'100%'}}>
+        <thead>
+          <tr>
+            <th style={{padding:'4px 8px',textAlign:'left',color:'#9e9890',fontWeight:500,borderBottom:'1px solid #e2ddd6'}}>Canal</th>
+            {['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'].map((m,i)=>(
+              <th key={i} style={{padding:'4px 6px',textAlign:'center',color:'#9e9890',fontWeight:500,borderBottom:'1px solid #e2ddd6',minWidth:48}}>{m}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {REPORTING_CANALS.map(c=>{
+            const defaultRate=CANAL_MARGIN[c]??DEFAULT_CANAL_MARGIN;
+            return <tr key={c}>
+              <td style={{padding:'4px 8px',color:'#1a1814',fontWeight:500,whiteSpace:'nowrap',borderBottom:'1px solid #f0ede8'}}>{c}</td>
+              {Array(12).fill(0).map((_,i)=>{
+                const m=i+1;
+                const val=localMargin[c]?.[m]??defaultRate;
+                return <td key={m} style={{padding:'2px 3px',borderBottom:'1px solid #f0ede8'}}>
+                  <input type="number" min="0" max="100" step="0.1"
+                    value={Math.round(val*1000)/10}
+                    onChange={e=>{
+                      const v=parseFloat(e.target.value)/100;
+                      const nm={...localMargin,[c]:{...(localMargin[c]||{}), [m]:isNaN(v)?val:v}};
+                      setLocalMargin(nm);
+                      onSaveCanalMargin&&onSaveCanalMargin(nm);
+                    }}
+                    style={{width:44,fontSize:11,border:'1px solid #e2ddd6',borderRadius:4,
+                      padding:'2px 4px',textAlign:'right',background:'#fafaf8'}}
+                  />
+                </td>;
+              })}
+            </tr>;
+          })}
+        </tbody>
+      </table>
     </div>
     <SubcatsDnD
     codeMap={localCodeMap}
