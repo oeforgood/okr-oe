@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, getDocs, query, where, updateDoc, deleteDoc } from "firebase/firestore";
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "firebase/auth";
@@ -616,11 +616,12 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,t
 
 function ReportingBanner({onGoReporting}) {
   const [caData, setCaData] = useState(null);
+
   const [chargeData, setChargeData] = useState(null);
   const [importedAt, setImportedAt] = useState(null);
 
   useEffect(()=>{
-    const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists())setCaData(snap.data().caData);});
+    const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists()){setCaData(snap.data().caData);}});
     const u2=onSnapshot(doc(db,'reporting','charges'),(snap)=>{if(snap.exists())setChargeData(snap.data().chargeData);});
     const u3=onSnapshot(doc(db,'reporting','meta'),(snap)=>{if(snap.exists())setImportedAt(snap.data().importedAt);});
     return()=>{u1();u2();u3();};
@@ -922,11 +923,9 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
       return ((mo >= 12 && checkDate.getDate() >= 15) || mo <= 4) ? '🎿' : '🌴';
     }
     // q8 is filled in WN-2 to announce absence for WN-1
-    // So to know if someone is absent in lastWkKey (WN-1), read their WN-2 update's q8
-    const lastWkDate2=new Date();
-    const dow2=lastWkDate2.getDay();
-    const wn2Date=new Date(lastWkDate2);
-    wn2Date.setDate(lastWkDate2.getDate()-(dow2===0?13:dow2===1?14:dow2+6+7));
+    // Use refDate (checkDate) to find WN-2 relative to the week being checked
+    const wn2Date=new Date(checkDate);
+    wn2Date.setDate(checkDate.getDate()-7); // go back one more week to WN-2
     const wn2Key=getWeekKey(wn2Date);
     const prevUpdate = allUpdates.find(u => u.email === email && u.weekKey === wn2Key);
     const q8 = prevUpdate?.answers?.q8 || '';
@@ -1042,10 +1041,10 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
               <div style={{fontSize:60,lineHeight:1}}>{teamMoodAvg?MOOD_FROM_SCORE(teamMoodAvg):"—"}</div>
                <div style={{height:10}}/>
               {(()=>{
+                // Use getAbsenceIcon to detect all absences (declared + forceMat + q8 from WN-2)
                 const presentTeam2=activeTeam.filter(m=>{
-                  const prevU=allUpdates.find(u=>u.email===m.email&&u.weekKey===lastWkKey);
-                  const q8=prevU?.answers?.q8||'';
-                  return !q8.includes('congés')&&!q8.includes('École')&&!q8.includes('école')&&!m.forceMat&&!m.forceAbsent;
+                  const icon=getAbsenceIcon(m.email,m.prenom,_7daysAgo);
+                  return icon==='🫥'; // Only count truly non-absent members
                 });
                 const num=teamLastWk.filter(u=>presentTeam2.some(m=>m.email===u.email)).length;
                 const denom=presentTeam2.length||activeCount;
@@ -1383,10 +1382,17 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
                     const declaredAbsW=(window._absences||[]).find(a=>
                       a.email===m.email&&toDateStr(w.mon)>=a.dateFrom&&toDateStr(w.mon)<=a.dateTo
                     );
-                    let emoji=null;
-                    if(declaredAbsW){emoji=declaredAbsW.type;}
+                     let emoji=null;
+                     // Read q8 from WN-2 to detect WN-1 absence
+                     const prevWkDate_=new Date(w.mon);prevWkDate_.setDate(w.mon.getDate()-7);
+                     const prevWk2_=getWeekKey(prevWkDate_);
+                     const prevU2_=allUpdates.find(u=>u.email===m.email&&u.weekKey===prevWk2_);
+                     const q8_=prevU2_?.answers?.q8||'';
                      if(declaredAbsW){emoji=declaredAbsW.type;}
+                     else if(q8_.includes('école')||q8_.includes('École')){emoji='🎓';}
+                     else if(q8_.includes('congés')){const mo=w.mon.getMonth()+1;emoji=((mo>=12&&w.mon.getDate()>=15)||mo<=4)?'🎿':'🌴';}
                      else if(update){emoji=(hideCur&&wi===weeks.length-1)?'🫥':(update.answers?.q7||'😐');}
+                     else{emoji='🫥';}
                     return <div key={wi} onClick={update?()=>setSelectedWeek({wk:w.wk,update,prenom:m.prenom,isOwn:false,authorEmail:m.email}):undefined}
                       style={{width:31,height:31,flexShrink:0,display:"flex",alignItems:"center",
                         justifyContent:"center",cursor:update?"pointer":"default",fontSize:22,lineHeight:1,
@@ -1503,6 +1509,7 @@ function UpdatesHistoryTab(){
   const [filterPrenom,setFilterPrenom]=useState("");
   const [filterWeek,setFilterWeek]=useState("");
   const [expanded,setExpanded]=useState({});
+
 
   useEffect(()=>{
     let done=0;
@@ -2010,6 +2017,7 @@ function SubcatsDnD({codeMap, setCodeMap, onSaveCodeMap, subcatLabels, knownSubc
 
 function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMap, savedCustomLabels={}, onSaveCustomLabels, readOnly=false}) {
   const [caData, setCaData] = useState(null);
+
   const [chargeData, setChargeData] = useState(null);
   const [subcatLabels, setSubcatLabels] = useState({});
   const [importedAt, setImportedAt] = useState(null);
@@ -2033,7 +2041,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
   const [inKeur, setInKeur] = useState(true);
 
   useEffect(()=>{
-    const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists())setCaData(snap.data().caData);});
+    const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists()){setCaData(snap.data().caData);}});
     const u2=onSnapshot(doc(db,'reporting','charges'),(snap)=>{if(snap.exists())setChargeData(snap.data().chargeData);});
     const u3=onSnapshot(doc(db,'reporting','meta'),(snap)=>{
       if(snap.exists()){
@@ -2256,23 +2264,25 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                   </td>
                   {Array(12).fill(0).map((_,i)=>{
                     const isEmpty=i>=lastMonth;
-                    return <>
-                      {i===lastMonth&&<td key="ytd" style={{padding:'5px 8px',fontSize:11,textAlign:'right',
+                    return <React.Fragment key={i}>
+                      {i===lastMonth&&<td style={{padding:'5px 8px',fontSize:11,textAlign:'right',
                         fontFamily:'system-ui,sans-serif',borderBottom:'1px solid #f0ede8',width:44,
                         borderLeft:'2px solid #2d6a4f',borderRight:'2px solid #2d6a4f',background:'#f0fdf4',
                         fontWeight:600,color:'#166534'}}>{fmtPct(rate)}</td>}
-                      <td key={i} style={{padding:'5px 8px',fontSize:11,textAlign:'right',
+                      <td style={{padding:'5px 8px',fontSize:11,textAlign:'right',
                         fontFamily:'system-ui,sans-serif',borderBottom:'1px solid #f0ede8',width:44,
                         color:isEmpty?'#c5c0b8':'#166534',background:isEmpty?'#fafafa':'transparent'}}>
                         {isEmpty?'—':fmtPct(rate)}
                       </td>
-                    </>;
+                    </React.Fragment>;
                   })}
                   {lastMonth===12&&<td style={{padding:'5px 8px',fontSize:11,textAlign:'right',width:44,
                     borderLeft:'2px solid #2d6a4f',background:'#f0fdf4',borderBottom:'1px solid #f0ede8',
                     fontWeight:600,color:'#166534'}}>{fmtPct(rate)}</td>}
                   <td style={{padding:'5px 8px',fontSize:11,textAlign:'right',width:44,
-                    borderLeft:'1px solid #e2ddd6',borderBottom:'1px solid #f0ede8',color:'#166534'}}>{fmtPct(rate)}</td>
+                    borderLeft:'1px solid #e2ddd6',borderBottom:'1px solid #f0ede8',color:'#166534'}}>
+                    {fmtPct(rate)}
+                  </td>
                 </tr>;
               })}
             </ReportingRow>
@@ -2883,6 +2893,7 @@ function JournalModal({seasonKey,onClose,isAdmin,currentPrenom}){
   const [logs,setLogs]=useState([]);
   const [loading,setLoading]=useState(true);
   const [expanded,setExpanded]=useState({});
+
   useEffect(()=>{
     const unsub=onSnapshot(collection(db,"okr_log"),(snap)=>{
       const all=snap.docs.map(d=>({id:d.id,...d.data()}));
@@ -3242,7 +3253,20 @@ export default function App(){
     });
 
     // Load OKR data for dashboard
-    const unsubOkr=onSnapshot(doc(db,"okr","data"),(snap)=>{if(snap.exists()&&snap.data().allSeasons){const d=snap.data();const curSk=(()=>{const n=new Date();return SEASONS.find(s=>n>=new Date(s.start)&&n<=new Date(s.end))?.key||"printemps_2026";})();const s=d.allSeasons[curSk]||{};setOkrData({objectives:s.objectives||[],subobjectives:s.subobjectives||[],keyresults:s.keyresults||[],seasonKey:curSk});}});
+    const unsubOkr=onSnapshot(doc(db,"okr","data"),(snap)=>{if(snap.exists()&&snap.data().allSeasons){const d=snap.data();const curSk=(()=>{
+  const n=new Date();
+  // Find the season whose date range contains today
+  const idx=SEASONS.findIndex(s=>n>=new Date(s.start)&&n<=new Date(s.end));
+  if(idx<0)return "printemps_2026";
+  const s=SEASONS[idx];
+  const startDate=new Date(s.start);
+  // Don't switch to new season until the 15th of its first month
+  const switchDate=new Date(startDate.getFullYear(),startDate.getMonth(),15);
+  if(n<switchDate&&idx>0){
+    return SEASONS[idx-1].key; // use previous season
+  }
+  return s.key;
+})();const s=d.allSeasons[curSk]||{};setOkrData({objectives:s.objectives||[],subobjectives:s.subobjectives||[],keyresults:s.keyresults||[],seasonKey:curSk});}});
 
     return()=>{unsub();unsubOkr();};
   },[authUser]);
