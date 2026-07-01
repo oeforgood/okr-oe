@@ -3363,6 +3363,7 @@ export default function App(){
   const [questions,setQuestions]=useState(DEFAULT_QUESTIONS);
   const [catTypes,setCatTypes]=useState(DEFAULT_CAT_TYPE);
   const [codeMap,setCodeMap]=useState(CODE_TO_CATEGORY);
+  const [savedCanalMargin,setSavedCanalMargin]=useState(CANAL_MARGIN);
   const [myUpdates,setMyUpdates]=useState([]);
   const [allUpdates,setAllUpdates]=useState([]);
   const [managerNotifs,setManagerNotifs]=useState([]);
@@ -3616,7 +3617,6 @@ export default function App(){
 
   if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers}/>;
   if(page==="update")return <UpdatePage teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers}/>;
-  if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels} savedCanalMargin={savedCanalMargin}/>;
   if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels} savedCanalMargin={savedCanalMargin}/>;
   if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels}/>;
 
