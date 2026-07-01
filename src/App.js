@@ -2022,6 +2022,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
 
   const [chargeData, setChargeData] = useState(null);
   const [bfrData, setBfrData] = useState(null);
+  const [canalMargin, setCanalMargin] = useState(savedCanalMargin||CANAL_MARGIN);
   const [subcatLabels, setSubcatLabels] = useState({});
   const [importedAt, setImportedAt] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -2052,7 +2053,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
         setSubcatLabels(snap.data().subcatLabels||{});
         setImportedAt(snap.data().importedAt);
         if(snap.data().activeSubcats) setActiveSubcats(snap.data().activeSubcats);
-        if(snap.data().canalMargin) setSavedCanalMargin(snap.data().canalMargin);
+        if(snap.data().canalMargin) setCanalMargin(snap.data().canalMargin);
       }
       setLoading(false);
     });
