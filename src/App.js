@@ -2292,6 +2292,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
             {renderGroup('charges_expl',"Charges d'exploitation")}
             <ReportingRow label="EBITDA" months={ebitda} lastMonth={lastMonth} bold isTotal inKeur={inKeur}/>
             {renderGroup('autres_charges',"Autres charges")}
+            <ReportingRow label="Résultat net" months={resultat} lastMonth={lastMonth} bold isTotal inKeur={inKeur}/>
             {/* ── SUIVI DE TRÉSORERIE ── */}
             {bfrData&&(()=>{
               // Helper: get monthly array from section/key
@@ -2359,7 +2360,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                 {key:'participations',label:'Participations (17-19)'},
                 {key:'immobilisations',label:'Immobilisations (2x)'},
                 {key:'dette_sociale',label:'Dette sociale et salariale (42-43)'},
-                {key:'dette_etat',label:'Dettes envers l'État (44)'},
+                {key:'dette_etat',label:"Dettes envers l'État (44)"},
                 {key:'comptes_courants',label:'Comptes courants (45)'},
                 {key:'autre',label:'Autre (46-48, 5x sauf 51)'},
               ];
@@ -2402,7 +2403,6 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
               </>;
             })()}
 
-                        <ReportingRow label="Résultat net" months={resultat} lastMonth={lastMonth} bold isTotal inKeur={inKeur}/>
           </tbody>
         </table>
       </div>}
