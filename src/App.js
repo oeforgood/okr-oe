@@ -623,7 +623,8 @@ function ReportingBanner({onGoReporting}) {
   useEffect(()=>{
     const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists()){setCaData(snap.data().caData);}});
     const u2=onSnapshot(doc(db,'reporting','charges'),(snap)=>{if(snap.exists())setChargeData(snap.data().chargeData);});
-    const u3=onSnapshot(doc(db,'reporting','meta'),(snap)=>{if(snap.exists())setImportedAt(snap.data().importedAt);});
+    const u3=onSnapshot(doc(db,'reporting','meta'),(snap)=>{if(snap.exists())setImportedAt(snap.data().importedAt);
+        if(snap.data().canalMargin)setCanalMargin(snap.data().canalMargin);});
     return()=>{u1();u2();u3();};
 
   },[]);
@@ -2016,7 +2017,7 @@ function SubcatsDnD({codeMap, setCodeMap, onSaveCodeMap, subcatLabels, knownSubc
   );
 }
 
-function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMap, savedCustomLabels={}, onSaveCustomLabels, readOnly=false}) {
+function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMap, savedCustomLabels={}, onSaveCustomLabels, savedCanalMargin, readOnly=false}) {
   const [caData, setCaData] = useState(null);
 
   const [chargeData, setChargeData] = useState(null);
@@ -2051,6 +2052,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
         setSubcatLabels(snap.data().subcatLabels||{});
         setImportedAt(snap.data().importedAt);
         if(snap.data().activeSubcats) setActiveSubcats(snap.data().activeSubcats);
+        if(snap.data().canalMargin) setSavedCanalMargin(snap.data().canalMargin);
       }
       setLoading(false);
     });
@@ -2093,7 +2095,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
   // Marge brute - use actual canal rates
   const mbByCanal = useMemo(()=>{
     const res={};
-    REPORTING_CANALS.forEach(c=>{const rate=CANAL_MARGIN[c]??DEFAULT_CANAL_MARGIN;res[c]=(caByCanal[c]||[]).map(v=>v*rate);});
+    REPORTING_CANALS.forEach(c=>{const rate=canalMargin[c]??DEFAULT_CANAL_MARGIN;res[c]=(caByCanal[c]||[]).map(v=>v*rate);});
     return res;
   },[caByCanal]);
   // MB total = sum of (CA per canal * rate per canal)
@@ -2256,9 +2258,24 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
             <ReportingRow label="Chiffre d'Affaires" months={caTotal} lastMonth={lastMonth} bold inKeur={inKeur} onClick={()=>toggle('ca')} isOpen={expanded['ca']}>
               {REPORTING_CANALS.map(c=><ReportingRow key={c} label={c} months={caByCanal[c]||Array(12).fill(0)} lastMonth={lastMonth} indent={1} inKeur={inKeur}/>)}
             </ReportingRow>
-            <ReportingRow label="Marge Brute" months={mbTotal} lastMonth={lastMonth} bold inKeur={inKeur} highlight onClick={()=>toggle('mb')} isOpen={expanded['mb']}>
+            {(()=>{
+              const COGS_KEYS=['Z2-01','Z2-02','Z2-03','Z2-25','Z2-32','Z2-33'];
+              const cogsMonths=Array(12).fill(0).map((_,i)=>
+                COGS_KEYS.reduce((s,k)=>s+(chargeBySubcat[k]?.[i]||0),0)+
+                (chargeBySubcat['Z2-AU']?.[i]||0)
+              );
+              return <ReportingRow label="CoGS" months={cogsMonths} lastMonth={lastMonth} bold inKeur={inKeur}
+                onClick={()=>toggle('cogs')} isOpen={expanded['cogs']}>
+                {[...COGS_KEYS,'Z2-AU'].map(k=>{
+                  const label=effectiveSubcatLabels[k]||k;
+                  const months=chargeBySubcat[k]||Array(12).fill(0);
+                  return <ReportingRow key={k} label={label} months={months} lastMonth={lastMonth} indent={1} inKeur={inKeur}/>;
+                })}
+              </ReportingRow>;
+            })()}
+                        <ReportingRow label="Marge Brute" months={mbTotal} lastMonth={lastMonth} bold inKeur={inKeur} highlight onClick={()=>toggle('mb')} isOpen={expanded['mb']}>
               {REPORTING_CANALS.map(c=>{
-                const rate=CANAL_MARGIN[c]??DEFAULT_CANAL_MARGIN;
+                const rate=canalMargin[c]??DEFAULT_CANAL_MARGIN;
                 return <tr key={c} style={{background:'#f8fffd'}}>
                   <td style={{padding:'5px 8px 5px 22px',fontSize:11,fontWeight:400,
                     position:'sticky',left:0,background:'#f8fffd',zIndex:1,
@@ -2345,6 +2362,15 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
               const SectionHeader=({label})=><tr><td colSpan={lastMonth+4} style={{height:16,padding:'12px 6px 4px',
                 fontSize:10,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.06em',
                 background:'#fafaf8',borderTop:'2px solid #e2ddd6'}}>{label}</td></tr>;
+              // Solde comptes 51 = cumulative sum per month (not variation)
+              const banquesMonths=(()=>{
+                const d=bfrData?.banques?.banques?.months||{};
+                const arr=Array(12).fill(0);
+                Object.entries(d).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]+=v;});
+                // cumulative
+                let cum=0;
+                return arr.map(v=>{cum+=v;return cum;});
+              })();
 
               const bfrKeys=[
                 {key:'clients',label:'Clients et comptes rattachés (41x, 49x)'},
@@ -2368,7 +2394,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
               const banquesTotal=getM('banques','banques');
 
               return <>
-                <SectionHeader label="Variation de BFR"/>
+                <SectionHeader label="Trésorerie"/>
                 <ReportingRow label="Variation de BFR" months={bfrTotal} lastMonth={lastMonth} bold inKeur={inKeur}
                   onClick={()=>toggle('bfr')} isOpen={expanded['bfr']}>
                   {bfrKeys.map(({key,label})=>(
@@ -2379,8 +2405,8 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                   ))}
                 </ReportingRow>
 
-                <SectionHeader label="Autres comptes de bilan"/>
-                <ReportingRow label="Autres comptes de bilan" months={autresTotal} lastMonth={lastMonth} bold inKeur={inKeur}
+                
+                <ReportingRow label="Variations d'autres comptes de bilan" months={autresTotal} lastMonth={lastMonth} bold inKeur={inKeur}
                   onClick={()=>toggle('autres')} isOpen={expanded['autres']}>
                   {autresKeys.map(({key,label})=>(
                     <ReportingRow key={key} label={label} months={getM('autres',key)} lastMonth={lastMonth} indent={1} inKeur={inKeur}
@@ -2390,8 +2416,8 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                   ))}
                 </ReportingRow>
 
-                <SectionHeader label="Banques"/>
-                <ReportingRow label="Banques" months={banquesTotal} lastMonth={lastMonth} bold inKeur={inKeur}
+                
+                <ReportingRow label="Variation de Trésorerie" months={banquesTotal} lastMonth={lastMonth} bold inKeur={inKeur}
                   onClick={()=>toggle('banques')} isOpen={expanded['banques']}>
                   {detailRows('banques','banques').length>0&&(
                     <ReportingRow label="Banques (51x)" months={banquesTotal} lastMonth={lastMonth} indent={1} inKeur={inKeur}
@@ -2400,6 +2426,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                     </ReportingRow>
                   )}
                 </ReportingRow>
+                <ReportingRow label="Trésorerie (solde)" months={banquesMonths} lastMonth={lastMonth} bold isTotal inKeur={inKeur}/>
               </>;
             })()}
 
@@ -2411,8 +2438,9 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
 }
 
 
-function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSaveCustomSubcatLabels, catTypes, onSaveCatTypes}) {
+function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSaveCustomSubcatLabels, catTypes, onSaveCatTypes, savedCanalMargin, onSaveCanalMargin}) {
   const [chargeData, setChargeData] = useState(null);
+  const [localMargin, setLocalMargin] = useState(savedCanalMargin||CANAL_MARGIN);
   const [activeSubcats, setActiveSubcats] = useState({});
   const [localCodeMap, setLocalCodeMap] = useState(codeMap || DEFAULT_CODE_TO_CAT);
   const [localCustomLabels, setLocalCustomLabels] = useState(customSubcatLabels || {});
@@ -2470,6 +2498,32 @@ function FeedbackAdminTab() {
   const unread = items.filter(i=>!i.read).length;
 
   return <div>
+    {/* Editable margin rates */}
+    <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'16px 20px',marginBottom:20}}>
+      <div style={{fontSize:12,fontWeight:600,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:12}}>
+        Taux de marge brute par canal
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}}>
+        {REPORTING_CANALS.map(c=>(
+          <div key={c} style={{display:'flex',alignItems:'center',gap:8}}>
+            <label style={{fontSize:11,color:'#6b6560',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c}</label>
+            <div style={{display:'flex',alignItems:'center',gap:2}}>
+              <input type="number" min="0" max="100" step="0.1"
+                value={Math.round((localMargin[c]??DEFAULT_CANAL_MARGIN)*1000)/10}
+                onChange={e=>{
+                  const v=parseFloat(e.target.value)/100;
+                  const nm={...localMargin,[c]:isNaN(v)?localMargin[c]:v};
+                  setLocalMargin(nm);
+                  onSaveCanalMargin&&onSaveCanalMargin(nm);
+                }}
+                style={{width:60,fontSize:12,border:'1px solid #e2ddd6',borderRadius:6,padding:'4px 6px',textAlign:'right'}}
+              />
+              <span style={{fontSize:11,color:'#9e9890'}}>%</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
     <div style={{fontSize:13,fontWeight:600,color:"#1a1814",marginBottom:14}}>
       Feedbacks & idées d'amélioration
       {unread>0&&<span style={{marginLeft:10,background:"#2d6a4f",color:"#fff",fontSize:11,
@@ -3290,12 +3344,12 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
 }
 
 // ─── APP ROOT ─────────────────────────────────────────────────────────────────
-function ReportingPagePublic({onBack, catTypes, codeMap, customSubcatLabels={}}) {
+function ReportingPagePublic({onBack, catTypes, codeMap, customSubcatLabels={}, savedCanalMargin}) {
   return <div style={{minHeight:"100vh",background:"#f5f3ef",fontFamily:"system-ui,sans-serif"}}>
     <TopBar onBack={onBack} title="Reporting financier"/>
     <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
       <ReportingTab onSaveCatTypes={null} savedCatTypes={catTypes} savedCodeMap={codeMap}
-        onSaveCodeMap={null} savedCustomLabels={customSubcatLabels} onSaveCustomLabels={null} readOnly={true}/>
+        onSaveCodeMap={null} savedCustomLabels={customSubcatLabels} onSaveCustomLabels={null} savedCanalMargin={savedCanalMargin} readOnly={true}/>
     </div>
   </div>;
 }
@@ -3524,6 +3578,10 @@ export default function App(){
     await setDoc(doc(db,"app_config","main"),{teamMembers,questions,catTypes:ct,codeMap,customSubcatLabels},{merge:true});
     setCatTypes(ct);
   }
+  async function handleSaveCanalMargin(cm){
+    await setDoc(doc(db,'reporting','meta'),{canalMargin:cm},{merge:true});
+    setSavedCanalMargin(cm);
+  }
   async function handleSaveCodeMap(cm){
     await setDoc(doc(db,"app_config","main"),{teamMembers,questions,catTypes,codeMap:cm,customSubcatLabels});
     setCodeMap(cm);
@@ -3558,8 +3616,8 @@ export default function App(){
 
   if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers}/>;
   if(page==="update")return <UpdatePage teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers}/>;
-  if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels}/>;
-  if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels}/>;
+  if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels} savedCanalMargin={savedCanalMargin}/>;
+  if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels} savedCanalMargin={savedCanalMargin}/>;
   if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels}/>;
 
   return <Dashboard
