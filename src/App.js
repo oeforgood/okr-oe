@@ -624,7 +624,7 @@ function ReportingBanner({onGoReporting}) {
     const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists()){setCaData(snap.data().caData);}});
     const u2=onSnapshot(doc(db,'reporting','charges'),(snap)=>{if(snap.exists())setChargeData(snap.data().chargeData);});
     const u3=onSnapshot(doc(db,'reporting','meta'),(snap)=>{if(snap.exists())setImportedAt(snap.data().importedAt);});
-    return()=>{u1();u2();u3();};
+    return()=>{u1();u2();u3();u4();};
   },[]);
 
   if (!caData) return null;
@@ -2043,7 +2043,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
   useEffect(()=>{
     const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists()){setCaData(snap.data().caData);}});
     const u2=onSnapshot(doc(db,'reporting','charges'),(snap)=>{if(snap.exists())setChargeData(snap.data().chargeData);});
-    const u3=onSnapshot(doc(db,'reporting','bfr'),(snap)=>{if(snap.exists())setBfrData(snap.data().bfrData);});;
+    const u4=onSnapshot(doc(db,'reporting','bfr'),(snap)=>{if(snap.exists())setBfrData(snap.data().bfrData);});
     const u3=onSnapshot(doc(db,'reporting','meta'),(snap)=>{
       if(snap.exists()){
         setSubcatLabels(snap.data().subcatLabels||{});
