@@ -2270,16 +2270,18 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                   isOpen={expandedCanal[`ca_${c}`]}>
                   {tiers.map(([tName,tTotal])=>(
                     <tr key={tName} style={{background:'#f0fff8'}}>
-                      <td style={{padding:'4px 8px 4px 36px',fontSize:10,position:'sticky',left:0,background:'#f0fff8',zIndex:1,borderBottom:'1px solid #e8f5ee',color:'#1a1814'}}>
+                      <td style={{padding:'3px 8px 3px 40px',fontSize:10,position:'sticky',left:0,background:'#f0fff8',zIndex:1,borderBottom:'1px solid #e8f5ee',color:'#1a1814'}}>
                         {tName}
                       </td>
-                      <td colSpan={lastMonth+3} style={{padding:'4px 8px',fontSize:10,textAlign:'right',color:'#2d6a4f',fontWeight:500,fontFamily:'monospace',borderBottom:'1px solid #e8f5ee'}}>
+                      <td colSpan={lastMonth+3} style={{padding:'3px 8px',fontSize:10,textAlign:'right',color:'#2d6a4f',fontWeight:500,fontFamily:'monospace',borderBottom:'1px solid #e8f5ee'}}>
                         {fmtVal(tTotal)}
                       </td>
                     </tr>
                   ))}
                 </ReportingRow>;
               })}
+            </ReportingRow>
+            <ReportingRow label="Marge Brute" months={mbTotal} lastMonth={lastMonth} bold inKeur={inKeur} highlight onClick={()=>toggle('mb')} isOpen={expanded['mb']}>
               {REPORTING_CANALS.map(c=>{
                 const rate=CANAL_MARGIN[c]??DEFAULT_CANAL_MARGIN;
                 return <tr key={c} style={{background:'#f8fffd'}}>
@@ -2290,27 +2292,28 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                   </td>
                   {Array(12).fill(0).map((_,i)=>{
                     const isEmpty=i>=lastMonth;
-                    return <>
-                      {i===lastMonth&&<td key="ytd" style={{padding:'5px 8px',fontSize:11,textAlign:'right',
+                    return <React.Fragment key={i}>
+                      {i===lastMonth&&<td style={{padding:'5px 8px',fontSize:11,textAlign:'right',
                         fontFamily:'system-ui,sans-serif',borderBottom:'1px solid #f0ede8',width:44,
                         borderLeft:'2px solid #2d6a4f',borderRight:'2px solid #2d6a4f',background:'#f0fdf4',
                         fontWeight:600,color:'#166534'}}>{fmtPct(rate)}</td>}
-                      <td key={i} style={{padding:'5px 8px',fontSize:11,textAlign:'right',
+                      <td style={{padding:'5px 8px',fontSize:11,textAlign:'right',
                         fontFamily:'system-ui,sans-serif',borderBottom:'1px solid #f0ede8',width:44,
                         color:isEmpty?'#c5c0b8':'#166534',background:isEmpty?'#fafafa':'transparent'}}>
                         {isEmpty?'—':fmtPct(rate)}
                       </td>
-                    </>;
+                    </React.Fragment>;
                   })}
                   {lastMonth===12&&<td style={{padding:'5px 8px',fontSize:11,textAlign:'right',width:44,
                     borderLeft:'2px solid #2d6a4f',background:'#f0fdf4',borderBottom:'1px solid #f0ede8',
                     fontWeight:600,color:'#166534'}}>{fmtPct(rate)}</td>}
                   <td style={{padding:'5px 8px',fontSize:11,textAlign:'right',width:44,
-                    borderLeft:'1px solid #e2ddd6',borderBottom:'1px solid #f0ede8',color:'#166534'}}>{fmtPct(rate)}</td>
+                    borderLeft:'1px solid #e2ddd6',borderBottom:'1px solid #f0ede8',color:'#166534'}}>
+                    {fmtPct(rate)}
+                  </td>
                 </tr>;
               })}
             </ReportingRow>
-            {renderGroup('charges_expl',"Charges d'exploitation")}
             <ReportingRow label="EBITDA" months={ebitda} lastMonth={lastMonth} bold isTotal inKeur={inKeur}/>
             {renderGroup('autres_charges',"Autres charges")}
             <ReportingRow label="Résultat net" months={resultat} lastMonth={lastMonth} bold isTotal inKeur={inKeur}/>
