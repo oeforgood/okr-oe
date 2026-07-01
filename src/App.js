@@ -1044,13 +1044,13 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
               {(()=>{
                 const presentTeam2=activeTeam.filter(m=>{
                   // Exclude if declared absence covers last week
-                  const declaredAbs=(window._absences||[]).find(a=>a.email===m.email&&toDateStr(lastWkDate)>=a.dateFrom&&toDateStr(lastWkDate)<=a.dateTo);
+                  const declaredAbs=(window._absences||[]).find(a=>a.email===m.email&&toDateStr(_7daysAgo)>=a.dateFrom&&toDateStr(_7daysAgo)<=a.dateTo);
                   if(declaredAbs)return false;
                   if(m.forceMat||m.forceAbsent)return false;
                   // Read q8 from WN-2 to detect WN-1 absence
-                  const wn2Date=new Date(lastWkDate);wn2Date.setDate(lastWkDate.getDate()-7);
-                  const wn2Key=getWeekKey(wn2Date);
-                  const prevU=allUpdates.find(u=>u.email===m.email&&u.weekKey===wn2Key);
+                  const wn2Date_r=new Date(_7daysAgo);wn2Date_r.setDate(_7daysAgo.getDate()-7);
+                  const wn2Key_r=getWeekKey(wn2Date_r);
+                  const prevU=allUpdates.find(u=>u.email===m.email&&u.weekKey===wn2Key_r);
                   const q8=prevU?.answers?.q8||'';
                   return !q8.includes('congés')&&!q8.includes('École')&&!q8.includes('école');
                 });
