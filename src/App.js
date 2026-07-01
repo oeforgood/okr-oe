@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, getDocs, query, where, updateDoc, deleteDoc } from "firebase/firestore";
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "firebase/auth";
@@ -2257,44 +2257,48 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
             <ReportingRow label="Chiffre d'Affaires" months={caTotal} lastMonth={lastMonth} bold inKeur={inKeur} onClick={()=>toggle('ca')} isOpen={expanded['ca']}>
               {REPORTING_CANALS.map(c=>{
                 const canalKey=`ca_${c}`;
-                const canalRows=caRows[c]||[];
-                // Group by tiers
+                const canalRowsData=caRows[c]||[];
                 const tierMap={};
-                canalRows.forEach(r=>{
+                canalRowsData.forEach(r=>{
                   const t=r.tiers||'—';
                   if(!tierMap[t])tierMap[t]={total:0,rows:[]};
                   tierMap[t].total+=r.amount;
                   tierMap[t].rows.push(r);
                 });
                 const tiers=Object.entries(tierMap).sort((a,b)=>b[1].total-a[1].total);
-                return [
+                const isOpen=expandedCanal[canalKey];
+                return <React.Fragment key={c}>
                   <ReportingRow label={c} months={caByCanal[c]||Array(12).fill(0)} lastMonth={lastMonth} indent={1} inKeur={inKeur}
-                    onClick={canalRows.length?()=>setExpandedCanal(p=>({...p,[canalKey]:!p[canalKey]})):undefined}
-                    isOpen={expandedCanal[canalKey]}/>
-                  {expandedCanal[canalKey]&&tiers.map(([tName,tData])=>{
+                    onClick={canalRowsData.length>0?()=>setExpandedCanal(p=>({...p,[canalKey]:!p[canalKey]})):undefined}
+                    isOpen={isOpen}/>
+                  {isOpen&&tiers.map(([tName,tData])=>{
                     const tierKey=`${canalKey}_${tName}`;
-                    const fmtEur=v=>v.toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:0})+'€';
-                    const fmtVal=inKeur?(v=>(v/1000).toFixed(1)+'k'):fmtEur;
+                    const isOpenT=expandedTiers[tierKey];
+                    const fmtVal=v=>inKeur?((v/1000).toFixed(1)+'k'):(v.toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:0})+'€');
                     return <React.Fragment key={tName}>
                       <tr style={{background:'#f0fff8',cursor:'pointer'}} onClick={()=>setExpandedTiers(p=>({...p,[tierKey]:!p[tierKey]}))}>
                         <td style={{padding:'4px 8px 4px 36px',fontSize:10,position:'sticky',left:0,background:'#f0fff8',zIndex:1,borderBottom:'1px solid #e8f5ee'}}>
-                          <span style={{color:'#9e9890',marginRight:4}}>{expandedTiers[tierKey]?'▾':'▸'}</span>
+                          <span style={{color:'#9e9890',marginRight:4}}>{isOpenT?'▾':'▸'}</span>
                           <span style={{fontWeight:500}}>{tName}</span>
                         </td>
                         <td colSpan={lastMonth+3} style={{padding:'4px 8px',fontSize:10,textAlign:'right',color:'#2d6a4f',fontWeight:500,borderBottom:'1px solid #e8f5ee'}}>
                           {fmtVal(tData.total)}
                         </td>
                       </tr>
-                      {expandedTiers[tierKey]&&[...tData.rows].sort((a,b)=>b.amount-a.amount).map((row,ri)=><tr key={ri} style={{background:'#f8fff8'}}>
-                        <td style={{padding:'3px 8px 3px 52px',fontSize:10,position:'sticky',left:0,background:'#f8fff8',zIndex:1,borderBottom:'1px solid #f0f0f0',color:'#6b6560'}}>
-                          {row.libLigne||row.facture||'—'}
-                        </td>
-                        <td colSpan={lastMonth+3} style={{padding:'3px 8px',fontSize:10,textAlign:'right',color:'#1a1814',borderBottom:'1px solid #f0f0f0'}}>
-                          {row.amount.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})}€
-                        </td>
-                      </tr>)}
-                    ];
+                      {isOpenT&&[...tData.rows].sort((a,b)=>b.amount-a.amount).map((row,ri)=>(
+                        <tr key={ri} style={{background:'#f8fff8'}}>
+                          <td style={{padding:'3px 8px 3px 52px',fontSize:10,position:'sticky',left:0,background:'#f8fff8',zIndex:1,borderBottom:'1px solid #f0f0f0',color:'#6b6560'}}>
+                            {row.libLigne||row.facture||'—'}
+                          </td>
+                          <td colSpan={lastMonth+3} style={{padding:'3px 8px',fontSize:10,textAlign:'right',color:'#1a1814',borderBottom:'1px solid #f0f0f0'}}>
+                            {row.amount.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})}€
+                          </td>
+                        </tr>
+                      ))}
+                    </React.Fragment>;
                   })}
+                </React.Fragment>;
+              })}
                 ];
               })}
             </ReportingRow>
