@@ -2273,7 +2273,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
               return <ReportingRow label="CoGS" months={cogsMonths} lastMonth={lastMonth} bold inKeur={inKeur}
                 onClick={()=>toggle('cogs')} isOpen={expanded['cogs']}>
                 {COGS_KEYS.map(k=>{
-                  const label=effectiveSubcatLabels[k]||subcatLabels[k]||k;
+                  const label=effectiveLabels[k]||subcatLabels[k]||k;
                   const months=getSubcatMonths(k);
                   return <ReportingRow key={k} label={label} months={months} lastMonth={lastMonth} indent={1} inKeur={inKeur}/>;
                 })}
