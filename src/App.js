@@ -2475,7 +2475,7 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
     setActiveSubcats(a);
   }
 
-  r
+  return <>
     <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'16px 20px',marginBottom:20}}>
       <div style={{fontSize:12,fontWeight:600,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:12}}>Taux de marge brute par canal</div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}}>
@@ -2493,7 +2493,8 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
           </div>
         ))}
       </div>
-    </div>eturn <SubcatsDnD
+    </div>
+    <SubcatsDnD
     codeMap={localCodeMap}
     setCodeMap={cm=>{setLocalCodeMap(cm);onSaveCodeMap&&onSaveCodeMap(cm);}}
     onSaveCodeMap={onSaveCodeMap}
@@ -2506,7 +2507,8 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
     activeSubcats={activeSubcats}
     onToggleSubcat={k=>{const n={...activeSubcats,[k]:activeSubcats[k]===false};saveActiveSubcats(n);}}
     chargeData={chargeData}
-    lastMonth={5}/>;
+    lastMonth={5}/>
+  </>;
 }
 
 function FeedbackAdminTab() {
