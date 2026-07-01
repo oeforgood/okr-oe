@@ -623,7 +623,7 @@ function ReportingBanner({onGoReporting}) {
   const [importedAt, setImportedAt] = useState(null);
 
   useEffect(()=>{
-    const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists()){setCaData(snap.data().caData);setCaRows(snap.data().caRows||{});}});
+    const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists()){setCaData(snap.data().caData);const cr=snap.data().caRows||{};console.log('caRows keys:',Object.keys(cr));setCaRows(cr);}});
     const u2=onSnapshot(doc(db,'reporting','charges'),(snap)=>{if(snap.exists())setChargeData(snap.data().chargeData);});
     const u3=onSnapshot(doc(db,'reporting','meta'),(snap)=>{if(snap.exists())setImportedAt(snap.data().importedAt);});
     return()=>{u1();u2();u3();};
@@ -2045,7 +2045,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
   const [inKeur, setInKeur] = useState(true);
 
   useEffect(()=>{
-    const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists()){setCaData(snap.data().caData);setCaRows(snap.data().caRows||{});}});
+    const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists()){setCaData(snap.data().caData);const cr=snap.data().caRows||{};console.log('caRows keys:',Object.keys(cr));setCaRows(cr);}});
     const u2=onSnapshot(doc(db,'reporting','charges'),(snap)=>{if(snap.exists())setChargeData(snap.data().chargeData);});
     const u3=onSnapshot(doc(db,'reporting','meta'),(snap)=>{
       if(snap.exists()){
