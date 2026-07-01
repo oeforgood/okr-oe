@@ -2043,6 +2043,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
   useEffect(()=>{
     const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists()){setCaData(snap.data().caData);}});
     const u2=onSnapshot(doc(db,'reporting','charges'),(snap)=>{if(snap.exists())setChargeData(snap.data().chargeData);});
+    const u3=onSnapshot(doc(db,'reporting','bfr'),(snap)=>{if(snap.exists())setBfrData(snap.data().bfrData);});;
     const u3=onSnapshot(doc(db,'reporting','meta'),(snap)=>{
       if(snap.exists()){
         setSubcatLabels(snap.data().subcatLabels||{});
@@ -2289,7 +2290,59 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
             {renderGroup('charges_expl',"Charges d'exploitation")}
             <ReportingRow label="EBITDA" months={ebitda} lastMonth={lastMonth} bold isTotal inKeur={inKeur}/>
             {renderGroup('autres_charges',"Autres charges")}
-            <ReportingRow label="Résultat net" months={resultat} lastMonth={lastMonth} bold isTotal inKeur={inKeur}/>
+            {/* ── SUIVI DE TRÉSORERIE ── */}
+            {bfrData&&<>
+              <tr><td colSpan={lastMonth+4} style={{height:20,borderBottom:'2px solid #e2ddd6'}}></td></tr>
+              <tr><td colSpan={lastMonth+4} style={{padding:'8px 6px 4px',fontSize:11,fontWeight:700,
+                color:'#6b6560',textTransform:'uppercase',letterSpacing:'.06em',background:'#fafaf8'}}>
+                Suivi de trésorerie — Variation de BFR
+              </td></tr>
+              {(()=>{
+                const bfrKeys=[
+                  {key:'clients',label:'Clients et comptes rattachés (41x)'},
+                  {key:'fournisseurs',label:'Fournisseurs et comptes rattachés (40x)'},
+                  {key:'stocks',label:'Stocks (3x)'},
+                ];
+                const getMonths=key=>{
+                  const d=bfrData[key]||{};
+                  const arr=Array(12).fill(0);
+                  Object.entries(d.months||{}).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]+=v;});
+                  return arr;
+                };
+                const bfrTotal=Array(12).fill(0).map((_,i)=>
+                  bfrKeys.reduce((s,{key})=>s+(getMonths(key)[i]||0),0)
+                );
+                return <>
+                  <ReportingRow label="Variation de BFR" months={bfrTotal} lastMonth={lastMonth} bold inKeur={inKeur}
+                    onClick={()=>toggle('bfr')} isOpen={expanded['bfr']}>
+                    {bfrKeys.map(({key,label})=>{
+                      const months=getMonths(key);
+                      const rows=(bfrData[key]?.rows||[]).filter(r=>r.month<=lastMonth);
+                      return <ReportingRow key={key} label={label} months={months} lastMonth={lastMonth} indent={1} inKeur={inKeur}
+                        onClick={rows.length>0?()=>toggle('bfr_'+key):undefined}
+                        isOpen={expanded['bfr_'+key]}>
+                        {rows.sort((a,b)=>a.month-b.month||b.amount-a.amount).map((r,i)=>(
+                          <tr key={i} style={{background:'#fafaf8'}}>
+                            <td style={{padding:'3px 4px 3px 40px',fontSize:10,color:'#6b6560',
+                              position:'sticky',left:0,background:'#fafaf8',zIndex:1,
+                              borderBottom:'1px solid #f0ede8',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:220}}>
+                              {r.compte} · {r.libCompte||r.libLigne||'—'} · {r.tiers||'—'}
+                            </td>
+                            <td colSpan={lastMonth+3} style={{padding:'3px 8px',fontSize:10,
+                              textAlign:'right',color:r.amount<0?'#c0392b':'#1a1814',
+                              borderBottom:'1px solid #f0ede8',fontFamily:'monospace'}}>
+                              {r.month}/{r.year} · {r.amount.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})}€
+                            </td>
+                          </tr>
+                        ))}
+                      </ReportingRow>;
+                    })}
+                  </ReportingRow>
+                </>;
+              })()}
+            </>}
+
+                        <ReportingRow label="Résultat net" months={resultat} lastMonth={lastMonth} bold isTotal inKeur={inKeur}/>
           </tbody>
         </table>
       </div>}
@@ -2307,7 +2360,7 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
   useEffect(()=>{
     const u1 = onSnapshot(doc(db,'reporting','charges'),(snap)=>{if(snap.exists())setChargeData(snap.data().chargeData);});
     const u2 = onSnapshot(doc(db,'reporting','meta'),(snap)=>{if(snap.exists()&&snap.data().activeSubcats)setActiveSubcats(snap.data().activeSubcats);});
-    return()=>{u1();u2();};
+    return()=>{u1();u2();u3();};
   },[]);
 
   const knownSubcats = useMemo(()=>new Set(chargeData?Object.keys(chargeData):Object.keys(DEFAULT_SUBCAT_LABELS)),[chargeData]);
