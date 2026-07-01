@@ -620,7 +620,7 @@ function ReportingBanner({onGoReporting}) {
   const [importedAt, setImportedAt] = useState(null);
 
   useEffect(()=>{
-    const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists())setCaData(snap.data().caData);});
+    const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists()){setCaData(snap.data().caData);setCaRows(snap.data().caRows||{});}});
     const u2=onSnapshot(doc(db,'reporting','charges'),(snap)=>{if(snap.exists())setChargeData(snap.data().chargeData);});
     const u3=onSnapshot(doc(db,'reporting','meta'),(snap)=>{if(snap.exists())setImportedAt(snap.data().importedAt);});
     return()=>{u1();u2();u3();};
@@ -922,11 +922,9 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
       return ((mo >= 12 && checkDate.getDate() >= 15) || mo <= 4) ? '🎿' : '🌴';
     }
     // q8 is filled in WN-2 to announce absence for WN-1
-    // So to know if someone is absent in lastWkKey (WN-1), read their WN-2 update's q8
-    const lastWkDate2=new Date();
-    const dow2=lastWkDate2.getDay();
-    const wn2Date=new Date(lastWkDate2);
-    wn2Date.setDate(lastWkDate2.getDate()-(dow2===0?13:dow2===1?14:dow2+6+7));
+    // Use refDate (checkDate) to find WN-2 relative to the week being checked
+    const wn2Date=new Date(checkDate);
+    wn2Date.setDate(checkDate.getDate()-7); // go back one more week to WN-2
     const wn2Key=getWeekKey(wn2Date);
     const prevUpdate = allUpdates.find(u => u.email === email && u.weekKey === wn2Key);
     const q8 = prevUpdate?.answers?.q8 || '';
@@ -1042,17 +1040,10 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
               <div style={{fontSize:60,lineHeight:1}}>{teamMoodAvg?MOOD_FROM_SCORE(teamMoodAvg):"—"}</div>
                <div style={{height:10}}/>
               {(()=>{
+                // Use getAbsenceIcon to detect all absences (declared + forceMat + q8 from WN-2)
                 const presentTeam2=activeTeam.filter(m=>{
-                  // Exclude if declared absence covers last week
-                  const declaredAbs=(window._absences||[]).find(a=>a.email===m.email&&toDateStr(_7daysAgo)>=a.dateFrom&&toDateStr(_7daysAgo)<=a.dateTo);
-                  if(declaredAbs)return false;
-                  if(m.forceMat||m.forceAbsent)return false;
-                  // Read q8 from WN-2 to detect WN-1 absence
-                  const wn2Date_r=new Date(_7daysAgo);wn2Date_r.setDate(_7daysAgo.getDate()-7);
-                  const wn2Key_r=getWeekKey(wn2Date_r);
-                  const prevU=allUpdates.find(u=>u.email===m.email&&u.weekKey===wn2Key_r);
-                  const q8=prevU?.answers?.q8||'';
-                  return !q8.includes('congés')&&!q8.includes('École')&&!q8.includes('école');
+                  const icon=getAbsenceIcon(m.email,m.prenom,_7daysAgo);
+                  return icon==='🫥'; // Only count truly non-absent members
                 });
                 const num=teamLastWk.filter(u=>presentTeam2.some(m=>m.email===u.email)).length;
                 const denom=presentTeam2.length||activeCount;
@@ -1517,6 +1508,8 @@ function UpdatesHistoryTab(){
   const [filterPrenom,setFilterPrenom]=useState("");
   const [filterWeek,setFilterWeek]=useState("");
   const [expanded,setExpanded]=useState({});
+  const [expandedCanal,setExpandedCanal]=useState({});
+  const [expandedTiers,setExpandedTiers]=useState({});
 
   useEffect(()=>{
     let done=0;
@@ -2028,6 +2021,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
   const [subcatLabels, setSubcatLabels] = useState({});
   const [importedAt, setImportedAt] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [caRows, setCaRows] = useState({});
   const [catTypes, setCatTypes] = useState(savedCatTypes || DEFAULT_CAT_TYPE);
   const [codeMap, setCodeMap] = useState(savedCodeMap || DEFAULT_CODE_TO_CAT);
   const [customLabels, setCustomLabels] = useState(savedCustomLabels||{});  // user-edited labels
@@ -2047,7 +2041,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
   const [inKeur, setInKeur] = useState(true);
 
   useEffect(()=>{
-    const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists())setCaData(snap.data().caData);});
+    const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists()){setCaData(snap.data().caData);setCaRows(snap.data().caRows||{});}});
     const u2=onSnapshot(doc(db,'reporting','charges'),(snap)=>{if(snap.exists())setChargeData(snap.data().chargeData);});
     const u3=onSnapshot(doc(db,'reporting','meta'),(snap)=>{
       if(snap.exists()){
@@ -2257,7 +2251,48 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
           </thead>
           <tbody>
             <ReportingRow label="Chiffre d'Affaires" months={caTotal} lastMonth={lastMonth} bold inKeur={inKeur} onClick={()=>toggle('ca')} isOpen={expanded['ca']}>
-              {REPORTING_CANALS.map(c=><ReportingRow key={c} label={c} months={caByCanal[c]||Array(12).fill(0)} lastMonth={lastMonth} indent={1} inKeur={inKeur}/>)}
+              {REPORTING_CANALS.map(c=>{
+                const canalKey=`ca_${c}`;
+                const canalRows=caRows[c]||[];
+                // Group by tiers
+                const tierMap={};
+                canalRows.forEach(r=>{
+                  const t=r.tiers||'—';
+                  if(!tierMap[t])tierMap[t]={total:0,rows:[]};
+                  tierMap[t].total+=r.amount;
+                  tierMap[t].rows.push(r);
+                });
+                const tiers=Object.entries(tierMap).sort((a,b)=>b[1].total-a[1].total);
+                return <React.Fragment key={c}>
+                  <ReportingRow label={c} months={caByCanal[c]||Array(12).fill(0)} lastMonth={lastMonth} indent={1} inKeur={inKeur}
+                    onClick={canalRows.length?()=>setExpandedCanal(p=>({...p,[canalKey]:!p[canalKey]})):undefined}
+                    isOpen={expandedCanal[canalKey]}/>
+                  {expandedCanal[canalKey]&&tiers.map(([tName,tData])=>{
+                    const tierKey=`${canalKey}_${tName}`;
+                    const fmtEur=v=>v.toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:0})+'€';
+                    const fmtVal=inKeur?(v=>(v/1000).toFixed(1)+'k'):fmtEur;
+                    return <React.Fragment key={tName}>
+                      <tr style={{background:'#f0fff8',cursor:'pointer'}} onClick={()=>setExpandedTiers(p=>({...p,[tierKey]:!p[tierKey]}))}>
+                        <td style={{padding:'4px 8px 4px 36px',fontSize:10,position:'sticky',left:0,background:'#f0fff8',zIndex:1,borderBottom:'1px solid #e8f5ee'}}>
+                          <span style={{color:'#9e9890',marginRight:4}}>{expandedTiers[tierKey]?'▾':'▸'}</span>
+                          <span style={{fontWeight:500}}>{tName}</span>
+                        </td>
+                        <td colSpan={lastMonth+3} style={{padding:'4px 8px',fontSize:10,textAlign:'right',color:'#2d6a4f',fontWeight:500,borderBottom:'1px solid #e8f5ee'}}>
+                          {fmtVal(tData.total)}
+                        </td>
+                      </tr>
+                      {expandedTiers[tierKey]&&[...tData.rows].sort((a,b)=>b.amount-a.amount).map((row,ri)=><tr key={ri} style={{background:'#f8fff8'}}>
+                        <td style={{padding:'3px 8px 3px 52px',fontSize:10,position:'sticky',left:0,background:'#f8fff8',zIndex:1,borderBottom:'1px solid #f0f0f0',color:'#6b6560'}}>
+                          {row.libLigne||row.facture||'—'}
+                        </td>
+                        <td colSpan={lastMonth+3} style={{padding:'3px 8px',fontSize:10,textAlign:'right',color:'#1a1814',borderBottom:'1px solid #f0f0f0'}}>
+                          {row.amount.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})}€
+                        </td>
+                      </tr>)}
+                    </React.Fragment>;
+                  })}
+                </React.Fragment>;
+              })}
             </ReportingRow>
             <ReportingRow label="Marge Brute" months={mbTotal} lastMonth={lastMonth} bold inKeur={inKeur} highlight onClick={()=>toggle('mb')} isOpen={expanded['mb']}>
               {REPORTING_CANALS.map(c=>{
@@ -2341,6 +2376,7 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
 function FeedbackAdminTab() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [caRows, setCaRows] = useState({});
 
   useEffect(()=>{
     const unsub = onSnapshot(collection(db,'feedback'),(snap)=>{
@@ -2397,6 +2433,7 @@ function FeedbackAdminTab() {
 function AbsencesTab({teamMembers=[]}) {
   const [absences, setAbsences] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [caRows, setCaRows] = useState({});
   const [form, setForm] = useState({email:'', type:'vacances', dateFrom:'', dateTo:''});
 
   // Derive vacation emoji from end date: 🌴 if Apr 15 – Nov 30, 🎿 otherwise
@@ -2897,6 +2934,8 @@ function JournalModal({seasonKey,onClose,isAdmin,currentPrenom}){
   const [logs,setLogs]=useState([]);
   const [loading,setLoading]=useState(true);
   const [expanded,setExpanded]=useState({});
+  const [expandedCanal,setExpandedCanal]=useState({});
+  const [expandedTiers,setExpandedTiers]=useState({});
   useEffect(()=>{
     const unsub=onSnapshot(collection(db,"okr_log"),(snap)=>{
       const all=snap.docs.map(d=>({id:d.id,...d.data()}));
