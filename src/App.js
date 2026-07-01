@@ -616,6 +616,9 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,t
 
 function ReportingBanner({onGoReporting}) {
   const [caData, setCaData] = useState(null);
+  const [caRows, setCaRows] = useState({});
+  const [expandedCanal,setExpandedCanal]=useState({});
+  const [expandedTiers,setExpandedTiers]=useState({});
   const [chargeData, setChargeData] = useState(null);
   const [importedAt, setImportedAt] = useState(null);
 
@@ -1508,8 +1511,7 @@ function UpdatesHistoryTab(){
   const [filterPrenom,setFilterPrenom]=useState("");
   const [filterWeek,setFilterWeek]=useState("");
   const [expanded,setExpanded]=useState({});
-  const [expandedCanal,setExpandedCanal]=useState({});
-  const [expandedTiers,setExpandedTiers]=useState({});
+
 
   useEffect(()=>{
     let done=0;
@@ -2017,11 +2019,13 @@ function SubcatsDnD({codeMap, setCodeMap, onSaveCodeMap, subcatLabels, knownSubc
 
 function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMap, savedCustomLabels={}, onSaveCustomLabels, readOnly=false}) {
   const [caData, setCaData] = useState(null);
+  const [caRows, setCaRows] = useState({});
+  const [expandedCanal,setExpandedCanal]=useState({});
+  const [expandedTiers,setExpandedTiers]=useState({});
   const [chargeData, setChargeData] = useState(null);
   const [subcatLabels, setSubcatLabels] = useState({});
   const [importedAt, setImportedAt] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [caRows, setCaRows] = useState({});
   const [catTypes, setCatTypes] = useState(savedCatTypes || DEFAULT_CAT_TYPE);
   const [codeMap, setCodeMap] = useState(savedCodeMap || DEFAULT_CODE_TO_CAT);
   const [customLabels, setCustomLabels] = useState(savedCustomLabels||{});  // user-edited labels
@@ -2263,7 +2267,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                   tierMap[t].rows.push(r);
                 });
                 const tiers=Object.entries(tierMap).sort((a,b)=>b[1].total-a[1].total);
-                return <React.Fragment key={c}>
+                return [
                   <ReportingRow label={c} months={caByCanal[c]||Array(12).fill(0)} lastMonth={lastMonth} indent={1} inKeur={inKeur}
                     onClick={canalRows.length?()=>setExpandedCanal(p=>({...p,[canalKey]:!p[canalKey]})):undefined}
                     isOpen={expandedCanal[canalKey]}/>
@@ -2289,9 +2293,9 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                           {row.amount.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})}€
                         </td>
                       </tr>)}
-                    </React.Fragment>;
+                    ];
                   })}
-                </React.Fragment>;
+                ];
               })}
             </ReportingRow>
             <ReportingRow label="Marge Brute" months={mbTotal} lastMonth={lastMonth} bold inKeur={inKeur} highlight onClick={()=>toggle('mb')} isOpen={expanded['mb']}>
@@ -2376,7 +2380,6 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
 function FeedbackAdminTab() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [caRows, setCaRows] = useState({});
 
   useEffect(()=>{
     const unsub = onSnapshot(collection(db,'feedback'),(snap)=>{
@@ -2433,7 +2436,6 @@ function FeedbackAdminTab() {
 function AbsencesTab({teamMembers=[]}) {
   const [absences, setAbsences] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [caRows, setCaRows] = useState({});
   const [form, setForm] = useState({email:'', type:'vacances', dateFrom:'', dateTo:''});
 
   // Derive vacation emoji from end date: 🌴 if Apr 15 – Nov 30, 🎿 otherwise
@@ -2934,8 +2936,7 @@ function JournalModal({seasonKey,onClose,isAdmin,currentPrenom}){
   const [logs,setLogs]=useState([]);
   const [loading,setLoading]=useState(true);
   const [expanded,setExpanded]=useState({});
-  const [expandedCanal,setExpandedCanal]=useState({});
-  const [expandedTiers,setExpandedTiers]=useState({});
+
   useEffect(()=>{
     const unsub=onSnapshot(collection(db,"okr_log"),(snap)=>{
       const all=snap.docs.map(d=>({id:d.id,...d.data()}));
