@@ -2045,7 +2045,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
   useEffect(()=>{
     const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists()){setCaData(snap.data().caData);}});
     const u2=onSnapshot(doc(db,'reporting','charges'),(snap)=>{if(snap.exists())setChargeData(snap.data().chargeData);});
-    const u4=onSnapshot(doc(db,'reporting','bfr'),(snap)=>{if(snap.exists())setBfrData(snap.data().bfrData);});
+    const u4=onSnapshot(doc(db,'reporting','bfr'),(snap)=>{if(snap.exists())setBfrData(snap.data().bilData);});
     const u3=onSnapshot(doc(db,'reporting','meta'),(snap)=>{
       if(snap.exists()){
         setSubcatLabels(snap.data().subcatLabels||{});
@@ -2293,56 +2293,114 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
             <ReportingRow label="EBITDA" months={ebitda} lastMonth={lastMonth} bold isTotal inKeur={inKeur}/>
             {renderGroup('autres_charges',"Autres charges")}
             {/* ── SUIVI DE TRÉSORERIE ── */}
-            {bfrData&&<>
-              <tr><td colSpan={lastMonth+4} style={{height:20,borderBottom:'2px solid #e2ddd6'}}></td></tr>
-              <tr><td colSpan={lastMonth+4} style={{padding:'8px 6px 4px',fontSize:11,fontWeight:700,
-                color:'#6b6560',textTransform:'uppercase',letterSpacing:'.06em',background:'#fafaf8'}}>
-                Suivi de trésorerie — Variation de BFR
-              </td></tr>
-              {(()=>{
-                const bfrKeys=[
-                  {key:'clients',label:'Clients et comptes rattachés (41x)'},
-                  {key:'fournisseurs',label:'Fournisseurs et comptes rattachés (40x)'},
-                  {key:'stocks',label:'Stocks (3x)'},
-                ];
-                const getMonths=key=>{
-                  const d=bfrData[key]||{};
-                  const arr=Array(12).fill(0);
-                  Object.entries(d.months||{}).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]+=v;});
-                  return arr;
-                };
-                const bfrTotal=Array(12).fill(0).map((_,i)=>
-                  bfrKeys.reduce((s,{key})=>s+(getMonths(key)[i]||0),0)
-                );
-                return <>
-                  <ReportingRow label="Variation de BFR" months={bfrTotal} lastMonth={lastMonth} bold inKeur={inKeur}
-                    onClick={()=>toggle('bfr')} isOpen={expanded['bfr']}>
-                    {bfrKeys.map(({key,label})=>{
-                      const months=getMonths(key);
-                      const rows=(bfrData[key]?.rows||[]).filter(r=>r.month<=lastMonth);
-                      return <ReportingRow key={key} label={label} months={months} lastMonth={lastMonth} indent={1} inKeur={inKeur}
-                        onClick={rows.length>0?()=>toggle('bfr_'+key):undefined}
-                        isOpen={expanded['bfr_'+key]}>
-                        {rows.sort((a,b)=>a.month-b.month||b.amount-a.amount).map((r,i)=>(
-                          <tr key={i} style={{background:'#fafaf8'}}>
-                            <td style={{padding:'3px 4px 3px 40px',fontSize:10,color:'#6b6560',
-                              position:'sticky',left:0,background:'#fafaf8',zIndex:1,
-                              borderBottom:'1px solid #f0ede8',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:220}}>
-                              {r.compte} · {r.libCompte||r.libLigne||'—'} · {r.tiers||'—'}
-                            </td>
-                            <td colSpan={lastMonth+3} style={{padding:'3px 8px',fontSize:10,
-                              textAlign:'right',color:r.amount<0?'#c0392b':'#1a1814',
-                              borderBottom:'1px solid #f0ede8',fontFamily:'monospace'}}>
-                              {r.month}/{r.year} · {r.amount.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})}€
-                            </td>
-                          </tr>
-                        ))}
-                      </ReportingRow>;
-                    })}
-                  </ReportingRow>
-                </>;
-              })()}
-            </>}
+            {bfrData&&(()=>{
+              // Helper: get monthly array from section/key
+              const getM=(section,key)=>{
+                const d=bfrData?.[section]?.[key]?.months||{};
+                const arr=Array(12).fill(0);
+                Object.entries(d).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]+=v;});
+                return arr;
+              };
+              const sumM=(...arrays)=>Array(12).fill(0).map((_,i)=>arrays.reduce((s,a)=>s+(a[i]||0),0));
+              // Group by compte for sub-detail
+              const byCompte=(section,key)=>{
+                const rows=bfrData?.[section]?.[key]?.rows||[];
+                const map={};
+                rows.filter(r=>r.month<=lastMonth).forEach(r=>{
+                  if(!map[r.compte])map[r.compte]={libCompte:r.libCompte,months:Array(12).fill(0)};
+                  map[r.compte].months[r.month-1]+=r.amount;
+                });
+                return Object.entries(map).sort((a,b)=>a[0].localeCompare(b[0]));
+              };
+              const detailRows=(section,key)=>byCompte(section,key).map(([c,d])=>(
+                <tr key={c} style={{background:'#fafaf8'}}>
+                  <td style={{padding:'3px 4px 3px 40px',fontSize:10,color:'#6b6560',
+                    position:'sticky',left:0,background:'#fafaf8',zIndex:1,
+                    borderBottom:'1px solid #f0ede8',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:220}}>
+                    {c} · {d.libCompte||'—'}
+                  </td>
+                  {d.months.map((v,i)=>{
+                    const isEmpty=i>=lastMonth;
+                    return <React.Fragment key={i}>
+                      {i===lastMonth&&<td style={{padding:'3px 6px',fontSize:10,textAlign:'right',fontFamily:'monospace',
+                        borderLeft:'2px solid #2d6a4f',borderRight:'2px solid #2d6a4f',background:'#f0fdf4',borderBottom:'1px solid #f0ede8',fontWeight:600,
+                        color:d.months.slice(0,lastMonth).reduce((s,x)=>s+x,0)<0?'#c0392b':'#166534'}}>
+                        {fmtAmount(d.months.slice(0,lastMonth).reduce((s,x)=>s+x,0),inKeur)}
+                      </td>}
+                      <td style={{padding:'3px 6px',fontSize:10,textAlign:'right',fontFamily:'monospace',
+                        color:isEmpty?'#c5c0b8':v<0?'#c0392b':'#1a1814',borderBottom:'1px solid #f0ede8',
+                        background:isEmpty?'#fafafa':'transparent'}}>
+                        {isEmpty?'—':fmtAmount(v,inKeur)}
+                      </td>
+                    </React.Fragment>;
+                  })}
+                  <td style={{padding:'3px 6px',fontSize:10,textAlign:'right',fontFamily:'monospace',
+                    borderLeft:'1px solid #e2ddd6',borderBottom:'1px solid #f0ede8',
+                    color:d.months.reduce((s,x)=>s+x,0)<0?'#c0392b':'#1a1814'}}>
+                    {fmtAmount(d.months.reduce((s,x)=>s+x,0),inKeur)}
+                  </td>
+                </tr>
+              ));
+              const SectionHeader=({label})=><tr><td colSpan={lastMonth+4} style={{height:16,padding:'12px 6px 4px',
+                fontSize:10,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.06em',
+                background:'#fafaf8',borderTop:'2px solid #e2ddd6'}}>{label}</td></tr>;
+
+              const bfrKeys=[
+                {key:'clients',label:'Clients et comptes rattachés (41x, 49x)'},
+                {key:'fournisseurs',label:'Fournisseurs et comptes rattachés (40x)'},
+                {key:'stocks',label:'Stocks (3x)'},
+              ];
+              const bfrTotal=sumM(...bfrKeys.map(({key})=>getM('bfr',key)));
+
+              const autresKeys=[
+                {key:'capitaux',label:'Capitaux propres (10-13)'},
+                {key:'provisions',label:'Provisions (14-15)'},
+                {key:'emprunts',label:'Emprunts et dettes assimilées (16)'},
+                {key:'participations',label:'Participations (17-19)'},
+                {key:'immobilisations',label:'Immobilisations (2x)'},
+                {key:'dette_sociale',label:'Dette sociale et salariale (42-43)'},
+                {key:'dette_etat',label:'Dettes envers l'État (44)'},
+                {key:'comptes_courants',label:'Comptes courants (45)'},
+                {key:'autre',label:'Autre (46-48, 5x sauf 51)'},
+              ];
+              const autresTotal=sumM(...autresKeys.map(({key})=>getM('autres',key)));
+              const banquesTotal=getM('banques','banques');
+
+              return <>
+                <SectionHeader label="Variation de BFR"/>
+                <ReportingRow label="Variation de BFR" months={bfrTotal} lastMonth={lastMonth} bold inKeur={inKeur}
+                  onClick={()=>toggle('bfr')} isOpen={expanded['bfr']}>
+                  {bfrKeys.map(({key,label})=>(
+                    <ReportingRow key={key} label={label} months={getM('bfr',key)} lastMonth={lastMonth} indent={1} inKeur={inKeur}
+                      onClick={()=>toggle('bfr_'+key)} isOpen={expanded['bfr_'+key]}>
+                      {detailRows('bfr',key)}
+                    </ReportingRow>
+                  ))}
+                </ReportingRow>
+
+                <SectionHeader label="Autres comptes de bilan"/>
+                <ReportingRow label="Autres comptes de bilan" months={autresTotal} lastMonth={lastMonth} bold inKeur={inKeur}
+                  onClick={()=>toggle('autres')} isOpen={expanded['autres']}>
+                  {autresKeys.map(({key,label})=>(
+                    <ReportingRow key={key} label={label} months={getM('autres',key)} lastMonth={lastMonth} indent={1} inKeur={inKeur}
+                      onClick={()=>toggle('autres_'+key)} isOpen={expanded['autres_'+key]}>
+                      {detailRows('autres',key)}
+                    </ReportingRow>
+                  ))}
+                </ReportingRow>
+
+                <SectionHeader label="Banques"/>
+                <ReportingRow label="Banques" months={banquesTotal} lastMonth={lastMonth} bold inKeur={inKeur}
+                  onClick={()=>toggle('banques')} isOpen={expanded['banques']}>
+                  {detailRows('banques','banques').length>0&&(
+                    <ReportingRow label="Banques (51x)" months={banquesTotal} lastMonth={lastMonth} indent={1} inKeur={inKeur}
+                      onClick={()=>toggle('banques_detail')} isOpen={expanded['banques_detail']}>
+                      {detailRows('banques','banques')}
+                    </ReportingRow>
+                  )}
+                </ReportingRow>
+              </>;
+            })()}
 
                         <ReportingRow label="Résultat net" months={resultat} lastMonth={lastMonth} bold isTotal inKeur={inKeur}/>
           </tbody>
