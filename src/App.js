@@ -2475,7 +2475,25 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
     setActiveSubcats(a);
   }
 
-  return <SubcatsDnD
+  r
+    <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'16px 20px',marginBottom:20}}>
+      <div style={{fontSize:12,fontWeight:600,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:12}}>Taux de marge brute par canal</div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}}>
+        {REPORTING_CANALS.map(c=>(
+          <div key={c} style={{display:'flex',alignItems:'center',gap:8}}>
+            <label style={{fontSize:11,color:'#6b6560',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c}</label>
+            <div style={{display:'flex',alignItems:'center',gap:2}}>
+              <input type="number" min="0" max="100" step="0.1"
+                value={Math.round((localMargin[c]??DEFAULT_CANAL_MARGIN)*1000)/10}
+                onChange={e=>{const v=parseFloat(e.target.value)/100;const nm={...localMargin,[c]:isNaN(v)?localMargin[c]:v};setLocalMargin(nm);onSaveCanalMargin&&onSaveCanalMargin(nm);}}
+                style={{width:60,fontSize:12,border:'1px solid #e2ddd6',borderRadius:6,padding:'4px 6px',textAlign:'right'}}
+              />
+              <span style={{fontSize:11,color:'#9e9890'}}>%</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>eturn <SubcatsDnD
     codeMap={localCodeMap}
     setCodeMap={cm=>{setLocalCodeMap(cm);onSaveCodeMap&&onSaveCodeMap(cm);}}
     onSaveCodeMap={onSaveCodeMap}
@@ -2514,32 +2532,6 @@ function FeedbackAdminTab() {
   const unread = items.filter(i=>!i.read).length;
 
   return <div>
-    {/* Editable margin rates */}
-    <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'16px 20px',marginBottom:20}}>
-      <div style={{fontSize:12,fontWeight:600,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:12}}>
-        Taux de marge brute par canal
-      </div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}}>
-        {REPORTING_CANALS.map(c=>(
-          <div key={c} style={{display:'flex',alignItems:'center',gap:8}}>
-            <label style={{fontSize:11,color:'#6b6560',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c}</label>
-            <div style={{display:'flex',alignItems:'center',gap:2}}>
-              <input type="number" min="0" max="100" step="0.1"
-                value={Math.round((localMargin[c]??DEFAULT_CANAL_MARGIN)*1000)/10}
-                onChange={e=>{
-                  const v=parseFloat(e.target.value)/100;
-                  const nm={...localMargin,[c]:isNaN(v)?localMargin[c]:v};
-                  setLocalMargin(nm);
-                  onSaveCanalMargin&&onSaveCanalMargin(nm);
-                }}
-                style={{width:60,fontSize:12,border:'1px solid #e2ddd6',borderRadius:6,padding:'4px 6px',textAlign:'right'}}
-              />
-              <span style={{fontSize:11,color:'#9e9890'}}>%</span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
     <div style={{fontSize:13,fontWeight:600,color:"#1a1814",marginBottom:14}}>
       Feedbacks & idées d'amélioration
       {unread>0&&<span style={{marginLeft:10,background:"#2d6a4f",color:"#fff",fontSize:11,
