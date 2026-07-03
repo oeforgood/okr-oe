@@ -3439,6 +3439,15 @@ export default function App(){
     return()=>unsubAbs();
   },[]);
 
+  // Load reporting meta (canalMargin) from Firebase
+  useEffect(()=>{
+    const unsubMeta=onSnapshot(doc(db,'reporting','meta'),(snap)=>{
+      if(snap.exists()&&snap.data().canalMargin)setSavedCanalMargin(snap.data().canalMargin);
+    });
+    return()=>unsubMeta();
+  },[]);
+
+
   // Load app config from Firestore when logged in
   useEffect(()=>{
     if(!authUser)return;
