@@ -2304,6 +2304,8 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                   </td>
                   {Array(12).fill(0).map((_,i)=>{
                     const isEmpty=i>=lastMonth;
+                    const defaultRate=CANAL_MARGIN[c]??DEFAULT_CANAL_MARGIN;
+                    const rate=canalMargin[c]?.[i+1]??canalMargin[c]??defaultRate;
                     return <React.Fragment key={i}>
                       {i===lastMonth&&<td style={{padding:'5px 8px',fontSize:11,textAlign:'right',
                         fontFamily:'system-ui,sans-serif',borderBottom:'1px solid #f0ede8',width:44,
@@ -2318,10 +2320,10 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                   })}
                   {lastMonth===12&&<td style={{padding:'5px 8px',fontSize:11,textAlign:'right',width:44,
                     borderLeft:'2px solid #2d6a4f',background:'#f0fdf4',borderBottom:'1px solid #f0ede8',
-                    fontWeight:600,color:'#166534'}}>{fmtPct(rate)}</td>}
+                    fontWeight:600,color:'#166534'}}>{fmtPct((()=>{const dr=CANAL_MARGIN[c]??DEFAULT_CANAL_MARGIN;let s=0;for(let m=1;m<=12;m++)s+=canalMargin[c]?.[m]??canalMargin[c]??dr;return s/12;})())}</td>}
                   <td style={{padding:'5px 8px',fontSize:11,textAlign:'right',width:44,
                     borderLeft:'1px solid #e2ddd6',borderBottom:'1px solid #f0ede8',color:'#166534'}}>
-                    {fmtPct(rate)}
+                    {fmtPct((()=>{const dr=CANAL_MARGIN[c]??DEFAULT_CANAL_MARGIN;let s=0;for(let m=1;m<=12;m++)s+=canalMargin[c]?.[m]??canalMargin[c]??dr;return s/12;})())}
                   </td>
                 </tr>;
               })}
