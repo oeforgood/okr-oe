@@ -939,13 +939,13 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
     return '🫥';
   }
 
-        function SmileysOrdered({done,absent,size=22,hideMood=false}){
+        function SmileysOrdered({done,absent,size=22,hideMood=false,refDate}){
           const [hov,setHov]=useState(null);
           const [pos,setPos]=useState({x:0,y:0});
           // Absents = ceux avec 🤰/🎓/🌴/🎿 (forceMat, forceAbsent, ou q8 congés/école)
           const absentEmails=new Set(absent.map(m=>m.email));
           const realAbsents=absent.filter(m=>{
-            const icon=getAbsenceIcon(m.email,m.prenom);
+            const icon=getAbsenceIcon(m.email,m.prenom,refDate);
             return icon!=='🫥';
           });
           const realAbsentEmails=new Set(realAbsents.map(m=>m.email));
@@ -1064,13 +1064,13 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
                 <div style={{fontSize:9,color:"#9e9890",marginBottom:2,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>
                   Sem. passée {(()=>{const{mon,fri}=getWeekBounds(lastWkKey);const sameM=mon.getMonth()===fri.getMonth();return sameM?`${mon.getDate()}–${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`:`${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"short"})}–${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`;})()}
                 </div>
-                <SmileysOrdered done={teamLastWkFiltered} absent={absentLastWk} size={22}/>
+                <SmileysOrdered done={teamLastWkFiltered} absent={absentLastWk} size={22} refDate={_7daysAgo}/>
               </div>
               <div>
                 <div style={{fontSize:9,color:"#9e9890",marginBottom:4,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>
                   Sem. en cours {(()=>{const{mon,fri}=getWeekBounds(curWkKey);const sameM=mon.getMonth()===fri.getMonth();return sameM?`${mon.getDate()}–${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`:`${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"short"})}–${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`;})()}
                 </div>
-                <SmileysOrdered done={teamCurWkFiltered} absent={absentCurWk} size={22} hideMood={!curWkVisible}/>
+                <SmileysOrdered done={teamCurWkFiltered} absent={absentCurWk} size={22} hideMood={!curWkVisible} refDate={_thisMon}/>
               </div>
             </div>
             {/* Right: mood curve - tall */}
