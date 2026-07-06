@@ -915,7 +915,9 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
     const member = (teamMembers||[]).find(m => m.email === email);
     const checkDate = refDate || new Date();
     // Check declared absences
-    const declaredAbs = (window._absences||[]).find(a=>
+    const checkDate = refDate || new Date();
+    // Debug
+    if(email && email.includes('guillemette')) console.log('getAbsenceIcon', email, toDateStr(checkDate), window._absences?.length, (window._absences||[]).find(a=>a.email===email));
       a.email===email && toDateStr(checkDate)>=a.dateFrom && toDateStr(checkDate)<=a.dateTo
     );
     if (declaredAbs) return declaredAbs.type;
