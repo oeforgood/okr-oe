@@ -913,7 +913,6 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
   // Get absence icon for a teammate based on forceAbsent/forceMat flags or previous week's q8 answer
   function getAbsenceIcon(email, prenom, refDate) {
     const member = (teamMembers||[]).find(m => m.email === email);
-    const checkDate = refDate || new Date();
     // Check declared absences
     const checkDate = refDate || new Date();
     // Debug
