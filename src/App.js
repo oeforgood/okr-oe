@@ -914,11 +914,11 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
   function getAbsenceIcon(email, prenom, refDate) {
     const member = (teamMembers||[]).find(m => m.email === email);
     // Check declared absences
-    const checkDate = refDate || new Date();
-    // Debug
-    if(email && email.includes('guillemette')) console.log('getAbsenceIcon', email, toDateStr(checkDate), window._absences?.length, (window._absences||[]).find(a=>a.email===email));
+    if(email&&email.includes("guillemette"))console.log("abs debug",email,toDateStr(checkDate),(window._absences||[]).find(a=>a.email===email));
+    const declaredAbs = (window._absences||[]).find(a=>
       a.email===email && toDateStr(checkDate)>=a.dateFrom && toDateStr(checkDate)<=a.dateTo
     );
+    if (declaredAbs) return declaredAbs.type;
     if (declaredAbs) return declaredAbs.type;
     if (member?.forceMat) return '🤰';
     if (member?.forceAbsent) {
