@@ -914,7 +914,6 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
    function getAbsenceIcon(email, prenom, refDate) {
      const member = (teamMembers||[]).find(m => m.email === email);
      const checkDate = refDate || new Date();
-     if(email&&email.includes("guillemette"))console.log("abs debug",email,toDateStr(checkDate),(window._absences||[]).find(a=>a.email===email));
      const declaredAbs = (window._absences||[]).find(a=>
        a.email===email && toDateStr(checkDate)>=a.dateFrom && toDateStr(checkDate)<=a.dateTo
      );
@@ -956,7 +955,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             const bFirst=(b.forceMat)?0:1;
             return aFirst-bFirst;
           });
-          const absentItems=absentSorted.map(m=>({key:'a'+m.email,emoji:getAbsenceIcon(m.email,m.prenom),name:m.prenom,isAbsent:true}));
+          const absentItems=absentSorted.map(m=>({key:'a'+m.email,emoji:getAbsenceIcon(m.email,m.prenom,refDate),name:m.prenom,isAbsent:true}));
           // Done (excl. real absents), sorted by submittedAt
           // Also check declared absences for done members
           const doneAbsentItems=done.filter(u=>!realAbsentEmails.has(u.email)).filter(u=>{
