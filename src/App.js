@@ -756,7 +756,7 @@ function FeedbackBox({currentUser, teamMember}) {
   );
 }
 
-function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onGoReporting,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,okrData,isAdmin,onOpenSettings}){
+function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onGoReporting,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,okrData,isAdmin,onOpenSettings,absencesList=[]}){
   const {objectives=[],subobjectives=[],keyresults=[],seasonKey:_sk}=okrData||{};
   const seasonKey=okrData?.seasonKey||"printemps_2026";
   const avgProg=calcWeightedAvg(objectives,subobjectives,keyresults);
@@ -957,7 +957,13 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
           });
           const absentItems=absentSorted.map(m=>({key:'a'+m.email,emoji:getAbsenceIcon(m.email,m.prenom),name:m.prenom,isAbsent:true}));
           // Done (excl. real absents), sorted by submittedAt
-          const doneItems=done.filter(u=>!realAbsentEmails.has(u.email)).sort((a,b)=>a.submittedAt-b.submittedAt).map(u=>({key:'d'+u.email,emoji:hideMood?'🫥':(u.answers?.q7||"😐"),name:u.prenom,isAbsent:false}));
+          // Also check declared absences for done members
+          const doneAbsentItems=done.filter(u=>!realAbsentEmails.has(u.email)).filter(u=>{
+            const icon=getAbsenceIcon(u.email,u.prenom,refDate);
+            return icon!=='🫥';
+          }).map(u=>({key:'da'+u.email,emoji:getAbsenceIcon(u.email,u.prenom,refDate),name:u.prenom,isAbsent:true}));
+          const doneAbsentEmails=new Set(doneAbsentItems.map(i=>i.key.slice(2)));
+          const doneItems=done.filter(u=>!realAbsentEmails.has(u.email)&&!doneAbsentEmails.has(u.email)).sort((a,b)=>a.submittedAt-b.submittedAt).map(u=>({key:'d'+u.email,emoji:hideMood?'🫥':(u.answers?.q7||"😐"),name:u.prenom,isAbsent:false}));
           // Not done = present actifs qui n'ont ni soumis ni sont absents → 🫥
           const doneEmails=new Set(done.map(u=>u.email));
           // notDone = actifs, non absents réels (🤰🎓🌴🎿), non complétés
@@ -966,7 +972,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             !realAbsentEmails.has(m.email)&&
             !doneEmails.has(m.email)
           ).map(m=>({key:'n'+m.email,emoji:"🫥",name:m.prenom,isAbsent:false,notDone:true}));
-          const all=[...absentItems,...doneItems,...notDoneItems];
+          const all=[...absentItems,...doneAbsentItems,...doneItems,...notDoneItems];
           return <div style={{display:"flex",gap:2,flexWrap:"wrap",alignItems:"center"}}>
             {hov&&<div style={{position:"fixed",left:pos.x+10,top:pos.y-28,background:"#1a1814",color:"#fff",
               fontSize:10,padding:"2px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:9999,pointerEvents:"none"}}>{hov}</div>}
@@ -3434,9 +3440,12 @@ export default function App(){
   },[]);
 
   // Load declared absences globally
+  const [absencesList, setAbsencesList] = useState([]);
   useEffect(()=>{
     const unsubAbs = onSnapshot(doc(db,'app_config','absences'),(snap)=>{
-      window._absences = snap.exists() ? (snap.data().list||[]) : [];
+      const list = snap.exists() ? (snap.data().list||[]) : [];
+      window._absences = list;
+      setAbsencesList(list);
     });
     return()=>unsubAbs();
   },[]);
@@ -3695,6 +3704,7 @@ export default function App(){
     onGoSettings={()=>setPage("settings")}
     myUpdates={myUpdates}
     allUpdates={allUpdates}
+    absencesList={absencesList}
     managerNotifs={managerNotifs}
     teammateNotifs={teammateNotifs}
     onReadNotif={handleReadNotif}
