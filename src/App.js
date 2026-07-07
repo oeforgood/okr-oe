@@ -2229,9 +2229,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
           indent={1} inKeur={inKeur} onClick={()=>toggle(catKey)} isOpen={expanded[catKey]}>
           {Object.entries(cats[cat]||{}).sort(([a],[b])=>a.localeCompare(b)).map(([subcat,d])=>{
             const label2=`${subcat} · ${effectiveLabels[subcat]||subcatLabels[subcat]||''}`;
-            const compteEntries=Object.entries(d.comptes||{})
-              .filter(([,cpd])=>cpd.months.slice(0,lastMonth).some(v=>v!==0))
-              .sort(([a],[b])=>a.localeCompare(b));
+            const compteEntries=Object.entries(d.comptes||{}).sort(([a],[b])=>a.localeCompare(b));
             const subcatKey=catKey+'-'+subcat;
             return <ReportingRow key={subcat} label={label2} months={d.months} lastMonth={lastMonth}
               indent={2} inKeur={inKeur} onClick={()=>{toggle(subcatKey);loadChargeEntriesRef.current&&loadChargeEntriesRef.current(subcat);}} isOpen={expanded[subcatKey]}>
@@ -2432,9 +2430,9 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                 <ReportingRow key={c}
                   label={`${c} · ${d.libCompte||'—'}`}
                   months={d.months} lastMonth={lastMonth} indent={2} inKeur={inKeur}
-                  onClick={d.entries?.length>0?()=>toggle(`bil_${section}_${key}_${c}`):undefined}
+                  onClick={()=>{toggle(`bil_${section}_${key}_${c}`);loadBilEntriesRef.current&&loadBilEntriesRef.current(section,key);}}
                   isOpen={expanded[`bil_${section}_${key}_${c}`]}>
-                  {d.entries?.length>0&&<EntryRows entries={d.entries} lastMonth={lastMonth} inKeur={inKeur}/>}
+                  {expanded[`bil_${section}_${key}_${c}`]&&d.entries?.length>0&&<EntryRows entries={d.entries} lastMonth={lastMonth} inKeur={inKeur}/>}
                 </ReportingRow>
               ));
               const SectionHeader=({label})=><tr><td colSpan={lastMonth+4} style={{height:16,padding:'20px 6px 4px',fontSize:11,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.06em',background:'#fafaf8',borderTop:'2px solid #e2ddd6'}}>{label}</td></tr>;
