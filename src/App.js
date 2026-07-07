@@ -2209,7 +2209,8 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
   function renderGroup(type, label) {
     const cats=chargeByType[type]||{};
     const groupMonths=getGroupTotal(type);
-    return <ReportingRow key={type} label={label} months={groupMonths} lastMonth={lastMonth}
+    const groupMonths=getGroupTotal(type);
+    const ordCats=CATEGORIES_ORDER.filter(c=>cats[c]&&catTypes[c]===type);
       bold bg='#f0fdf4' inKeur={inKeur} onClick={()=>toggle(type)} isOpen={expanded[type]}>
       {ordCats.map(cat=>{
         const catMonths=Array(12).fill(0).map((_,i)=>Object.values(cats[cat]||{}).reduce((s,d)=>s+(d.months[i]||0),0));
