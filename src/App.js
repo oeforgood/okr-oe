@@ -2537,7 +2537,13 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                 COGS_KEYS.reduce((s,k)=>s+getSubcatMonths(k)[i],0)
               );
               // Variation de stocks (from bfr.stocks)
-              const stocksVariation=getM('bfr','stocks');
+              // Variation de stocks (from bfr.stocks)
+              const stocksVariation=(()=>{
+                const d=bfrData?.bfr?.stocks?.months||{};
+                const arr=Array(12).fill(0);
+                Object.entries(d).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]+=v;});
+                return arr;
+              })();
               // Solde stocks = AN + cumul variations (stocks are assets: positive = value)
               const stocksRows=bfrData?.bfr?.stocks?.rows||[];
               let stocksAN=0;
