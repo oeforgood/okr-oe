@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, getDocs, getDoc, query, where, updateDoc, deleteDoc } from "firebase/firestore";
+import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, getDocs, query, where, updateDoc, deleteDoc } from "firebase/firestore";
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "firebase/auth";
 
 const firebaseConfig = {
@@ -2218,7 +2218,6 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
         return <ReportingRow key={cat} label={cat} months={catMonths} lastMonth={lastMonth}
           indent={1} inKeur={inKeur} onClick={()=>toggle(catKey)} isOpen={expanded[catKey]}>
           {Object.entries(cats[cat]||{}).sort(([a],[b])=>a.localeCompare(b)).map(([subcat,d])=>{
-            const subcatKey=catKey+'-'+subcat;
             const label2=`${subcat} · ${effectiveLabels[subcat]||subcatLabels[subcat]||''}`;
             const compteEntries=Object.entries(d.comptes||{})
               .filter(([,cpd])=>cpd.months.slice(0,lastMonth).some(v=>v!==0))
