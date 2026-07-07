@@ -1871,7 +1871,7 @@ function DetailEcritures({rows, lastMonth, monthActive, isAU=false}) {
     });
   return <>
     {sorted.map((r,i)=>{
-      const label=`${isAU&&r.subcat?r.subcat+' · ':''}${r.date||''} · ${r.libCompte||r.libLigne||r.tiers||'—'}`;
+      const label=`${isAU&&r.subcat?r.subcat+' · ':''}${r.date||''} · ${r.libPiece||r.libLigne||r.tiers||'—'}`;
       return <tr key={i} style={{background:'#fafaf8'}}>
       <td style={{padding:'3px 4px 3px 40px',fontSize:10,color:'#6b6560',
         position:'sticky',left:0,background:'#fafaf8',zIndex:1,
@@ -2398,7 +2398,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                     <td style={{padding:'2px 4px 2px 60px',fontSize:9,color:'#6b6560',
                       position:'sticky',left:0,background:'#f5f5f2',zIndex:1,
                       borderBottom:'1px solid #f0ede8',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:220}}>
-                      {e.date} · {e.libCompte||e.libLigne||e.tiers||'—'}
+                      {e.date} · {e.libPiece||e.libLigne||e.tiers||'—'}
                     </td>
                     {mArr.map((v,mi)=>{
                       const isEmpty=mi>=lastMonth;
