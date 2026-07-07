@@ -2351,7 +2351,6 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
               const sumM=(...arrays)=>Array(12).fill(0).map((_,i)=>arrays.reduce((s,a)=>s+(a[i]||0),0));
               // Group by compte for sub-detail
               const byCompte=(section,key)=>{const inv=INVERT_KEYS.has(key);
-                const inv=INVERT_KEYS.has(key);
                 const rows=bfrData?.[section]?.[key]?.rows||[];
                 const map={};
                 // Handle both formats: array of {compte,libCompte,months:{}} or {compte,libCompte,month,amount}
