@@ -1820,7 +1820,7 @@ function ReportingRow({label, months, lastMonth, bold=false, highlight=false, is
   const ytd = months.slice(0,lastMonth).reduce((a,b)=>a+b,0);
   const total = months.reduce((a,b)=>a+b,0);
   const col = total < 0 ? '#c0392b' : total > 0 ? '#166534' : '#9e9890';
-  const bg = isTotal ? '#f0fdf4' : highlight ? '#f8f7f5' : 'transparent';
+  const bg = isTotal ? '#f0fdf4' : highlight ? '#f8f7f5' : indent===2 ? '#f5f3ef' : indent===3 ? '#efecea' : 'transparent';
   const cell = {padding:'5px 4px',fontSize:11,textAlign:'right',fontFamily:'system-ui,sans-serif',fontVariantNumeric:'tabular-nums',width:44,minWidth:44,maxWidth:44,
     borderBottom:'1px solid #f0ede8',whiteSpace:'nowrap'};
   return <>
@@ -1871,7 +1871,7 @@ function DetailEcritures({rows, lastMonth, monthActive, isAU=false}) {
     });
   return <>
     {sorted.map((r,i)=>{
-      const label=`${isAU&&r.subcat?r.subcat+' · ':''}${r.libLigne||'—'} · ${r.tiers||'—'} · ${r.facture||'—'} · ${r.compte} · ${r.libCompte}`;
+      const label=`${isAU&&r.subcat?r.subcat+' · ':''}${r.date||''} · ${r.libCompte||r.libLigne||r.tiers||'—'}`;
       return <tr key={i} style={{background:'#fafaf8'}}>
       <td style={{padding:'3px 4px 3px 40px',fontSize:10,color:'#6b6560',
         position:'sticky',left:0,background:'#fafaf8',zIndex:1,
@@ -2392,11 +2392,12 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                 return sorted.map((e,i)=>{
                   const mArr=Array(12).fill(null);
                   mArr[e.month-1]=e.amount;
+                  const fmtEntry=v=>v==null?'':v.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+'€';
                   return <tr key={i} style={{background:'#f5f5f2'}}>
-                    <td style={{padding:'2px 4px 2px 60px',fontSize:9,color:'#9e9890',
+                    <td style={{padding:'2px 4px 2px 60px',fontSize:9,color:'#6b6560',
                       position:'sticky',left:0,background:'#f5f5f2',zIndex:1,
                       borderBottom:'1px solid #f0ede8',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:220}}>
-                      {e.date} · {e.libCompte||e.libLigne||'—'} · {e.tiers||''}
+                      {e.date} · {e.libCompte||e.libLigne||e.tiers||'—'}
                     </td>
                     {mArr.map((v,mi)=>{
                       const isEmpty=mi>=lastMonth;
@@ -2405,7 +2406,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                         <td style={{padding:'2px 6px',fontSize:9,textAlign:'right',fontFamily:'monospace',
                           color:v===null?(isEmpty?'#e8e4de':'transparent'):v<0?'#c0392b':'#1a1814',
                           borderBottom:'1px solid #f0ede8',background:isEmpty?'#fafafa':'transparent'}}>
-                          {v===null?(isEmpty?'—':''):fmtAmount(v,inKeur)}
+                          {v===null?(isEmpty?'—':''):fmtEntry(v)}
                         </td>
                       </React.Fragment>;
                     })}
