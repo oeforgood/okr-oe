@@ -623,8 +623,10 @@ function ReportingBanner({onGoReporting}) {
   useEffect(()=>{
     const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists()){setCaData(snap.data().caData);}});
     const u2=onSnapshot(doc(db,'reporting','charges'),(snap)=>{if(snap.exists())setChargeData(snap.data().chargeData);});
-    const u3=onSnapshot(doc(db,'reporting','meta'),(snap)=>{if(snap.exists())setImportedAt(snap.data().importedAt);});
+    const u3=onSnapshot(doc(db,'reporting','meta'),(snap)=>{if(snap.exists())setImportedAt(snap.data().importedAt);
+        if(snap.data().importedAt)setImportedAt(snap.data().importedAt);});
     return()=>{u1();u2();u3();};
+
   },[]);
 
   if (!caData) return null;
@@ -754,7 +756,7 @@ function FeedbackBox({currentUser, teamMember}) {
   );
 }
 
-function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onGoReporting,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,okrData,isAdmin,onOpenSettings}){
+function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onGoReporting,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,okrData,isAdmin,onOpenSettings,absencesList=[]}){
   const {objectives=[],subobjectives=[],keyresults=[],seasonKey:_sk}=okrData||{};
   const seasonKey=okrData?.seasonKey||"printemps_2026";
   const avgProg=calcWeightedAvg(objectives,subobjectives,keyresults);
@@ -909,13 +911,13 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
 
 
   // Get absence icon for a teammate based on forceAbsent/forceMat flags or previous week's q8 answer
-  function getAbsenceIcon(email, prenom, refDate) {
-    const member = (teamMembers||[]).find(m => m.email === email);
-    const checkDate = refDate || new Date();
-    // Check declared absences
-    const declaredAbs = (window._absences||[]).find(a=>
-      a.email===email && toDateStr(checkDate)>=a.dateFrom && toDateStr(checkDate)<=a.dateTo
-    );
+   function getAbsenceIcon(email, prenom, refDate) {
+     const member = (teamMembers||[]).find(m => m.email === email);
+     const checkDate = refDate || new Date();
+     const declaredAbs = (window._absences||[]).find(a=>
+       a.email===email && toDateStr(checkDate)>=a.dateFrom && toDateStr(checkDate)<=a.dateTo
+     );
+     if (declaredAbs) return declaredAbs.type;
     if (declaredAbs) return declaredAbs.type;
     if (member?.forceMat) return '🤰';
     if (member?.forceAbsent) {
@@ -937,13 +939,13 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
     return '🫥';
   }
 
-        function SmileysOrdered({done,absent,size=22,hideMood=false}){
+        function SmileysOrdered({done,absent,size=22,hideMood=false,refDate}){
           const [hov,setHov]=useState(null);
           const [pos,setPos]=useState({x:0,y:0});
           // Absents = ceux avec 🤰/🎓/🌴/🎿 (forceMat, forceAbsent, ou q8 congés/école)
           const absentEmails=new Set(absent.map(m=>m.email));
           const realAbsents=absent.filter(m=>{
-            const icon=getAbsenceIcon(m.email,m.prenom);
+            const icon=getAbsenceIcon(m.email,m.prenom,refDate);
             return icon!=='🫥';
           });
           const realAbsentEmails=new Set(realAbsents.map(m=>m.email));
@@ -953,9 +955,15 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             const bFirst=(b.forceMat)?0:1;
             return aFirst-bFirst;
           });
-          const absentItems=absentSorted.map(m=>({key:'a'+m.email,emoji:getAbsenceIcon(m.email,m.prenom),name:m.prenom,isAbsent:true}));
+          const absentItems=absentSorted.map(m=>({key:'a'+m.email,emoji:getAbsenceIcon(m.email,m.prenom,refDate),name:m.prenom,isAbsent:true}));
           // Done (excl. real absents), sorted by submittedAt
-          const doneItems=done.filter(u=>!realAbsentEmails.has(u.email)).sort((a,b)=>a.submittedAt-b.submittedAt).map(u=>({key:'d'+u.email,emoji:hideMood?'🫥':(u.answers?.q7||"😐"),name:u.prenom,isAbsent:false}));
+          // Also check declared absences for done members
+          const doneAbsentItems=done.filter(u=>!realAbsentEmails.has(u.email)).filter(u=>{
+            const icon=getAbsenceIcon(u.email,u.prenom,refDate);
+            return icon!=='🫥';
+          }).map(u=>({key:'da'+u.email,emoji:getAbsenceIcon(u.email,u.prenom,refDate),name:u.prenom,isAbsent:true}));
+          const doneAbsentEmails=new Set(doneAbsentItems.map(i=>i.key.slice(2)));
+          const doneItems=done.filter(u=>!realAbsentEmails.has(u.email)&&!doneAbsentEmails.has(u.email)).sort((a,b)=>a.submittedAt-b.submittedAt).map(u=>({key:'d'+u.email,emoji:hideMood?'🫥':(u.answers?.q7||"😐"),name:u.prenom,isAbsent:false}));
           // Not done = present actifs qui n'ont ni soumis ni sont absents → 🫥
           const doneEmails=new Set(done.map(u=>u.email));
           // notDone = actifs, non absents réels (🤰🎓🌴🎿), non complétés
@@ -964,7 +972,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             !realAbsentEmails.has(m.email)&&
             !doneEmails.has(m.email)
           ).map(m=>({key:'n'+m.email,emoji:"🫥",name:m.prenom,isAbsent:false,notDone:true}));
-          const all=[...absentItems,...doneItems,...notDoneItems];
+          const all=[...absentItems,...doneAbsentItems,...doneItems,...notDoneItems];
           return <div style={{display:"flex",gap:2,flexWrap:"wrap",alignItems:"center"}}>
             {hov&&<div style={{position:"fixed",left:pos.x+10,top:pos.y-28,background:"#1a1814",color:"#fff",
               fontSize:10,padding:"2px 8px",borderRadius:4,whiteSpace:"nowrap",zIndex:9999,pointerEvents:"none"}}>{hov}</div>}
@@ -1062,13 +1070,13 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
                 <div style={{fontSize:9,color:"#9e9890",marginBottom:2,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>
                   Sem. passée {(()=>{const{mon,fri}=getWeekBounds(lastWkKey);const sameM=mon.getMonth()===fri.getMonth();return sameM?`${mon.getDate()}–${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`:`${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"short"})}–${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`;})()}
                 </div>
-                <SmileysOrdered done={teamLastWkFiltered} absent={absentLastWk} size={22}/>
+                <SmileysOrdered done={teamLastWkFiltered} absent={absentLastWk} size={22} refDate={_7daysAgo}/>
               </div>
               <div>
                 <div style={{fontSize:9,color:"#9e9890",marginBottom:4,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>
                   Sem. en cours {(()=>{const{mon,fri}=getWeekBounds(curWkKey);const sameM=mon.getMonth()===fri.getMonth();return sameM?`${mon.getDate()}–${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`:`${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"short"})}–${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`;})()}
                 </div>
-                <SmileysOrdered done={teamCurWkFiltered} absent={absentCurWk} size={22} hideMood={!curWkVisible}/>
+                <SmileysOrdered done={teamCurWkFiltered} absent={absentCurWk} size={22} hideMood={!curWkVisible} refDate={_thisMon}/>
               </div>
             </div>
             {/* Right: mood curve - tall */}
@@ -2015,10 +2023,20 @@ function SubcatsDnD({codeMap, setCodeMap, onSaveCodeMap, subcatLabels, knownSubc
   );
 }
 
-function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMap, savedCustomLabels={}, onSaveCustomLabels, readOnly=false}) {
+function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMap, savedCustomLabels={}, onSaveCustomLabels, savedCanalMargin, readOnly=false}) {
   const [caData, setCaData] = useState(null);
 
   const [chargeData, setChargeData] = useState(null);
+  const [bfrData, setBfrData] = useState(null);
+  const [canalMargin, setCanalMargin] = useState(()=>{
+    const src=savedCanalMargin||CANAL_MARGIN;
+    const result={};
+    REPORTING_CANALS.forEach(c=>{
+      if(src[c]&&typeof src[c]==='object'){result[c]=src[c];}
+      else{const r=src[c]??CANAL_MARGIN[c]??DEFAULT_CANAL_MARGIN;result[c]={};for(let m=1;m<=12;m++)result[c][m]=r;}
+    });
+    return result;
+  });
   const [subcatLabels, setSubcatLabels] = useState({});
   const [importedAt, setImportedAt] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -2043,15 +2061,17 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
   useEffect(()=>{
     const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists()){setCaData(snap.data().caData);}});
     const u2=onSnapshot(doc(db,'reporting','charges'),(snap)=>{if(snap.exists())setChargeData(snap.data().chargeData);});
+    const u4=onSnapshot(doc(db,'reporting','bfr'),(snap)=>{if(snap.exists())setBfrData(snap.data().bilData);});
     const u3=onSnapshot(doc(db,'reporting','meta'),(snap)=>{
       if(snap.exists()){
         setSubcatLabels(snap.data().subcatLabels||{});
         setImportedAt(snap.data().importedAt);
         if(snap.data().activeSubcats) setActiveSubcats(snap.data().activeSubcats);
+        if(snap.data().canalMargin) setCanalMargin(snap.data().canalMargin);
       }
       setLoading(false);
     });
-    return()=>{u1();u2();u3();};
+    return()=>{u1();u2();u3();u4();};
   },[]);
   
   async function saveActiveSubcats(a){
@@ -2090,9 +2110,16 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
   // Marge brute - use actual canal rates
   const mbByCanal = useMemo(()=>{
     const res={};
-    REPORTING_CANALS.forEach(c=>{const rate=CANAL_MARGIN[c]??DEFAULT_CANAL_MARGIN;res[c]=(caByCanal[c]||[]).map(v=>v*rate);});
+    REPORTING_CANALS.forEach(c=>{
+      const defaultRate=CANAL_MARGIN[c]??DEFAULT_CANAL_MARGIN;
+      res[c]=(caByCanal[c]||[]).map((v,i)=>{
+        // month i+1, get rate for that month or fall back to canal default
+        const rate=canalMargin[c]?.[i+1]??canalMargin[c]??defaultRate;
+        return v*rate;
+      });
+    });
     return res;
-  },[caByCanal]);
+  },[caByCanal,canalMargin]);
   // MB total = sum of (CA per canal * rate per canal)
   const mbTotal = useMemo(()=>Array(12).fill(0).map((_,i)=>REPORTING_CANALS.reduce((s,c)=>s+(mbByCanal[c]?.[i]||0),0)),[mbByCanal]);
 
@@ -2253,9 +2280,28 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
             <ReportingRow label="Chiffre d'Affaires" months={caTotal} lastMonth={lastMonth} bold inKeur={inKeur} onClick={()=>toggle('ca')} isOpen={expanded['ca']}>
               {REPORTING_CANALS.map(c=><ReportingRow key={c} label={c} months={caByCanal[c]||Array(12).fill(0)} lastMonth={lastMonth} indent={1} inKeur={inKeur}/>)}
             </ReportingRow>
-            <ReportingRow label="Marge Brute" months={mbTotal} lastMonth={lastMonth} bold inKeur={inKeur} highlight onClick={()=>toggle('mb')} isOpen={expanded['mb']}>
+            {(()=>{
+              if(!chargeData)return null;
+              const COGS_KEYS=['Z2-01','Z2-02','Z2-03','Z2-25','Z2-32','Z2-33','Z2-AU'];
+              const getSubcatMonths=k=>{
+                const d=chargeData[k];
+                if(!d)return Array(12).fill(0);
+                return getMonthArray(d.months);
+              };
+              const cogsMonths=Array(12).fill(0).map((_,i)=>
+                COGS_KEYS.reduce((s,k)=>s+getSubcatMonths(k)[i],0)
+              );
+              return <ReportingRow label="CoGS" months={cogsMonths} lastMonth={lastMonth} bold inKeur={inKeur}
+                onClick={()=>toggle('cogs')} isOpen={expanded['cogs']}>
+                {COGS_KEYS.map(k=>{
+                  const label=effectiveLabels[k]||subcatLabels[k]||k;
+                  const months=getSubcatMonths(k);
+                  return <ReportingRow key={k} label={label} months={months} lastMonth={lastMonth} indent={1} inKeur={inKeur}/>;
+                })}
+              </ReportingRow>;
+            })()}
+                        <ReportingRow label="Marge Brute" months={mbTotal} lastMonth={lastMonth} bold inKeur={inKeur} highlight onClick={()=>toggle('mb')} isOpen={expanded['mb']}>
               {REPORTING_CANALS.map(c=>{
-                const rate=CANAL_MARGIN[c]??DEFAULT_CANAL_MARGIN;
                 return <tr key={c} style={{background:'#f8fffd'}}>
                   <td style={{padding:'5px 8px 5px 22px',fontSize:11,fontWeight:400,
                     position:'sticky',left:0,background:'#f8fffd',zIndex:1,
@@ -2264,6 +2310,8 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                   </td>
                   {Array(12).fill(0).map((_,i)=>{
                     const isEmpty=i>=lastMonth;
+                    const defaultRate=CANAL_MARGIN[c]??DEFAULT_CANAL_MARGIN;
+                    const rate=canalMargin[c]?.[i+1]??canalMargin[c]??defaultRate;
                     return <React.Fragment key={i}>
                       {i===lastMonth&&<td style={{padding:'5px 8px',fontSize:11,textAlign:'right',
                         fontFamily:'system-ui,sans-serif',borderBottom:'1px solid #f0ede8',width:44,
@@ -2278,10 +2326,10 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                   })}
                   {lastMonth===12&&<td style={{padding:'5px 8px',fontSize:11,textAlign:'right',width:44,
                     borderLeft:'2px solid #2d6a4f',background:'#f0fdf4',borderBottom:'1px solid #f0ede8',
-                    fontWeight:600,color:'#166534'}}>{fmtPct(rate)}</td>}
+                    fontWeight:600,color:'#166534'}}>{fmtPct((()=>{const dr=CANAL_MARGIN[c]??DEFAULT_CANAL_MARGIN;let s=0;for(let m=1;m<=12;m++)s+=canalMargin[c]?.[m]??canalMargin[c]??dr;return s/12;})())}</td>}
                   <td style={{padding:'5px 8px',fontSize:11,textAlign:'right',width:44,
                     borderLeft:'1px solid #e2ddd6',borderBottom:'1px solid #f0ede8',color:'#166534'}}>
-                    {fmtPct(rate)}
+                    {fmtPct((()=>{const dr=CANAL_MARGIN[c]??DEFAULT_CANAL_MARGIN;let s=0;for(let m=1;m<=12;m++)s+=canalMargin[c]?.[m]??canalMargin[c]??dr;return s/12;})())}
                   </td>
                 </tr>;
               })}
@@ -2290,6 +2338,136 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
             <ReportingRow label="EBITDA" months={ebitda} lastMonth={lastMonth} bold isTotal inKeur={inKeur}/>
             {renderGroup('autres_charges',"Autres charges")}
             <ReportingRow label="Résultat net" months={resultat} lastMonth={lastMonth} bold isTotal inKeur={inKeur}/>
+            {/* ── SUIVI DE TRÉSORERIE ── */}
+            {bfrData&&(()=>{
+              // Helper: get monthly array from section/key
+              const getM=(section,key)=>{
+                const d=bfrData?.[section]?.[key]?.months||{};
+                const arr=Array(12).fill(0);
+                Object.entries(d).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]+=v;});
+                return arr;
+              };
+              const sumM=(...arrays)=>Array(12).fill(0).map((_,i)=>arrays.reduce((s,a)=>s+(a[i]||0),0));
+              // Group by compte for sub-detail
+              const byCompte=(section,key)=>{
+                const rows=bfrData?.[section]?.[key]?.rows||[];
+                const map={};
+                // Handle both formats: array of {compte,libCompte,months:{}} or {compte,libCompte,month,amount}
+                rows.forEach(r=>{
+                  if(!map[r.compte])map[r.compte]={libCompte:r.libCompte,months:Array(12).fill(0)};
+                  if(r.months&&typeof r.months==='object'&&!Array.isArray(r.months)){
+                    // New format: months is {mKey: amount}
+                    Object.entries(r.months).forEach(([k,v])=>{
+                      const m=parseInt(k.split('-')[1])-1;
+                      if(m>=0&&m<12&&m<lastMonth)map[r.compte].months[m]+=v;
+                    });
+                  } else if(r.month<=lastMonth){
+                    // Old format: individual row with month/amount
+                    map[r.compte].months[r.month-1]+=r.amount;
+                  }
+                });
+                return Object.entries(map).sort((a,b)=>a[0].localeCompare(b[0]));
+              };
+              const detailRows=(section,key)=>byCompte(section,key).map(([c,d])=>(
+                <tr key={c} style={{background:'#fafaf8'}}>
+                  <td style={{padding:'3px 4px 3px 40px',fontSize:10,color:'#6b6560',
+                    position:'sticky',left:0,background:'#fafaf8',zIndex:1,
+                    borderBottom:'1px solid #f0ede8',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:220}}>
+                    {c} · {d.libCompte||'—'}
+                  </td>
+                  {d.months.map((v,i)=>{
+                    const isEmpty=i>=lastMonth;
+                    return <React.Fragment key={i}>
+                      {i===lastMonth&&<td style={{padding:'3px 6px',fontSize:10,textAlign:'right',fontFamily:'monospace',
+                        borderLeft:'2px solid #2d6a4f',borderRight:'2px solid #2d6a4f',background:'#f0fdf4',borderBottom:'1px solid #f0ede8',fontWeight:600,
+                        color:d.months.slice(0,lastMonth).reduce((s,x)=>s+x,0)<0?'#c0392b':'#166534'}}>
+                        {fmtAmount(d.months.slice(0,lastMonth).reduce((s,x)=>s+x,0),inKeur)}
+                      </td>}
+                      <td style={{padding:'3px 6px',fontSize:10,textAlign:'right',fontFamily:'monospace',
+                        color:isEmpty?'#c5c0b8':v<0?'#c0392b':'#1a1814',borderBottom:'1px solid #f0ede8',
+                        background:isEmpty?'#fafafa':'transparent'}}>
+                        {isEmpty?'—':fmtAmount(v,inKeur)}
+                      </td>
+                    </React.Fragment>;
+                  })}
+                  <td style={{padding:'3px 6px',fontSize:10,textAlign:'right',fontFamily:'monospace',
+                    borderLeft:'1px solid #e2ddd6',borderBottom:'1px solid #f0ede8',
+                    color:d.months.reduce((s,x)=>s+x,0)<0?'#c0392b':'#1a1814'}}>
+                    {fmtAmount(d.months.reduce((s,x)=>s+x,0),inKeur)}
+                  </td>
+                </tr>
+              ));
+              const SectionHeader=({label})=><tr><td colSpan={lastMonth+4} style={{height:16,padding:'12px 6px 4px',
+                fontSize:10,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.06em',
+                background:'#fafaf8',borderTop:'2px solid #e2ddd6'}}>{label}</td></tr>;
+              // Solde comptes 51 = cumulative sum per month (not variation)
+              const banquesMonths=(()=>{
+                const d=bfrData?.banques?.banques?.months||{};
+                const arr=Array(12).fill(0);
+                Object.entries(d).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]+=v;});
+                // cumulative
+                let cum=0;
+                return arr.map(v=>{cum+=v;return cum;});
+              })();
+
+              const bfrKeys=[
+                {key:'clients',label:'Clients et comptes rattachés (41x, 49x)'},
+                {key:'fournisseurs',label:'Fournisseurs et comptes rattachés (40x)'},
+                {key:'stocks',label:'Stocks (3x)'},
+              ];
+              const bfrTotal=sumM(...bfrKeys.map(({key})=>getM('bfr',key)));
+
+              const autresKeys=[
+                {key:'capitaux',label:'Capitaux propres (10-13)'},
+                {key:'provisions',label:'Provisions (14-15)'},
+                {key:'emprunts',label:'Emprunts et dettes assimilées (16)'},
+                {key:'participations',label:'Participations (17-19)'},
+                {key:'immobilisations',label:'Immobilisations (2x)'},
+                {key:'dette_sociale',label:'Dette sociale et salariale (42-43)'},
+                {key:'dette_etat',label:"Dettes envers l'État (44)"},
+                {key:'comptes_courants',label:'Comptes courants (45)'},
+                {key:'autre',label:'Autre (46-48, 5x sauf 51)'},
+              ];
+              const autresTotal=sumM(...autresKeys.map(({key})=>getM('autres',key)));
+              const banquesTotal=getM('banques','banques');
+
+              return <>
+                <SectionHeader label="Trésorerie"/>
+                <ReportingRow label="Variation de BFR" months={bfrTotal} lastMonth={lastMonth} bold inKeur={inKeur}
+                  onClick={()=>toggle('bfr')} isOpen={expanded['bfr']}>
+                  {bfrKeys.map(({key,label})=>(
+                    <ReportingRow key={key} label={label} months={getM('bfr',key)} lastMonth={lastMonth} indent={1} inKeur={inKeur}
+                      onClick={()=>toggle('bfr_'+key)} isOpen={expanded['bfr_'+key]}>
+                      {detailRows('bfr',key)}
+                    </ReportingRow>
+                  ))}
+                </ReportingRow>
+
+                
+                <ReportingRow label="Variations d'autres comptes de bilan" months={autresTotal} lastMonth={lastMonth} bold inKeur={inKeur}
+                  onClick={()=>toggle('autres')} isOpen={expanded['autres']}>
+                  {autresKeys.map(({key,label})=>(
+                    <ReportingRow key={key} label={label} months={getM('autres',key)} lastMonth={lastMonth} indent={1} inKeur={inKeur}
+                      onClick={()=>toggle('autres_'+key)} isOpen={expanded['autres_'+key]}>
+                      {detailRows('autres',key)}
+                    </ReportingRow>
+                  ))}
+                </ReportingRow>
+
+                
+                <ReportingRow label="Variation de Trésorerie" months={banquesTotal} lastMonth={lastMonth} bold inKeur={inKeur}
+                  onClick={()=>toggle('banques')} isOpen={expanded['banques']}>
+                  {detailRows('banques','banques').length>0&&(
+                    <ReportingRow label="Banques (51x)" months={banquesTotal} lastMonth={lastMonth} indent={1} inKeur={inKeur}
+                      onClick={()=>toggle('banques_detail')} isOpen={expanded['banques_detail']}>
+                      {detailRows('banques','banques')}
+                    </ReportingRow>
+                  )}
+                </ReportingRow>
+                <ReportingRow label="Trésorerie (solde)" months={banquesMonths} lastMonth={lastMonth} bold isTotal inKeur={inKeur}/>
+              </>;
+            })()}
+
           </tbody>
         </table>
       </div>}
@@ -2298,8 +2476,18 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
 }
 
 
-function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSaveCustomSubcatLabels, catTypes, onSaveCatTypes}) {
+function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSaveCustomSubcatLabels, catTypes, onSaveCatTypes, savedCanalMargin, onSaveCanalMargin}) {
   const [chargeData, setChargeData] = useState(null);
+  const [localMargin, setLocalMargin] = useState(()=>{
+    const src=savedCanalMargin||CANAL_MARGIN;
+    // Convert old format {canal:rate} to new {canal:{1:rate,...,12:rate}} if needed
+    const result={};
+    REPORTING_CANALS.forEach(c=>{
+      if(src[c]&&typeof src[c]==='object'){result[c]=src[c];}
+      else{const r=src[c]??CANAL_MARGIN[c]??DEFAULT_CANAL_MARGIN;result[c]={};for(let m=1;m<=12;m++)result[c][m]=r;}
+    });
+    return result;
+  });
   const [activeSubcats, setActiveSubcats] = useState({});
   const [localCodeMap, setLocalCodeMap] = useState(codeMap || DEFAULT_CODE_TO_CAT);
   const [localCustomLabels, setLocalCustomLabels] = useState(customSubcatLabels || {});
@@ -2318,7 +2506,46 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
     setActiveSubcats(a);
   }
 
-  return <SubcatsDnD
+  return <>
+    <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'16px 20px',marginBottom:20,overflowX:'auto'}}>
+      <div style={{fontSize:12,fontWeight:600,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:12}}>Taux de marge brute par canal (%)</div>
+      <table style={{borderCollapse:'collapse',fontSize:11,width:'100%'}}>
+        <thead>
+          <tr>
+            <th style={{padding:'4px 8px',textAlign:'left',color:'#9e9890',fontWeight:500,borderBottom:'1px solid #e2ddd6'}}>Canal</th>
+            {['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'].map((m,i)=>(
+              <th key={i} style={{padding:'4px 6px',textAlign:'center',color:'#9e9890',fontWeight:500,borderBottom:'1px solid #e2ddd6',minWidth:48}}>{m}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {REPORTING_CANALS.map(c=>{
+            const defaultRate=CANAL_MARGIN[c]??DEFAULT_CANAL_MARGIN;
+            return <tr key={c}>
+              <td style={{padding:'4px 8px',color:'#1a1814',fontWeight:500,whiteSpace:'nowrap',borderBottom:'1px solid #f0ede8'}}>{c}</td>
+              {Array(12).fill(0).map((_,i)=>{
+                const m=i+1;
+                const val=localMargin[c]?.[m]??defaultRate;
+                return <td key={m} style={{padding:'2px 3px',borderBottom:'1px solid #f0ede8'}}>
+                  <input type="number" min="0" max="100" step="0.1"
+                    value={Math.round(val*1000)/10}
+                    onChange={e=>{
+                      const v=parseFloat(e.target.value)/100;
+                      const nm={...localMargin,[c]:{...(localMargin[c]||{}), [m]:isNaN(v)?val:v}};
+                      setLocalMargin(nm);
+                      onSaveCanalMargin&&onSaveCanalMargin(nm);
+                    }}
+                    style={{width:44,fontSize:11,border:'1px solid #e2ddd6',borderRadius:4,
+                      padding:'2px 4px',textAlign:'right',background:'#fafaf8'}}
+                  />
+                </td>;
+              })}
+            </tr>;
+          })}
+        </tbody>
+      </table>
+    </div>
+    <SubcatsDnD
     codeMap={localCodeMap}
     setCodeMap={cm=>{setLocalCodeMap(cm);onSaveCodeMap&&onSaveCodeMap(cm);}}
     onSaveCodeMap={onSaveCodeMap}
@@ -2331,7 +2558,8 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
     activeSubcats={activeSubcats}
     onToggleSubcat={k=>{const n={...activeSubcats,[k]:activeSubcats[k]===false};saveActiveSubcats(n);}}
     chargeData={chargeData}
-    lastMonth={5}/>;
+    lastMonth={5}/>
+  </>;
 }
 
 function FeedbackAdminTab() {
@@ -2509,7 +2737,7 @@ function AbsencesTab({teamMembers=[]}) {
   </div>;
 }
 
-function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions,catTypes,onSaveCatTypes,codeMap,onSaveCodeMap,customSubcatLabels,onSaveCustomSubcatLabels}){
+function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions,catTypes,onSaveCatTypes,codeMap,onSaveCodeMap,customSubcatLabels,onSaveCustomSubcatLabels,savedCanalMargin,onSaveCanalMargin}){
   const [members,setMembers]=useState(teamMembers.map(m=>({...m})));
   const [newPrenom,setNewPrenom]=useState("");
   const [newManager,setNewManager]=useState("");
@@ -2645,10 +2873,11 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
       {tab==="reporting_params"&&<ReportingParamsTab
           codeMap={codeMap} onSaveCodeMap={onSaveCodeMap}
           customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={onSaveCustomSubcatLabels}
-          catTypes={catTypes} onSaveCatTypes={onSaveCatTypes}/>}
+          catTypes={catTypes} onSaveCatTypes={onSaveCatTypes}
+          savedCanalMargin={savedCanalMargin} onSaveCanalMargin={onSaveCanalMargin}/>}
 
 
-      {tab!=="history"&&tab!=="reporting"&&<><button onClick={save} style={{marginTop:20,padding:"12px 28px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600}}>
+      {tab!=="history"&&tab!=="reporting"&&tab!=="reporting_params"&&<><button onClick={save} style={{marginTop:20,padding:"12px 28px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600}}>
         💾 Enregistrer
       </button>
       {saved&&<span style={{marginLeft:12,fontSize:13,color:"#2d6a4f"}}>✓ Sauvegardé !</span>}</>}
@@ -3177,12 +3406,12 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
 }
 
 // ─── APP ROOT ─────────────────────────────────────────────────────────────────
-function ReportingPagePublic({onBack, catTypes, codeMap, customSubcatLabels={}}) {
+function ReportingPagePublic({onBack, catTypes, codeMap, customSubcatLabels={}, savedCanalMargin}) {
   return <div style={{minHeight:"100vh",background:"#f5f3ef",fontFamily:"system-ui,sans-serif"}}>
     <TopBar onBack={onBack} title="Reporting financier"/>
     <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
       <ReportingTab onSaveCatTypes={null} savedCatTypes={catTypes} savedCodeMap={codeMap}
-        onSaveCodeMap={null} savedCustomLabels={customSubcatLabels} onSaveCustomLabels={null} readOnly={true}/>
+        onSaveCodeMap={null} savedCustomLabels={customSubcatLabels} onSaveCustomLabels={null} savedCanalMargin={savedCanalMargin} readOnly={true}/>
     </div>
   </div>;
 }
@@ -3196,6 +3425,7 @@ export default function App(){
   const [questions,setQuestions]=useState(DEFAULT_QUESTIONS);
   const [catTypes,setCatTypes]=useState(DEFAULT_CAT_TYPE);
   const [codeMap,setCodeMap]=useState(CODE_TO_CATEGORY);
+  const [savedCanalMargin,setSavedCanalMargin]=useState(CANAL_MARGIN);
   const [myUpdates,setMyUpdates]=useState([]);
   const [allUpdates,setAllUpdates]=useState([]);
   const [managerNotifs,setManagerNotifs]=useState([]);
@@ -3210,12 +3440,24 @@ export default function App(){
   },[]);
 
   // Load declared absences globally
+  const [absencesList, setAbsencesList] = useState([]);
   useEffect(()=>{
     const unsubAbs = onSnapshot(doc(db,'app_config','absences'),(snap)=>{
-      window._absences = snap.exists() ? (snap.data().list||[]) : [];
+      const list = snap.exists() ? (snap.data().list||[]) : [];
+      window._absences = list;
+      setAbsencesList(list);
     });
     return()=>unsubAbs();
   },[]);
+
+  // Load reporting meta (canalMargin) from Firebase
+  useEffect(()=>{
+    const unsubMeta=onSnapshot(doc(db,'reporting','meta'),(snap)=>{
+      if(snap.exists()&&snap.data().canalMargin)setSavedCanalMargin(snap.data().canalMargin);
+    });
+    return()=>unsubMeta();
+  },[]);
+
 
   // Load app config from Firestore when logged in
   useEffect(()=>{
@@ -3408,8 +3650,12 @@ export default function App(){
     setQuestions(qs);
   }
   async function handleSaveCatTypes(ct){
-    await setDoc(doc(db,"app_config","main"),{teamMembers,questions,catTypes:ct,codeMap});
+    await setDoc(doc(db,"app_config","main"),{teamMembers,questions,catTypes:ct,codeMap,customSubcatLabels},{merge:true});
     setCatTypes(ct);
+  }
+  async function handleSaveCanalMargin(cm){
+    await setDoc(doc(db,'reporting','meta'),{canalMargin:cm},{merge:true});
+    setSavedCanalMargin(cm);
   }
   async function handleSaveCodeMap(cm){
     await setDoc(doc(db,"app_config","main"),{teamMembers,questions,catTypes,codeMap:cm,customSubcatLabels});
@@ -3417,7 +3663,7 @@ export default function App(){
   }
   const [customSubcatLabels,setCustomSubcatLabels]=useState({});
   async function handleSaveCustomLabels(cl){
-    await setDoc(doc(db,"app_config","main"),{teamMembers,questions,catTypes,codeMap,customSubcatLabels:cl});
+    await setDoc(doc(db,"app_config","main"),{teamMembers,questions,catTypes,codeMap,customSubcatLabels:cl},{ merge: true });
     setCustomSubcatLabels(cl);
   }
 
@@ -3445,9 +3691,8 @@ export default function App(){
 
   if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers}/>;
   if(page==="update")return <UpdatePage teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers}/>;
-  if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels}/>;
-  if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels}/>;
-  if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels}/>;
+  if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels} savedCanalMargin={savedCanalMargin}/>;
+  if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels} savedCanalMargin={savedCanalMargin} onSaveCanalMargin={handleSaveCanalMargin}/>;
 
   return <Dashboard
     currentUser={authUser}
@@ -3459,6 +3704,7 @@ export default function App(){
     onGoSettings={()=>setPage("settings")}
     myUpdates={myUpdates}
     allUpdates={allUpdates}
+    absencesList={absencesList}
     managerNotifs={managerNotifs}
     teammateNotifs={teammateNotifs}
     onReadNotif={handleReadNotif}
