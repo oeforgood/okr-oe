@@ -2180,6 +2180,23 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
   const resultat = useMemo(()=>ebitda.map((v,i)=>v+autresCharges[i]),[ebitda,autresCharges]);
 
   const toggle = k => setExpanded(p=>({...p,[k]:!p[k]}));
+  const loadBilEntriesRef = React.useRef(null);
+  const loadBilEntries=async(section,key)=>{
+    const docKey=`${section}_${key}`;
+    if(bilEntries[docKey]!==undefined)return;
+    setBilEntries(p=>({...p,[docKey]:[]}));
+    try{
+      const snaps=await Promise.all([
+        getDoc(doc(db,'bfr_entries',docKey)),
+        getDoc(doc(db,'bfr_entries',`${docKey}_p0`)),
+        getDoc(doc(db,'bfr_entries',`${docKey}_p1`)),
+      ]);
+      let entries=[];
+      snaps.forEach(s=>{if(s.exists())entries=entries.concat(s.data().entries||[]);});
+      setBilEntries(p=>({...p,[docKey]:entries}));
+    }catch(e){console.warn('loadBilEntries',e);}
+  };
+  loadBilEntriesRef.current=loadBilEntries;
 
   // 13 col header: 12 months + YTD slot inserted after lastMonth
   const headerCols = [...Array(12).keys()].map(i=>i).reduce((acc,i)=>{
@@ -2192,7 +2209,6 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
   function renderGroup(type, label) {
     const cats=chargeByType[type]||{};
     const groupMonths=getGroupTotal(type);
-    const ordCats=CATEGORIES_ORDER.filter(c=>cats[c]&&catTypes[c]===type);
     return <ReportingRow key={type} label={label} months={groupMonths} lastMonth={lastMonth}
       bold bg='#f0fdf4' inKeur={inKeur} onClick={()=>toggle(type)} isOpen={expanded[type]}>
       {ordCats.map(cat=>{
@@ -2447,10 +2463,10 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
               return <>
                 <SectionHeader label="Trésorerie"/>
                 <ReportingRow label="Variation de BFR" months={bfrTotal} lastMonth={lastMonth} bold inKeur={inKeur}
-                  onClick={()=>{toggle('bfr');loadBilEntries('bfr','clients');loadBilEntries('bfr','fournisseurs');loadBilEntries('bfr','stocks');}} isOpen={expanded['bfr']}>
+                  onClick={()=>{toggle('bfr');loadBilEntriesRef.current&&loadBilEntriesRef.current('bfr','clients');loadBilEntriesRef.current&&loadBilEntriesRef.current('bfr','fournisseurs');loadBilEntriesRef.current&&loadBilEntriesRef.current('bfr','stocks');}} isOpen={expanded['bfr']}>
                   {bfrKeys.map(({key,label})=>(
                     <ReportingRow key={key} label={label} months={getM('bfr',key)} lastMonth={lastMonth} indent={1} inKeur={inKeur}
-                      onClick={()=>{toggle('bfr_'+key);loadBilEntries('bfr',key);}} isOpen={expanded['bfr_'+key]}>
+                      onClick={()=>{toggle('bfr_'+key);loadBilEntriesRef.current&&loadBilEntriesRef.current('bfr',key);}} isOpen={expanded['bfr_'+key]}>
                       {detailRows('bfr',key)}
                     </ReportingRow>
                   ))}
@@ -2458,10 +2474,10 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
 
                 
                 <ReportingRow label="Variations d'autres comptes de bilan" months={autresTotal} lastMonth={lastMonth} bold inKeur={inKeur}
-                  onClick={()=>{toggle('autres');['capitaux','provisions','emprunts','participations','immobilisations','dette_sociale','dette_etat','comptes_courants','autre'].forEach(k=>loadBilEntries('autres',k));}} isOpen={expanded['autres']}>
+                  onClick={()=>{toggle('autres');['capitaux','provisions','emprunts','participations','immobilisations','dette_sociale','dette_etat','comptes_courants','autre'].forEach(k=>loadBilEntriesRef.current&&loadBilEntriesRef.current('autres',k));}} isOpen={expanded['autres']}>
                   {autresKeys.map(({key,label})=>(
                     <ReportingRow key={key} label={label} months={getM('autres',key)} lastMonth={lastMonth} indent={1} inKeur={inKeur}
-                      onClick={()=>{toggle('autres_'+key);loadBilEntries('autres',key);}} isOpen={expanded['autres_'+key]}>
+                      onClick={()=>{toggle('autres_'+key);loadBilEntriesRef.current&&loadBilEntriesRef.current('autres',key);}} isOpen={expanded['autres_'+key]}>
                       {detailRows('autres',key)}
                     </ReportingRow>
                   ))}
@@ -2469,10 +2485,10 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
 
                 
                 <ReportingRow label="Variation de Trésorerie" months={banquesTotal} lastMonth={lastMonth} bold inKeur={inKeur}
-                  onClick={()=>{toggle('banques');loadBilEntries('banques','banques');}} isOpen={expanded['banques']}>
+                  onClick={()=>{toggle('banques');loadBilEntriesRef.current&&loadBilEntriesRef.current('banques','banques');}} isOpen={expanded['banques']}>
                   {detailRows('banques','banques').length>0&&(
                     <ReportingRow label="Banques (51x)" months={banquesTotal} lastMonth={lastMonth} indent={1} inKeur={inKeur}
-                      onClick={()=>{toggle('banques_detail');loadBilEntries('banques','banques');}} isOpen={expanded['banques_detail']}>
+                      onClick={()=>{toggle('banques_detail');loadBilEntriesRef.current&&loadBilEntriesRef.current('banques','banques');}} isOpen={expanded['banques_detail']}>
                       {detailRows('banques','banques')}
                     </ReportingRow>
                   )}
