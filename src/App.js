@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, getDocs, query, where, updateDoc, deleteDoc } from "firebase/firestore";
+import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, getDocs, getDoc, query, where, updateDoc, deleteDoc } from "firebase/firestore";
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "firebase/auth";
 
 const firebaseConfig = {
@@ -1820,7 +1820,7 @@ function ReportingRow({label, months, lastMonth, bold=false, highlight=false, is
   const ytd = months.slice(0,lastMonth).reduce((a,b)=>a+b,0);
   const total = months.reduce((a,b)=>a+b,0);
   const col = total < 0 ? '#c0392b' : total > 0 ? '#166534' : '#9e9890';
-  const bg = isTotal ? '#f0fdf4' : highlight ? '#f8f7f5' : 'transparent';
+  const bg = isTotal ? '#f0fdf4' : highlight ? '#f8f7f5' : indent===2 ? '#f5f3ef' : indent===3 ? '#efecea' : 'transparent';
   const cell = {padding:'5px 4px',fontSize:11,textAlign:'right',fontFamily:'system-ui,sans-serif',fontVariantNumeric:'tabular-nums',width:44,minWidth:44,maxWidth:44,
     borderBottom:'1px solid #f0ede8',whiteSpace:'nowrap'};
   return <>
@@ -1871,7 +1871,7 @@ function DetailEcritures({rows, lastMonth, monthActive, isAU=false}) {
     });
   return <>
     {sorted.map((r,i)=>{
-      const label=`${isAU&&r.subcat?r.subcat+' · ':''}${r.libLigne||'—'} · ${r.tiers||'—'} · ${r.facture||'—'} · ${r.compte} · ${r.libCompte}`;
+      const label=`${isAU&&r.subcat?r.subcat+' · ':''}${r.date||''} · ${r.libPiece||r.libLigne||r.tiers||'—'}`;
       return <tr key={i} style={{background:'#fafaf8'}}>
       <td style={{padding:'3px 4px 3px 40px',fontSize:10,color:'#6b6560',
         position:'sticky',left:0,background:'#fafaf8',zIndex:1,
@@ -2028,6 +2028,8 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
 
   const [chargeData, setChargeData] = useState(null);
   const [bfrData, setBfrData] = useState(null);
+  const [bilEntries, setBilEntries] = useState({});
+  const [chargeEntries, setChargeEntries] = useState({});
   const [canalMargin, setCanalMargin] = useState(()=>{
     const src=savedCanalMargin||CANAL_MARGIN;
     const result={};
@@ -2150,12 +2152,19 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
       const isActive = activeSubcats[subcat] !== false; // default true
       const targetSubcat = isActive ? subcat : `${code}-AU`;
       
-      if(!res[type][cat][targetSubcat]) res[type][cat][targetSubcat]={months:Array(12).fill(0),rows:[],isAU:!isActive};
+      if(!res[type][cat][targetSubcat]) res[type][cat][targetSubcat]={months:Array(12).fill(0),rows:[],comptes:{},isAU:!isActive};
       const months=getMonthArray(data.months);
       months.forEach((v,i)=>res[type][cat][targetSubcat].months[i]+=v);
       // Store rows with subcat code for AU buckets sorting
       const rowsWithSubcat=(data.rows||[]).map(r=>({...r,subcat:isActive?undefined:subcat}));
       res[type][cat][targetSubcat].rows=(res[type][cat][targetSubcat].rows||[]).concat(rowsWithSubcat);
+      // Store comptes (entries loaded on demand)
+      (data.comptes||[]).forEach(cp=>{
+        const ck=cp.compte;
+        if(!res[type][cat][targetSubcat].comptes[ck]) res[type][cat][targetSubcat].comptes[ck]={libCompte:cp.libCompte,months:Array(12).fill(0)};
+        const cpMonths=getMonthArray(cp.months);
+        cpMonths.forEach((v,i)=>res[type][cat][targetSubcat].comptes[ck].months[i]+=v);
+      });
     });
     return res;
   },[chargeData,codeMap,catTypes,activeSubcats]);
@@ -2171,6 +2180,33 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
   const resultat = useMemo(()=>ebitda.map((v,i)=>v+autresCharges[i]),[ebitda,autresCharges]);
 
   const toggle = k => setExpanded(p=>({...p,[k]:!p[k]}));
+  const loadBilEntriesRef = React.useRef(null);
+  const loadBilEntries=async(section,key)=>{
+    const docKey=`${section}_${key}`;
+    if(bilEntries[docKey]!==undefined)return;
+    setBilEntries(p=>({...p,[docKey]:[]}));
+    try{
+      const snaps=await Promise.all([
+        getDoc(doc(db,'bfr_entries',docKey)),
+        getDoc(doc(db,'bfr_entries',`${docKey}_p0`)),
+        getDoc(doc(db,'bfr_entries',`${docKey}_p1`)),
+      ]);
+      let entries=[];
+      snaps.forEach(s=>{if(s.exists())entries=entries.concat(s.data().entries||[]);});
+      setBilEntries(p=>({...p,[docKey]:entries}));
+    }catch(e){console.warn('loadBilEntries',e);}
+  };
+  const loadChargeEntries=async(subcat)=>{
+    if(chargeEntries[subcat]!==undefined)return;
+    setChargeEntries(p=>({...p,[subcat]:[]}));
+    try{
+      const s=await getDoc(doc(db,'charge_entries',subcat));
+      if(s.exists()) setChargeEntries(p=>({...p,[subcat]:s.data().entries||[]}));
+    }catch(e){console.warn('loadChargeEntries',e);}
+  };
+  const loadChargeEntriesRef=React.useRef(null);
+  loadBilEntriesRef.current=loadBilEntries;
+  loadChargeEntriesRef.current=loadChargeEntries;
 
   // 13 col header: 12 months + YTD slot inserted after lastMonth
   const headerCols = [...Array(12).keys()].map(i=>i).reduce((acc,i)=>{
@@ -2192,11 +2228,24 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
         return <ReportingRow key={cat} label={cat} months={catMonths} lastMonth={lastMonth}
           indent={1} inKeur={inKeur} onClick={()=>toggle(catKey)} isOpen={expanded[catKey]}>
           {Object.entries(cats[cat]||{}).sort(([a],[b])=>a.localeCompare(b)).map(([subcat,d])=>{
-            const subcatKey=catKey+'-'+subcat;
             const label2=`${subcat} · ${effectiveLabels[subcat]||subcatLabels[subcat]||''}`;
+            const compteEntries=Object.entries(d.comptes||{}).sort(([a],[b])=>a.localeCompare(b));
+            const subcatKey=catKey+'-'+subcat;
             return <ReportingRow key={subcat} label={label2} months={d.months} lastMonth={lastMonth}
-              indent={2} inKeur={inKeur} onClick={()=>toggle(subcatKey)} isOpen={expanded[subcatKey]}>
-              <DetailEcritures rows={d.rows} lastMonth={lastMonth} monthActive={monthActive} isAU={d.isAU}/>
+              indent={2} inKeur={inKeur} onClick={()=>{toggle(subcatKey);loadChargeEntriesRef.current&&loadChargeEntriesRef.current(subcat);}} isOpen={expanded[subcatKey]}>
+              {compteEntries.length>0
+                ? compteEntries.map(([compte,cpd])=>{
+                    const cpKey=subcatKey+'-'+compte;
+                    const loadedEntries=(chargeEntries[subcat]||[]).find(e=>e.compte===compte)?.entries||[];
+                    return <ReportingRow key={compte} label={`${compte} · ${cpd.libCompte||''}`}
+                      months={cpd.months} lastMonth={lastMonth} indent={3} inKeur={inKeur}
+                      onClick={loadedEntries.length>0?()=>toggle(cpKey):undefined}
+                      isOpen={expanded[cpKey]}>
+                      {loadedEntries.length>0&&<DetailEcritures rows={loadedEntries.filter(e=>e.month<=lastMonth)} lastMonth={lastMonth} monthActive={monthActive} isAU={d.isAU}/>}
+                    </ReportingRow>;
+                  })
+                : <DetailEcritures rows={d.rows} lastMonth={lastMonth} monthActive={monthActive} isAU={d.isAU}/>
+              }
             </ReportingRow>;
           })}
         </ReportingRow>;
@@ -2333,51 +2382,58 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
               // Group by compte for sub-detail
               const byCompte=(section,key)=>{
                 const rows=bfrData?.[section]?.[key]?.rows||[];
-                const map={};
-                // Handle both formats: array of {compte,libCompte,months:{}} or {compte,libCompte,month,amount}
-                rows.forEach(r=>{
-                  if(!map[r.compte])map[r.compte]={libCompte:r.libCompte,months:Array(12).fill(0)};
-                  if(r.months&&typeof r.months==='object'&&!Array.isArray(r.months)){
-                    // New format: months is {mKey: amount}
+                const docKey=`${section}_${key}`;
+                const loadedEntries=bilEntries[docKey]||[];
+                return rows.map(r=>{
+                  const months=Array(12).fill(0);
+                  if(r.months&&typeof r.months==='object'){
                     Object.entries(r.months).forEach(([k,v])=>{
                       const m=parseInt(k.split('-')[1])-1;
-                      if(m>=0&&m<12&&m<lastMonth)map[r.compte].months[m]+=v;
+                      if(m>=0&&m<12)months[m]+=v;
                     });
-                  } else if(r.month<=lastMonth){
-                    // Old format: individual row with month/amount
-                    map[r.compte].months[r.month-1]+=r.amount;
                   }
+                  // Find entries for this compte from loaded entries
+                  const entries=loadedEntries.filter(e=>e.compte===r.compte).flatMap(e=>e.entries||[]);
+                  return [r.compte,{libCompte:r.libCompte,months,entries}];
                 });
-                return Object.entries(map).sort((a,b)=>a[0].localeCompare(b[0]));
               };
-              const detailRows=(section,key)=>byCompte(section,key).map(([c,d])=>(
-                <tr key={c} style={{background:'#fafaf8'}}>
-                  <td style={{padding:'3px 4px 3px 40px',fontSize:10,color:'#6b6560',
-                    position:'sticky',left:0,background:'#fafaf8',zIndex:1,
-                    borderBottom:'1px solid #f0ede8',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:220}}>
-                    {c} · {d.libCompte||'—'}
-                  </td>
-                  {d.months.map((v,i)=>{
-                    const isEmpty=i>=lastMonth;
-                    return <React.Fragment key={i}>
-                      {i===lastMonth&&<td style={{padding:'3px 6px',fontSize:10,textAlign:'right',fontFamily:'monospace',
-                        borderLeft:'2px solid #2d6a4f',borderRight:'2px solid #2d6a4f',background:'#f0fdf4',borderBottom:'1px solid #f0ede8',fontWeight:600,
-                        color:d.months.slice(0,lastMonth).reduce((s,x)=>s+x,0)<0?'#c0392b':'#166534'}}>
-                        {fmtAmount(d.months.slice(0,lastMonth).reduce((s,x)=>s+x,0),inKeur)}
-                      </td>}
-                      <td style={{padding:'3px 6px',fontSize:10,textAlign:'right',fontFamily:'monospace',
-                        color:isEmpty?'#c5c0b8':v<0?'#c0392b':'#1a1814',borderBottom:'1px solid #f0ede8',
-                        background:isEmpty?'#fafafa':'transparent'}}>
-                        {isEmpty?'—':fmtAmount(v,inKeur)}
-                      </td>
-                    </React.Fragment>;
-                  })}
-                  <td style={{padding:'3px 6px',fontSize:10,textAlign:'right',fontFamily:'monospace',
-                    borderLeft:'1px solid #e2ddd6',borderBottom:'1px solid #f0ede8',
-                    color:d.months.reduce((s,x)=>s+x,0)<0?'#c0392b':'#1a1814'}}>
-                    {fmtAmount(d.months.reduce((s,x)=>s+x,0),inKeur)}
-                  </td>
-                </tr>
+              const EntryRows=({entries,lastMonth,inKeur})=>{
+                const sorted=[...entries].filter(e=>e.month<=lastMonth).sort((a,b)=>a.month-b.month||(a.date||'').localeCompare(b.date||''));
+                return sorted.map((e,i)=>{
+                  const mArr=Array(12).fill(null);
+                  mArr[e.month-1]=e.amount;
+                  const fmtEntry=v=>v==null?'':v.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});
+                  return <tr key={i} style={{background:'#f5f5f2'}}>
+                    <td style={{padding:'3px 4px 3px 40px',fontSize:10,color:'#6b6560',
+                      position:'sticky',left:0,background:'#f5f5f2',zIndex:1,
+                      borderBottom:'1px solid #f0ede8',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:220}}>
+                      {e.date} · {e.libPiece||e.libLigne||e.tiers||'—'}
+                    </td>
+                    {mArr.map((v,mi)=>{
+                      const isEmpty=mi>=lastMonth;
+                      return <React.Fragment key={mi}>
+                        {mi===lastMonth&&<td style={{borderLeft:'2px solid #2d6a4f',borderRight:'2px solid #2d6a4f',background:'#f0fdf4',borderBottom:'1px solid #f0ede8'}}></td>}
+                        <td style={{padding:'3px 10px',fontSize:10,textAlign:'right',fontFamily:'system-ui,sans-serif',
+                          color:v===null?(isEmpty?'#e8e4de':'transparent'):v<0?'#c0392b':'#1a1814',
+                          borderBottom:'1px solid #f0ede8',background:isEmpty?'#fafafa':'transparent'}}>
+                          {v===null?(isEmpty?'—':''):fmtEntry(v)}
+                        </td>
+                      </React.Fragment>;
+                    })}
+                    <td style={{borderLeft:'1px solid #e2ddd6',borderBottom:'1px solid #f0ede8'}}></td>
+                  </tr>;
+                });
+              };
+              const detailRows=(section,key)=>byCompte(section,key)
+                .filter(([,d])=>d.months.slice(0,lastMonth).some(v=>v!==0))
+                .map(([c,d])=>(
+                <ReportingRow key={c}
+                  label={`${c} · ${d.libCompte||'—'}`}
+                  months={d.months} lastMonth={lastMonth} indent={2} inKeur={inKeur}
+                  onClick={()=>{toggle(`bil_${section}_${key}_${c}`);loadBilEntriesRef.current&&loadBilEntriesRef.current(section,key);}}
+                  isOpen={expanded[`bil_${section}_${key}_${c}`]}>
+                  {expanded[`bil_${section}_${key}_${c}`]&&d.entries?.length>0&&<EntryRows entries={d.entries} lastMonth={lastMonth} inKeur={inKeur}/>}
+                </ReportingRow>
               ));
               const SectionHeader=({label})=><tr><td colSpan={lastMonth+4} style={{height:16,padding:'20px 6px 4px',fontSize:11,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.06em',background:'#fafaf8',borderTop:'2px solid #e2ddd6'}}>{label}</td></tr>;
               // Solde comptes 51 = cumulative sum per month (not variation)
@@ -2418,10 +2474,10 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
               return <>
                 <SectionHeader label="Trésorerie"/>
                 <ReportingRow label="Variation de BFR" months={bfrTotal} lastMonth={lastMonth} bold inKeur={inKeur}
-                  onClick={()=>toggle('bfr')} isOpen={expanded['bfr']}>
+                  onClick={()=>{toggle('bfr');loadBilEntriesRef.current&&loadBilEntriesRef.current('bfr','clients');loadBilEntriesRef.current&&loadBilEntriesRef.current('bfr','fournisseurs');loadBilEntriesRef.current&&loadBilEntriesRef.current('bfr','stocks');}} isOpen={expanded['bfr']}>
                   {bfrKeys.map(({key,label})=>(
                     <ReportingRow key={key} label={label} months={getM('bfr',key)} lastMonth={lastMonth} indent={1} inKeur={inKeur}
-                      onClick={()=>toggle('bfr_'+key)} isOpen={expanded['bfr_'+key]}>
+                      onClick={()=>{toggle('bfr_'+key);loadBilEntriesRef.current&&loadBilEntriesRef.current('bfr',key);}} isOpen={expanded['bfr_'+key]}>
                       {detailRows('bfr',key)}
                     </ReportingRow>
                   ))}
@@ -2429,10 +2485,10 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
 
                 
                 <ReportingRow label="Variations d'autres comptes de bilan" months={autresTotal} lastMonth={lastMonth} bold inKeur={inKeur}
-                  onClick={()=>toggle('autres')} isOpen={expanded['autres']}>
+                  onClick={()=>{toggle('autres');['capitaux','provisions','emprunts','participations','immobilisations','dette_sociale','dette_etat','comptes_courants','autre'].forEach(k=>loadBilEntriesRef.current&&loadBilEntriesRef.current('autres',k));}} isOpen={expanded['autres']}>
                   {autresKeys.map(({key,label})=>(
                     <ReportingRow key={key} label={label} months={getM('autres',key)} lastMonth={lastMonth} indent={1} inKeur={inKeur}
-                      onClick={()=>toggle('autres_'+key)} isOpen={expanded['autres_'+key]}>
+                      onClick={()=>{toggle('autres_'+key);loadBilEntriesRef.current&&loadBilEntriesRef.current('autres',key);}} isOpen={expanded['autres_'+key]}>
                       {detailRows('autres',key)}
                     </ReportingRow>
                   ))}
@@ -2440,15 +2496,15 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
 
                 
                 <ReportingRow label="Variation de Trésorerie" months={banquesTotal} lastMonth={lastMonth} bold inKeur={inKeur}
-                  onClick={()=>toggle('banques')} isOpen={expanded['banques']}>
+                  onClick={()=>{toggle('banques');loadBilEntriesRef.current&&loadBilEntriesRef.current('banques','banques');}} isOpen={expanded['banques']}>
                   {detailRows('banques','banques').length>0&&(
                     <ReportingRow label="Banques (51x)" months={banquesTotal} lastMonth={lastMonth} indent={1} inKeur={inKeur}
-                      onClick={()=>toggle('banques_detail')} isOpen={expanded['banques_detail']}>
+                      onClick={()=>{toggle('banques_detail');loadBilEntriesRef.current&&loadBilEntriesRef.current('banques','banques');}} isOpen={expanded['banques_detail']}>
                       {detailRows('banques','banques')}
                     </ReportingRow>
                   )}
                 </ReportingRow>
-                <ReportingRow label="Trésorerie (solde)" months={banquesMonths} lastMonth={lastMonth} bold isTotal inKeur={inKeur}
+                <ReportingRow label="Trésorerie (solde)" months={banquesMonths} lastMonth={lastMonth} bold isTotal inKeur={inKeur} useLastForYTD
                   onClick={()=>toggle('treso_solde')} isOpen={expanded['treso_solde']}>
                   {(()=>{
                     // Per-account cumulative balance at end of each month
@@ -2501,7 +2557,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
               </>;
             })()}
             {/* ── STOCKS ── */}
-            {chargeData&&(()=>{
+            {chargeData&&bfrData&&(()=>{
               const COGS_KEYS=['Z2-01','Z2-02','Z2-03','Z2-25','Z2-32','Z2-33','Z2-AU'];
               const getSubcatMonths=k=>{
                 const d=chargeData[k];
@@ -2511,6 +2567,29 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
               const cogsMonths=Array(12).fill(0).map((_,i)=>
                 COGS_KEYS.reduce((s,k)=>s+getSubcatMonths(k)[i],0)
               );
+              // Variation de stocks (from bfr.stocks)
+              // Variation de stocks (from bfr.stocks)
+              const stocksVariation=(()=>{
+                const d=bfrData?.bfr?.stocks?.months||{};
+                const arr=Array(12).fill(0);
+                Object.entries(d).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]+=v;});
+                return arr;
+              })();
+              // Solde stocks = AN + cumul variations (stocks are assets: positive = value)
+              const stocksRows=bfrData?.bfr?.stocks?.rows||[];
+              let stocksAN=0;
+              stocksRows.forEach(r=>Object.values(r.an||{}).forEach(v=>stocksAN+=v));
+              // Stocks are assets (like banques): negate AN (stored as credit=negative)
+              stocksAN=-stocksAN;
+              const stocksSolde=(()=>{
+                const arr=Array(12).fill(0);
+                Object.entries(bfrData?.bfr?.stocks?.months||{}).forEach(([k,v])=>{
+                  const m=parseInt(k.split('-')[1])-1;
+                  if(m>=0&&m<12)arr[m]+=v;
+                });
+                let cum=stocksAN;
+                return arr.map(v=>{cum+=v;return cum;});
+              })();
               return <>
                 <tr><td colSpan={lastMonth+4} style={{padding:'20px 6px 4px',fontSize:11,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.06em',background:'#fafaf8',borderTop:'2px solid #e2ddd6'}}>Stocks</td></tr>
                 <ReportingRow label="CoGS" months={cogsMonths} lastMonth={lastMonth} bold inKeur={inKeur}
@@ -2521,6 +2600,8 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                     return <ReportingRow key={k} label={label} months={months} lastMonth={lastMonth} indent={1} inKeur={inKeur}/>;
                   })}
                 </ReportingRow>
+                <ReportingRow label="Variation de stocks (3x)" months={stocksVariation} lastMonth={lastMonth} inKeur={inKeur}/>
+                <ReportingRow label="Stocks (solde)" months={stocksSolde} lastMonth={lastMonth} bold isTotal inKeur={inKeur} useLastForYTD/>
               </>;
             })()}
 
