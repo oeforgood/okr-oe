@@ -2369,22 +2369,6 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                   return [r.compte,{libCompte:r.libCompte,months,entries}];
                 });
               };
-                // Handle both formats: array of {compte,libCompte,months:{}} or {compte,libCompte,month,amount}
-                rows.forEach(r=>{
-                  if(!map[r.compte])map[r.compte]={libCompte:r.libCompte,months:Array(12).fill(0)};
-                  if(r.months&&typeof r.months==='object'&&!Array.isArray(r.months)){
-                    // New format: months is {mKey: amount}
-                    Object.entries(r.months).forEach(([k,v])=>{
-                      const m=parseInt(k.split('-')[1])-1;
-                      if(m>=0&&m<12&&m<lastMonth)map[r.compte].months[m]+=v;
-                    });
-                  } else if(r.month<=lastMonth){
-                    // Old format: individual row with month/amount
-                    map[r.compte].months[r.month-1]+=r.amount;
-                  }
-                });
-                return Object.entries(map).sort((a,b)=>a[0].localeCompare(b[0]));
-              };
               const EntryRows=({entries,lastMonth,inKeur})=>{
                 const sorted=[...entries].filter(e=>e.month<=lastMonth).sort((a,b)=>a.month-b.month||(a.date||'').localeCompare(b.date||''));
                 return sorted.map((e,i)=>{
