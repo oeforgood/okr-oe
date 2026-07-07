@@ -2254,7 +2254,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
               <th style={{padding:'8px 6px',textAlign:'left',fontSize:11,fontWeight:600,color:'#6b6560',
                 position:'sticky',left:0,background:'#f5f3ef',zIndex:2,
                 width:220,minWidth:220,maxWidth:220,borderBottom:'1px solid #e2ddd6'}}>
-                Ligne P&L
+                
               </th>
               {MONTHS_FR.map((m,i)=><>
                 {i===lastMonth&&<th key="ytd" style={{padding:'8px 8px',textAlign:'right',fontSize:11,fontWeight:700,
@@ -2277,29 +2277,13 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
             </tr>
           </thead>
           <tbody>
+            <tr><td colSpan={lastMonth+4} style={{padding:'8px 6px 4px',fontSize:11,fontWeight:700,
+              color:'#6b6560',textTransform:'uppercase',letterSpacing:'.06em',background:'#fafaf8',
+              borderTop:'2px solid #e2ddd6'}}>Exploitation</td></tr>
             <ReportingRow label="Chiffre d'Affaires" months={caTotal} lastMonth={lastMonth} bold inKeur={inKeur} onClick={()=>toggle('ca')} isOpen={expanded['ca']}>
               {REPORTING_CANALS.map(c=><ReportingRow key={c} label={c} months={caByCanal[c]||Array(12).fill(0)} lastMonth={lastMonth} indent={1} inKeur={inKeur}/>)}
             </ReportingRow>
-            {(()=>{
-              if(!chargeData)return null;
-              const COGS_KEYS=['Z2-01','Z2-02','Z2-03','Z2-25','Z2-32','Z2-33','Z2-AU'];
-              const getSubcatMonths=k=>{
-                const d=chargeData[k];
-                if(!d)return Array(12).fill(0);
-                return getMonthArray(d.months);
-              };
-              const cogsMonths=Array(12).fill(0).map((_,i)=>
-                COGS_KEYS.reduce((s,k)=>s+getSubcatMonths(k)[i],0)
-              );
-              return <ReportingRow label="CoGS" months={cogsMonths} lastMonth={lastMonth} bold inKeur={inKeur}
-                onClick={()=>toggle('cogs')} isOpen={expanded['cogs']}>
-                {COGS_KEYS.map(k=>{
-                  const label=effectiveLabels[k]||subcatLabels[k]||k;
-                  const months=getSubcatMonths(k);
-                  return <ReportingRow key={k} label={label} months={months} lastMonth={lastMonth} indent={1} inKeur={inKeur}/>;
-                })}
-              </ReportingRow>;
-            })()}
+
                         <ReportingRow label="Marge Brute" months={mbTotal} lastMonth={lastMonth} bold inKeur={inKeur} highlight onClick={()=>toggle('mb')} isOpen={expanded['mb']}>
               {REPORTING_CANALS.map(c=>{
                 return <tr key={c} style={{background:'#f8fffd'}}>
@@ -2345,7 +2329,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
               const getM=(section,key)=>{
                 const d=bfrData?.[section]?.[key]?.months||{};
                 const arr=Array(12).fill(0);
-                Object.entries(d).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]-=v;}); // invert: debit account
+                Object.entries(d).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]+=(INVERT_KEYS.has(key)?-v:v);});
                 return arr;
               };
               const sumM=(...arrays)=>Array(12).fill(0).map((_,i)=>arrays.reduce((s,a)=>s+(a[i]||0),0));
