@@ -2323,16 +2323,15 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
             {/* ── SUIVI DE TRÉSORERIE ── */}
             {bfrData&&(()=>{
               // Helper: get monthly array from section/key
-              const INVERT_KEYS=new Set(['capitaux','provisions','emprunts','participations','immobilisations','dette_sociale','dette_etat','comptes_courants','clients','fournisseurs','stocks']);
               const getM=(section,key)=>{
                 const d=bfrData?.[section]?.[key]?.months||{};
                 const arr=Array(12).fill(0);
-                Object.entries(d).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]+=(INVERT_KEYS.has(key)?-v:v);});
+                Object.entries(d).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]+=v;});
                 return arr;
               };
               const sumM=(...arrays)=>Array(12).fill(0).map((_,i)=>arrays.reduce((s,a)=>s+(a[i]||0),0));
               // Group by compte for sub-detail
-              const byCompte=(section,key)=>{const inv=INVERT_KEYS.has(key);
+              const byCompte=(section,key)=>{
                 const rows=bfrData?.[section]?.[key]?.rows||[];
                 const map={};
                 // Handle both formats: array of {compte,libCompte,months:{}} or {compte,libCompte,month,amount}
@@ -2342,7 +2341,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                     // New format: months is {mKey: amount}
                     Object.entries(r.months).forEach(([k,v])=>{
                       const m=parseInt(k.split('-')[1])-1;
-                      if(m>=0&&m<12&&m<lastMonth)map[r.compte].months[m]+=(inv?-v:v);
+                      if(m>=0&&m<12&&m<lastMonth)map[r.compte].months[m]+=v;
                     });
                   } else if(r.month<=lastMonth){
                     // Old format: individual row with month/amount
