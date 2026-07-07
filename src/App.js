@@ -2254,7 +2254,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
               <th style={{padding:'8px 6px',textAlign:'left',fontSize:11,fontWeight:600,color:'#6b6560',
                 position:'sticky',left:0,background:'#f5f3ef',zIndex:2,
                 width:220,minWidth:220,maxWidth:220,borderBottom:'1px solid #e2ddd6'}}>
-                Ligne P&L
+                
               </th>
               {MONTHS_FR.map((m,i)=><>
                 {i===lastMonth&&<th key="ytd" style={{padding:'8px 8px',textAlign:'right',fontSize:11,fontWeight:700,
@@ -2277,29 +2277,11 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
             </tr>
           </thead>
           <tbody>
+            <tr><td colSpan={lastMonth+4} style={{padding:'20px 6px 4px',fontSize:11,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.06em',background:'#fafaf8',borderTop:'2px solid #e2ddd6'}}>Exploitation</td></tr>
             <ReportingRow label="Chiffre d'Affaires" months={caTotal} lastMonth={lastMonth} bold inKeur={inKeur} onClick={()=>toggle('ca')} isOpen={expanded['ca']}>
               {REPORTING_CANALS.map(c=><ReportingRow key={c} label={c} months={caByCanal[c]||Array(12).fill(0)} lastMonth={lastMonth} indent={1} inKeur={inKeur}/>)}
             </ReportingRow>
-            {(()=>{
-              if(!chargeData)return null;
-              const COGS_KEYS=['Z2-01','Z2-02','Z2-03','Z2-25','Z2-32','Z2-33','Z2-AU'];
-              const getSubcatMonths=k=>{
-                const d=chargeData[k];
-                if(!d)return Array(12).fill(0);
-                return getMonthArray(d.months);
-              };
-              const cogsMonths=Array(12).fill(0).map((_,i)=>
-                COGS_KEYS.reduce((s,k)=>s+getSubcatMonths(k)[i],0)
-              );
-              return <ReportingRow label="CoGS" months={cogsMonths} lastMonth={lastMonth} bold inKeur={inKeur}
-                onClick={()=>toggle('cogs')} isOpen={expanded['cogs']}>
-                {COGS_KEYS.map(k=>{
-                  const label=effectiveLabels[k]||subcatLabels[k]||k;
-                  const months=getSubcatMonths(k);
-                  return <ReportingRow key={k} label={label} months={months} lastMonth={lastMonth} indent={1} inKeur={inKeur}/>;
-                })}
-              </ReportingRow>;
-            })()}
+
                         <ReportingRow label="Marge Brute" months={mbTotal} lastMonth={lastMonth} bold inKeur={inKeur} highlight onClick={()=>toggle('mb')} isOpen={expanded['mb']}>
               {REPORTING_CANALS.map(c=>{
                 return <tr key={c} style={{background:'#f8fffd'}}>
@@ -2397,16 +2379,18 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                   </td>
                 </tr>
               ));
-              const SectionHeader=({label})=><tr><td colSpan={lastMonth+4} style={{height:16,padding:'12px 6px 4px',
-                fontSize:10,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.06em',
-                background:'#fafaf8',borderTop:'2px solid #e2ddd6'}}>{label}</td></tr>;
+              const SectionHeader=({label})=><tr><td colSpan={lastMonth+4} style={{height:16,padding:'20px 6px 4px',fontSize:11,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.06em',background:'#fafaf8',borderTop:'2px solid #e2ddd6'}}>{label}</td></tr>;
               // Solde comptes 51 = cumulative sum per month (not variation)
               const banquesMonths=(()=>{
                 const d=bfrData?.banques?.banques?.months||{};
+                const rows=bfrData?.banques?.banques?.rows||[];
+                // Starting balance from AN entries
+                let startBal=0;
+                rows.forEach(r=>{Object.values(r.an||{}).forEach(v=>startBal-=v);}); // invert: debit account
                 const arr=Array(12).fill(0);
-                Object.entries(d).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]+=v;});
-                // cumulative
-                let cum=0;
+                Object.entries(d).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]-=v;}); // invert: debit account
+                // Cumulative from starting balance
+                let cum=startBal;
                 return arr.map(v=>{cum+=v;return cum;});
               })();
 
@@ -2429,7 +2413,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                 {key:'autre',label:'Autre (46-48, 5x sauf 51)'},
               ];
               const autresTotal=sumM(...autresKeys.map(({key})=>getM('autres',key)));
-              const banquesTotal=getM('banques','banques');
+              const banquesTotal=getM('banques','banques').map(v=>-v); // invert for display: positive=inflow
 
               return <>
                 <SectionHeader label="Trésorerie"/>
@@ -2464,7 +2448,79 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                     </ReportingRow>
                   )}
                 </ReportingRow>
-                <ReportingRow label="Trésorerie (solde)" months={banquesMonths} lastMonth={lastMonth} bold isTotal inKeur={inKeur}/>
+                <ReportingRow label="Trésorerie (solde)" months={banquesMonths} lastMonth={lastMonth} bold isTotal inKeur={inKeur}
+                  onClick={()=>toggle('treso_solde')} isOpen={expanded['treso_solde']}>
+                  {(()=>{
+                    // Per-account cumulative balance at end of each month
+                    const rows=bfrData?.banques?.banques?.rows||[];
+                    return rows.map(r=>{
+                      // Cumulative sum per month
+                      // Starting balance from AN entries
+                      const anBal=-Object.values(r.an||{}).reduce((s,v)=>s+v,0); // invert: debit account
+                      const cumMonths=Array(12).fill(0);
+                      let cum=anBal;
+                      for(let m=0;m<12;m++){
+                        const variation=r.months&&typeof r.months==='object'&&!Array.isArray(r.months)
+                          ? -(Object.entries(r.months).filter(([k])=>parseInt(k.split('-')[1])-1===m).reduce((s,[,v])=>s+v,0))
+                          : 0; // invert: debit account
+                        cum+=variation;
+                        cumMonths[m]=cum;
+                      }
+                      const isEmpty=m=>m>=lastMonth;
+                      return <tr key={r.compte} style={{background:'#fafaf8'}}>
+                        <td style={{padding:'3px 4px 3px 40px',fontSize:10,color:'#6b6560',
+                          position:'sticky',left:0,background:'#fafaf8',zIndex:1,
+                          borderBottom:'1px solid #f0ede8',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:220}}>
+                          {r.compte} · {r.libCompte||'—'}
+                        </td>
+                        {cumMonths.map((v,i)=>{
+                          const empty=i>=lastMonth;
+                          return <React.Fragment key={i}>
+                            {i===lastMonth&&<td style={{padding:'3px 6px',fontSize:10,textAlign:'right',fontFamily:'monospace',
+                              borderLeft:'2px solid #2d6a4f',borderRight:'2px solid #2d6a4f',background:'#f0fdf4',
+                              borderBottom:'1px solid #f0ede8',fontWeight:600,
+                              color:cumMonths[lastMonth-1]<0?'#c0392b':'#166534'}}>
+                              {fmtAmount(cumMonths[lastMonth-1],inKeur)}
+                            </td>}
+                            <td style={{padding:'3px 6px',fontSize:10,textAlign:'right',fontFamily:'monospace',
+                              color:empty?'#c5c0b8':v<0?'#c0392b':'#1a1814',borderBottom:'1px solid #f0ede8',
+                              background:empty?'#fafafa':'transparent'}}>
+                              {empty?'—':fmtAmount(v,inKeur)}
+                            </td>
+                          </React.Fragment>;
+                        })}
+                        <td style={{padding:'3px 6px',fontSize:10,textAlign:'right',fontFamily:'monospace',
+                          borderLeft:'1px solid #e2ddd6',borderBottom:'1px solid #f0ede8',
+                          color:cumMonths[11]<0?'#c0392b':'#1a1814'}}>
+                          {fmtAmount(cumMonths[11],inKeur)}
+                        </td>
+                      </tr>;
+                    });
+                  })()}
+                </ReportingRow>
+              </>;
+            })()}
+            {/* ── STOCKS ── */}
+            {chargeData&&(()=>{
+              const COGS_KEYS=['Z2-01','Z2-02','Z2-03','Z2-25','Z2-32','Z2-33','Z2-AU'];
+              const getSubcatMonths=k=>{
+                const d=chargeData[k];
+                if(!d)return Array(12).fill(0);
+                return getMonthArray(d.months);
+              };
+              const cogsMonths=Array(12).fill(0).map((_,i)=>
+                COGS_KEYS.reduce((s,k)=>s+getSubcatMonths(k)[i],0)
+              );
+              return <>
+                <tr><td colSpan={lastMonth+4} style={{padding:'20px 6px 4px',fontSize:11,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.06em',background:'#fafaf8',borderTop:'2px solid #e2ddd6'}}>Stocks</td></tr>
+                <ReportingRow label="CoGS" months={cogsMonths} lastMonth={lastMonth} bold inKeur={inKeur}
+                  onClick={()=>toggle('cogs')} isOpen={expanded['cogs']}>
+                  {COGS_KEYS.map(k=>{
+                    const label=effectiveLabels[k]||subcatLabels[k]||k;
+                    const months=getSubcatMonths(k);
+                    return <ReportingRow key={k} label={label} months={months} lastMonth={lastMonth} indent={1} inKeur={inKeur}/>;
+                  })}
+                </ReportingRow>
               </>;
             })()}
 
