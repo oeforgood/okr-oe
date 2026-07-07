@@ -2203,7 +2203,9 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
           {Object.entries(cats[cat]||{}).sort(([a],[b])=>a.localeCompare(b)).map(([subcat,d])=>{
             const subcatKey=catKey+'-'+subcat;
             const label2=`${subcat} · ${effectiveLabels[subcat]||subcatLabels[subcat]||''}`;
-            const compteEntries=Object.entries(d.comptes||{}).sort(([a],[b])=>a.localeCompare(b));
+            const compteEntries=Object.entries(d.comptes||{})
+              .filter(([,cpd])=>cpd.months.slice(0,lastMonth).some(v=>v!==0))
+              .sort(([a],[b])=>a.localeCompare(b));
             return <ReportingRow key={subcat} label={label2} months={d.months} lastMonth={lastMonth}
               indent={2} inKeur={inKeur} onClick={()=>toggle(subcatKey)} isOpen={expanded[subcatKey]}>
               {compteEntries.length>0
@@ -2395,7 +2397,9 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                   </tr>;
                 });
               };
-              const detailRows=(section,key)=>byCompte(section,key).map(([c,d])=>(
+              const detailRows=(section,key)=>byCompte(section,key)
+                .filter(([,d])=>d.months.slice(0,lastMonth).some(v=>v!==0))
+                .map(([c,d])=>(
                 <ReportingRow key={c}
                   label={`${c} · ${d.libCompte||'—'}`}
                   months={d.months} lastMonth={lastMonth} indent={2} inKeur={inKeur}
