@@ -2464,7 +2464,54 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                     </ReportingRow>
                   )}
                 </ReportingRow>
-                <ReportingRow label="Trésorerie (solde)" months={banquesMonths} lastMonth={lastMonth} bold isTotal inKeur={inKeur}/>
+                <ReportingRow label="Trésorerie (solde)" months={banquesMonths} lastMonth={lastMonth} bold isTotal inKeur={inKeur}
+                  onClick={()=>toggle('treso_solde')} isOpen={expanded['treso_solde']}>
+                  {(()=>{
+                    // Per-account cumulative balance at end of each month
+                    const rows=bfrData?.banques?.banques?.rows||[];
+                    return rows.map(r=>{
+                      // Cumulative sum per month
+                      const cumMonths=Array(12).fill(0);
+                      let cum=0;
+                      for(let m=0;m<12;m++){
+                        const variation=r.months&&typeof r.months==='object'&&!Array.isArray(r.months)
+                          ? (Object.entries(r.months).filter(([k])=>parseInt(k.split('-')[1])-1===m).reduce((s,[,v])=>s+v,0))
+                          : 0;
+                        cum+=variation;
+                        cumMonths[m]=cum;
+                      }
+                      const isEmpty=m=>m>=lastMonth;
+                      return <tr key={r.compte} style={{background:'#fafaf8'}}>
+                        <td style={{padding:'3px 4px 3px 40px',fontSize:10,color:'#6b6560',
+                          position:'sticky',left:0,background:'#fafaf8',zIndex:1,
+                          borderBottom:'1px solid #f0ede8',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:220}}>
+                          {r.compte} · {r.libCompte||'—'}
+                        </td>
+                        {cumMonths.map((v,i)=>{
+                          const empty=i>=lastMonth;
+                          return <React.Fragment key={i}>
+                            {i===lastMonth&&<td style={{padding:'3px 6px',fontSize:10,textAlign:'right',fontFamily:'monospace',
+                              borderLeft:'2px solid #2d6a4f',borderRight:'2px solid #2d6a4f',background:'#f0fdf4',
+                              borderBottom:'1px solid #f0ede8',fontWeight:600,
+                              color:cumMonths[lastMonth-1]<0?'#c0392b':'#166534'}}>
+                              {fmtAmount(cumMonths[lastMonth-1],inKeur)}
+                            </td>}
+                            <td style={{padding:'3px 6px',fontSize:10,textAlign:'right',fontFamily:'monospace',
+                              color:empty?'#c5c0b8':v<0?'#c0392b':'#1a1814',borderBottom:'1px solid #f0ede8',
+                              background:empty?'#fafafa':'transparent'}}>
+                              {empty?'—':fmtAmount(v,inKeur)}
+                            </td>
+                          </React.Fragment>;
+                        })}
+                        <td style={{padding:'3px 6px',fontSize:10,textAlign:'right',fontFamily:'monospace',
+                          borderLeft:'1px solid #e2ddd6',borderBottom:'1px solid #f0ede8',
+                          color:cumMonths[11]<0?'#c0392b':'#1a1814'}}>
+                          {fmtAmount(cumMonths[11],inKeur)}
+                        </td>
+                      </tr>;
+                    });
+                  })()}
+                </ReportingRow>
               </>;
             })()}
 
