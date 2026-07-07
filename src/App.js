@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, getDocs, getDoc, query, where, updateDoc, deleteDoc } from "firebase/firestore";
+import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, getDocs, query, where, updateDoc, deleteDoc } from "firebase/firestore";
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "firebase/auth";
 
 const firebaseConfig = {
@@ -2402,7 +2402,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                 return sorted.map((e,i)=>{
                   const mArr=Array(12).fill(null);
                   mArr[e.month-1]=e.amount;
-                  const fmtEntry=v=>v==null?'':v.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+'€';
+                  const fmtEntry=v=>v==null?'':v.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});
                   return <tr key={i} style={{background:'#f5f5f2'}}>
                     <td style={{padding:'2px 4px 2px 60px',fontSize:9,color:'#6b6560',
                       position:'sticky',left:0,background:'#f5f5f2',zIndex:1,
