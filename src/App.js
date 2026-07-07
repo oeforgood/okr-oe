@@ -2277,7 +2277,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
             </tr>
           </thead>
           <tbody>
-            <tr><td colSpan={lastMonth+4} style={{padding:'8px 6px 4px',fontSize:11,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.06em',background:'#fafaf8',borderTop:'2px solid #e2ddd6'}}>Exploitation</td></tr>
+            <tr><td colSpan={lastMonth+4} style={{padding:'20px 6px 4px',fontSize:11,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.06em',background:'#fafaf8',borderTop:'2px solid #e2ddd6'}}>Exploitation</td></tr>
             <ReportingRow label="Chiffre d'Affaires" months={caTotal} lastMonth={lastMonth} bold inKeur={inKeur} onClick={()=>toggle('ca')} isOpen={expanded['ca']}>
               {REPORTING_CANALS.map(c=><ReportingRow key={c} label={c} months={caByCanal[c]||Array(12).fill(0)} lastMonth={lastMonth} indent={1} inKeur={inKeur}/>)}
             </ReportingRow>
@@ -2345,7 +2345,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                     });
                   } else if(r.month<=lastMonth){
                     // Old format: individual row with month/amount
-                    map[r.compte].months[r.month-1]+=(inv?-r.amount:r.amount);
+                    map[r.compte].months[r.month-1]+=r.amount;
                   }
                 });
                 return Object.entries(map).sort((a,b)=>a[0].localeCompare(b[0]));
@@ -2379,7 +2379,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                   </td>
                 </tr>
               ));
-              const SectionHeader=({label})=><tr><td colSpan={lastMonth+4} style={{height:16,padding:'8px 6px 4px',fontSize:11,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.06em',background:'#fafaf8',borderTop:'2px solid #e2ddd6'}}>{label}</td></tr>;
+              const SectionHeader=({label})=><tr><td colSpan={lastMonth+4} style={{height:16,padding:'20px 6px 4px',fontSize:11,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.06em',background:'#fafaf8',borderTop:'2px solid #e2ddd6'}}>{label}</td></tr>;
               // Solde comptes 51 = cumulative sum per month (not variation)
               const banquesMonths=(()=>{
                 const d=bfrData?.banques?.banques?.months||{};
@@ -2512,7 +2512,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                 COGS_KEYS.reduce((s,k)=>s+getSubcatMonths(k)[i],0)
               );
               return <>
-                <tr><td colSpan={lastMonth+4} style={{padding:'8px 6px 4px',fontSize:11,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.06em',background:'#fafaf8',borderTop:'2px solid #e2ddd6'}}>Stocks</td></tr>
+                <tr><td colSpan={lastMonth+4} style={{padding:'20px 6px 4px',fontSize:11,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.06em',background:'#fafaf8',borderTop:'2px solid #e2ddd6'}}>Stocks</td></tr>
                 <ReportingRow label="CoGS" months={cogsMonths} lastMonth={lastMonth} bold inKeur={inKeur}
                   onClick={()=>toggle('cogs')} isOpen={expanded['cogs']}>
                   {COGS_KEYS.map(k=>{
