@@ -2222,6 +2222,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
             const compteEntries=Object.entries(d.comptes||{})
               .filter(([,cpd])=>cpd.months.slice(0,lastMonth).some(v=>v!==0))
               .sort(([a],[b])=>a.localeCompare(b));
+            const subcatKey=catKey+'-'+subcat;
             return <ReportingRow key={subcat} label={label2} months={d.months} lastMonth={lastMonth}
               indent={2} inKeur={inKeur} onClick={()=>toggle(subcatKey)} isOpen={expanded[subcatKey]}>
               {compteEntries.length>0
