@@ -2029,6 +2029,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
   const [chargeData, setChargeData] = useState(null);
   const [bfrData, setBfrData] = useState(null);
   const [bilEntries, setBilEntries] = useState({});
+  const [chargeEntries, setChargeEntries] = useState({});
   const [canalMargin, setCanalMargin] = useState(()=>{
     const src=savedCanalMargin||CANAL_MARGIN;
     const result={};
@@ -2157,13 +2158,12 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
       // Store rows with subcat code for AU buckets sorting
       const rowsWithSubcat=(data.rows||[]).map(r=>({...r,subcat:isActive?undefined:subcat}));
       res[type][cat][targetSubcat].rows=(res[type][cat][targetSubcat].rows||[]).concat(rowsWithSubcat);
-      // Store comptes with their entries
+      // Store comptes (entries loaded on demand)
       (data.comptes||[]).forEach(cp=>{
         const ck=cp.compte;
-        if(!res[type][cat][targetSubcat].comptes[ck]) res[type][cat][targetSubcat].comptes[ck]={libCompte:cp.libCompte,months:Array(12).fill(0),entries:[]};
+        if(!res[type][cat][targetSubcat].comptes[ck]) res[type][cat][targetSubcat].comptes[ck]={libCompte:cp.libCompte,months:Array(12).fill(0)};
         const cpMonths=getMonthArray(cp.months);
         cpMonths.forEach((v,i)=>res[type][cat][targetSubcat].comptes[ck].months[i]+=v);
-        res[type][cat][targetSubcat].comptes[ck].entries=res[type][cat][targetSubcat].comptes[ck].entries.concat(cp.entries||[]);
       });
     });
     return res;
@@ -2196,7 +2196,17 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
       setBilEntries(p=>({...p,[docKey]:entries}));
     }catch(e){console.warn('loadBilEntries',e);}
   };
+  const loadChargeEntries=async(subcat)=>{
+    if(chargeEntries[subcat]!==undefined)return;
+    setChargeEntries(p=>({...p,[subcat]:[]}));
+    try{
+      const s=await getDoc(doc(db,'charge_entries',subcat));
+      if(s.exists()) setChargeEntries(p=>({...p,[subcat]:s.data().entries||[]}));
+    }catch(e){console.warn('loadChargeEntries',e);}
+  };
+  const loadChargeEntriesRef=React.useRef(null);
   loadBilEntriesRef.current=loadBilEntries;
+  loadChargeEntriesRef.current=loadChargeEntries;
 
   // 13 col header: 12 months + YTD slot inserted after lastMonth
   const headerCols = [...Array(12).keys()].map(i=>i).reduce((acc,i)=>{
@@ -2224,15 +2234,16 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
               .sort(([a],[b])=>a.localeCompare(b));
             const subcatKey=catKey+'-'+subcat;
             return <ReportingRow key={subcat} label={label2} months={d.months} lastMonth={lastMonth}
-              indent={2} inKeur={inKeur} onClick={()=>toggle(subcatKey)} isOpen={expanded[subcatKey]}>
+              indent={2} inKeur={inKeur} onClick={()=>{toggle(subcatKey);loadChargeEntriesRef.current&&loadChargeEntriesRef.current(subcat);}} isOpen={expanded[subcatKey]}>
               {compteEntries.length>0
                 ? compteEntries.map(([compte,cpd])=>{
                     const cpKey=subcatKey+'-'+compte;
+                    const loadedEntries=(chargeEntries[subcat]||[]).find(e=>e.compte===compte)?.entries||[];
                     return <ReportingRow key={compte} label={`${compte} · ${cpd.libCompte||''}`}
                       months={cpd.months} lastMonth={lastMonth} indent={3} inKeur={inKeur}
-                      onClick={cpd.entries?.length>0?()=>toggle(cpKey):undefined}
+                      onClick={loadedEntries.length>0?()=>toggle(cpKey):undefined}
                       isOpen={expanded[cpKey]}>
-                      {cpd.entries?.length>0&&<DetailEcritures rows={cpd.entries.filter(e=>e.month<=lastMonth)} lastMonth={lastMonth} monthActive={monthActive} isAU={d.isAU}/>}
+                      {loadedEntries.length>0&&<DetailEcritures rows={loadedEntries.filter(e=>e.month<=lastMonth)} lastMonth={lastMonth} monthActive={monthActive} isAU={d.isAU}/>}
                     </ReportingRow>;
                   })
                 : <DetailEcritures rows={d.rows} lastMonth={lastMonth} monthActive={monthActive} isAU={d.isAU}/>
