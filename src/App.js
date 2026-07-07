@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, getDocs, getDoc, query, where, updateDoc, deleteDoc } from "firebase/firestore";
+import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, getDocs, query, where, updateDoc, deleteDoc } from "firebase/firestore";
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "firebase/auth";
 
 const firebaseConfig = {
@@ -2404,7 +2404,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                   mArr[e.month-1]=e.amount;
                   const fmtEntry=v=>v==null?'':v.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});
                   return <tr key={i} style={{background:'#f5f5f2'}}>
-                    <td style={{padding:'2px 4px 2px 60px',fontSize:9,color:'#6b6560',
+                    <td style={{padding:'3px 4px 3px 40px',fontSize:10,color:'#6b6560',
                       position:'sticky',left:0,background:'#f5f5f2',zIndex:1,
                       borderBottom:'1px solid #f0ede8',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:220}}>
                       {e.date} · {e.libPiece||e.libLigne||e.tiers||'—'}
@@ -2413,7 +2413,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                       const isEmpty=mi>=lastMonth;
                       return <React.Fragment key={mi}>
                         {mi===lastMonth&&<td style={{borderLeft:'2px solid #2d6a4f',borderRight:'2px solid #2d6a4f',background:'#f0fdf4',borderBottom:'1px solid #f0ede8'}}></td>}
-                        <td style={{padding:'2px 6px',fontSize:9,textAlign:'right',fontFamily:'monospace',
+                        <td style={{padding:'3px 10px',fontSize:10,textAlign:'right',fontFamily:'system-ui,sans-serif',
                           color:v===null?(isEmpty?'#e8e4de':'transparent'):v<0?'#c0392b':'#1a1814',
                           borderBottom:'1px solid #f0ede8',background:isEmpty?'#fafafa':'transparent'}}>
                           {v===null?(isEmpty?'—':''):fmtEntry(v)}
