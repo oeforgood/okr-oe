@@ -2344,7 +2344,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
               const getM=(section,key)=>{
                 const d=bfrData?.[section]?.[key]?.months||{};
                 const arr=Array(12).fill(0);
-                Object.entries(d).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]+=v;});
+                Object.entries(d).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]-=v;}); // invert: debit account
                 return arr;
               };
               const sumM=(...arrays)=>Array(12).fill(0).map((_,i)=>arrays.reduce((s,a)=>s+(a[i]||0),0));
@@ -2406,9 +2406,9 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                 const rows=bfrData?.banques?.banques?.rows||[];
                 // Starting balance from AN entries
                 let startBal=0;
-                rows.forEach(r=>{Object.values(r.an||{}).forEach(v=>startBal+=v);});
+                rows.forEach(r=>{Object.values(r.an||{}).forEach(v=>startBal-=v);}); // invert: debit account
                 const arr=Array(12).fill(0);
-                Object.entries(d).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]+=v;});
+                Object.entries(d).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]-=v;}); // invert: debit account
                 // Cumulative from starting balance
                 let cum=startBal;
                 return arr.map(v=>{cum+=v;return cum;});
@@ -2433,7 +2433,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                 {key:'autre',label:'Autre (46-48, 5x sauf 51)'},
               ];
               const autresTotal=sumM(...autresKeys.map(({key})=>getM('autres',key)));
-              const banquesTotal=getM('banques','banques');
+              const banquesTotal=getM('banques','banques').map(v=>-v); // invert: debit account
 
               return <>
                 <SectionHeader label="Trésorerie"/>
@@ -2476,13 +2476,13 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                     return rows.map(r=>{
                       // Cumulative sum per month
                       // Starting balance from AN entries
-                      const anBal=Object.values(r.an||{}).reduce((s,v)=>s+v,0);
+                      const anBal=-Object.values(r.an||{}).reduce((s,v)=>s+v,0); // invert: debit account
                       const cumMonths=Array(12).fill(0);
                       let cum=anBal;
                       for(let m=0;m<12;m++){
                         const variation=r.months&&typeof r.months==='object'&&!Array.isArray(r.months)
-                          ? (Object.entries(r.months).filter(([k])=>parseInt(k.split('-')[1])-1===m).reduce((s,[,v])=>s+v,0))
-                          : 0;
+                          ? -(Object.entries(r.months).filter(([k])=>parseInt(k.split('-')[1])-1===m).reduce((s,[,v])=>s+v,0))
+                          : 0; // invert: debit account
                         cum+=variation;
                         cumMonths[m]=cum;
                       }
