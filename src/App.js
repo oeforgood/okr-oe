@@ -2403,10 +2403,14 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
               // Solde comptes 51 = cumulative sum per month (not variation)
               const banquesMonths=(()=>{
                 const d=bfrData?.banques?.banques?.months||{};
+                const rows=bfrData?.banques?.banques?.rows||[];
+                // Starting balance from AN entries
+                let startBal=0;
+                rows.forEach(r=>{Object.values(r.an||{}).forEach(v=>startBal+=v);});
                 const arr=Array(12).fill(0);
                 Object.entries(d).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]+=v;});
-                // cumulative
-                let cum=0;
+                // Cumulative from starting balance
+                let cum=startBal;
                 return arr.map(v=>{cum+=v;return cum;});
               })();
 
@@ -2471,8 +2475,10 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                     const rows=bfrData?.banques?.banques?.rows||[];
                     return rows.map(r=>{
                       // Cumulative sum per month
+                      // Starting balance from AN entries
+                      const anBal=Object.values(r.an||{}).reduce((s,v)=>s+v,0);
                       const cumMonths=Array(12).fill(0);
-                      let cum=0;
+                      let cum=anBal;
                       for(let m=0;m<12;m++){
                         const variation=r.months&&typeof r.months==='object'&&!Array.isArray(r.months)
                           ? (Object.entries(r.months).filter(([k])=>parseInt(k.split('-')[1])-1===m).reduce((s,[,v])=>s+v,0))
