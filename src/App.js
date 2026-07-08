@@ -2915,8 +2915,17 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
 
   async function sendMessage(){
     if(!msgTitle.trim()||!onSendMessage)return;
-    await onSendMessage(msgModal.email, msgModal.prenom, msgTitle.trim(), msgBody.trim());
-    sendNotifEmail(msgModal.email, msgModal.prenom, msgTitle.trim());
+    if(msgModal.email==='__ALL__'){
+      // Send to all active teammates
+      const targets=members.filter(m=>m.role!=='inactive'&&m.email);
+      for(const m of targets){
+        await onSendMessage(m.email, m.prenom, msgTitle.trim(), msgBody.trim());
+        sendNotifEmail(m.email, m.prenom, msgTitle.trim());
+      }
+    } else {
+      await onSendMessage(msgModal.email, msgModal.prenom, msgTitle.trim(), msgBody.trim());
+      sendNotifEmail(msgModal.email, msgModal.prenom, msgTitle.trim());
+    }
     setMsgSent(true);
     setTimeout(()=>{setMsgModal(null);setMsgTitle('');setMsgBody('');setMsgSent(false);},1200);
   }
@@ -2983,6 +2992,9 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
           <table style={{width:"100%",borderCollapse:"collapse"}}>
             <thead><tr style={{background:"#f5f3ef"}}>
               {["Prénom","Email","Manager","Rôle",""].map(h=><th key={h} style={{fontSize:11,fontWeight:600,color:"#9e9890",textTransform:"uppercase",letterSpacing:".05em",padding:"10px 14px",textAlign:"left",borderBottom:"1px solid #e2ddd6"}}>{h}</th>)}
+              <th style={{padding:"10px 14px",borderBottom:"1px solid #e2ddd6",textAlign:"center"}}>
+                <button onClick={()=>{setMsgModal({email:'__ALL__',prenom:'tous les teammates'});setMsgTitle('');setMsgBody('');}} style={{fontSize:16,background:"none",border:"none",cursor:"pointer",padding:"0 4px"}} title="Envoyer à tous">✉️</button>
+              </th>
             </tr></thead>
             <tbody>
               {members.map(m=><tr key={m.email} style={{borderBottom:"1px solid #f0ede8"}}>
