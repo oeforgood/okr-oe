@@ -3158,6 +3158,7 @@ function SobjSection({sobj,krs,people,objLocked,onEditKR,onAddKR,onEditSobj,coll
     onReorderKRs([...otherKRs,...newKRs]);
     setDragOver(null);
   }
+  const sobjKRtotalW=myKRs.reduce((s,k)=>s+k.poids,0);
   const warnW=myKRs.length>0&&Math.round(sobjKRtotalW)!==100;
   const cell={padding:"7px 8px",borderBottom:"1px solid #eae7e1",verticalAlign:"middle",fontSize:12};
   const mono={fontFamily:"monospace",fontSize:11};
