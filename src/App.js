@@ -2906,8 +2906,20 @@ function AbsencesTab({teamMembers=[]}) {
   </div>;
 }
 
-function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions,catTypes,onSaveCatTypes,codeMap,onSaveCodeMap,customSubcatLabels,onSaveCustomSubcatLabels,savedCanalMargin,onSaveCanalMargin}){
+function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions,catTypes,onSaveCatTypes,codeMap,onSaveCodeMap,customSubcatLabels,onSaveCustomSubcatLabels,savedCanalMargin,onSaveCanalMargin,onSendMessage}){
   const [members,setMembers]=useState(teamMembers.map(m=>({...m})));
+  const [msgModal,setMsgModal]=useState(null); // {email, prenom}
+  const [msgTitle,setMsgTitle]=useState('');
+  const [msgBody,setMsgBody]=useState('');
+  const [msgSent,setMsgSent]=useState(false);
+
+  async function sendMessage(){
+    if(!msgTitle.trim()||!onSendMessage)return;
+    await onSendMessage(msgModal.email, msgModal.prenom, msgTitle.trim(), msgBody.trim());
+    sendNotifEmail(msgModal.email, msgModal.prenom, msgTitle.trim());
+    setMsgSent(true);
+    setTimeout(()=>{setMsgModal(null);setMsgTitle('');setMsgBody('');setMsgSent(false);},1200);
+  }
   const [newPrenom,setNewPrenom]=useState("");
   const [newManager,setNewManager]=useState("");
   const [tab,setTab]=useState("members");
@@ -2990,6 +3002,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
                     </select>}
                 </td>
                 <td style={{padding:"10px 14px"}}>
+                  <button onClick={()=>{setMsgModal({email:m.email,prenom:m.prenom});setMsgTitle('');setMsgBody('');}} style={{fontSize:14,background:"none",border:"none",cursor:"pointer",padding:"0 4px",marginRight:4}} title="Envoyer un message">✉️</button>
                   {m.email!==OWNER_EMAIL&&<button onClick={()=>removeMember(m.email)} style={{fontSize:14,color:"#c0392b",background:"none",border:"none",cursor:"pointer",fontWeight:700,lineHeight:1,padding:"0 4px"}}>×</button>}
                 </td>
               </tr>)}
@@ -3046,6 +3059,30 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
           savedCanalMargin={savedCanalMargin} onSaveCanalMargin={onSaveCanalMargin}/>}
 
 
+      {msgModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&setMsgModal(null)}>
+        <div style={{background:"#fff",borderRadius:12,padding:24,width:"90%",maxWidth:480,boxSizing:"border-box"}}>
+          <div style={{fontSize:15,fontWeight:600,marginBottom:16}}>✉️ Message à {msgModal.prenom}</div>
+          <div style={{marginBottom:12}}>
+            <label style={{fontSize:12,color:"#6b6560",display:"block",marginBottom:4}}>Titre</label>
+            <input value={msgTitle} onChange={e=>setMsgTitle(e.target.value)}
+              style={{width:"100%",border:"1px solid #e2ddd6",borderRadius:6,padding:"8px 10px",fontSize:13,boxSizing:"border-box"}}
+              placeholder="Titre du message" autoFocus/>
+          </div>
+          <div style={{marginBottom:16}}>
+            <label style={{fontSize:12,color:"#6b6560",display:"block",marginBottom:4}}>Message (optionnel)</label>
+            <textarea value={msgBody} onChange={e=>setMsgBody(e.target.value)}
+              rows={4} style={{width:"100%",border:"1px solid #e2ddd6",borderRadius:6,padding:"8px 10px",fontSize:13,boxSizing:"border-box",resize:"vertical"}}
+              placeholder="Contenu du message..."/>
+          </div>
+          <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
+            <button onClick={()=>setMsgModal(null)} style={{fontSize:13,color:"#6b6560",border:"1px solid #e2ddd6",padding:"7px 14px",borderRadius:6,cursor:"pointer",background:"none"}}>Annuler</button>
+            <button onClick={sendMessage} disabled={msgSent||!msgTitle.trim()}
+              style={{fontSize:13,fontWeight:500,background:msgSent?"#2d6a4f":"#2d6a4f",color:"#fff",padding:"7px 18px",borderRadius:6,cursor:"pointer",border:"none",opacity:msgSent||!msgTitle.trim()?0.6:1}}>
+              {msgSent?"✓ Envoyé !":"Envoyer"}
+            </button>
+          </div>
+        </div>
+      </div>}
       {tab!=="history"&&tab!=="reporting"&&tab!=="reporting_params"&&<><button onClick={save} style={{marginTop:20,padding:"12px 28px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600}}>
         💾 Enregistrer
       </button>
@@ -3925,6 +3962,14 @@ export default function App(){
       sendNotifEmail(notif.fromEmail, notif.fromPrenom||notif.fromEmail, `${managerPrenom} a vu ton Update`);
   }
 
+  async function handleSendMessage(toEmail, toPrenom, title, message){
+    const notifId=`msg_${Date.now()}_${toEmail.replace(/[@.]/g,'_')}`;
+    await setDoc(doc(db,'teammate_notifications',notifId),{
+      toEmail, fromPrenom:'Calendula',
+      title, message: message||'',
+      createdAt:Date.now(), read:false, isCalendula:true,
+    });
+  }
   async function handleSaveMembers(members){
     await setDoc(doc(db,"app_config","main"),{teamMembers:members},{merge:true});
     setTeamMembers(members);
@@ -3976,7 +4021,7 @@ export default function App(){
   if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers}/>;
   if(page==="update")return <UpdatePage teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers}/>;
   if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels} savedCanalMargin={savedCanalMargin}/>;
-  if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels} savedCanalMargin={savedCanalMargin} onSaveCanalMargin={handleSaveCanalMargin}/>;
+  if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels} savedCanalMargin={savedCanalMargin} onSaveCanalMargin={handleSaveCanalMargin} onSendMessage={handleSendMessage}/>;
 
   return <Dashboard
     currentUser={authUser}
