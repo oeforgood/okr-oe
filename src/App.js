@@ -3379,6 +3379,35 @@ function ImportObjModal({allSeasons,currentSeasonKey,people,onClose,onImport}){
 function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
   const [seasonKey,setSeasonKey]=useState("printemps_2026");
   const [dragOverSobj,setDragOverSobj]=useState(null);
+  function handleSobjDrop(e,targetSobj,allSobjs,objId){
+    e.preventDefault();
+    const dragId=e.dataTransfer.getData('sobjId');
+    if(!dragId||dragId===targetSobj.id)return;
+    const mySobjs=allSobjs.filter(s=>s.parent===objId);
+    const dragS=mySobjs.find(s=>s.id===dragId);
+    if(!dragS)return;
+    const rect=e.currentTarget.getBoundingClientRect();
+    const insertBefore=e.clientY<rect.top+rect.height/2;
+    const without=mySobjs.filter(s=>s.id!==dragId);
+    const targetIdx=without.findIndex(s=>s.id===targetSobj.id);
+    const insertAt=insertBefore?targetIdx:targetIdx+1;
+    without.splice(insertAt,0,dragS);
+    const otherSobjs=allSobjs.filter(s=>s.parent!==objId);
+    const idMap={};
+    const newSobjs=without.map((s,i)=>{
+      const newId=`${objId}.${i+1}`;
+      idMap[s.id]=newId;
+      return {...s,id:newId};
+    });
+    const newKRs=keyresults.map(kr=>{
+      if(!idMap[kr.parent])return kr;
+      const newParent=idMap[kr.parent];
+      const suffix=kr.id.slice(kr.parent.length);
+      return {...kr,parent:newParent,id:newParent+suffix};
+    });
+    updateSeason({subobjectives:[...otherSobjs,...newSobjs],keyresults:newKRs});
+    setDragOverSobj(null);
+  }
   const [showJournal,setShowJournal]=useState(false);
   const [allSeasons,setAllSeasons]=useState({"printemps_2026":{...JSON.parse(JSON.stringify(SPRING26))}});
   const [collObj,setCollObj]=useState({});
