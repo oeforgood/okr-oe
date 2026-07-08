@@ -1,4 +1,20 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import emailjs from '@emailjs/browser';
+
+const EMAILJS_SERVICE = 'Calendula';
+const EMAILJS_TEMPLATE = 'template_p9o0yz2';
+const EMAILJS_KEY = 'fM4M-dqj2372G9wj5';
+
+function sendNotifEmail(toEmail, toName, title) {
+  if (!toEmail) return;
+  emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE, {
+    to_email: toEmail,
+    to_name: toName || toEmail,
+    from_name: 'Calendula',
+    message: title,
+    reply_to: 'fx@oeforgood.com',
+  }, EMAILJS_KEY).catch(e => console.warn('EmailJS error:', e));
+}
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, getDocs, query, where, updateDoc, deleteDoc } from "firebase/firestore";
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "firebase/auth";
@@ -619,11 +635,13 @@ function ReportingBanner({onGoReporting}) {
   const [caData, setCaData] = useState(null);
 
   const [chargeData, setChargeData] = useState(null);
+  const [bfrBanner, setBfrBanner] = useState(null);
   const [importedAt, setImportedAt] = useState(null);
 
   useEffect(()=>{
     const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists()){setCaData(snap.data().caData);}});
     const u2=onSnapshot(doc(db,'reporting','charges'),(snap)=>{if(snap.exists())setChargeData(snap.data().chargeData);});
+    const u3b=onSnapshot(doc(db,'reporting','bfr'),(snap)=>{if(snap.exists())setBfrBanner(snap.data().bilData);});
     const u3=onSnapshot(doc(db,'reporting','meta'),(snap)=>{if(snap.exists())setImportedAt(snap.data().importedAt);
         if(snap.data().importedAt)setImportedAt(snap.data().importedAt);});
     return()=>{u1();u2();u3();};
@@ -678,7 +696,20 @@ function ReportingBanner({onGoReporting}) {
     {label:"Marge Brute",val:mbYTD,col:"#2d6a4f"},
     {label:"Charges expl.",val:Math.abs(chargesExplYTD),col:"#b5680f"},
     {label:"EBITDA",val:ebitdaYTD,col:ebitdaCol},
-    {label:"Trésorerie",val:303000,col:"#1d4ed8"},
+    {label:"Trésorerie",val:(()=>{
+      const rows=bfrBanner?.banques?.banques?.rows||[];
+      let startBal=0;
+      rows.forEach(r=>Object.values(r.an||{}).forEach(v=>startBal-=v));
+      const months=bfrBanner?.banques?.banques?.months||{};
+      const arr=Array(12).fill(0);
+      Object.entries(months).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]-=v;});
+      // Find last month with data
+      let lastM=0;
+      Object.keys(months).forEach(k=>{const m=parseInt(k.split('-')[1]);if(m>lastM)lastM=m;});
+      let cum=startBal;
+      for(let m=0;m<lastM;m++) cum+=arr[m];
+      return cum;
+    })(),col:"#1d4ed8"},
   ];
 
   return (
@@ -1532,7 +1563,7 @@ function UpdatesHistoryTab(){
     const u3=onSnapshot(collection(db,"teammate_notifications"),(snap)=>{
       setAllTmNotifs(snap.docs.map(d=>({id:d.id,...d.data()})));check();
     });
-    return()=>{u1();u2();u3();};
+    return()=>{u1();u2();u3();u3b();};
   },[]);
 
   const prenoms=[...new Set(allUpdates.map(u=>u.prenom).filter(Boolean))].sort();
@@ -2404,7 +2435,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                   const mArr=Array(12).fill(null);
                   mArr[e.month-1]=e.amount;
                   const fmtEntry=v=>v==null?'':v.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});
-                  return <tr key={i} style={{background:'#f5f5f2'}}>
+                  return <tr key={i} style={{background:'#efecea'}}>
                     <td style={{padding:'3px 4px 3px 40px',fontSize:10,color:'#6b6560',
                       position:'sticky',left:0,background:'#f5f5f2',zIndex:1,
                       borderBottom:'1px solid #f0ede8',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:220}}>
@@ -2875,8 +2906,29 @@ function AbsencesTab({teamMembers=[]}) {
   </div>;
 }
 
-function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions,catTypes,onSaveCatTypes,codeMap,onSaveCodeMap,customSubcatLabels,onSaveCustomSubcatLabels,savedCanalMargin,onSaveCanalMargin}){
+function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions,catTypes,onSaveCatTypes,codeMap,onSaveCodeMap,customSubcatLabels,onSaveCustomSubcatLabels,savedCanalMargin,onSaveCanalMargin,onSendMessage}){
   const [members,setMembers]=useState(teamMembers.map(m=>({...m})));
+  const [msgModal,setMsgModal]=useState(null); // {email, prenom}
+  const [msgTitle,setMsgTitle]=useState('');
+  const [msgBody,setMsgBody]=useState('');
+  const [msgSent,setMsgSent]=useState(false);
+
+  async function sendMessage(){
+    if(!msgTitle.trim()||!onSendMessage)return;
+    if(msgModal.email==='__ALL__'){
+      // Send to all active teammates
+      const targets=members.filter(m=>m.role!=='inactive'&&m.email);
+      for(const m of targets){
+        await onSendMessage(m.email, m.prenom, msgTitle.trim(), msgBody.trim());
+        sendNotifEmail(m.email, m.prenom, msgTitle.trim());
+      }
+    } else {
+      await onSendMessage(msgModal.email, msgModal.prenom, msgTitle.trim(), msgBody.trim());
+      sendNotifEmail(msgModal.email, msgModal.prenom, msgTitle.trim());
+    }
+    setMsgSent(true);
+    setTimeout(()=>{setMsgModal(null);setMsgTitle('');setMsgBody('');setMsgSent(false);},1200);
+  }
   const [newPrenom,setNewPrenom]=useState("");
   const [newManager,setNewManager]=useState("");
   const [tab,setTab]=useState("members");
@@ -2940,6 +2992,9 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
           <table style={{width:"100%",borderCollapse:"collapse"}}>
             <thead><tr style={{background:"#f5f3ef"}}>
               {["Prénom","Email","Manager","Rôle",""].map(h=><th key={h} style={{fontSize:11,fontWeight:600,color:"#9e9890",textTransform:"uppercase",letterSpacing:".05em",padding:"10px 14px",textAlign:"left",borderBottom:"1px solid #e2ddd6"}}>{h}</th>)}
+              <th style={{padding:"10px 14px",borderBottom:"1px solid #e2ddd6",textAlign:"center"}}>
+                <button onClick={()=>{setMsgModal({email:'__ALL__',prenom:'tous les teammates'});setMsgTitle('');setMsgBody('');}} style={{fontSize:16,background:"none",border:"none",cursor:"pointer",padding:"0 4px"}} title="Envoyer à tous">✉️</button>
+              </th>
             </tr></thead>
             <tbody>
               {members.map(m=><tr key={m.email} style={{borderBottom:"1px solid #f0ede8"}}>
@@ -2959,6 +3014,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
                     </select>}
                 </td>
                 <td style={{padding:"10px 14px"}}>
+                  <button onClick={()=>{setMsgModal({email:m.email,prenom:m.prenom});setMsgTitle('');setMsgBody('');}} style={{fontSize:14,background:"none",border:"none",cursor:"pointer",padding:"0 4px",marginRight:4}} title="Envoyer un message">✉️</button>
                   {m.email!==OWNER_EMAIL&&<button onClick={()=>removeMember(m.email)} style={{fontSize:14,color:"#c0392b",background:"none",border:"none",cursor:"pointer",fontWeight:700,lineHeight:1,padding:"0 4px"}}>×</button>}
                 </td>
               </tr>)}
@@ -3015,6 +3071,30 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
           savedCanalMargin={savedCanalMargin} onSaveCanalMargin={onSaveCanalMargin}/>}
 
 
+      {msgModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&setMsgModal(null)}>
+        <div style={{background:"#fff",borderRadius:12,padding:24,width:"90%",maxWidth:480,boxSizing:"border-box"}}>
+          <div style={{fontSize:15,fontWeight:600,marginBottom:16}}>✉️ Message à {msgModal.prenom}</div>
+          <div style={{marginBottom:12}}>
+            <label style={{fontSize:12,color:"#6b6560",display:"block",marginBottom:4}}>Titre</label>
+            <input value={msgTitle} onChange={e=>setMsgTitle(e.target.value)}
+              style={{width:"100%",border:"1px solid #e2ddd6",borderRadius:6,padding:"8px 10px",fontSize:13,boxSizing:"border-box"}}
+              placeholder="Titre du message" autoFocus/>
+          </div>
+          <div style={{marginBottom:16}}>
+            <label style={{fontSize:12,color:"#6b6560",display:"block",marginBottom:4}}>Message (optionnel)</label>
+            <textarea value={msgBody} onChange={e=>setMsgBody(e.target.value)}
+              rows={4} style={{width:"100%",border:"1px solid #e2ddd6",borderRadius:6,padding:"8px 10px",fontSize:13,boxSizing:"border-box",resize:"vertical"}}
+              placeholder="Contenu du message..."/>
+          </div>
+          <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
+            <button onClick={()=>setMsgModal(null)} style={{fontSize:13,color:"#6b6560",border:"1px solid #e2ddd6",padding:"7px 14px",borderRadius:6,cursor:"pointer",background:"none"}}>Annuler</button>
+            <button onClick={sendMessage} disabled={msgSent||!msgTitle.trim()}
+              style={{fontSize:13,fontWeight:500,background:msgSent?"#2d6a4f":"#2d6a4f",color:"#fff",padding:"7px 18px",borderRadius:6,cursor:"pointer",border:"none",opacity:msgSent||!msgTitle.trim()?0.6:1}}>
+              {msgSent?"✓ Envoyé !":"Envoyer"}
+            </button>
+          </div>
+        </div>
+      </div>}
       {tab!=="history"&&tab!=="reporting"&&tab!=="reporting_params"&&<><button onClick={save} style={{marginTop:20,padding:"12px 28px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600}}>
         💾 Enregistrer
       </button>
@@ -3846,6 +3926,13 @@ export default function App(){
         })(),
       };
       await setDoc(doc(db,"update_notifications",notifId),notifData);
+      await setDoc(doc(db,"update_notifications",notifId),notifData);
+      // Send email to manager
+      {
+        const managerMember=(teamMembers||[]).find(m=>m.email===me?.managerEmail);
+        const title=`${me?.prenom} a soumis son Update`;
+        sendNotifEmail(me?.managerEmail, managerMember?.prenom||me?.managerEmail, title);
+      }
 
       // Save "read" notification for the teammate (for when manager reads)
       // This is stored as a separate collection for teammate notifications
@@ -3883,8 +3970,18 @@ export default function App(){
       createdAt:now,
       read:false,
     });
+      // Send email to teammate
+      sendNotifEmail(notif.fromEmail, notif.fromPrenom||notif.fromEmail, `${managerPrenom} a vu ton Update`);
   }
 
+  async function handleSendMessage(toEmail, toPrenom, title, message){
+    const notifId=`msg_${Date.now()}_${toEmail.replace(/[@.]/g,'_')}`;
+    await setDoc(doc(db,'teammate_notifications',notifId),{
+      toEmail, fromPrenom:'Calendula',
+      title, message: message||'',
+      createdAt:Date.now(), read:false, isCalendula:true,
+    });
+  }
   async function handleSaveMembers(members){
     await setDoc(doc(db,"app_config","main"),{teamMembers:members},{merge:true});
     setTeamMembers(members);
@@ -3936,7 +4033,7 @@ export default function App(){
   if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers}/>;
   if(page==="update")return <UpdatePage teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers}/>;
   if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels} savedCanalMargin={savedCanalMargin}/>;
-  if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels} savedCanalMargin={savedCanalMargin} onSaveCanalMargin={handleSaveCanalMargin}/>;
+  if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels} savedCanalMargin={savedCanalMargin} onSaveCanalMargin={handleSaveCanalMargin} onSendMessage={handleSendMessage}/>;
 
   return <Dashboard
     currentUser={authUser}
