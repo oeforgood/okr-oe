@@ -3136,6 +3136,28 @@ function SobjSection({sobj,krs,people,objLocked,onEditKR,onAddKR,onEditSobj,coll
   const open=!collapsed[sobj.id];
   const prog=calcSobj(sobj.id,krs);
   const myKRs=krs.filter(k=>k.parent===sobj.id&&k.title);
+  const [dragOver,setDragOver]=useState(null);
+  function handleDragStart(e,krId){e.dataTransfer.setData('krId',krId);}
+  function handleDrop(e,targetId){
+    e.preventDefault();
+    const dragId=e.dataTransfer.getData('krId');
+    if(!dragId||dragId===targetId)return;
+    const order=myKRs.map(k=>k.id);
+    const from=order.indexOf(dragId);
+    const to=order.indexOf(targetId);
+    if(from<0||to<0)return;
+    const reordered=[...order];
+    reordered.splice(from,1);
+    reordered.splice(to,0,dragId);
+    // Rebuild all KRs with new order
+    const otherKRs=krs.filter(k=>k.parent!==sobj.id||!k.title);
+    const newKRs=reordered.map((id,i)=>{
+      const kr=myKRs.find(k=>k.id===id);
+      return {...kr,id:`${sobj.id}.${i+1}`};
+    });
+    onReorderKRs([...otherKRs,...newKRs]);
+    setDragOver(null);
+  }
   const sobjKRtotalW=myKRs.reduce((s,k)=>s+k.poids,0);
   const warnW=myKRs.length>0&&Math.round(sobjKRtotalW)!==100;
   const cell={padding:"7px 8px",borderBottom:"1px solid #eae7e1",verticalAlign:"middle",fontSize:12};
@@ -3167,7 +3189,13 @@ function SobjSection({sobj,krs,people,objLocked,onEditKR,onAddKR,onEditSobj,coll
         <tbody>
           {myKRs.map(kr=>{
             const p=kr.taux,col=progColor(p),hasRevise=kr.val_revise!==kr.val_cible;
-            return <tr key={kr.id} style={{opacity:kr.stop?0.5:1}}
+            return <tr key={kr.id}
+              draggable={!objLocked}
+              onDragStart={e=>handleDragStart(e,kr.id)}
+              onDragOver={e=>{e.preventDefault();setDragOver(kr.id);}}
+              onDragLeave={()=>setDragOver(null)}
+              onDrop={e=>handleDrop(e,kr.id)}
+              style={{opacity:kr.stop?0.5:1,outline:dragOver===kr.id?'2px solid #2d6a4f':'none',outlineOffset:'-1px'}}
               onMouseEnter={e=>{for(const td of e.currentTarget.cells)td.style.background="#f0ede8"}}
               onMouseLeave={e=>{for(const td of e.currentTarget.cells)td.style.background=""}}>
               <td style={{...cell,maxWidth:200}}>
@@ -3435,11 +3463,32 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
     }}
     else{const sib=krs.filter(k=>k.parent===_sobjId);const newKR={id:`${_sobjId}.${sib.length+1}`,parent:_sobjId,priorite:"",...kr};nextKRs=[...krs,newKR];
       updateSeason({keyresults:nextKRs});
-      if(isDuplicate){setModal({type:"kr",item:newKR,sobjId:_sobjId,locked:false});}else{setModal(null);}
+      const renumbered=renumberKRs(nextKRs,_sobjId);
+      if(isDuplicate){
+        const finalKR=renumbered.find(k=>k.parent===_sobjId&&k.title===newKR.title&&!keyresults.find(x=>x.id===k.id));
+        updateSeason({keyresults:renumbered});
+        setModal({type:"kr",item:finalKR||{...newKR,id:`${_sobjId}.${renumbered.filter(k=>k.parent===_sobjId).length}`},sobjId:_sobjId,locked:false});
+      }else{setModal(null);}
       return;}
     updateSeason({keyresults:nextKRs});setModal(null);
   }
-  function handleKRDel(id){if(!window.confirm("Supprimer ce KR ?"))return;updateSeason({keyresults:keyresults.filter(k=>k.id!==id)});setModal(null);}
+    function renumberKRs(krs, sobjId) {
+    let idx = 0;
+    return krs.map(kr => {
+      if (kr.parent === sobjId) {
+        idx++;
+        return {...kr, id: `${sobjId}.${idx}`};
+      }
+      return kr;
+    });
+  }
+  function handleKRDel(id){
+    if(!window.confirm("Supprimer ce KR ?"))return;
+    const kr=keyresults.find(k=>k.id===id);
+    const filtered=keyresults.filter(k=>k.id!==id);
+    const renumbered=kr?renumberKRs(filtered,kr.parent):filtered;
+    updateSeason({keyresults:renumbered});setModal(null);
+  }
   function handleImport({obj,sobjs,krs,mode}){
     const curObjs=allSeasonsRef.current[seasonKeyRef.current]?.objectives||[];
     const curSobjs=allSeasonsRef.current[seasonKeyRef.current]?.subobjectives||[];
