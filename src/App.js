@@ -3316,9 +3316,6 @@ function SobjSection({sobj,krs,people,objLocked,onEditKR,onAddKR,onEditSobj,coll
     </div>}
   </div>;
 }
-    </div>}
-  </div>;
-}
 
 function SeasonBanner({seasonKey,avgProg,totalKR,doneKR}){
   const info=getSeasonInfo(seasonKey),timeProg=getSeasonProgress(seasonKey);
