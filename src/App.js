@@ -3585,7 +3585,7 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
                 onEditKR={kr=>setModal({type:"kr",item:kr,sobjId:kr.parent,locked:objLocked})}
                 onAddKR={sid=>setModal({type:"kr",item:null,sobjId:sid,locked:objLocked})}
                 onEditSobj={s=>setModal({type:"sobj",item:s,isNew:false,parentObjId:obj.id})}
-                collapsed={collSobj} toggle={toggleSobj}/>)}
+                collapsed={collSobj} toggle={toggleSobj} onReorderKRs={newKRs=>updateSeason({keyresults:newKRs})}/>)}
               {!objLocked&&<button onClick={()=>setModal({type:"sobj",item:null,isNew:true,parentObjId:obj.id})}
                 style={{fontSize:11,color:"#9e9890",background:"none",border:"none",borderTop:"1px dashed #e2ddd6",width:"100%",padding:"8px 28px",textAlign:"left",cursor:"pointer"}}>
                 + Ajouter un sous-objectif
