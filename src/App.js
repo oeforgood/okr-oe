@@ -3142,21 +3142,19 @@ function SobjSection({sobj,krs,people,objLocked,onEditKR,onAddKR,onEditSobj,coll
     e.preventDefault();
     const dragId=e.dataTransfer.getData('krId');
     if(!dragId||dragId===targetId)return;
-    const order=myKRs.map(k=>k.id);
-    const from=order.indexOf(dragId);
-    const to=order.indexOf(targetId);
-    if(from<0||to<0)return;
-    // Detect if dropping in top or bottom half of target row
     const rect=e.currentTarget.getBoundingClientRect();
     const insertBefore=e.clientY<rect.top+rect.height/2;
-    const reordered=order.filter(id=>id!==dragId);
-    const insertAt=reordered.indexOf(targetId)+(insertBefore?0:1);
-    reordered.splice(insertAt,0,dragId);
+    // Work with KR objects directly
+    const dragKR=myKRs.find(k=>k.id===dragId);
+    const targetKR=myKRs.find(k=>k.id===targetId);
+    if(!dragKR||!targetKR)return;
+    const without=myKRs.filter(k=>k.id!==dragId);
+    const targetIdx=without.indexOf(targetKR);
+    const insertAt=insertBefore?targetIdx:targetIdx+1;
+    without.splice(insertAt,0,dragKR);
+    // Renumber
+    const newKRs=without.map((kr,i)=>({...kr,id:`${sobj.id}.${i+1}`}));
     const otherKRs=krs.filter(k=>k.parent!==sobj.id||!k.title);
-    const newKRs=reordered.map((id,i)=>{
-      const kr=myKRs.find(k=>k.id===id);
-      return {...kr,id:`${sobj.id}.${i+1}`};
-    });
     onReorderKRs([...otherKRs,...newKRs]);
     setDragOver(null);
   }
@@ -3380,6 +3378,36 @@ function ImportObjModal({allSeasons,currentSeasonKey,people,onClose,onImport}){
 // ─── OKR PAGE ─────────────────────────────────────────────────────────────────
 function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
   const [seasonKey,setSeasonKey]=useState("printemps_2026");
+  const [dragOverSobj,setDragOverSobj]=useState(null);
+  function handleSobjDrop(e,targetSobj,allSobjs,objId){
+    e.preventDefault();
+    const dragId=e.dataTransfer.getData('sobjId');
+    if(!dragId||dragId===targetSobj.id)return;
+    const mySobjs=allSobjs.filter(s=>s.parent===objId);
+    const dragS=mySobjs.find(s=>s.id===dragId);
+    if(!dragS)return;
+    const rect=e.currentTarget.getBoundingClientRect();
+    const insertBefore=e.clientY<rect.top+rect.height/2;
+    const without=mySobjs.filter(s=>s.id!==dragId);
+    const targetIdx=without.findIndex(s=>s.id===targetSobj.id);
+    const insertAt=insertBefore?targetIdx:targetIdx+1;
+    without.splice(insertAt,0,dragS);
+    const otherSobjs=allSobjs.filter(s=>s.parent!==objId);
+    const idMap={};
+    const newSobjs=without.map((s,i)=>{
+      const newId=`${objId}.${i+1}`;
+      idMap[s.id]=newId;
+      return {...s,id:newId};
+    });
+    const newKRs=keyresults.map(kr=>{
+      if(!idMap[kr.parent])return kr;
+      const newParent=idMap[kr.parent];
+      const suffix=kr.id.slice(kr.parent.length);
+      return {...kr,parent:newParent,id:newParent+suffix};
+    });
+    updateSeason({subobjectives:[...otherSobjs,...newSobjs],keyresults:newKRs});
+    setDragOverSobj(null);
+  }
   const [showJournal,setShowJournal]=useState(false);
   const [allSeasons,setAllSeasons]=useState({"printemps_2026":{...JSON.parse(JSON.stringify(SPRING26))}});
   const [collObj,setCollObj]=useState({});
@@ -3556,7 +3584,7 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
           const prog=calcObj(obj.id,subobjectives,keyresults);
           const open=!collObj[obj.id],objLocked=!!obj.locked;
           const sobjs=subobjectives.filter(s=>s.parent===obj.id);
-          const visSobjs=filterP?sobjs.filter(s=>s.owner===filterP||keyresults.filter(k=>k.parent===s.id).some(k=>k.owner===filterP||k.contributors.includes(filterP))):sobjs;
+  const visSobjs=filterP?sobjs.filter(s=>s.owner===filterP||keyresults.filter(k=>k.parent===s.id).some(k=>k.owner===filterP||k.contributors.includes(filterP))):sobjs;
           const sobjTotalW=sobjs.reduce((s,o)=>s+o.poids,0),warnSobj=sobjs.length>0&&Math.round(sobjTotalW)!==100;
           return <div key={obj.id} style={{background:"#fff",border:`1px solid ${objLocked?"#f59e0b":"#e2ddd6"}`,borderRadius:10,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,.07)"}}>
             <div style={{display:"flex",alignItems:"center",gap:10,padding:"13px 16px",cursor:"pointer",userSelect:"none"}}
@@ -3581,11 +3609,22 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
               </div>
             </div>
             {open&&<div style={{borderTop:"1px solid #e2ddd6"}}>
-              {visSobjs.map(sobj=><SobjSection key={sobj.id} sobj={sobj} krs={keyresults} people={people} objLocked={objLocked}
-                onEditKR={kr=>setModal({type:"kr",item:kr,sobjId:kr.parent,locked:objLocked})}
-                onAddKR={sid=>setModal({type:"kr",item:null,sobjId:sid,locked:objLocked})}
-                onEditSobj={s=>setModal({type:"sobj",item:s,isNew:false,parentObjId:obj.id})}
-                collapsed={collSobj} toggle={toggleSobj} onReorderKRs={newKRs=>updateSeason({keyresults:newKRs})}/>)}
+              {visSobjs.map(sobj=>{
+                const isDragTarget=dragOverSobj===sobj.id;
+                return <div key={sobj.id}
+                  draggable={!objLocked}
+                  onDragStart={e=>e.dataTransfer.setData('sobjId',sobj.id)}
+                  onDragOver={e=>{e.preventDefault();setDragOverSobj(sobj.id);}}
+                  onDragLeave={()=>setDragOverSobj(null)}
+                  onDrop={e=>handleSobjDrop(e,sobj,sobjs,obj.id)}
+                  style={{outline:isDragTarget?'2px solid #2d6a4f':'none',outlineOffset:'-1px'}}>
+                  <SobjSection sobj={sobj} krs={keyresults} people={people} objLocked={objLocked}
+                    onEditKR={kr=>setModal({type:"kr",item:kr,sobjId:kr.parent,locked:objLocked})}
+                    onAddKR={sid=>setModal({type:"kr",item:null,sobjId:sid,locked:objLocked})}
+                    onEditSobj={s=>setModal({type:"sobj",item:s,isNew:false,parentObjId:obj.id})}
+                    collapsed={collSobj} toggle={toggleSobj} onReorderKRs={newKRs=>updateSeason({keyresults:newKRs})}/>
+                </div>;
+              })}
               {!objLocked&&<button onClick={()=>setModal({type:"sobj",item:null,isNew:true,parentObjId:obj.id})}
                 style={{fontSize:11,color:"#9e9890",background:"none",border:"none",borderTop:"1px dashed #e2ddd6",width:"100%",padding:"8px 28px",textAlign:"left",cursor:"pointer"}}>
                 + Ajouter un sous-objectif
