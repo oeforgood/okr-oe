@@ -3616,7 +3616,7 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
                   onDragStart={e=>e.dataTransfer.setData('sobjId',sobj.id)}
                   onDragOver={e=>{e.preventDefault();setDragOverSobj(sobj.id);}}
                   onDragLeave={()=>setDragOverSobj(null)}
-                  onDrop={e=>handleSobjDrop(e,sobj,sobjs,obj.id)}
+                  onDrop={e=>handleSobjDrop(e,sobj,subobjectives,obj.id)}
                   style={{outline:isDragTarget?'2px solid #2d6a4f':'none',outlineOffset:'-1px'}}>
                   <SobjSection sobj={sobj} krs={keyresults} people={people} objLocked={objLocked}
                     onEditKR={kr=>setModal({type:"kr",item:kr,sobjId:kr.parent,locked:objLocked})}
