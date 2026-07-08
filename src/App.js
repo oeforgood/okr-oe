@@ -3216,30 +3216,32 @@ function SobjSection({sobj,krs,people,objLocked,onEditKR,onAddKR,onEditSobj,coll
   const open=!collapsed[sobj.id];
   const prog=calcSobj(sobj.id,krs);
   const myKRs=krs.filter(k=>k.parent===sobj.id&&k.title);
-  const [dragOver,setDragOver]=useState(null);
+  const [dragOverKR,setDragOverKR]=useState(null); // {id, before}
   function handleDragStart(e,krId){e.dataTransfer.setData('krId',krId);}
   function handleDrop(e,targetId){
     e.preventDefault();
     const dragId=e.dataTransfer.getData('krId');
+    setDragOverKR(null);
     if(!dragId||dragId===targetId)return;
-    const rect=e.currentTarget.getBoundingClientRect();
-    const insertBefore=e.clientY<rect.top+rect.height/2;
-    // Work with KR objects directly
     const dragKR=myKRs.find(k=>k.id===dragId);
     const targetKR=myKRs.find(k=>k.id===targetId);
     if(!dragKR||!targetKR)return;
+    const rect=e.currentTarget.getBoundingClientRect();
+    const insertBefore=dragOverSobj?.before??e.clientY<rect.top+rect.height/2;
     const without=myKRs.filter(k=>k.id!==dragId);
     const targetIdx=without.indexOf(targetKR);
     const insertAt=insertBefore?targetIdx:targetIdx+1;
     without.splice(insertAt,0,dragKR);
-    // Renumber
-    const newKRs=without.map((kr,i)=>({...kr,id:`${sobj.id}.${i+1}`}));
+    const newKRs=without.map((kr,idx)=>({...kr,id:`${sobj.id}.${idx+1}`,parent:sobj.id}));
     const otherKRs=krs.filter(k=>k.parent!==sobj.id||!k.title);
     onReorderKRs([...otherKRs,...newKRs]);
-    setDragOver(null);
   }
-  const sobjKRtotalW=myKRs.reduce((s,k)=>s+k.poids,0);
-  const warnW=myKRs.length>0&&Math.round(sobjKRtotalW)!==100;
+  function handleDragOverKR(e,targetId){
+    e.preventDefault();
+    const rect=e.currentTarget.getBoundingClientRect();
+    const before=e.clientY<rect.top+rect.height/2;
+    setDragOverKR(p=>p?.id===targetId&&p?.before===before?p:{id:targetId,before});
+  }
   const cell={padding:"7px 8px",borderBottom:"1px solid #eae7e1",verticalAlign:"middle",fontSize:12};
   const mono={fontFamily:"monospace",fontSize:11};
   return <div style={{borderBottom:"1px solid #e2ddd6"}}>
@@ -3269,13 +3271,15 @@ function SobjSection({sobj,krs,people,objLocked,onEditKR,onAddKR,onEditSobj,coll
         <tbody>
           {myKRs.map(kr=>{
             const p=kr.taux,col=progColor(p),hasRevise=kr.val_revise!==kr.val_cible;
-            return <tr key={kr.id}
+            return <React.Fragment key={kr.id}>
+              {dragOverKR?.id===kr.id&&dragOverKR?.before&&<tr><td colSpan={20} style={{height:2,background:'#2d6a4f',padding:0}}/></tr>}
+              <tr
               draggable={!objLocked}
-              onDragStart={e=>handleDragStart(e,kr.id)}
-              onDragOver={e=>{e.preventDefault();setDragOver(kr.id);}}
-              onDragLeave={()=>setDragOver(null)}
+              onDragStart={e=>{e.dataTransfer.setData('krId',kr.id);e.dataTransfer.effectAllowed='move';}}
+              onDragOver={e=>handleDragOverKR(e,kr.id)}
+              onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget))setDragOverKR(null);}}
               onDrop={e=>handleDrop(e,kr.id)}
-              style={{opacity:kr.stop?0.5:1,outline:dragOver===kr.id?'2px solid #2d6a4f':'none',outlineOffset:'-1px'}}
+              style={{opacity:kr.stop?0.5:1,cursor:objLocked?'default':'grab'}}
               onMouseEnter={e=>{for(const td of e.currentTarget.cells)td.style.background="#f0ede8"}}
               onMouseLeave={e=>{for(const td of e.currentTarget.cells)td.style.background=""}}>
               <td style={{...cell,maxWidth:200}}>
@@ -3467,7 +3471,7 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
     const dragS=mySobjs.find(s=>s.id===dragId);
     if(!dragS)return;
     const rect=e.currentTarget.getBoundingClientRect();
-    const insertBefore=e.clientY<rect.top+rect.height/2;
+    const insertBefore=dragOverSobj?.before??e.clientY<rect.top+rect.height/2;
     const without=mySobjs.filter(s=>s.id!==dragId);
     const targetIdx=without.findIndex(s=>s.id===targetSobj.id);
     const insertAt=insertBefore?targetIdx:targetIdx+1;
@@ -3479,11 +3483,14 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
       idMap[s.id]=newId;
       return {...s,id:newId};
     });
+    // Renumber KRs: keep them attached to their sobj, renumber with new sobj id
     const newKRs=keyresults.map(kr=>{
-      if(!idMap[kr.parent])return kr;
       const newParent=idMap[kr.parent];
-      const suffix=kr.id.slice(kr.parent.length);
-      return {...kr,parent:newParent,id:newParent+suffix};
+      if(!newParent)return kr;
+      // Find position of this KR within its sobj to rebuild id
+      const sobjKRs=keyresults.filter(k=>k.parent===kr.parent);
+      const krIdx=sobjKRs.findIndex(k=>k.id===kr.id);
+      return {...kr,parent:newParent,id:`${newParent}.${krIdx+1}`};
     });
     updateSeason({subobjectives:[...otherSobjs,...newSobjs],keyresults:newKRs});
     setDragOverSobj(null);
@@ -3694,10 +3701,11 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
                 return <div key={sobj.id}
                   draggable={!objLocked}
                   onDragStart={e=>e.dataTransfer.setData('sobjId',sobj.id)}
-                  onDragOver={e=>{e.preventDefault();setDragOverSobj(sobj.id);}}
-                  onDragLeave={()=>setDragOverSobj(null)}
+                  onDragOver={e=>{e.preventDefault();const r=e.currentTarget.getBoundingClientRect();setDragOverSobj({id:sobj.id,before:e.clientY<r.top+r.height/2});}}
+                  onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget))setDragOverSobj(null);}}
                   onDrop={e=>handleSobjDrop(e,sobj,subobjectives,obj.id)}
-                  style={{outline:isDragTarget?'2px solid #2d6a4f':'none',outlineOffset:'-1px'}}>
+                  style={{}}>
+                  {dragOverSobj?.id===sobj.id&&dragOverSobj?.before&&<div style={{height:3,background:'#2d6a4f',margin:'0 16px',borderRadius:2}}/>}
                   <SobjSection sobj={sobj} krs={keyresults} people={people} objLocked={objLocked}
                     onEditKR={kr=>setModal({type:"kr",item:kr,sobjId:kr.parent,locked:objLocked})}
                     onAddKR={sid=>setModal({type:"kr",item:null,sobjId:sid,locked:objLocked})}
