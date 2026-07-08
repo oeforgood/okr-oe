@@ -3227,7 +3227,7 @@ function SobjSection({sobj,krs,people,objLocked,onEditKR,onAddKR,onEditSobj,coll
     const targetKR=myKRs.find(k=>k.id===targetId);
     if(!dragKR||!targetKR)return;
     const rect=e.currentTarget.getBoundingClientRect();
-    const insertBefore=dragOverSobj?.before??e.clientY<rect.top+rect.height/2;
+    const insertBefore=dragOverKR?.id===targetId?(dragOverKR?.before??true):e.clientY<e.currentTarget.getBoundingClientRect().top+e.currentTarget.getBoundingClientRect().height/2;
     const without=myKRs.filter(k=>k.id!==dragId);
     const targetIdx=without.indexOf(targetKR);
     const insertAt=insertBefore?targetIdx:targetIdx+1;
@@ -3279,9 +3279,10 @@ function SobjSection({sobj,krs,people,objLocked,onEditKR,onAddKR,onEditSobj,coll
               draggable={!objLocked}
               onDragStart={e=>{e.dataTransfer.setData('krId',kr.id);e.dataTransfer.effectAllowed='move';}}
               onDragOver={e=>handleDragOverKR(e,kr.id)}
-              onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget))setDragOverKR(null);}}
+              onDragOver={e=>{e.preventDefault();e.stopPropagation();handleDragOverKR(e,kr.id);}}
+              onDragLeave={()=>setDragOverKR(null)}
               onDrop={e=>handleDrop(e,kr.id)}
-              style={{opacity:kr.stop?0.5:1,cursor:objLocked?'default':'grab'}}
+              onDragEnd={()=>setDragOverKR(null)}
               onMouseEnter={e=>{for(const td of e.currentTarget.cells)td.style.background="#f0ede8"}}
               onMouseLeave={e=>{for(const td of e.currentTarget.cells)td.style.background=""}}>
               <td style={{...cell,maxWidth:200}}>
@@ -3706,7 +3707,8 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
                   draggable={!objLocked}
                   onDragStart={e=>e.dataTransfer.setData('sobjId',sobj.id)}
                   onDragOver={e=>{e.preventDefault();const r=e.currentTarget.getBoundingClientRect();setDragOverSobj({id:sobj.id,before:e.clientY<r.top+r.height/2});}}
-                  onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget))setDragOverSobj(null);}}
+                  onDragLeave={()=>setDragOverSobj(null)}
+                  onDragEnd={()=>setDragOverSobj(null)}
                   onDrop={e=>handleSobjDrop(e,sobj,subobjectives,obj.id)}
                   style={{}}>
                   {dragOverSobj?.id===sobj.id&&dragOverSobj?.before&&<div style={{height:3,background:'#2d6a4f',margin:'0 16px',borderRadius:2}}/>}
