@@ -3244,6 +3244,8 @@ function SobjSection({sobj,krs,people,objLocked,onEditKR,onAddKR,onEditSobj,coll
   }
   const sobjKRtotalW=myKRs.reduce((s,k)=>s+k.poids,0);
   const warnW=myKRs.length>0&&Math.round(sobjKRtotalW)!==100;
+  const sobjKRtotalW=myKRs.reduce((s,k)=>s+k.poids,0);
+  const warnW=myKRs.length>0&&Math.round(sobjKRtotalW)!==100;
   const cell={padding:"7px 8px",borderBottom:"1px solid #eae7e1",verticalAlign:"middle",fontSize:12};
   const mono={fontFamily:"monospace",fontSize:11};
   return <div style={{borderBottom:"1px solid #e2ddd6"}}>
