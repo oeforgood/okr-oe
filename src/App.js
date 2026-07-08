@@ -3815,6 +3815,7 @@ export default function App(){
     await setDoc(doc(db,"app_config","main"),{codeMap:cm},{merge:true});
     setCodeMap(cm);
   }
+  const [customSubcatLabels,setCustomSubcatLabels]=useState({});
   async function handleSaveCustomLabels(cl){
     await setDoc(doc(db,"app_config","main"),{customSubcatLabels:cl},{merge:true});
     setCustomSubcatLabels(cl);
