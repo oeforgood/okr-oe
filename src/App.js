@@ -1,4 +1,20 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import emailjs from '@emailjs/browser';
+
+const EMAILJS_SERVICE = 'Calendula';
+const EMAILJS_TEMPLATE = 'template_p9o0yz2';
+const EMAILJS_KEY = 'fM4M-dqj2372G9wj5';
+
+function sendNotifEmail(toEmail, toName, title) {
+  if (!toEmail) return;
+  emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE, {
+    to_email: toEmail,
+    to_name: toName || toEmail,
+    from_name: 'Calendula',
+    message: title,
+    reply_to: 'fx@oeforgood.com',
+  }, EMAILJS_KEY).catch(e => console.warn('EmailJS error:', e));
+}
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, getDocs, query, where, updateDoc, deleteDoc } from "firebase/firestore";
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "firebase/auth";
@@ -3861,6 +3877,13 @@ export default function App(){
         })(),
       };
       await setDoc(doc(db,"update_notifications",notifId),notifData);
+      await setDoc(doc(db,"update_notifications",notifId),notifData);
+      // Send email to manager
+      {
+        const managerMember=(teamMembers||[]).find(m=>m.email===me?.managerEmail);
+        const title=`${me?.prenom} a soumis son Update`;
+        sendNotifEmail(me?.managerEmail, managerMember?.prenom||me?.managerEmail, title);
+      }
 
       // Save "read" notification for the teammate (for when manager reads)
       // This is stored as a separate collection for teammate notifications
@@ -3898,6 +3921,8 @@ export default function App(){
       createdAt:now,
       read:false,
     });
+      // Send email to teammate
+      sendNotifEmail(notif.fromEmail, notif.fromPrenom||notif.fromEmail, `${managerPrenom} a vu ton Update`);
   }
 
   async function handleSaveMembers(members){
