@@ -3831,7 +3831,31 @@ export default function App(){
     });
 
     // Load OKR data for dashboard
-    const unsubOkr=onSnapshot(doc(db,"okr","data"),(snap)=>{if(snap.exists()&&snap.data().allSeasons){const d=snap.data();const curSk=(()=>{
+    const unsubOkr=onSnapshot(doc(db,"okr","data"),(snap)=>{
+      // Auto-backup on first load (runs once)
+      if(snap.exists()&&!window._okrBackupDone){
+        window._okrBackupDone=true;
+        (async()=>{
+          try{
+            const backupData=snap.data();
+            const timestamp=new Date().toISOString();
+            const backupId=`backup_${timestamp}`;
+            // Store backup with timestamp
+            await setDoc(doc(db,'okr_backups',backupId),{
+              ...backupData,
+              _backupAt:timestamp,
+              _backupId:backupId,
+            });
+            // Clean up: keep only last 20 backups
+            const {getDocs,collection:col,query:q,orderBy:ob,limit:lim,deleteDoc:delDoc}=
+              await import('firebase/firestore');
+            const all=await getDocs(q(col(db,'okr_backups'),ob('_backupAt','desc'),lim(100)));
+            const toDelete=all.docs.slice(20);
+            await Promise.all(toDelete.map(d=>delDoc(d.ref)));
+            console.log('✅ Auto-backup OKR créé:',backupId);
+          }catch(e){console.warn('Auto-backup failed:',e);}
+        })();
+      }if(snap.exists()&&snap.data().allSeasons){const d=snap.data();const curSk=(()=>{
   const n=new Date();
   // Find the season whose date range contains today
   const idx=SEASONS.findIndex(s=>n>=new Date(s.start)&&n<=new Date(s.end));
