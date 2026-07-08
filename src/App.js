@@ -3132,7 +3132,7 @@ function UnlockModal({objTitle,onClose,onUnlock}){
 }
 
 // ─── OKR SUB-COMPONENTS ───────────────────────────────────────────────────────
-function SobjSection({sobj,krs,people,objLocked,onEditKR,onAddKR,onEditSobj,collapsed,toggle}){
+function SobjSection({sobj,krs,people,objLocked,onEditKR,onAddKR,onEditSobj,collapsed,toggle,onReorderKRs}){
   const open=!collapsed[sobj.id];
   const prog=calcSobj(sobj.id,krs);
   const myKRs=krs.filter(k=>k.parent===sobj.id&&k.title);
