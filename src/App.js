@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, getDocs, getDoc, query, where, updateDoc, deleteDoc } from "firebase/firestore";
+import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, getDocs, query, where, updateDoc, deleteDoc } from "firebase/firestore";
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "firebase/auth";
 
 const firebaseConfig = {
@@ -619,11 +619,13 @@ function ReportingBanner({onGoReporting}) {
   const [caData, setCaData] = useState(null);
 
   const [chargeData, setChargeData] = useState(null);
+  const [bfrBanner, setBfrBanner] = useState(null);
   const [importedAt, setImportedAt] = useState(null);
 
   useEffect(()=>{
     const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists()){setCaData(snap.data().caData);}});
     const u2=onSnapshot(doc(db,'reporting','charges'),(snap)=>{if(snap.exists())setChargeData(snap.data().chargeData);});
+    const u3b=onSnapshot(doc(db,'reporting','bfr'),(snap)=>{if(snap.exists())setBfrBanner(snap.data().bilData);});
     const u3=onSnapshot(doc(db,'reporting','meta'),(snap)=>{if(snap.exists())setImportedAt(snap.data().importedAt);
         if(snap.data().importedAt)setImportedAt(snap.data().importedAt);});
     return()=>{u1();u2();u3();};
@@ -678,7 +680,20 @@ function ReportingBanner({onGoReporting}) {
     {label:"Marge Brute",val:mbYTD,col:"#2d6a4f"},
     {label:"Charges expl.",val:Math.abs(chargesExplYTD),col:"#b5680f"},
     {label:"EBITDA",val:ebitdaYTD,col:ebitdaCol},
-    {label:"Trésorerie",val:303000,col:"#1d4ed8"},
+    {label:"Trésorerie",val:(()=>{
+      const rows=bfrBanner?.banques?.banques?.rows||[];
+      let startBal=0;
+      rows.forEach(r=>Object.values(r.an||{}).forEach(v=>startBal-=v));
+      const months=bfrBanner?.banques?.banques?.months||{};
+      const arr=Array(12).fill(0);
+      Object.entries(months).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]-=v;});
+      // Find last month with data
+      let lastM=0;
+      Object.keys(months).forEach(k=>{const m=parseInt(k.split('-')[1]);if(m>lastM)lastM=m;});
+      let cum=startBal;
+      for(let m=0;m<lastM;m++) cum+=arr[m];
+      return cum;
+    })(),col:"#1d4ed8"},
   ];
 
   return (
@@ -1532,7 +1547,7 @@ function UpdatesHistoryTab(){
     const u3=onSnapshot(collection(db,"teammate_notifications"),(snap)=>{
       setAllTmNotifs(snap.docs.map(d=>({id:d.id,...d.data()})));check();
     });
-    return()=>{u1();u2();u3();};
+    return()=>{u1();u2();u3();u3b();};
   },[]);
 
   const prenoms=[...new Set(allUpdates.map(u=>u.prenom).filter(Boolean))].sort();
@@ -2404,7 +2419,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                   const mArr=Array(12).fill(null);
                   mArr[e.month-1]=e.amount;
                   const fmtEntry=v=>v==null?'':v.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});
-                  return <tr key={i} style={{background:'#f5f5f2'}}>
+                  return <tr key={i} style={{background:'#efecea'}}>
                     <td style={{padding:'3px 4px 3px 40px',fontSize:10,color:'#6b6560',
                       position:'sticky',left:0,background:'#f5f5f2',zIndex:1,
                       borderBottom:'1px solid #f0ede8',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:220}}>
