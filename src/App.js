@@ -3146,10 +3146,12 @@ function SobjSection({sobj,krs,people,objLocked,onEditKR,onAddKR,onEditSobj,coll
     const from=order.indexOf(dragId);
     const to=order.indexOf(targetId);
     if(from<0||to<0)return;
-    const reordered=[...order];
-    reordered.splice(from,1);
-    reordered.splice(to,0,dragId);
-    // Rebuild all KRs with new order
+    // Detect if dropping in top or bottom half of target row
+    const rect=e.currentTarget.getBoundingClientRect();
+    const insertBefore=e.clientY<rect.top+rect.height/2;
+    const reordered=order.filter(id=>id!==dragId);
+    const insertAt=reordered.indexOf(targetId)+(insertBefore?0:1);
+    reordered.splice(insertAt,0,dragId);
     const otherKRs=krs.filter(k=>k.parent!==sobj.id||!k.title);
     const newKRs=reordered.map((id,i)=>{
       const kr=myKRs.find(k=>k.id===id);
