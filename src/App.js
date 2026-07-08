@@ -3142,25 +3142,22 @@ function SobjSection({sobj,krs,people,objLocked,onEditKR,onAddKR,onEditSobj,coll
     e.preventDefault();
     const dragId=e.dataTransfer.getData('krId');
     if(!dragId||dragId===targetId)return;
-    const order=myKRs.map(k=>k.id);
-    const from=order.indexOf(dragId);
-    const to=order.indexOf(targetId);
-    if(from<0||to<0)return;
-    // Detect if dropping in top or bottom half of target row
     const rect=e.currentTarget.getBoundingClientRect();
     const insertBefore=e.clientY<rect.top+rect.height/2;
-    const reordered=order.filter(id=>id!==dragId);
-    const insertAt=reordered.indexOf(targetId)+(insertBefore?0:1);
-    reordered.splice(insertAt,0,dragId);
+    // Work with KR objects directly
+    const dragKR=myKRs.find(k=>k.id===dragId);
+    const targetKR=myKRs.find(k=>k.id===targetId);
+    if(!dragKR||!targetKR)return;
+    const without=myKRs.filter(k=>k.id!==dragId);
+    const targetIdx=without.indexOf(targetKR);
+    const insertAt=insertBefore?targetIdx:targetIdx+1;
+    without.splice(insertAt,0,dragKR);
+    // Renumber
+    const newKRs=without.map((kr,i)=>({...kr,id:`${sobj.id}.${i+1}`}));
     const otherKRs=krs.filter(k=>k.parent!==sobj.id||!k.title);
-    const newKRs=reordered.map((id,i)=>{
-      const kr=myKRs.find(k=>k.id===id);
-      return {...kr,id:`${sobj.id}.${i+1}`};
-    });
     onReorderKRs([...otherKRs,...newKRs]);
     setDragOver(null);
   }
-  const sobjKRtotalW=myKRs.reduce((s,k)=>s+k.poids,0);
   const warnW=myKRs.length>0&&Math.round(sobjKRtotalW)!==100;
   const cell={padding:"7px 8px",borderBottom:"1px solid #eae7e1",verticalAlign:"middle",fontSize:12};
   const mono={fontFamily:"monospace",fontSize:11};
