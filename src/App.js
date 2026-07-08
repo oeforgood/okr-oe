@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, getDocs, getDoc, query, where, updateDoc, deleteDoc } from "firebase/firestore";
+import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, getDocs, query, where, updateDoc, deleteDoc } from "firebase/firestore";
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "firebase/auth";
 
 const firebaseConfig = {
@@ -255,13 +255,14 @@ function SmallBar({v,w=56,h=4}){
     <span style={{fontSize:12,fontWeight:600,color:c,minWidth:32,textAlign:"right",fontFamily:"monospace"}}>{Math.round(v)}%</span>
   </div>;
 }
-function Modal({title,children,onClose,onSave,onDelete,saveLabel="Enregistrer",wide=false}){
+function Modal({title,children,onClose,onSave,onDelete,onDuplicate,saveLabel="Enregistrer",wide=false}){
   return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
     <div style={{background:"#fff",borderRadius:12,padding:24,width:"90%",maxWidth:wide?700:540,maxHeight:"90vh",overflowY:"auto",boxSizing:"border-box"}}>
       <div style={{fontSize:16,fontWeight:600,marginBottom:18}}>{title}</div>
       {children}
       <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginTop:20}}>
         {onDelete&&<button onClick={onDelete} style={{marginRight:"auto",fontSize:13,fontWeight:500,background:"#fdecea",color:"#c0392b",border:"1px solid #fca5a5",padding:"7px 14px",borderRadius:6,cursor:"pointer"}}>Supprimer</button>}
+        {onDuplicate&&<button onClick={onDuplicate} style={{marginRight:"auto",fontSize:13,fontWeight:500,background:"#f0f4ff",color:"#2563eb",border:"1px solid #bfdbfe",padding:"7px 14px",borderRadius:6,cursor:"pointer"}}>⧉ Dupliquer</button>}
         <button onClick={onClose} style={{fontSize:13,color:"#6b6560",border:"1px solid #e2ddd6",padding:"7px 14px",borderRadius:6,cursor:"pointer",background:"none"}}>Annuler</button>
         <button onClick={onSave} style={{fontSize:13,fontWeight:500,background:"#2d6a4f",color:"#fff",padding:"7px 18px",borderRadius:6,cursor:"pointer",border:"none"}}>{saveLabel}</button>
       </div>
@@ -3078,7 +3079,25 @@ function KRModal({kr,sobjId,people,keyresults,onClose,onSave,onDelete,locked}){
   }
   const readonlyStruct=locked&&!isNew;
   const uniteSuffix=f.unite==="%"?" (en %)":f.unite==="€"?" (€)":f.unite==="nb"?" (nb)":"";
-  return <Modal title={isNew?"Nouveau KR":"Mettre à jour le KR"} onClose={onClose} onSave={save} onDelete={!isNew&&!locked?onDelete:null}>
+  function handleDuplicate(){
+    // Find next KR number for this subobjective
+    const existingNums=keyresults.filter(k=>k.sobjId===sobjId).map(k=>{
+      const m=k.title.match(/^KR(\d+)/);
+      return m?parseInt(m[1]):0;
+    });
+    const nextNum=existingNums.length>0?Math.max(...existingNums)+1:1;
+    const dupKR={
+      ...f,
+      id:Date.now().toString(),
+      title:`Copie de ${f.title}`,
+      sobjId,
+      val_actuel:f.val_depart,
+      val_revise:f.val_cible,
+    };
+    onSave(dupKR,true); // true = is duplicate
+    onClose();
+  }
+  return <Modal title={isNew?"Nouveau KR":"Mettre à jour le KR"} onClose={onClose} onSave={save} onDelete={!isNew&&!locked?onDelete:null} onDuplicate={!isNew&&!locked?handleDuplicate:null}>
     <Field label="Titre"><input style={INP} value={f.title} onChange={e=>upd("title",e.target.value)} disabled={readonlyStruct}/></Field>
     {!readonlyStruct&&<>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
@@ -3534,7 +3553,7 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
 
     {modal?.type==="obj"&&<ObjModal obj={modal.item} isNew={modal.isNew} people={people} isAdmin={isAdmin} onClose={()=>setModal(null)} onSave={d=>handleObjSave({...d,_id:modal.item?.id,_isNew:modal.isNew})} onDelete={()=>handleObjDel(modal.item.id)} onLock={()=>lockObj(modal.item.id)} onUnlock={()=>{unlockObj(modal.item.id);}} onUnlockRequest={()=>setModal({type:"unlock",item:modal.item})}/>}
     {modal?.type==="sobj"&&<SobjModal sobj={modal.item} isNew={modal.isNew} parentObjId={modal.parentObjId} people={people} subobjectives={subobjectives} onClose={()=>setModal(null)} onSave={d=>handleSobjSave({...d,_id:modal.item?.id,_isNew:modal.isNew,_parentObjId:modal.parentObjId})} onDelete={()=>handleSobjDel(modal.item.id)}/>}
-    {modal?.type==="kr"&&<KRModal kr={modal.item} sobjId={modal.sobjId} people={people} keyresults={keyresults} locked={modal.locked} onClose={()=>setModal(null)} onSave={d=>handleKRSave({...d,_id:modal.item?.id,_sobjId:modal.sobjId})} onDelete={()=>handleKRDel(modal.item.id)}/>}
+    {modal?.type==="kr"&&<KRModal kr={modal.item} sobjId={modal.sobjId} people={people} keyresults={keyresults} locked={modal.locked} onClose={()=>setModal(null)} onSave={(d,isDuplicate)=>handleKRSave({...d,_id:isDuplicate?undefined:modal.item?.id,_sobjId:modal.sobjId})} onDelete={()=>handleKRDel(modal.item.id)}/>}
     {modal?.type==="import"&&<ImportObjModal allSeasons={allSeasons} currentSeasonKey={seasonKey} people={people} onClose={()=>setModal(null)} onImport={handleImport}/>}
     {showJournal&&<JournalModal seasonKey={seasonKey} onClose={()=>setShowJournal(false)} isAdmin={isAdmin} currentPrenom={teamMember?.prenom}/>}
     {modal?.type==="unlock"&&<UnlockModal objTitle={modal.item?.title} onClose={()=>setModal(null)} onUnlock={()=>unlockObj(modal.item.id)}/>}
