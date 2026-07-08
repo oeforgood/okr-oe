@@ -3080,21 +3080,16 @@ function KRModal({kr,sobjId,people,keyresults,onClose,onSave,onDelete,locked}){
   const readonlyStruct=locked&&!isNew;
   const uniteSuffix=f.unite==="%"?" (en %)":f.unite==="€"?" (€)":f.unite==="nb"?" (nb)":"";
   function handleDuplicate(){
-    // Find next KR number for this subobjective
-    const existingNums=keyresults.filter(k=>k.sobjId===sobjId).map(k=>{
-      const m=k.title.match(/^KR(\d+)/);
-      return m?parseInt(m[1]):0;
-    });
-    const nextNum=existingNums.length>0?Math.max(...existingNums)+1:1;
     const dupKR={
       ...f,
-      id:Date.now().toString(),
       title:`Copie de ${f.title}`,
       sobjId,
+      // Reset to start values
       val_actuel:f.val_depart,
       val_revise:f.val_cible,
+      // Keep owner/contributors from form (current members only shown in dropdown)
     };
-    onSave(dupKR,true); // true = is duplicate
+    onSave(dupKR,true); // true = is duplicate → _id will be undefined → new KR with correct numbering
     onClose();
   }
   return <Modal title={isNew?"Nouveau KR":"Mettre à jour le KR"} onClose={onClose} onSave={save} onDelete={!isNew&&!locked?onDelete:null} onDuplicate={!isNew&&!locked?handleDuplicate:null}>
@@ -3428,7 +3423,7 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
     updateSeason({subobjectives:next});setModal(null);
   }
   function handleSobjDel(id){if(!window.confirm("Supprimer ce sous-objectif ?"))return;updateSeason({subobjectives:subobjectives.filter(s=>s.id!==id),keyresults:keyresults.filter(k=>k.parent!==id)});setModal(null);}
-  function handleKRSave(data){
+  function handleKRSave(data,isDuplicate=false){
     const{_id,_sobjId,...kr}=data;
     const krs=allSeasonsRef.current[seasonKeyRef.current]?.keyresults||[];
     let nextKRs;
@@ -3438,7 +3433,10 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
       const _obj=allSeasonsRef.current[seasonKeyRef.current]?.objectives?.find(o=>o.id===_sobj?.parent);
       if(_obj?.locked){const ch=[];if(prev.val_actuel!==kr.val_actuel)ch.push({field:"Valeur actuelle",before:prev.val_actuel,after:kr.val_actuel});if(prev.val_revise!==kr.val_revise)ch.push({field:"Cible réévaluée",before:prev.val_revise,after:kr.val_revise});if(prev.stop!==kr.stop)ch.push({field:"STOP",before:prev.stop?"Oui":"Non",after:kr.stop?"Oui":"Non"});if(ch.length)logChange("KR",_id,kr.title,kr.owner,ch);}
     }}
-    else{const sib=krs.filter(k=>k.parent===_sobjId);nextKRs=[...krs,{id:`${_sobjId}.${sib.length+1}`,parent:_sobjId,priorite:"",...kr}];}
+    else{const sib=krs.filter(k=>k.parent===_sobjId);const newKR={id:`${_sobjId}.${sib.length+1}`,parent:_sobjId,priorite:"",...kr};nextKRs=[...krs,newKR];
+      updateSeason({keyresults:nextKRs});
+      if(isDuplicate){setModal({type:"kr",item:newKR,sobjId:_sobjId,locked:false});}else{setModal(null);}
+      return;}
     updateSeason({keyresults:nextKRs});setModal(null);
   }
   function handleKRDel(id){if(!window.confirm("Supprimer ce KR ?"))return;updateSeason({keyresults:keyresults.filter(k=>k.id!==id)});setModal(null);}
@@ -3553,7 +3551,7 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
 
     {modal?.type==="obj"&&<ObjModal obj={modal.item} isNew={modal.isNew} people={people} isAdmin={isAdmin} onClose={()=>setModal(null)} onSave={d=>handleObjSave({...d,_id:modal.item?.id,_isNew:modal.isNew})} onDelete={()=>handleObjDel(modal.item.id)} onLock={()=>lockObj(modal.item.id)} onUnlock={()=>{unlockObj(modal.item.id);}} onUnlockRequest={()=>setModal({type:"unlock",item:modal.item})}/>}
     {modal?.type==="sobj"&&<SobjModal sobj={modal.item} isNew={modal.isNew} parentObjId={modal.parentObjId} people={people} subobjectives={subobjectives} onClose={()=>setModal(null)} onSave={d=>handleSobjSave({...d,_id:modal.item?.id,_isNew:modal.isNew,_parentObjId:modal.parentObjId})} onDelete={()=>handleSobjDel(modal.item.id)}/>}
-    {modal?.type==="kr"&&<KRModal kr={modal.item} sobjId={modal.sobjId} people={people} keyresults={keyresults} locked={modal.locked} onClose={()=>setModal(null)} onSave={(d,isDuplicate)=>handleKRSave({...d,_id:isDuplicate?undefined:modal.item?.id,_sobjId:modal.sobjId})} onDelete={()=>handleKRDel(modal.item.id)}/>}
+    {modal?.type==="kr"&&<KRModal kr={modal.item} sobjId={modal.sobjId} people={people} keyresults={keyresults} locked={modal.locked} onClose={()=>setModal(null)} onSave={(d,isDuplicate)=>handleKRSave({...d,_id:isDuplicate?undefined:modal.item?.id,_sobjId:modal.sobjId},isDuplicate)} onDelete={()=>handleKRDel(modal.item.id)}/>}
     {modal?.type==="import"&&<ImportObjModal allSeasons={allSeasons} currentSeasonKey={seasonKey} people={people} onClose={()=>setModal(null)} onImport={handleImport}/>}
     {showJournal&&<JournalModal seasonKey={seasonKey} onClose={()=>setShowJournal(false)} isAdmin={isAdmin} currentPrenom={teamMember?.prenom}/>}
     {modal?.type==="unlock"&&<UnlockModal objTitle={modal.item?.title} onClose={()=>setModal(null)} onUnlock={()=>unlockObj(modal.item.id)}/>}
@@ -3798,15 +3796,15 @@ export default function App(){
   }
 
   async function handleSaveMembers(members){
-    await setDoc(doc(db,"app_config","main"),{teamMembers:members,questions},);
-    setTeamMembers(members);
-  }
+   async function handleSaveMembers(members){
+     await setDoc(doc(db,"app_config","main"),{teamMembers:members},{merge:true});
+     setTeamMembers(members);
   async function handleSaveQuestions(qs){
-    await setDoc(doc(db,"app_config","main"),{teamMembers,questions:qs,catTypes});
-    setQuestions(qs);
-  }
+   async function handleSaveQuestions(qs){
+     await setDoc(doc(db,"app_config","main"),{questions:qs},{merge:true});
+     setQuestions(qs);
   async function handleSaveCatTypes(ct){
-    await setDoc(doc(db,"app_config","main"),{teamMembers,questions,catTypes:ct,codeMap,customSubcatLabels},{merge:true});
+    await setDoc(doc(db,"app_config","main"),{catTypes:ct},{merge:true});
     setCatTypes(ct);
   }
   async function handleSaveCanalMargin(cm){
@@ -3814,12 +3812,12 @@ export default function App(){
     setSavedCanalMargin(cm);
   }
   async function handleSaveCodeMap(cm){
-    await setDoc(doc(db,"app_config","main"),{teamMembers,questions,catTypes,codeMap:cm,customSubcatLabels});
+    await setDoc(doc(db,"app_config","main"),{codeMap:cm},{merge:true});
     setCodeMap(cm);
   }
   const [customSubcatLabels,setCustomSubcatLabels]=useState({});
   async function handleSaveCustomLabels(cl){
-    await setDoc(doc(db,"app_config","main"),{teamMembers,questions,catTypes,codeMap,customSubcatLabels:cl},{ merge: true });
+    await setDoc(doc(db,"app_config","main"),{customSubcatLabels:cl},{merge:true});
     setCustomSubcatLabels(cl);
   }
 
