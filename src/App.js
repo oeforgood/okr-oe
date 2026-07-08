@@ -3796,26 +3796,25 @@ export default function App(){
   }
 
   async function handleSaveMembers(members){
-   async function handleSaveMembers(members){
-     await setDoc(doc(db,"app_config","main"),{teamMembers:members},{merge:true});
-     setTeamMembers(members);
+    await setDoc(doc(db,"app_config","main"),{teamMembers:members},{merge:true});
+    setTeamMembers(members);
+  }
   async function handleSaveQuestions(qs){
-   async function handleSaveQuestions(qs){
-     await setDoc(doc(db,"app_config","main"),{questions:qs},{merge:true});
-     setQuestions(qs);
+    await setDoc(doc(db,"app_config","main"),{questions:qs},{merge:true});
+    setQuestions(qs);
+  }
   async function handleSaveCatTypes(ct){
     await setDoc(doc(db,"app_config","main"),{catTypes:ct},{merge:true});
     setCatTypes(ct);
   }
   async function handleSaveCanalMargin(cm){
-    await setDoc(doc(db,'reporting','meta'),{canalMargin:cm},{merge:true});
+    await setDoc(doc(db,"reporting","meta"),{canalMargin:cm},{merge:true});
     setSavedCanalMargin(cm);
   }
   async function handleSaveCodeMap(cm){
     await setDoc(doc(db,"app_config","main"),{codeMap:cm},{merge:true});
     setCodeMap(cm);
   }
-  const [customSubcatLabels,setCustomSubcatLabels]=useState({});
   async function handleSaveCustomLabels(cl){
     await setDoc(doc(db,"app_config","main"),{customSubcatLabels:cl},{merge:true});
     setCustomSubcatLabels(cl);
