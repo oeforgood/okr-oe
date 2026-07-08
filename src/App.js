@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, getDocs, getDoc, query, where, updateDoc, deleteDoc } from "firebase/firestore";
+import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, getDocs, query, where, updateDoc, deleteDoc } from "firebase/firestore";
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "firebase/auth";
 
 const firebaseConfig = {
@@ -255,13 +255,14 @@ function SmallBar({v,w=56,h=4}){
     <span style={{fontSize:12,fontWeight:600,color:c,minWidth:32,textAlign:"right",fontFamily:"monospace"}}>{Math.round(v)}%</span>
   </div>;
 }
-function Modal({title,children,onClose,onSave,onDelete,saveLabel="Enregistrer",wide=false}){
+function Modal({title,children,onClose,onSave,onDelete,onDuplicate,saveLabel="Enregistrer",wide=false}){
   return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
     <div style={{background:"#fff",borderRadius:12,padding:24,width:"90%",maxWidth:wide?700:540,maxHeight:"90vh",overflowY:"auto",boxSizing:"border-box"}}>
       <div style={{fontSize:16,fontWeight:600,marginBottom:18}}>{title}</div>
       {children}
       <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginTop:20}}>
         {onDelete&&<button onClick={onDelete} style={{marginRight:"auto",fontSize:13,fontWeight:500,background:"#fdecea",color:"#c0392b",border:"1px solid #fca5a5",padding:"7px 14px",borderRadius:6,cursor:"pointer"}}>Supprimer</button>}
+        {onDuplicate&&<button onClick={onDuplicate} style={{marginRight:"auto",fontSize:13,fontWeight:500,background:"#f0f4ff",color:"#2563eb",border:"1px solid #bfdbfe",padding:"7px 14px",borderRadius:6,cursor:"pointer"}}>⧉ Dupliquer</button>}
         <button onClick={onClose} style={{fontSize:13,color:"#6b6560",border:"1px solid #e2ddd6",padding:"7px 14px",borderRadius:6,cursor:"pointer",background:"none"}}>Annuler</button>
         <button onClick={onSave} style={{fontSize:13,fontWeight:500,background:"#2d6a4f",color:"#fff",padding:"7px 18px",borderRadius:6,cursor:"pointer",border:"none"}}>{saveLabel}</button>
       </div>
@@ -3078,7 +3079,20 @@ function KRModal({kr,sobjId,people,keyresults,onClose,onSave,onDelete,locked}){
   }
   const readonlyStruct=locked&&!isNew;
   const uniteSuffix=f.unite==="%"?" (en %)":f.unite==="€"?" (€)":f.unite==="nb"?" (nb)":"";
-  return <Modal title={isNew?"Nouveau KR":"Mettre à jour le KR"} onClose={onClose} onSave={save} onDelete={!isNew&&!locked?onDelete:null}>
+  function handleDuplicate(){
+    const dupKR={
+      ...f,
+      title:`Copie de ${f.title}`,
+      sobjId,
+      // Reset to start values
+      val_actuel:f.val_depart,
+      val_revise:f.val_cible,
+      // Keep owner/contributors from form (current members only shown in dropdown)
+    };
+    onSave(dupKR,true); // true = is duplicate → _id will be undefined → new KR with correct numbering
+    onClose();
+  }
+  return <Modal title={isNew?"Nouveau KR":"Mettre à jour le KR"} onClose={onClose} onSave={save} onDelete={!isNew&&!locked?onDelete:null} onDuplicate={!isNew&&!locked?handleDuplicate:null}>
     <Field label="Titre"><input style={INP} value={f.title} onChange={e=>upd("title",e.target.value)} disabled={readonlyStruct}/></Field>
     {!readonlyStruct&&<>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
@@ -3118,10 +3132,34 @@ function UnlockModal({objTitle,onClose,onUnlock}){
 }
 
 // ─── OKR SUB-COMPONENTS ───────────────────────────────────────────────────────
-function SobjSection({sobj,krs,people,objLocked,onEditKR,onAddKR,onEditSobj,collapsed,toggle}){
+function SobjSection({sobj,krs,people,objLocked,onEditKR,onAddKR,onEditSobj,collapsed,toggle,onReorderKRs}){
   const open=!collapsed[sobj.id];
   const prog=calcSobj(sobj.id,krs);
   const myKRs=krs.filter(k=>k.parent===sobj.id&&k.title);
+  const [dragOver,setDragOver]=useState(null);
+  function handleDragStart(e,krId){e.dataTransfer.setData('krId',krId);}
+  function handleDrop(e,targetId){
+    e.preventDefault();
+    const dragId=e.dataTransfer.getData('krId');
+    if(!dragId||dragId===targetId)return;
+    const order=myKRs.map(k=>k.id);
+    const from=order.indexOf(dragId);
+    const to=order.indexOf(targetId);
+    if(from<0||to<0)return;
+    // Detect if dropping in top or bottom half of target row
+    const rect=e.currentTarget.getBoundingClientRect();
+    const insertBefore=e.clientY<rect.top+rect.height/2;
+    const reordered=order.filter(id=>id!==dragId);
+    const insertAt=reordered.indexOf(targetId)+(insertBefore?0:1);
+    reordered.splice(insertAt,0,dragId);
+    const otherKRs=krs.filter(k=>k.parent!==sobj.id||!k.title);
+    const newKRs=reordered.map((id,i)=>{
+      const kr=myKRs.find(k=>k.id===id);
+      return {...kr,id:`${sobj.id}.${i+1}`};
+    });
+    onReorderKRs([...otherKRs,...newKRs]);
+    setDragOver(null);
+  }
   const sobjKRtotalW=myKRs.reduce((s,k)=>s+k.poids,0);
   const warnW=myKRs.length>0&&Math.round(sobjKRtotalW)!==100;
   const cell={padding:"7px 8px",borderBottom:"1px solid #eae7e1",verticalAlign:"middle",fontSize:12};
@@ -3153,7 +3191,13 @@ function SobjSection({sobj,krs,people,objLocked,onEditKR,onAddKR,onEditSobj,coll
         <tbody>
           {myKRs.map(kr=>{
             const p=kr.taux,col=progColor(p),hasRevise=kr.val_revise!==kr.val_cible;
-            return <tr key={kr.id} style={{opacity:kr.stop?0.5:1}}
+            return <tr key={kr.id}
+              draggable={!objLocked}
+              onDragStart={e=>handleDragStart(e,kr.id)}
+              onDragOver={e=>{e.preventDefault();setDragOver(kr.id);}}
+              onDragLeave={()=>setDragOver(null)}
+              onDrop={e=>handleDrop(e,kr.id)}
+              style={{opacity:kr.stop?0.5:1,outline:dragOver===kr.id?'2px solid #2d6a4f':'none',outlineOffset:'-1px'}}
               onMouseEnter={e=>{for(const td of e.currentTarget.cells)td.style.background="#f0ede8"}}
               onMouseLeave={e=>{for(const td of e.currentTarget.cells)td.style.background=""}}>
               <td style={{...cell,maxWidth:200}}>
@@ -3409,7 +3453,7 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
     updateSeason({subobjectives:next});setModal(null);
   }
   function handleSobjDel(id){if(!window.confirm("Supprimer ce sous-objectif ?"))return;updateSeason({subobjectives:subobjectives.filter(s=>s.id!==id),keyresults:keyresults.filter(k=>k.parent!==id)});setModal(null);}
-  function handleKRSave(data){
+  function handleKRSave(data,isDuplicate=false){
     const{_id,_sobjId,...kr}=data;
     const krs=allSeasonsRef.current[seasonKeyRef.current]?.keyresults||[];
     let nextKRs;
@@ -3419,10 +3463,34 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
       const _obj=allSeasonsRef.current[seasonKeyRef.current]?.objectives?.find(o=>o.id===_sobj?.parent);
       if(_obj?.locked){const ch=[];if(prev.val_actuel!==kr.val_actuel)ch.push({field:"Valeur actuelle",before:prev.val_actuel,after:kr.val_actuel});if(prev.val_revise!==kr.val_revise)ch.push({field:"Cible réévaluée",before:prev.val_revise,after:kr.val_revise});if(prev.stop!==kr.stop)ch.push({field:"STOP",before:prev.stop?"Oui":"Non",after:kr.stop?"Oui":"Non"});if(ch.length)logChange("KR",_id,kr.title,kr.owner,ch);}
     }}
-    else{const sib=krs.filter(k=>k.parent===_sobjId);nextKRs=[...krs,{id:`${_sobjId}.${sib.length+1}`,parent:_sobjId,priorite:"",...kr}];}
+    else{const sib=krs.filter(k=>k.parent===_sobjId);const newKR={id:`${_sobjId}.${sib.length+1}`,parent:_sobjId,priorite:"",...kr};nextKRs=[...krs,newKR];
+      updateSeason({keyresults:nextKRs});
+      const renumbered=renumberKRs(nextKRs,_sobjId);
+      if(isDuplicate){
+        const finalKR=renumbered.find(k=>k.parent===_sobjId&&k.title===newKR.title&&!keyresults.find(x=>x.id===k.id));
+        updateSeason({keyresults:renumbered});
+        setModal({type:"kr",item:finalKR||{...newKR,id:`${_sobjId}.${renumbered.filter(k=>k.parent===_sobjId).length}`},sobjId:_sobjId,locked:false});
+      }else{setModal(null);}
+      return;}
     updateSeason({keyresults:nextKRs});setModal(null);
   }
-  function handleKRDel(id){if(!window.confirm("Supprimer ce KR ?"))return;updateSeason({keyresults:keyresults.filter(k=>k.id!==id)});setModal(null);}
+    function renumberKRs(krs, sobjId) {
+    let idx = 0;
+    return krs.map(kr => {
+      if (kr.parent === sobjId) {
+        idx++;
+        return {...kr, id: `${sobjId}.${idx}`};
+      }
+      return kr;
+    });
+  }
+  function handleKRDel(id){
+    if(!window.confirm("Supprimer ce KR ?"))return;
+    const kr=keyresults.find(k=>k.id===id);
+    const filtered=keyresults.filter(k=>k.id!==id);
+    const renumbered=kr?renumberKRs(filtered,kr.parent):filtered;
+    updateSeason({keyresults:renumbered});setModal(null);
+  }
   function handleImport({obj,sobjs,krs,mode}){
     const curObjs=allSeasonsRef.current[seasonKeyRef.current]?.objectives||[];
     const curSobjs=allSeasonsRef.current[seasonKeyRef.current]?.subobjectives||[];
@@ -3517,7 +3585,7 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
                 onEditKR={kr=>setModal({type:"kr",item:kr,sobjId:kr.parent,locked:objLocked})}
                 onAddKR={sid=>setModal({type:"kr",item:null,sobjId:sid,locked:objLocked})}
                 onEditSobj={s=>setModal({type:"sobj",item:s,isNew:false,parentObjId:obj.id})}
-                collapsed={collSobj} toggle={toggleSobj}/>)}
+                collapsed={collSobj} toggle={toggleSobj} onReorderKRs={newKRs=>updateSeason({keyresults:newKRs})}/>)}
               {!objLocked&&<button onClick={()=>setModal({type:"sobj",item:null,isNew:true,parentObjId:obj.id})}
                 style={{fontSize:11,color:"#9e9890",background:"none",border:"none",borderTop:"1px dashed #e2ddd6",width:"100%",padding:"8px 28px",textAlign:"left",cursor:"pointer"}}>
                 + Ajouter un sous-objectif
@@ -3534,7 +3602,7 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
 
     {modal?.type==="obj"&&<ObjModal obj={modal.item} isNew={modal.isNew} people={people} isAdmin={isAdmin} onClose={()=>setModal(null)} onSave={d=>handleObjSave({...d,_id:modal.item?.id,_isNew:modal.isNew})} onDelete={()=>handleObjDel(modal.item.id)} onLock={()=>lockObj(modal.item.id)} onUnlock={()=>{unlockObj(modal.item.id);}} onUnlockRequest={()=>setModal({type:"unlock",item:modal.item})}/>}
     {modal?.type==="sobj"&&<SobjModal sobj={modal.item} isNew={modal.isNew} parentObjId={modal.parentObjId} people={people} subobjectives={subobjectives} onClose={()=>setModal(null)} onSave={d=>handleSobjSave({...d,_id:modal.item?.id,_isNew:modal.isNew,_parentObjId:modal.parentObjId})} onDelete={()=>handleSobjDel(modal.item.id)}/>}
-    {modal?.type==="kr"&&<KRModal kr={modal.item} sobjId={modal.sobjId} people={people} keyresults={keyresults} locked={modal.locked} onClose={()=>setModal(null)} onSave={d=>handleKRSave({...d,_id:modal.item?.id,_sobjId:modal.sobjId})} onDelete={()=>handleKRDel(modal.item.id)}/>}
+    {modal?.type==="kr"&&<KRModal kr={modal.item} sobjId={modal.sobjId} people={people} keyresults={keyresults} locked={modal.locked} onClose={()=>setModal(null)} onSave={(d,isDuplicate)=>handleKRSave({...d,_id:isDuplicate?undefined:modal.item?.id,_sobjId:modal.sobjId},isDuplicate)} onDelete={()=>handleKRDel(modal.item.id)}/>}
     {modal?.type==="import"&&<ImportObjModal allSeasons={allSeasons} currentSeasonKey={seasonKey} people={people} onClose={()=>setModal(null)} onImport={handleImport}/>}
     {showJournal&&<JournalModal seasonKey={seasonKey} onClose={()=>setShowJournal(false)} isAdmin={isAdmin} currentPrenom={teamMember?.prenom}/>}
     {modal?.type==="unlock"&&<UnlockModal objTitle={modal.item?.title} onClose={()=>setModal(null)} onUnlock={()=>unlockObj(modal.item.id)}/>}
@@ -3779,28 +3847,28 @@ export default function App(){
   }
 
   async function handleSaveMembers(members){
-    await setDoc(doc(db,"app_config","main"),{teamMembers:members,questions},);
+    await setDoc(doc(db,"app_config","main"),{teamMembers:members},{merge:true});
     setTeamMembers(members);
   }
   async function handleSaveQuestions(qs){
-    await setDoc(doc(db,"app_config","main"),{teamMembers,questions:qs,catTypes});
+    await setDoc(doc(db,"app_config","main"),{questions:qs},{merge:true});
     setQuestions(qs);
   }
   async function handleSaveCatTypes(ct){
-    await setDoc(doc(db,"app_config","main"),{teamMembers,questions,catTypes:ct,codeMap,customSubcatLabels},{merge:true});
+    await setDoc(doc(db,"app_config","main"),{catTypes:ct},{merge:true});
     setCatTypes(ct);
   }
   async function handleSaveCanalMargin(cm){
-    await setDoc(doc(db,'reporting','meta'),{canalMargin:cm},{merge:true});
+    await setDoc(doc(db,"reporting","meta"),{canalMargin:cm},{merge:true});
     setSavedCanalMargin(cm);
   }
   async function handleSaveCodeMap(cm){
-    await setDoc(doc(db,"app_config","main"),{teamMembers,questions,catTypes,codeMap:cm,customSubcatLabels});
+    await setDoc(doc(db,"app_config","main"),{codeMap:cm},{merge:true});
     setCodeMap(cm);
   }
   const [customSubcatLabels,setCustomSubcatLabels]=useState({});
   async function handleSaveCustomLabels(cl){
-    await setDoc(doc(db,"app_config","main"),{teamMembers,questions,catTypes,codeMap,customSubcatLabels:cl},{ merge: true });
+    await setDoc(doc(db,"app_config","main"),{customSubcatLabels:cl},{merge:true});
     setCustomSubcatLabels(cl);
   }
 
