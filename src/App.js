@@ -3964,7 +3964,6 @@ export default function App(){
         })(),
       };
       await setDoc(doc(db,"update_notifications",notifId),notifData);
-      await setDoc(doc(db,"update_notifications",notifId),notifData);
       // Send email to manager
       {
         const managerMember=(teamMembers||[]).find(m=>m.email===me?.managerEmail);
