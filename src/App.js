@@ -1209,6 +1209,27 @@ function UpdateViewModal({notif,onClose,onRead,teamMembers=[]}){
   const isManager=!!(viewerEmail&&authorEmail&&teamMembers&&
     teamMembers.find(m=>m.email===authorEmail&&m.managerEmail===viewerEmail));
   const canSeeQ6=isOwn||isManager;
+  const [replyText,setReplyText]=useState('');
+  const [replySent,setReplySent]=useState(false);
+  async function sendReply(){
+    if(!replyText.trim())return;
+    const managerPrenom=teamMembers.find(m=>m.email===viewerEmail)?.prenom||'Ton référent';
+    const toEmail=authorEmail;
+    const toPrenom=teamMembers.find(m=>m.email===authorEmail)?.prenom||'';
+    const notifId=`reply_${viewerEmail}_${authorEmail}_${Date.now()}`;
+    await setDoc(doc(db,'teammate_notifications',notifId),{
+      toEmail,
+      fromPrenom:managerPrenom,
+      title:`${managerPrenom} a répondu à ton update`,
+      message:replyText.trim(),
+      createdAt:Date.now(),
+      read:false,
+      isReply:true,
+    });
+    sendNotifEmail(toEmail, toPrenom, `${managerPrenom} a répondu à ton update`);
+    setReplySent(true);
+    setTimeout(()=>{setReplyText('');setReplySent(false);},2000);
+  }
   const visibleQs=DEFAULT_QUESTIONS.filter(q=>q.id!=="q7"&&answers[q.id]&&(q.id!=="q6"||canSeeQ6));
   return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
     <div style={{background:"#fff",borderRadius:12,padding:28,width:"90%",maxWidth:580,maxHeight:"85vh",overflowY:"auto"}}>
@@ -1232,6 +1253,18 @@ function UpdateViewModal({notif,onClose,onRead,teamMembers=[]}){
         </div>;
       })}
       <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginTop:20,borderTop:"1px solid #e2ddd6",paddingTop:16}}>
+        {isManager&&<div style={{marginBottom:16,borderTop:"1px solid #e2ddd6",paddingTop:16}}>
+          <div style={{fontSize:12,fontWeight:600,color:"#6b6560",marginBottom:8}}>💬 Répondre à l'update</div>
+          <textarea value={replyText} onChange={e=>setReplyText(e.target.value)}
+            rows={3} style={{width:"100%",border:"1px solid #e2ddd6",borderRadius:6,padding:"8px 10px",fontSize:13,boxSizing:"border-box",resize:"vertical",fontFamily:"inherit"}}
+            placeholder="Écris ta réponse…"/>
+          <div style={{display:"flex",justifyContent:"flex-end",marginTop:8}}>
+            <button onClick={sendReply} disabled={!replyText.trim()||replySent}
+              style={{fontSize:13,fontWeight:500,background:"#2d6a4f",color:"#fff",padding:"7px 18px",borderRadius:6,cursor:"pointer",border:"none",opacity:!replyText.trim()||replySent?0.6:1}}>
+              {replySent?"✓ Envoyé !":"Envoyer"}
+            </button>
+          </div>
+        </div>}
         <button onClick={onClose} style={{fontSize:13,color:"#6b6560",border:"1px solid #e2ddd6",padding:"7px 14px",borderRadius:6,cursor:"pointer",background:"none"}}>Fermer</button>
         {!notif.isOwn&&!notif.read&&<button onClick={onRead} style={{fontSize:13,fontWeight:500,background:"#2d6a4f",color:"#fff",padding:"7px 18px",borderRadius:6,cursor:"pointer",border:"none"}}>✓ Marquer comme lu</button>}
       </div>
