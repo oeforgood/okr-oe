@@ -515,7 +515,7 @@ function NotifDetail({notif, teamMember, teamMembers=[]}) {
   </div>;
 }
 
-function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,teamMembers=[],myUpdates=[]}){
+function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,teamMembers=[],myUpdates=[],allUpdates=[]}){
   const [selected,setSelected]=useState(null);
   // Include manager notifs (update notifications) + system messages
   // System messages: Monday morning greeting, season prep reminder
@@ -582,7 +582,8 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,t
       const fmtD=d=>`${d.getDate()} ${d.toLocaleString("fr-FR",{month:"long"})}`;
       // Use updatedAt if available (last modification), otherwise submittedAt
       const msgDate=new Date(n.updatedAt||n.submittedAt);
-      return{id:n.id,title:`Nouvel Update de ${n.fromPrenom}`,content:null,notif:n,date:msgDate,read:n.read,isSystem:false,fromPrenom:n.fromPrenom,weekLabel:(mon.getMonth()===fri.getMonth()?`lundi ${mon.getDate()} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`:`lundi ${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"long"})} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`)};
+      const updateData=allUpdates.find(u=>u.email===n.fromEmail&&u.weekKey===n.weekKey);
+      return{id:n.id,title:`Nouvel Update de ${n.fromPrenom}`,content:null,notif:{...n,answers:updateData?.answers||{},fromEmail:n.fromEmail||updateData?.email},date:msgDate,read:n.read,isSystem:false,fromPrenom:n.fromPrenom,weekLabel:(mon.getMonth()===fri.getMonth()?`lundi ${mon.getDate()} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`:`lundi ${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"long"})} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`)};
     }).sort((a,b)=>b.date-a.date);
 
   // Teammate notifications (manager read your update)
@@ -835,7 +836,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
 
       {/* ── TOP: Notifications + Feedback ── */}
       <div style={{display:"grid",gridTemplateColumns:"3fr 1fr",gap:12,marginBottom:16,alignItems:"stretch"}}>
-        <MessagesPanel managerNotifs={managerNotifs} teammateNotifs={teammateNotifs} onReadNotif={onReadNotif} teamMember={teamMember} teamMembers={teamMembers} myUpdates={myUpdates}/>
+        <MessagesPanel managerNotifs={managerNotifs} teammateNotifs={teammateNotifs} onReadNotif={onReadNotif} teamMember={teamMember} teamMembers={teamMembers} myUpdates={myUpdates} allUpdates={allUpdates}/>
         <FeedbackBox currentUser={currentUser} teamMember={teamMember}/>
       </div>
 
