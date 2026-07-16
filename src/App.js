@@ -3500,6 +3500,8 @@ function JournalModal({seasonKey,onClose,isAdmin,currentPrenom}){
           </div>;
         })}
       </div>
+      }
+
     </div>
   </div>;
 }
