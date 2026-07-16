@@ -67,7 +67,7 @@ const DEFAULT_QUESTIONS=[
 ];
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
-function ini(name){return INITIALS_MAP[name]||(name||"?").slice(0,2).toUpperCase()}
+function ini(name){const s=(name||'?');return INITIALS_MAP[name]||(s[0].toUpperCase()+(s[1]||'').toLowerCase())}
 function pBg(name,people){const i=(people||[]).indexOf(name)%12;return P_BG[i<0?0:i]}
 function pTx(name,people){const i=(people||[]).indexOf(name)%12;return P_TX[i<0?0:i]}
 function progColor(v){return v>=80?"#2d6a4f":v>=50?"#b5680f":"#c0392b"}
