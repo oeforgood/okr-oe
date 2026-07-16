@@ -819,7 +819,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
   const avgProg=calcWeightedAvg(objectives,subobjectives,keyresults);
   const totalKR=keyresults.length,doneKR=keyresults.filter(k=>k.taux>=100).length;
   const myPrenom=teamMember?.prenom;
-  const myKRs=keyresults.filter(k=>k.owner===myPrenom||k.contributors?.includes(myPrenom));
+  const myKRs=keyresults.filter(k=>k.owner===myPrenom);
   const myKRDone=myKRs.filter(k=>k.taux>=100).length;
 
   // Personal weighted progress: weight = KR_poids * sobj_poids * obj_etp
@@ -3279,10 +3279,10 @@ function UnlockModal({objTitle,onClose,onUnlock}){
 }
 
 // ─── OKR SUB-COMPONENTS ───────────────────────────────────────────────────────
-function SobjSection({sobj,krs,people,objLocked,onEditKR,onAddKR,onEditSobj,collapsed,toggle,onReorderKRs}){
+function SobjSection({sobj,krs,people,objLocked,onEditKR,onAddKR,onEditSobj,collapsed,toggle,onReorderKRs,filterP}){
   const open=!collapsed[sobj.id];
   const prog=calcSobj(sobj.id,krs);
-  const myKRs=krs.filter(k=>k.parent===sobj.id&&k.title);
+  const myKRs=krs.filter(k=>k.parent===sobj.id&&k.title&&(!filterP||k.owner===filterP));
   const [dragOverKR,setDragOverKR]=useState(null); // {id, before}
   function handleDragStart(e,krId){e.dataTransfer.setData('krId',krId);}
   function handleDrop(e,targetId){
@@ -3572,6 +3572,30 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
   const [collObj,setCollObj]=useState({});
   const [collSobj,setCollSobj]=useState({});
   const [filterP,setFilterP]=useState("");
+
+  // Auto-expand all objectives and sobjs when filter changes
+  useEffect(()=>{
+    if(!filterP){return;}
+    const season=allSeasons[seasonKey];
+    if(!season)return;
+    const {objectives=[],subobjectives=[],keyresults=[]}=season;
+    // Find all obj IDs that have at least one owned KR by filterP
+    const newCollObj={};
+    objectives.forEach(o=>{
+      const hasMine=subobjectives.filter(s=>s.parent===o.id).some(s=>
+        keyresults.filter(k=>k.parent===s.id).some(k=>k.owner===filterP)
+      );
+      if(hasMine) newCollObj[o.id]=false; // false = expanded
+    });
+    setCollObj(p=>({...p,...newCollObj}));
+    // Also expand all sobjs that have owned KRs
+    const newCollSobj={};
+    subobjectives.forEach(s=>{
+      const hasMine=keyresults.filter(k=>k.parent===s.id).some(k=>k.owner===filterP);
+      if(hasMine) newCollSobj[s.id]=false;
+    });
+    setCollSobj(p=>({...p,...newCollSobj}));
+  },[filterP,seasonKey]);
   const [modal,setModal]=useState(null);
   const [saved,setSaved]=useState(false);
   const [loaded,setLoaded]=useState(false);
@@ -3691,7 +3715,7 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
   }
 
   const allLocked=objectives.length>0&&objectives.every(o=>!!o.locked);
-  const visObjs=filterP?objectives.filter(o=>o.owner===filterP||subobjectives.filter(s=>s.parent===o.id).some(s=>s.owner===filterP||keyresults.filter(k=>k.parent===s.id).some(k=>k.owner===filterP||k.contributors.includes(filterP)))):objectives;
+  const visObjs=filterP?objectives.filter(o=>subobjectives.filter(s=>s.parent===o.id).some(s=>keyresults.filter(k=>k.parent===s.id).some(k=>k.owner===filterP))):objectives;
   const totalKR=keyresults.length,doneKR=keyresults.filter(k=>k.taux>=100).length,avgProg=calcWeightedAvg(objectives,subobjectives,keyresults);
 
   if(!loaded)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:200,color:"#9e9890",fontSize:13}}>Chargement…</div>;
@@ -3743,7 +3767,7 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
           const prog=calcObj(obj.id,subobjectives,keyresults);
           const open=!collObj[obj.id],objLocked=!!obj.locked;
           const sobjs=subobjectives.filter(s=>s.parent===obj.id);
-  const visSobjs=filterP?sobjs.filter(s=>s.owner===filterP||keyresults.filter(k=>k.parent===s.id).some(k=>k.owner===filterP||k.contributors.includes(filterP))):sobjs;
+  const visSobjs=filterP?sobjs.filter(s=>keyresults.filter(k=>k.parent===s.id).some(k=>k.owner===filterP)):sobjs;
           const sobjTotalW=sobjs.reduce((s,o)=>s+o.poids,0),warnSobj=sobjs.length>0&&Math.round(sobjTotalW)!==100;
           return <div key={obj.id} style={{background:"#fff",border:`1px solid ${objLocked?"#f59e0b":"#e2ddd6"}`,borderRadius:10,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,.07)"}}>
             <div style={{display:"flex",alignItems:"center",gap:10,padding:"13px 16px",cursor:"pointer",userSelect:"none"}}
@@ -3779,7 +3803,7 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
                   onDrop={e=>handleSobjDrop(e,sobj,subobjectives,obj.id)}
                   style={{}}>
                   {dragOverSobj?.id===sobj.id&&dragOverSobj?.before&&<div style={{height:3,background:'#2d6a4f',margin:'0 16px',borderRadius:2}}/>}
-                  <SobjSection sobj={sobj} krs={keyresults} people={people} objLocked={objLocked}
+                  <SobjSection sobj={sobj} krs={keyresults} people={people} objLocked={objLocked} filterP={filterP}
                     onEditKR={kr=>setModal({type:"kr",item:kr,sobjId:kr.parent,locked:objLocked})}
                     onAddKR={sid=>setModal({type:"kr",item:null,sobjId:sid,locked:objLocked})}
                     onEditSobj={s=>setModal({type:"sobj",item:s,isNew:false,parentObjId:obj.id})}
