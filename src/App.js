@@ -3498,7 +3498,6 @@ function JournalModal({seasonKey,onClose,isAdmin,currentPrenom}){
               </div>)}
             </div>}
           </div>;
-            {isDragTarget&&!dragOverObj?.before&&<div style={{height:3,background:'#2d6a4f',borderRadius:2,margin:'0 4px'}}/>}
   </div>;
 }
 function ImportObjModal({allSeasons,currentSeasonKey,people,onClose,onImport}){
