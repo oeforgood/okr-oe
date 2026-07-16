@@ -67,7 +67,7 @@ const DEFAULT_QUESTIONS=[
 ];
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
-function ini(name){return INITIALS_MAP[name]||(name||"?").slice(0,2).toUpperCase()}
+function ini(name){const s=(name||'?');return INITIALS_MAP[name]||(s[0].toUpperCase()+(s[1]||'').toLowerCase())}
 function pBg(name,people){const i=(people||[]).indexOf(name)%12;return P_BG[i<0?0:i]}
 function pTx(name,people){const i=(people||[]).indexOf(name)%12;return P_TX[i<0?0:i]}
 function progColor(v){return v>=80?"#2d6a4f":v>=50?"#b5680f":"#c0392b"}
@@ -2997,17 +2997,24 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
     if(!newPrenom.trim())return;
     const email=`${newPrenom.toLowerCase().trim()}@oeforgood.com`;
     if(members.find(m=>m.email===email))return;
-    setMembers(p=>[...p,{prenom:newPrenom.trim(),email,managerEmail:newManager||"",role:"teammate"}]);
+    const newMember={prenom:newPrenom.trim(),email,managerEmail:newManager||"",role:"teammate"};
+    const updated=[...members,newMember];
+    setMembers(updated);
+    onSaveMembers&&onSaveMembers(updated);
     setNewPrenom("");setNewManager("");
   }
   function removeMember(email){
     if(email===OWNER_EMAIL)return;
     if(!window.confirm("Supprimer ce membre ?"))return;
-    setMembers(p=>p.filter(m=>m.email!==email));
+    const updated=members.filter(m=>m.email!==email);
+    setMembers(updated);
+    onSaveMembers&&onSaveMembers(updated);
   }
   function setRole(email,role){
     if(email===OWNER_EMAIL)return;
-    setMembers(p=>p.map(m=>m.email===email?{...m,role}:m));
+    const updated=members.map(m=>m.email===email?{...m,role}:m);
+    setMembers(updated);
+    onSaveMembers&&onSaveMembers(updated);
   }
   function toggleForce(email,field){
     const updated=members.map(m=>m.email===email?{...m,[field]:!m[field]}:m);
@@ -3015,7 +3022,9 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
     onSaveMembers&&onSaveMembers(updated);
   }
   function setManager(email,managerEmail){
-    setMembers(p=>p.map(m=>m.email===email?{...m,managerEmail}:m));
+    const updated=members.map(m=>m.email===email?{...m,managerEmail}:m);
+    setMembers(updated);
+    onSaveMembers&&onSaveMembers(updated);
   }
   function save(){
     onSaveMembers(members);
@@ -3153,7 +3162,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
           </div>
         </div>
       </div>}
-      {tab!=="history"&&tab!=="reporting"&&tab!=="reporting_params"&&<><button onClick={save} style={{marginTop:20,padding:"12px 28px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600}}>
+      {tab!=="history"&&tab!=="reporting"&&tab!=="reporting_params"&&tab!=="members"&&<><button onClick={save} style={{marginTop:20,padding:"12px 28px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600}}>
         💾 Enregistrer
       </button>
       {saved&&<span style={{marginLeft:12,fontSize:13,color:"#2d6a4f"}}>✓ Sauvegardé !</span>}</>}
