@@ -3691,7 +3691,7 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
   }
 
   const allLocked=objectives.length>0&&objectives.every(o=>!!o.locked);
-  const visObjs=filterP?objectives.filter(o=>o.owner===filterP||subobjectives.filter(s=>s.parent===o.id).some(s=>s.owner===filterP||keyresults.filter(k=>k.parent===s.id).some(k=>k.owner===filterP||k.contributors.includes(filterP)))):objectives;
+  const visObjs=filterP?objectives.filter(o=>subobjectives.filter(s=>s.parent===o.id).some(s=>keyresults.filter(k=>k.parent===s.id).some(k=>k.owner===filterP))):objectives;
   const totalKR=keyresults.length,doneKR=keyresults.filter(k=>k.taux>=100).length,avgProg=calcWeightedAvg(objectives,subobjectives,keyresults);
 
   if(!loaded)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:200,color:"#9e9890",fontSize:13}}>Chargement…</div>;
