@@ -819,7 +819,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
   const avgProg=calcWeightedAvg(objectives,subobjectives,keyresults);
   const totalKR=keyresults.length,doneKR=keyresults.filter(k=>k.taux>=100).length;
   const myPrenom=teamMember?.prenom;
-  const myKRs=keyresults.filter(k=>k.owner===myPrenom||k.contributors?.includes(myPrenom));
+  const myKRs=keyresults.filter(k=>k.owner===myPrenom);
   const myKRDone=myKRs.filter(k=>k.taux>=100).length;
 
   // Personal weighted progress: weight = KR_poids * sobj_poids * obj_etp
@@ -3572,6 +3572,30 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
   const [collObj,setCollObj]=useState({});
   const [collSobj,setCollSobj]=useState({});
   const [filterP,setFilterP]=useState("");
+
+  // Auto-expand all objectives and sobjs when filter changes
+  useEffect(()=>{
+    if(!filterP){return;}
+    const season=allSeasons[seasonKey];
+    if(!season)return;
+    const {objectives=[],subobjectives=[],keyresults=[]}=season;
+    // Find all obj IDs that have at least one owned KR by filterP
+    const newCollObj={};
+    objectives.forEach(o=>{
+      const hasMine=subobjectives.filter(s=>s.parent===o.id).some(s=>
+        keyresults.filter(k=>k.parent===s.id).some(k=>k.owner===filterP)
+      );
+      if(hasMine) newCollObj[o.id]=false; // false = expanded
+    });
+    setCollObj(p=>({...p,...newCollObj}));
+    // Also expand all sobjs that have owned KRs
+    const newCollSobj={};
+    subobjectives.forEach(s=>{
+      const hasMine=keyresults.filter(k=>k.parent===s.id).some(k=>k.owner===filterP);
+      if(hasMine) newCollSobj[s.id]=false;
+    });
+    setCollSobj(p=>({...p,...newCollSobj}));
+  },[filterP,seasonKey]);
   const [modal,setModal]=useState(null);
   const [saved,setSaved]=useState(false);
   const [loaded,setLoaded]=useState(false);
