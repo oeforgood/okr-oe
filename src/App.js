@@ -3502,7 +3502,6 @@ function JournalModal({seasonKey,onClose,isAdmin,currentPrenom}){
     </div>
   </div>;
 }
-}
 function ImportObjModal({allSeasons,currentSeasonKey,people,onClose,onImport}){
   const otherSeasons=Object.entries(allSeasons).filter(([k,v])=>k!==currentSeasonKey&&v.objectives&&v.objectives.length>0);
   const [fromKey,setFromKey]=useState(otherSeasons[0]?.[0]||"");
