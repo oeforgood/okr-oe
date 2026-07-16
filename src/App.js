@@ -1346,9 +1346,7 @@ function TeamUpdatesSection({allUpdates, teamMembers=[], teamMember, onSelectWee
             color:isLast?"#2d6a4f":"#c5c0b8",fontWeight:isLast?600:400}}>
             {mon.getDate()}/{mon.getMonth()+1}
           </div>;
-            {isDragTarget&&!dragOverObj?.before&&<div style={{height:3,background:'#2d6a4f',borderRadius:2,margin:'0 4px'}}/>}
-          </React.Fragment>;
-        });})()}
+                })}
       </div>
       {/* Each teammate row */}
       {ordered.map((m,rowIdx)=>{
@@ -3501,8 +3499,6 @@ function JournalModal({seasonKey,onClose,isAdmin,currentPrenom}){
             </div>}
           </div>;
             {isDragTarget&&!dragOverObj?.before&&<div style={{height:3,background:'#2d6a4f',borderRadius:2,margin:'0 4px'}}/>}
-          </React.Fragment>;
-        })}
   </div>;
 }
 function ImportObjModal({allSeasons,currentSeasonKey,people,onClose,onImport}){
