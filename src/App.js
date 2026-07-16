@@ -3279,10 +3279,10 @@ function UnlockModal({objTitle,onClose,onUnlock}){
 }
 
 // ─── OKR SUB-COMPONENTS ───────────────────────────────────────────────────────
-function SobjSection({sobj,krs,people,objLocked,onEditKR,onAddKR,onEditSobj,collapsed,toggle,onReorderKRs}){
+function SobjSection({sobj,krs,people,objLocked,onEditKR,onAddKR,onEditSobj,collapsed,toggle,onReorderKRs,filterP}){
   const open=!collapsed[sobj.id];
   const prog=calcSobj(sobj.id,krs);
-  const myKRs=krs.filter(k=>k.parent===sobj.id&&k.title);
+  const myKRs=krs.filter(k=>k.parent===sobj.id&&k.title&&(!filterP||k.owner===filterP));
   const [dragOverKR,setDragOverKR]=useState(null); // {id, before}
   function handleDragStart(e,krId){e.dataTransfer.setData('krId',krId);}
   function handleDrop(e,targetId){
@@ -3743,7 +3743,7 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
           const prog=calcObj(obj.id,subobjectives,keyresults);
           const open=!collObj[obj.id],objLocked=!!obj.locked;
           const sobjs=subobjectives.filter(s=>s.parent===obj.id);
-  const visSobjs=filterP?sobjs.filter(s=>s.owner===filterP||keyresults.filter(k=>k.parent===s.id).some(k=>k.owner===filterP||k.contributors.includes(filterP))):sobjs;
+  const visSobjs=filterP?sobjs.filter(s=>keyresults.filter(k=>k.parent===s.id).some(k=>k.owner===filterP)):sobjs;
           const sobjTotalW=sobjs.reduce((s,o)=>s+o.poids,0),warnSobj=sobjs.length>0&&Math.round(sobjTotalW)!==100;
           return <div key={obj.id} style={{background:"#fff",border:`1px solid ${objLocked?"#f59e0b":"#e2ddd6"}`,borderRadius:10,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,.07)"}}>
             <div style={{display:"flex",alignItems:"center",gap:10,padding:"13px 16px",cursor:"pointer",userSelect:"none"}}
@@ -3779,7 +3779,7 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
                   onDrop={e=>handleSobjDrop(e,sobj,subobjectives,obj.id)}
                   style={{}}>
                   {dragOverSobj?.id===sobj.id&&dragOverSobj?.before&&<div style={{height:3,background:'#2d6a4f',margin:'0 16px',borderRadius:2}}/>}
-                  <SobjSection sobj={sobj} krs={keyresults} people={people} objLocked={objLocked}
+                  <SobjSection sobj={sobj} krs={keyresults} people={people} objLocked={objLocked} filterP={filterP}
                     onEditKR={kr=>setModal({type:"kr",item:kr,sobjId:kr.parent,locked:objLocked})}
                     onAddKR={sid=>setModal({type:"kr",item:null,sobjId:sid,locked:objLocked})}
                     onEditSobj={s=>setModal({type:"sobj",item:s,isNew:false,parentObjId:obj.id})}
