@@ -647,7 +647,7 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,t
         {!selected.isSystem&&selected.notif?.weekKey&&<div style={{fontSize:11,color:"#9e9890",marginBottom:18}}>Semaine du {fmtWeekLabel(selected.notif.weekKey)}</div>}
         {selected.isSystem&&<div style={{marginBottom:14}}/>}
         {selected.isSystem
-          ?<div style={{fontSize:13,color:"#1a1814",lineHeight:1.6}}>{selected.content}</div>
+          ?<div style={{fontSize:13,color:"#1a1814",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{selected.content}</div>
           :<NotifDetail notif={selected.notif} teamMember={teamMember} teamMembers={teamMembers||[]} onSendMessage={onSendMessage} onRead={()=>{onReadNotif&&onReadNotif(selected.notif);setSelected(null);}}/>
         }
 
