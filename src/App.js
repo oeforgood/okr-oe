@@ -1346,7 +1346,9 @@ function TeamUpdatesSection({allUpdates, teamMembers=[], teamMember, onSelectWee
             color:isLast?"#2d6a4f":"#c5c0b8",fontWeight:isLast?600:400}}>
             {mon.getDate()}/{mon.getMonth()+1}
           </div>;
-                })}
+            {isDragTarget&&!dragOverObj?.before&&<div style={{height:3,background:'#2d6a4f',borderRadius:2,margin:'0 4px'}}/>}
+          </React.Fragment>;
+        });})()}
       </div>
       {/* Each teammate row */}
       {ordered.map((m,rowIdx)=>{
@@ -3498,11 +3500,9 @@ function JournalModal({seasonKey,onClose,isAdmin,currentPrenom}){
               </div>)}
             </div>}
           </div>;
+            {isDragTarget&&!dragOverObj?.before&&<div style={{height:3,background:'#2d6a4f',borderRadius:2,margin:'0 4px'}}/>}
+          </React.Fragment>;
         })}
-      </div>
-      }
-
-    </div>
   </div>;
 }
 function ImportObjModal({allSeasons,currentSeasonKey,people,onClose,onImport}){
@@ -3618,20 +3618,28 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
 
   // Auto-expand all objectives and sobjs when filter changes
   useEffect(()=>{
-    if(!filterP){return;}
     const season=allSeasons[seasonKey];
     if(!season)return;
     const {objectives=[],subobjectives=[],keyresults=[]}=season;
-    // Find all obj IDs that have at least one owned KR by filterP
+    if(!filterP){
+      // "Toute l'équipe" : expand all objectives, collapse all sobjs
+      const newCollObj={};
+      objectives.forEach(o=>newCollObj[o.id]=false);
+      setCollObj(p=>({...p,...newCollObj}));
+      const newCollSobj={};
+      subobjectives.forEach(s=>newCollSobj[s.id]=true);
+      setCollSobj(p=>({...p,...newCollSobj}));
+      return;
+    }
+    // Teammate selected: expand objs and sobjs with owned KRs
     const newCollObj={};
     objectives.forEach(o=>{
       const hasMine=subobjectives.filter(s=>s.parent===o.id).some(s=>
         keyresults.filter(k=>k.parent===s.id).some(k=>k.owner===filterP)
       );
-      if(hasMine) newCollObj[o.id]=false; // false = expanded
+      if(hasMine) newCollObj[o.id]=false;
     });
     setCollObj(p=>({...p,...newCollObj}));
-    // Also expand all sobjs that have owned KRs
     const newCollSobj={};
     subobjectives.forEach(s=>{
       const hasMine=keyresults.filter(k=>k.parent===s.id).some(k=>k.owner===filterP);
@@ -3850,7 +3858,7 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
               {visSobjs.map(sobj=>{
                 const isDragTarget=dragOverSobj===sobj.id;
                 return <div key={sobj.id}
-                  draggable={!objLocked}
+                  draggable={!objLocked&&sobjs.every(s=>collSobj[s.id])}
                   onDragStart={e=>e.dataTransfer.setData('sobjId',sobj.id)}
                   onDragOver={e=>{e.preventDefault();const r=e.currentTarget.getBoundingClientRect();setDragOverSobj({id:sobj.id,before:e.clientY<r.top+r.height/2});}}
                   onDragLeave={()=>setDragOverSobj(null)}
@@ -3870,10 +3878,8 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
                 + Ajouter un sous-objectif
               </button>}
             </div>}
-          </div>
-            {isDragTarget&&!dragOverObj?.before&&<div style={{height:3,background:'#2d6a4f',borderRadius:2,margin:'0 4px'}}/>}
-          </React.Fragment>;
-        });})()}
+          </div>;
+        })}
         {!allLocked&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
           <button onClick={()=>setModal({type:"obj",item:null,isNew:true})} style={{fontSize:13,color:"#2d6a4f",background:"#d8f3dc",border:"1px dashed #2d6a4f",borderRadius:10,padding:"12px",textAlign:"center",cursor:"pointer"}}>+ Ajouter un objectif</button>
           <button onClick={()=>setModal({type:"import"})} style={{fontSize:13,color:"#1d4ed8",background:"#eff6ff",border:"1px dashed #1d4ed8",borderRadius:10,padding:"12px",textAlign:"center",cursor:"pointer"}}>↓ Importer d'une saison</button>
