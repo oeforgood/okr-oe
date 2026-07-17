@@ -2488,8 +2488,8 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                   return [r.compte,{libCompte:r.libCompte,months,entries}];
                 });
               };
-              const EntryRows=({entries,lastMonth,inKeur})=>{
-                const sorted=[...entries].filter(e=>e.month<=lastMonth).sort((a,b)=>a.month-b.month||(a.date||'').localeCompare(b.date||''));
+              const EntryRows=({entries,lastMonth,inKeur,monthActive})=>{
+                const sorted=[...entries].filter(e=>e.month<=lastMonth&&(!monthActive||monthActive[e.month-1])).sort((a,b)=>a.month-b.month||(a.date||'').localeCompare(b.date||''));
                 return sorted.map((e,i)=>{
                   const mArr=Array(12).fill(null);
                   mArr[e.month-1]=e.amount;
@@ -2523,7 +2523,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                   months={d.months} lastMonth={lastMonth} indent={2} inKeur={inKeur}
                   onClick={()=>{toggle(`bil_${section}_${key}_${c}`);loadBilEntriesRef.current&&loadBilEntriesRef.current(section,key);}}
                   isOpen={expanded[`bil_${section}_${key}_${c}`]}>
-                  {expanded[`bil_${section}_${key}_${c}`]&&d.entries?.length>0?<EntryRows entries={d.entries} lastMonth={lastMonth} inKeur={inKeur}/>:(expanded[`bil_${section}_${key}_${c}`]&&bilEntries[`${section}_${key}`]===undefined?<tr><td colSpan={20} style={{padding:'4px 40px',fontSize:11,color:'#9e9890'}}>Chargement...</td></tr>:null)}
+                  {expanded[`bil_${section}_${key}_${c}`]&&d.entries?.length>0?<EntryRows entries={d.entries} lastMonth={lastMonth} inKeur={inKeur} monthActive={monthActive}/>:(expanded[`bil_${section}_${key}_${c}`]&&bilEntries[`${section}_${key}`]===undefined?<tr><td colSpan={20} style={{padding:'4px 40px',fontSize:11,color:'#9e9890'}}>Chargement...</td></tr>:null)}
                 </ReportingRow>
               ));
               const SectionHeader=({label})=><tr><td colSpan={lastMonth+4} style={{height:16,padding:'20px 6px 4px',fontSize:11,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.06em',background:'#fafaf8',borderTop:'2px solid #e2ddd6'}}>{label}</td></tr>;
