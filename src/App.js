@@ -16,7 +16,7 @@ function sendNotifEmail(toEmail, toName, title) {
   }, EMAILJS_KEY).catch(e => console.warn('EmailJS error:', e));
 }
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, getDocs, query, where, updateDoc, deleteDoc } from "firebase/firestore";
+import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, getDocs, getDoc, query, where, updateDoc, deleteDoc } from "firebase/firestore";
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "firebase/auth";
 
 const firebaseConfig = {
@@ -1346,7 +1346,9 @@ function TeamUpdatesSection({allUpdates, teamMembers=[], teamMember, onSelectWee
             color:isLast?"#2d6a4f":"#c5c0b8",fontWeight:isLast?600:400}}>
             {mon.getDate()}/{mon.getMonth()+1}
           </div>;
-        })}
+            {isDragTarget&&!dragOverObj?.before&&<div style={{height:3,background:'#2d6a4f',borderRadius:2,margin:'0 4px'}}/>}
+          </React.Fragment>;
+        });})()}
       </div>
       {/* Each teammate row */}
       {ordered.map((m,rowIdx)=>{
@@ -2327,9 +2329,10 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                 ? compteEntries.map(([compte,cpd])=>{
                     const cpKey=subcatKey+'-'+compte;
                     const loadedEntries=(chargeEntries[subcat]||[]).find(e=>e.compte===compte)?.entries||[];
+                    const hasEntries=chargeEntries[subcat]!==undefined?loadedEntries.length>0:true; // assume has entries until loaded
                     return <ReportingRow key={compte} label={`${compte} · ${cpd.libCompte||''}`}
                       months={cpd.months} lastMonth={lastMonth} indent={3} inKeur={inKeur}
-                      onClick={loadedEntries.length>0?()=>toggle(cpKey):undefined}
+                      onClick={hasEntries?()=>{toggle(cpKey);loadChargeEntriesRef.current&&loadChargeEntriesRef.current(subcat);}:undefined}
                       isOpen={expanded[cpKey]}>
                       {loadedEntries.length>0&&<DetailEcritures rows={loadedEntries.filter(e=>e.month<=lastMonth)} lastMonth={lastMonth} monthActive={monthActive} isAU={d.isAU}/>}
                     </ReportingRow>;
@@ -2522,7 +2525,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                   months={d.months} lastMonth={lastMonth} indent={2} inKeur={inKeur}
                   onClick={()=>{toggle(`bil_${section}_${key}_${c}`);loadBilEntriesRef.current&&loadBilEntriesRef.current(section,key);}}
                   isOpen={expanded[`bil_${section}_${key}_${c}`]}>
-                  {expanded[`bil_${section}_${key}_${c}`]&&d.entries?.length>0&&<EntryRows entries={d.entries} lastMonth={lastMonth} inKeur={inKeur}/>}
+                  {expanded[`bil_${section}_${key}_${c}`]&&d.entries?.length>0?<EntryRows entries={d.entries} lastMonth={lastMonth} inKeur={inKeur}/>:(expanded[`bil_${section}_${key}_${c}`]&&bilEntries[`${section}_${key}`]===undefined?<tr><td colSpan={20} style={{padding:'4px 40px',fontSize:11,color:'#9e9890'}}>Chargement...</td></tr>:null)}
                 </ReportingRow>
               ));
               const SectionHeader=({label})=><tr><td colSpan={lastMonth+4} style={{height:16,padding:'20px 6px 4px',fontSize:11,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.06em',background:'#fafaf8',borderTop:'2px solid #e2ddd6'}}>{label}</td></tr>;
@@ -3498,9 +3501,9 @@ function JournalModal({seasonKey,onClose,isAdmin,currentPrenom}){
               </div>)}
             </div>}
           </div>;
+            {isDragTarget&&!dragOverObj?.before&&<div style={{height:3,background:'#2d6a4f',borderRadius:2,margin:'0 4px'}}/>}
+          </React.Fragment>;
         })}
-      </div>}
-    </div>
   </div>;
 }
 function ImportObjModal({allSeasons,currentSeasonKey,people,onClose,onImport}){
@@ -3876,10 +3879,8 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
                 + Ajouter un sous-objectif
               </button>}
             </div>}
-          </div>
-            {isDragTarget&&!dragOverObj?.before&&<div style={{height:3,background:'#2d6a4f',borderRadius:2,margin:'0 4px'}}/>}
-          </React.Fragment>;
-        });})()}
+          </div>;
+        })}
         {!allLocked&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
           <button onClick={()=>setModal({type:"obj",item:null,isNew:true})} style={{fontSize:13,color:"#2d6a4f",background:"#d8f3dc",border:"1px dashed #2d6a4f",borderRadius:10,padding:"12px",textAlign:"center",cursor:"pointer"}}>+ Ajouter un objectif</button>
           <button onClick={()=>setModal({type:"import"})} style={{fontSize:13,color:"#1d4ed8",background:"#eff6ff",border:"1px dashed #1d4ed8",borderRadius:10,padding:"12px",textAlign:"center",cursor:"pointer"}}>↓ Importer d'une saison</button>
