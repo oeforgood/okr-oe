@@ -3499,6 +3499,7 @@ function JournalModal({seasonKey,onClose,isAdmin,currentPrenom}){
             </div>}
           </div>;
         })}
+    </div>
   </div>;
 }
 function ImportObjModal({allSeasons,currentSeasonKey,people,onClose,onImport}){
