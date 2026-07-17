@@ -2329,7 +2329,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                 ? compteEntries.map(([compte,cpd])=>{
                     const cpKey=subcatKey+'-'+compte;
                     const loadedEntries=(chargeEntries[subcat]||[]).find(e=>e.compte===compte)?.entries||[];
-                    const hasEntries=chargeEntries[subcat]!==undefined?loadedEntries.length>0:true; // assume has entries until loaded
+                    const hasEntries=chargeEntries[subcat]!==undefined?loadedEntries.length>0:cpd.months.slice(0,lastMonth).some(v=>v!==0);
                     return <ReportingRow key={compte} label={`${compte} · ${cpd.libCompte||''}`}
                       months={cpd.months} lastMonth={lastMonth} indent={3} inKeur={inKeur}
                       onClick={hasEntries?()=>{toggle(cpKey);loadChargeEntriesRef.current&&loadChargeEntriesRef.current(subcat);}:undefined}
@@ -3501,9 +3501,9 @@ function JournalModal({seasonKey,onClose,isAdmin,currentPrenom}){
               </div>)}
             </div>}
           </div>;
-            {isDragTarget&&!dragOverObj?.before&&<div style={{height:3,background:'#2d6a4f',borderRadius:2,margin:'0 4px'}}/>}
-          </React.Fragment>;
         })}
+      </div>}
+    </div>
   </div>;
 }
 function ImportObjModal({allSeasons,currentSeasonKey,people,onClose,onImport}){
