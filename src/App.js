@@ -647,7 +647,7 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,t
         {!selected.isSystem&&selected.notif?.weekKey&&<div style={{fontSize:11,color:"#9e9890",marginBottom:18}}>Semaine du {fmtWeekLabel(selected.notif.weekKey)}</div>}
         {selected.isSystem&&<div style={{marginBottom:14}}/>}
         {selected.isSystem
-          ?<div style={{fontSize:13,color:"#1a1814",lineHeight:1.6}}>{selected.content}</div>
+          ?<div style={{fontSize:13,color:"#1a1814",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{selected.content}</div>
           :<NotifDetail notif={selected.notif} teamMember={teamMember} teamMembers={teamMembers||[]} onSendMessage={onSendMessage} onRead={()=>{onReadNotif&&onReadNotif(selected.notif);setSelected(null);}}/>
         }
 
@@ -1346,7 +1346,9 @@ function TeamUpdatesSection({allUpdates, teamMembers=[], teamMember, onSelectWee
             color:isLast?"#2d6a4f":"#c5c0b8",fontWeight:isLast?600:400}}>
             {mon.getDate()}/{mon.getMonth()+1}
           </div>;
-        })}
+            {isDragTarget&&!dragOverObj?.before&&<div style={{height:3,background:'#2d6a4f',borderRadius:2,margin:'0 4px'}}/>}
+          </React.Fragment>;
+        });})()}
       </div>
       {/* Each teammate row */}
       {ordered.map((m,rowIdx)=>{
@@ -3498,9 +3500,9 @@ function JournalModal({seasonKey,onClose,isAdmin,currentPrenom}){
               </div>)}
             </div>}
           </div>;
+            {isDragTarget&&!dragOverObj?.before&&<div style={{height:3,background:'#2d6a4f',borderRadius:2,margin:'0 4px'}}/>}
+          </React.Fragment>;
         })}
-      </div>}
-    </div>
   </div>;
 }
 function ImportObjModal({allSeasons,currentSeasonKey,people,onClose,onImport}){
@@ -3876,10 +3878,8 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
                 + Ajouter un sous-objectif
               </button>}
             </div>}
-          </div>
-            {isDragTarget&&!dragOverObj?.before&&<div style={{height:3,background:'#2d6a4f',borderRadius:2,margin:'0 4px'}}/>}
-          </React.Fragment>;
-        });})()}
+          </div>;
+        })}
         {!allLocked&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
           <button onClick={()=>setModal({type:"obj",item:null,isNew:true})} style={{fontSize:13,color:"#2d6a4f",background:"#d8f3dc",border:"1px dashed #2d6a4f",borderRadius:10,padding:"12px",textAlign:"center",cursor:"pointer"}}>+ Ajouter un objectif</button>
           <button onClick={()=>setModal({type:"import"})} style={{fontSize:13,color:"#1d4ed8",background:"#eff6ff",border:"1px dashed #1d4ed8",borderRadius:10,padding:"12px",textAlign:"center",cursor:"pointer"}}>↓ Importer d'une saison</button>
