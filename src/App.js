@@ -3876,7 +3876,9 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
                 + Ajouter un sous-objectif
               </button>}
             </div>}
-          </div>;
+          </div>
+            {isDragTarget&&!dragOverObj?.before&&<div style={{height:3,background:'#2d6a4f',borderRadius:2,margin:'0 4px'}}/>}
+          </React.Fragment>;
         })}
         {!allLocked&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
           <button onClick={()=>setModal({type:"obj",item:null,isNew:true})} style={{fontSize:13,color:"#2d6a4f",background:"#d8f3dc",border:"1px dashed #2d6a4f",borderRadius:10,padding:"12px",textAlign:"center",cursor:"pointer"}}>+ Ajouter un objectif</button>
