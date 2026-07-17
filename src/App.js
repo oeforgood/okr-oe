@@ -3535,6 +3535,7 @@ function ImportObjModal({allSeasons,currentSeasonKey,people,onClose,onImport}){
 function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
   const [seasonKey,setSeasonKey]=useState("printemps_2026");
   const [dragOverSobj,setDragOverSobj]=useState(null);
+  const [dragOverObj,setDragOverObj]=useState(null); // {id, before}
   function handleSobjDrop(e,targetSobj,allSobjs,objId){
     e.preventDefault();
     const dragId=e.dataTransfer.getData('sobjId');
@@ -3571,24 +3572,72 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
   const [allSeasons,setAllSeasons]=useState({"printemps_2026":{...JSON.parse(JSON.stringify(SPRING26))}});
   const [collObj,setCollObj]=useState({});
   const [collSobj,setCollSobj]=useState({});
+  function handleObjDrop(e, targetObj){
+    e.preventDefault();
+    const dragId=e.dataTransfer.getData('objId');
+    if(!dragId||dragId===targetObj.id)return;
+    const allObjs=objectives;
+    const dragO=allObjs.find(o=>o.id===dragId);
+    if(!dragO)return;
+    const rect=e.currentTarget.getBoundingClientRect();
+    const insertBefore=dragOverObj?.before??e.clientY<rect.top+rect.height/2;
+    const without=allObjs.filter(o=>o.id!==dragId);
+    const targetIdx=without.findIndex(o=>o.id===targetObj.id);
+    const insertAt=insertBefore?targetIdx:targetIdx+1;
+    without.splice(insertAt,0,dragO);
+    // Renumber objectives and cascade to sobjs and KRs
+    const idMap={};
+    const newObjs=without.map((o,i)=>{
+      const newId=String(i+1);
+      idMap[o.id]=newId;
+      return {...o,id:newId};
+    });
+    const newSobjs=subobjectives.map(s=>{
+      const newParent=idMap[s.parent];
+      if(!newParent)return s;
+      const sobjSuffix=s.id.slice(s.parent.length); // e.g. ".1"
+      return {...s,parent:newParent,id:newParent+sobjSuffix};
+    });
+    const newKRs=keyresults.map(k=>{
+      // Find the sobj this KR belongs to
+      const sobj=subobjectives.find(s=>s.id===k.parent);
+      if(!sobj)return k;
+      const newSobjParent=idMap[sobj.parent];
+      if(!newSobjParent)return k;
+      const sobjSuffix=sobj.id.slice(sobj.parent.length);
+      const newSobjId=newSobjParent+sobjSuffix;
+      const krSuffix=k.id.slice(k.parent.length);
+      return {...k,parent:newSobjId,id:newSobjId+krSuffix};
+    });
+    updateSeason({objectives:newObjs,subobjectives:newSobjs,keyresults:newKRs});
+    setDragOverObj(null);
+  }
   const [filterP,setFilterP]=useState("");
 
   // Auto-expand all objectives and sobjs when filter changes
   useEffect(()=>{
-    if(!filterP){return;}
     const season=allSeasons[seasonKey];
     if(!season)return;
     const {objectives=[],subobjectives=[],keyresults=[]}=season;
-    // Find all obj IDs that have at least one owned KR by filterP
+    if(!filterP){
+      // "Toute l'équipe" : expand all objectives, collapse all sobjs
+      const newCollObj={};
+      objectives.forEach(o=>newCollObj[o.id]=false);
+      setCollObj(p=>({...p,...newCollObj}));
+      const newCollSobj={};
+      subobjectives.forEach(s=>newCollSobj[s.id]=true);
+      setCollSobj(p=>({...p,...newCollSobj}));
+      return;
+    }
+    // Teammate selected: expand objs and sobjs with owned KRs
     const newCollObj={};
     objectives.forEach(o=>{
       const hasMine=subobjectives.filter(s=>s.parent===o.id).some(s=>
         keyresults.filter(k=>k.parent===s.id).some(k=>k.owner===filterP)
       );
-      if(hasMine) newCollObj[o.id]=false; // false = expanded
+      if(hasMine) newCollObj[o.id]=false;
     });
     setCollObj(p=>({...p,...newCollObj}));
-    // Also expand all sobjs that have owned KRs
     const newCollSobj={};
     subobjectives.forEach(s=>{
       const hasMine=keyresults.filter(k=>k.parent===s.id).some(k=>k.owner===filterP);
@@ -3763,13 +3812,25 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
       </div>
       <div style={{display:"flex",flexDirection:"column",gap:10,marginTop:20}}>
         {visObjs.length===0&&<div style={{textAlign:"center",padding:32,color:"#9e9890",fontSize:13}}>Aucun objectif.</div>}
-        {visObjs.map((obj,idx)=>{
+        {(()=>{
+          const allCollapsed=objectives.length>0&&objectives.every(o=>collObj[o.id]);
+          return visObjs.map((obj,idx)=>{
           const prog=calcObj(obj.id,subobjectives,keyresults);
           const open=!collObj[obj.id],objLocked=!!obj.locked;
           const sobjs=subobjectives.filter(s=>s.parent===obj.id);
   const visSobjs=filterP?sobjs.filter(s=>keyresults.filter(k=>k.parent===s.id).some(k=>k.owner===filterP)):sobjs;
           const sobjTotalW=sobjs.reduce((s,o)=>s+o.poids,0),warnSobj=sobjs.length>0&&Math.round(sobjTotalW)!==100;
-          return <div key={obj.id} style={{background:"#fff",border:`1px solid ${objLocked?"#f59e0b":"#e2ddd6"}`,borderRadius:10,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,.07)"}}>
+          const isDragTarget=dragOverObj?.id===obj.id;
+          return <React.Fragment key={obj.id}>
+            {isDragTarget&&dragOverObj?.before&&<div style={{height:3,background:'#2d6a4f',borderRadius:2,margin:'0 4px'}}/>}
+            <div
+              draggable={allCollapsed&&!filterP}
+              onDragStart={e=>{e.dataTransfer.setData('objId',obj.id);e.dataTransfer.effectAllowed='move';}}
+              onDragOver={e=>{if(!allCollapsed||filterP)return;e.preventDefault();const r=e.currentTarget.getBoundingClientRect();setDragOverObj({id:obj.id,before:e.clientY<r.top+r.height/2});}}
+              onDragLeave={()=>setDragOverObj(null)}
+              onDragEnd={()=>setDragOverObj(null)}
+              onDrop={e=>{if(!allCollapsed||filterP)return;handleObjDrop(e,obj);}}
+              style={{background:"#fff",border:`1px solid ${objLocked?"#f59e0b":"#e2ddd6"}`,borderRadius:10,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,.07)"}}>
             <div style={{display:"flex",alignItems:"center",gap:10,padding:"13px 16px",cursor:"pointer",userSelect:"none"}}
               onClick={()=>toggleObj(obj.id)} onMouseEnter={e=>e.currentTarget.style.background="#f5f3ef"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
               <div style={{width:28,height:28,borderRadius:8,background:OBJ_BG[idx%11],color:OBJ_TX[idx%11],display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:600,flexShrink:0}}>{obj.id}</div>
@@ -3795,7 +3856,7 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
               {visSobjs.map(sobj=>{
                 const isDragTarget=dragOverSobj===sobj.id;
                 return <div key={sobj.id}
-                  draggable={!objLocked}
+                  draggable={!objLocked&&sobjs.every(s=>collSobj[s.id])}
                   onDragStart={e=>e.dataTransfer.setData('sobjId',sobj.id)}
                   onDragOver={e=>{e.preventDefault();const r=e.currentTarget.getBoundingClientRect();setDragOverSobj({id:sobj.id,before:e.clientY<r.top+r.height/2});}}
                   onDragLeave={()=>setDragOverSobj(null)}
@@ -3815,8 +3876,10 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
                 + Ajouter un sous-objectif
               </button>}
             </div>}
-          </div>;
-        })}
+          </div>
+            {isDragTarget&&!dragOverObj?.before&&<div style={{height:3,background:'#2d6a4f',borderRadius:2,margin:'0 4px'}}/>}
+          </React.Fragment>;
+        });})()}
         {!allLocked&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
           <button onClick={()=>setModal({type:"obj",item:null,isNew:true})} style={{fontSize:13,color:"#2d6a4f",background:"#d8f3dc",border:"1px dashed #2d6a4f",borderRadius:10,padding:"12px",textAlign:"center",cursor:"pointer"}}>+ Ajouter un objectif</button>
           <button onClick={()=>setModal({type:"import"})} style={{fontSize:13,color:"#1d4ed8",background:"#eff6ff",border:"1px dashed #1d4ed8",borderRadius:10,padding:"12px",textAlign:"center",cursor:"pointer"}}>↓ Importer d'une saison</button>
