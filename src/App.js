@@ -1346,9 +1346,7 @@ function TeamUpdatesSection({allUpdates, teamMembers=[], teamMember, onSelectWee
             color:isLast?"#2d6a4f":"#c5c0b8",fontWeight:isLast?600:400}}>
             {mon.getDate()}/{mon.getMonth()+1}
           </div>;
-            {isDragTarget&&!dragOverObj?.before&&<div style={{height:3,background:'#2d6a4f',borderRadius:2,margin:'0 4px'}}/>}
-          </React.Fragment>;
-        });})()}
+        })}
       </div>
       {/* Each teammate row */}
       {ordered.map((m,rowIdx)=>{
@@ -2490,8 +2488,8 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                   return [r.compte,{libCompte:r.libCompte,months,entries}];
                 });
               };
-              const EntryRows=({entries,lastMonth,inKeur})=>{
-                const sorted=[...entries].filter(e=>e.month<=lastMonth).sort((a,b)=>a.month-b.month||(a.date||'').localeCompare(b.date||''));
+              const EntryRows=({entries,lastMonth,inKeur,monthActive})=>{
+                const sorted=[...entries].filter(e=>e.month<=lastMonth&&(!monthActive||monthActive[e.month-1])).sort((a,b)=>a.month-b.month||(a.date||'').localeCompare(b.date||''));
                 return sorted.map((e,i)=>{
                   const mArr=Array(12).fill(null);
                   mArr[e.month-1]=e.amount;
