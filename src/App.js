@@ -607,7 +607,7 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,t
       // Use updatedAt if available (last modification), otherwise submittedAt
       const msgDate=new Date(n.updatedAt||n.submittedAt);
       const updateData=allUpdates.find(u=>u.email===n.fromEmail&&u.weekKey===n.weekKey);
-      return{id:n.id,title:`Nouvel Update de ${n.fromPrenom}`,content:null,notif:{...n,answers:updateData?.answers||{},fromEmail:n.fromEmail||updateData?.email},date:msgDate,read:n.read,isSystem:false,fromPrenom:n.fromPrenom,weekLabel:(mon.getMonth()===fri.getMonth()?`lundi ${mon.getDate()} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`:`lundi ${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"long"})} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`)};
+      return{id:n.id,title:`Nouvel Update de ${n.fromPrenom}`,content:null,notif:{...n,answers:n.answers||updateData?.answers||{},fromEmail:n.fromEmail||updateData?.email},date:msgDate,read:n.read,isSystem:false,fromPrenom:n.fromPrenom,weekLabel:(mon.getMonth()===fri.getMonth()?`lundi ${mon.getDate()} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`:`lundi ${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"long"})} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`)};
     }).sort((a,b)=>b.date-a.date);
 
   // Teammate notifications (manager read your update)
@@ -1346,7 +1346,9 @@ function TeamUpdatesSection({allUpdates, teamMembers=[], teamMember, onSelectWee
             color:isLast?"#2d6a4f":"#c5c0b8",fontWeight:isLast?600:400}}>
             {mon.getDate()}/{mon.getMonth()+1}
           </div>;
-        })}
+            {isDragTarget&&!dragOverObj?.before&&<div style={{height:3,background:'#2d6a4f',borderRadius:2,margin:'0 4px'}}/>}
+          </React.Fragment>;
+        });})()}
       </div>
       {/* Each teammate row */}
       {ordered.map((m,rowIdx)=>{
@@ -2488,8 +2490,8 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                   return [r.compte,{libCompte:r.libCompte,months,entries}];
                 });
               };
-              const EntryRows=({entries,lastMonth,inKeur,monthActive})=>{
-                const sorted=[...entries].filter(e=>e.month<=lastMonth&&(!monthActive||monthActive[e.month-1])).sort((a,b)=>a.month-b.month||(a.date||'').localeCompare(b.date||''));
+              const EntryRows=({entries,lastMonth,inKeur})=>{
+                const sorted=[...entries].filter(e=>e.month<=lastMonth).sort((a,b)=>a.month-b.month||(a.date||'').localeCompare(b.date||''));
                 return sorted.map((e,i)=>{
                   const mArr=Array(12).fill(null);
                   mArr[e.month-1]=e.amount;
@@ -2523,7 +2525,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                   months={d.months} lastMonth={lastMonth} indent={2} inKeur={inKeur}
                   onClick={()=>{toggle(`bil_${section}_${key}_${c}`);loadBilEntriesRef.current&&loadBilEntriesRef.current(section,key);}}
                   isOpen={expanded[`bil_${section}_${key}_${c}`]}>
-                  {expanded[`bil_${section}_${key}_${c}`]&&d.entries?.length>0?<EntryRows entries={d.entries} lastMonth={lastMonth} inKeur={inKeur} monthActive={monthActive}/>:(expanded[`bil_${section}_${key}_${c}`]&&bilEntries[`${section}_${key}`]===undefined?<tr><td colSpan={20} style={{padding:'4px 40px',fontSize:11,color:'#9e9890'}}>Chargement...</td></tr>:null)}
+                  {expanded[`bil_${section}_${key}_${c}`]&&d.entries?.length>0?<EntryRows entries={d.entries} lastMonth={lastMonth} inKeur={inKeur}/>:(expanded[`bil_${section}_${key}_${c}`]&&bilEntries[`${section}_${key}`]===undefined?<tr><td colSpan={20} style={{padding:'4px 40px',fontSize:11,color:'#9e9890'}}>Chargement...</td></tr>:null)}
                 </ReportingRow>
               ));
               const SectionHeader=({label})=><tr><td colSpan={lastMonth+4} style={{height:16,padding:'20px 6px 4px',fontSize:11,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.06em',background:'#fafaf8',borderTop:'2px solid #e2ddd6'}}>{label}</td></tr>;
