@@ -657,18 +657,34 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,t
 }
 
 function Bsv3Banner({onGoBsv3}) {
+  const items=[
+    {label:"KPI 1",val:null,col:"#1a1814"},
+    {label:"KPI 2",val:null,col:"#1a1814"},
+    {label:"KPI 3",val:null,col:"#1a1814"},
+    {label:"KPI 4",val:null,col:"#1a1814"},
+    {label:"KPI 5",val:null,col:"#1a1814"},
+  ];
   return (
-    <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",boxShadow:"0 1px 3px rgba(0,0,0,.06)",padding:"16px 20px",display:"flex",flexDirection:"column",gap:12}}>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-        <div style={{fontSize:12,fontWeight:600,color:"#9e9890",textTransform:"uppercase",letterSpacing:".05em"}}>Base Sales v3</div>
+    <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"14px 20px",
+      display:"flex",alignItems:"center",gap:0,boxShadow:"0 1px 3px rgba(0,0,0,.04)",marginBottom:4}}>
+      {items.map((item,i)=><React.Fragment key={i}>
+        <div style={{flex:1,textAlign:"center",padding:"0 12px"}}>
+          <div style={{fontSize:26,fontWeight:700,color:"#9e9890",lineHeight:1,fontFamily:"monospace"}}>—</div>
+          <div style={{fontSize:9,color:"#9e9890",marginTop:3,textTransform:"uppercase",letterSpacing:".05em"}}>{item.label}</div>
+        </div>
+        {i<4&&<div style={{width:1,background:"#e2ddd6",alignSelf:"stretch",flexShrink:0}}/>}
+      </React.Fragment>)}
+      <div style={{width:1,background:"#e2ddd6",alignSelf:"stretch",flexShrink:0}}/>
+      <div style={{paddingLeft:20,flexShrink:0}}>
+        <button onClick={onGoBsv3}
+          style={{display:"block",padding:"8px 14px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,
+            cursor:"pointer",fontSize:12,fontWeight:500,
+            transition:"opacity .15s"}}
+          onMouseEnter={e=>e.currentTarget.style.opacity=".85"}
+          onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+          📊 Voir Base Sales v3
+        </button>
       </div>
-      <div style={{fontSize:12,color:"#9e9890",fontStyle:"italic"}}>Données à venir</div>
-      <button onClick={onGoBsv3}
-        style={{marginTop:4,padding:"8px 16px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:600,alignSelf:"flex-start"}}
-        onMouseEnter={e=>e.currentTarget.style.opacity=".85"}
-        onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
-        📊 Voir Base Sales v3
-      </button>
     </div>
   );
 }
@@ -907,7 +923,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
                   transition:"opacity .15s"}}
                   onMouseEnter={e=>e.currentTarget.style.opacity=".85"}
                   onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
-                  <span>📊</span> Aller aux OKR et mettre à jour
+                  <span>🎯</span> Aller aux OKR et mettre à jour
                 </button>
               </div>
             </div>
