@@ -656,6 +656,23 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,t
   </div>;
 }
 
+function Bsv3Banner({onGoBsv3}) {
+  return (
+    <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",boxShadow:"0 1px 3px rgba(0,0,0,.06)",padding:"16px 20px",display:"flex",flexDirection:"column",gap:12}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{fontSize:12,fontWeight:600,color:"#9e9890",textTransform:"uppercase",letterSpacing:".05em"}}>Base Sales v3</div>
+      </div>
+      <div style={{fontSize:12,color:"#9e9890",fontStyle:"italic"}}>Données à venir</div>
+      <button onClick={onGoBsv3}
+        style={{marginTop:4,padding:"8px 16px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:600,alignSelf:"flex-start"}}
+        onMouseEnter={e=>e.currentTarget.style.opacity=".85"}
+        onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+        📊 Voir Base Sales v3
+      </button>
+    </div>
+  );
+}
+
 function ReportingBanner({onGoReporting}) {
   const [caData, setCaData] = useState(null);
 
@@ -813,7 +830,7 @@ function FeedbackBox({currentUser, teamMember}) {
   );
 }
 
-function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onGoReporting,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,okrData,isAdmin,onOpenSettings,onSendMessage,absencesList=[]}){
+function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,okrData,isAdmin,onOpenSettings,onSendMessage,absencesList=[]}){
   const {objectives=[],subobjectives=[],keyresults=[],seasonKey:_sk}=okrData||{};
   const seasonKey=okrData?.seasonKey||"printemps_2026";
   const avgProg=calcWeightedAvg(objectives,subobjectives,keyresults);
@@ -1188,7 +1205,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
       {(()=>{
         const reportingData=window._reportingCache||null;
         // Load from Firebase if not cached
-        return <ReportingBanner onGoReporting={onGoReporting}/>;
+        return <><ReportingBanner onGoReporting={onGoReporting}/><div style={{marginTop:12}}><Bsv3Banner onGoBsv3={onGoBsv3}/></div></>;
       })()}
 
 
@@ -4275,13 +4292,14 @@ export default function App(){
   if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers}/>;
   if(page==="update")return <UpdatePage teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers}/>;
   if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels} savedCanalMargin={savedCanalMargin}/>;
+  if(page==="bsv3")return <div style={{minHeight:'100vh',background:'#f8f7f5',display:'flex',alignItems:'center',justifyContent:'center'}}><div style={{textAlign:'center',color:'#9e9890'}}><div style={{fontSize:32,marginBottom:8}}>📊</div><div style={{fontSize:16,fontWeight:600,marginBottom:4}}>Base Sales v3</div><div style={{fontSize:13,marginBottom:16}}>À venir</div><button onClick={()=>setPage('dashboard')} style={{padding:'8px 16px',background:'#2d6a4f',color:'#fff',border:'none',borderRadius:8,cursor:'pointer',fontSize:13}}>← Retour</button></div></div>;
   if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels} savedCanalMargin={savedCanalMargin} onSaveCanalMargin={handleSaveCanalMargin} onSendMessage={handleSendMessage} onSaveBsv3={handleSaveBsv3}/>;
 
   return <Dashboard
     currentUser={authUser}
     teamMember={currentTeamMember}
     teamMembers={teamMembers}
-    onGoReporting={()=>setPage("reporting")}
+    onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")}
     onGoOKR={()=>setPage("okr")}
     onGoUpdate={()=>setPage("update")}
     onGoSettings={()=>setPage("settings")}
