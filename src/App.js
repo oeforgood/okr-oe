@@ -2965,7 +2965,7 @@ function AbsencesTab({teamMembers=[]}) {
   </div>;
 }
 
-function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions,catTypes,onSaveCatTypes,codeMap,onSaveCodeMap,customSubcatLabels,onSaveCustomSubcatLabels,savedCanalMargin,onSaveCanalMargin,onSendMessage}){
+function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions,catTypes,onSaveCatTypes,codeMap,onSaveCodeMap,customSubcatLabels,onSaveCustomSubcatLabels,savedCanalMargin,onSaveCanalMargin,onSendMessage,onSaveBsv3}){
   const [members,setMembers]=useState(teamMembers.map(m=>({...m})));
   const [msgModal,setMsgModal]=useState(null); // {email, prenom}
   const [msgTitle,setMsgTitle]=useState('');
@@ -2991,6 +2991,29 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
   const [newPrenom,setNewPrenom]=useState("");
   const [newManager,setNewManager]=useState("");
   const [tab,setTab]=useState("members");
+  const [bsv3Uploading,setBsv3Uploading]=useState(false);
+  const [bsv3Msg,setBsv3Msg]=useState('');
+
+  async function handleBsv3Upload(file){
+    if(!file||!onSaveBsv3)return;
+    setBsv3Uploading(true);
+    setBsv3Msg('Lecture du fichier...');
+    try{
+      const text=await file.text();
+      const lines=text.split('\n');
+      const headers=lines[1]?.split(',').map(h=>h.trim().replace(/^"|"$/g,''))||[];
+      const rows=lines.slice(2).filter(l=>l.trim()).map(l=>{
+        const fields=[];let cur='',inQ=false;
+        for(const ch of l){if(ch==='"'){inQ=!inQ;}else if(ch===','&&!inQ){fields.push(cur.trim());cur='';}else cur+=ch;}
+        fields.push(cur.trim());
+        return Object.fromEntries(headers.map((h,i)=>[h,(fields[i]||'').replace(/^"|"$/g,'')]));
+      });
+      setBsv3Msg(`Envoi de ${rows.length.toLocaleString('fr-FR')} lignes...`);
+      const result=await onSaveBsv3(rows);
+      setBsv3Msg(result||`✅ ${rows.length.toLocaleString('fr-FR')} lignes importées`);
+    }catch(e){setBsv3Msg('❌ Erreur: '+e.message);}
+    setBsv3Uploading(false);
+  }
   const [qs,setQs]=useState(questions||DEFAULT_QUESTIONS);
   const [saved,setSaved]=useState(false);
 
@@ -3037,7 +3060,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
     <TopBar onBack={onBack} title="⚙️ Paramètres"/>
     <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
       <div style={{display:"flex",gap:10,marginBottom:20}}>
-        {([{k:"members",l:"👥 Membres & rôles"},...(currentUser?.email===OWNER_EMAIL?[{k:"questions",l:"❓ Questions Update"},{k:"history",l:"📋 Historique Updates"},{k:"feedback",l:"💡 Feedback"},{k:"reporting_params",l:"⚙️ Reporting"}]:[])]).map(t=><button key={t.k} onClick={()=>setTab(t.k)}
+        {([{k:"members",l:"👥 Membres & rôles"},...(currentUser?.email===OWNER_EMAIL?[{k:"questions",l:"❓ Questions Update"},{k:"history",l:"📋 Historique Updates"},{k:"feedback",l:"💡 Feedback"},{k:"reporting_params",l:"⚙️ Reporting"},{k:"bsv3",l:"📊 Base Sales v3"}]:[])]).map(t=><button key={t.k} onClick={()=>setTab(t.k)}
           style={{padding:"8px 16px",borderRadius:8,border:`1px solid ${tab===t.k?"#2d6a4f":"#e2ddd6"}`,background:tab===t.k?"#2d6a4f":"#fff",color:tab===t.k?"#fff":"#6b6560",cursor:"pointer",fontSize:13,fontWeight:500}}>
           {t.l}
         </button>)}
@@ -3163,7 +3186,17 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
           </div>
         </div>
       </div>}
-      {tab!=="history"&&tab!=="reporting"&&tab!=="reporting_params"&&tab!=="members"&&<><button onClick={save} style={{marginTop:20,padding:"12px 28px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600}}>
+      {tab==="bsv3"&&<div style={{padding:"16px 0"}}>
+        <div style={{fontSize:15,fontWeight:600,marginBottom:8}}>📊 Base Sales v3</div>
+        <p style={{fontSize:13,color:"#6b6560",marginBottom:16}}>Importez le fichier CSV mensuel pour mettre à jour les données de marge nette commerciale.</p>
+        <label style={{display:"inline-block",padding:"10px 20px",background:"#2d6a4f",color:"#fff",borderRadius:8,cursor:"pointer",fontSize:13,fontWeight:500}}>
+          {bsv3Uploading?"Importation en cours...":"📂 Choisir un fichier CSV"}
+          <input type="file" accept=".csv" style={{display:"none"}} disabled={bsv3Uploading}
+            onChange={e=>e.target.files[0]&&handleBsv3Upload(e.target.files[0])}/>
+        </label>
+        {bsv3Msg&&<div style={{marginTop:12,fontSize:13,color:bsv3Msg.startsWith('❌')?'#c0392b':'#2d6a4f'}}>{bsv3Msg}</div>}
+      </div>}
+      {tab!=="history"&&tab!=="reporting"&&tab!=="reporting_params"&&tab!=="members"&&tab!=="bsv3"&&<><button onClick={save} style={{marginTop:20,padding:"12px 28px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600}}>
         💾 Enregistrer
       </button>
       {saved&&<span style={{marginLeft:12,fontSize:13,color:"#2d6a4f"}}>✓ Sauvegardé !</span>}</>}
@@ -4166,6 +4199,23 @@ export default function App(){
       sendNotifEmail(notif.fromEmail, notif.fromPrenom||notif.fromEmail, `${managerPrenom} a vu ton Update`);
   }
 
+  async function handleSaveBsv3(rows){
+    const CHUNK=2000;
+    const importedAt=new Date().toISOString();
+    // Delete old chunks
+    const oldSnap=await getDocs(collection(db,'bsv3_data'));
+    await Promise.all(oldSnap.docs.map(d=>deleteDoc(d.ref)));
+    // Store new chunks
+    for(let i=0;i<rows.length;i+=CHUNK){
+      const chunk=rows.slice(i,i+CHUNK);
+      await setDoc(doc(db,'bsv3_data',`chunk_${Math.floor(i/CHUNK)}`),{
+        rows:chunk,chunk:Math.floor(i/CHUNK),
+        total:Math.ceil(rows.length/CHUNK),
+        importedAt,totalRows:rows.length
+      });
+    }
+    return `✅ ${rows.length.toLocaleString('fr-FR')} lignes importées`;
+  }
   async function handleSendMessage(toEmail, toPrenom, title, message){
     const notifId=`msg_${Date.now()}_${toEmail.replace(/[@.]/g,'_')}`;
     await setDoc(doc(db,'teammate_notifications',notifId),{
@@ -4225,7 +4275,7 @@ export default function App(){
   if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers}/>;
   if(page==="update")return <UpdatePage teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers}/>;
   if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels} savedCanalMargin={savedCanalMargin}/>;
-  if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels} savedCanalMargin={savedCanalMargin} onSaveCanalMargin={handleSaveCanalMargin} onSendMessage={handleSendMessage}/>;
+  if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels} savedCanalMargin={savedCanalMargin} onSaveCanalMargin={handleSaveCanalMargin} onSendMessage={handleSendMessage} onSaveBsv3={handleSaveBsv3}/>;
 
   return <Dashboard
     currentUser={authUser}
