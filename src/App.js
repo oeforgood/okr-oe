@@ -97,8 +97,14 @@ function calcWeightedAvg(objectives,sobjs,krs){
 }
 function calcTaux(dep,act,cib,u){
   if(u==="oui/non")return act>=1?100:0;
-  const sp=cib-dep;if(!sp)return act>=cib?100:0;
-  return Math.max(0,Math.min(100,(act-dep)/sp*100));
+  // For %: normalize to same scale
+  // If cible<=1 but actuel>1, actuel is in 0-100 scale → convert to 0-1
+  let d=dep,a=act,c=cib;
+  if(u==="%"&&c>0&&c<=1&&a>1){a=a/100;d=d/100;}
+  // If cible>1 and actuel<=1, actuel is in 0-1 scale → convert to 0-100
+  if(u==="%"&&c>1&&a<=1&&a>0){a=a*100;d=d*100;}
+  const sp=c-d;if(!sp)return a>=c?100:0;
+  return Math.max(0,Math.min(100,(a-d)/sp*100));
 }
 function fmtV(v,u){
   if(u==="oui/non")return v>=1?"ok":"0";
@@ -107,7 +113,7 @@ function fmtV(v,u){
   return v%1===0?String(v):v.toFixed(1);
 }
 function toEditVal(v,u){if(u==="%"){if(v<=1&&v>0)return Math.round(v*100);return Math.round(v);}return v;}
-function fromEditVal(v,u){const n=parseFloat(v)||0;if(u==="%"){return n;}return n;}
+function fromEditVal(v,u){const n=parseFloat(v)||0;if(u==="%"){return n/100;}return n;}
 function formatDate(ts){
   const d=new Date(ts);
   const day=d.getDate(),month=d.toLocaleString("fr-FR",{month:"short"});
