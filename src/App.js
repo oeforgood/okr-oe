@@ -3120,6 +3120,65 @@ function AbsencesTab({teamMembers=[]}) {
   </div>;
 }
 
+function QuestionsEditor({qs,onSave}){
+  const [dragFrom,setDragFrom]=useState(null);
+  const [dragOver,setDragOver]=useState(null);
+  const INP2={border:'1px solid #e2ddd6',borderRadius:6,padding:'6px 10px',fontSize:13,width:'100%',boxSizing:'border-box'};
+
+  function save(newQs){onSave(newQs);}
+  function addQ(){save([...qs,{id:'q'+Date.now(),text:'Nouvelle question',type:'textarea',confidentiel:false}]);}
+  function delQ(i){save(qs.filter((_,j)=>j!==i));}
+  function dropQ(toIdx){
+    if(dragFrom===null||dragFrom===toIdx){setDragFrom(null);setDragOver(null);return;}
+    const next=[...qs];const [moved]=next.splice(dragFrom,1);next.splice(toIdx,0,moved);
+    save(next);setDragFrom(null);setDragOver(null);
+  }
+  return <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'18px 20px'}}>
+    <div style={{fontSize:13,fontWeight:600,marginBottom:14}}>Questions de l'Update hebdomadaire</div>
+    {qs.map((q,i)=>(
+      <div key={q.id} draggable
+        onDragStart={()=>setDragFrom(i)}
+        onDragOver={e=>{e.preventDefault();setDragOver(i);}}
+        onDragLeave={()=>setDragOver(null)}
+        onDrop={e=>{e.preventDefault();dropQ(i);}}
+        style={{marginBottom:10,padding:'12px',background:'#f8f7f5',borderRadius:8,
+          border:`1px solid ${dragOver===i&&dragFrom!==i?'#2d6a4f':'#e2ddd6'}`,
+          cursor:'grab',opacity:dragFrom===i?0.5:1}}>
+        <div style={{display:'flex',gap:10,alignItems:'flex-start'}}>
+          <span style={{fontSize:11,color:'#c5c0b8',marginTop:4}}>⠿</span>
+          <span style={{fontSize:11,fontFamily:'monospace',color:'#9e9890',marginTop:3,minWidth:20}}>{i+1}.</span>
+          <div style={{flex:1}}>
+            <input style={{...INP2,marginBottom:8}} value={q.text}
+              onChange={e=>save(qs.map((x,j)=>j===i?{...x,text:e.target.value}:x))}/>
+            <div style={{display:'flex',gap:16,alignItems:'center',flexWrap:'wrap'}}>
+              <label style={{fontSize:12,color:'#6b6560'}}>Type :
+                <select value={q.type} onChange={e=>save(qs.map((x,j)=>j===i?{...x,type:e.target.value}:x))}
+                  style={{fontSize:12,border:'1px solid #e2ddd6',borderRadius:4,padding:'2px 6px',marginLeft:4}}>
+                  <option value="textarea">Texte libre</option>
+                  <option value="mood">Humeur (smileys)</option>
+                  <option value="presence">Présence</option>
+                  <option value="okr">OKR</option>
+                </select>
+              </label>
+              {q.type!=='okr'&&<label style={{fontSize:12,color:'#6b6560',display:'flex',alignItems:'center',gap:4}}>
+                <input type="checkbox" checked={!!q.confidentiel}
+                  onChange={e=>save(qs.map((x,j)=>j===i?{...x,confidentiel:e.target.checked}:x))}
+                  style={{accentColor:'#a21caf'}}/>
+                Confidentiel
+              </label>}
+            </div>
+          </div>
+          <button onClick={()=>delQ(i)} style={{background:'none',border:'none',cursor:'pointer',fontSize:16,color:'#c0392b',padding:'0 4px',flexShrink:0}}>❌</button>
+        </div>
+      </div>
+    ))}
+    <button onClick={addQ} style={{marginTop:8,padding:'8px 16px',background:'#f0fdf4',border:'1px dashed #2d6a4f',borderRadius:8,color:'#2d6a4f',fontSize:13,fontWeight:500,cursor:'pointer',width:'100%'}}>
+      + Ajouter une question
+    </button>
+  </div>;
+}
+
+
 function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions,catTypes,onSaveCatTypes,codeMap,onSaveCodeMap,customSubcatLabels,onSaveCustomSubcatLabels,savedCanalMargin,onSaveCanalMargin,onSendMessage,onSaveBsv3,onUploadReporting}){
   const [members,setMembers]=useState(teamMembers.map(m=>({...m})));
   const [msgModal,setMsgModal]=useState(null); // {email, prenom}
@@ -3279,63 +3338,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
         </div>
       </div>}
 
-      {tab==="questions"&&(()=>{
-        const [qDragFrom,setQDragFrom]=useState(null);
-        const [qDragOver,setQDragOver]=useState(null);
-        function saveQs(newQs){setQs(newQs);onSaveQuestions&&onSaveQuestions(newQs);}
-        function addQ(){
-          const newId='q'+Date.now();
-          saveQs([...qs,{id:newId,text:'Nouvelle question',type:'textarea',confidentiel:false}]);
-        }
-        function delQ(i){saveQs(qs.filter((_,j)=>j!==i));}
-        function dropQ(toIdx){
-          if(qDragFrom===null||qDragFrom===toIdx){setQDragFrom(null);setQDragOver(null);return;}
-          const next=[...qs];const [moved]=next.splice(qDragFrom,1);next.splice(toIdx,0,moved);
-          saveQs(next);setQDragFrom(null);setQDragOver(null);
-        }
-        return <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"18px 20px"}}>
-          <div style={{fontSize:13,fontWeight:600,marginBottom:14}}>Questions de l'Update hebdomadaire</div>
-          {qs.map((q,i)=>(
-            <div key={q.id}
-              draggable
-              onDragStart={()=>setQDragFrom(i)}
-              onDragOver={e=>{e.preventDefault();setQDragOver(i);}}
-              onDragLeave={()=>setQDragOver(null)}
-              onDrop={e=>{e.preventDefault();dropQ(i);}}
-              style={{marginBottom:10,padding:"12px",background:"#f8f7f5",borderRadius:8,
-                border:`1px solid ${qDragOver===i&&qDragFrom!==i?'#2d6a4f':'#e2ddd6'}`,
-                cursor:'grab',opacity:qDragFrom===i?0.5:1}}>
-              <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
-                <span style={{fontSize:11,color:"#c5c0b8",marginTop:4}}>⠿</span>
-                <span style={{fontSize:11,fontFamily:"monospace",color:"#9e9890",marginTop:3,minWidth:20}}>{i+1}.</span>
-                <div style={{flex:1}}>
-                  <input style={{...INP,fontSize:13,marginBottom:8}} value={q.text}
-                    onChange={e=>saveQs(qs.map((x,j)=>j===i?{...x,text:e.target.value}:x))}/>
-                  <div style={{display:"flex",gap:16,alignItems:"center",flexWrap:'wrap'}}>
-                    <label style={{fontSize:12,color:"#6b6560"}}>Type :
-                      <select value={q.type} onChange={e=>saveQs(qs.map((x,j)=>j===i?{...x,type:e.target.value}:x))}
-                        style={{fontSize:12,border:"1px solid #e2ddd6",borderRadius:4,padding:"2px 6px",marginLeft:4}}>
-                        <option value="textarea">Texte libre</option>
-                        <option value="mood">Humeur (smileys)</option>
-                        <option value="presence">Présence</option>
-                        <option value="okr">OKR</option>
-                      </select>
-                    </label>
-                    {q.type!=='okr'&&<label style={{fontSize:12,color:"#6b6560",display:"flex",alignItems:"center",gap:4}}>
-                      <input type="checkbox" checked={!!q.confidentiel} onChange={e=>saveQs(qs.map((x,j)=>j===i?{...x,confidentiel:e.target.checked}:x))} style={{accentColor:"#a21caf"}}/>
-                      Confidentiel
-                    </label>}
-                  </div>
-                </div>
-                <button onClick={()=>delQ(i)} style={{background:'none',border:'none',cursor:'pointer',fontSize:16,color:'#c0392b',padding:'0 4px',flexShrink:0}}>❌</button>
-              </div>
-            </div>
-          ))}
-          <button onClick={addQ} style={{marginTop:8,padding:'8px 16px',background:'#f0fdf4',border:'1px dashed #2d6a4f',borderRadius:8,color:'#2d6a4f',fontSize:13,fontWeight:500,cursor:'pointer',width:'100%'}}>
-            + Ajouter une question
-          </button>
-        </div>;
-      })()}
+      {tab==="questions"&&<QuestionsEditor qs={qs} onSave={newQs=>{setQs(newQs);onSaveQuestions&&onSaveQuestions(newQs);}}/>
 
       {tab==="history"&&<UpdatesHistoryTab/>}
       {tab==="feedback"&&<FeedbackAdminTab/>}
