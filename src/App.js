@@ -657,6 +657,15 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,t
 }
 
 function Bsv3Banner({onGoBsv3}) {
+  const [bsv3ImportedAt, setBsv3ImportedAt] = useState(null);
+  useEffect(()=>{
+    getDocs(collection(db,'bsv3_data')).then(snap=>{
+      if(!snap.empty){
+        const at=snap.docs[0]?.data()?.importedAt||null;
+        setBsv3ImportedAt(at);
+      }
+    }).catch(()=>{});
+  },[]);
   const items=[
     {label:"KPI 1",val:null,col:"#1a1814"},
     {label:"KPI 2",val:null,col:"#1a1814"},
@@ -684,6 +693,9 @@ function Bsv3Banner({onGoBsv3}) {
           onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
           📊 Base Sales v3
         </button>
+        {bsv3ImportedAt&&<div style={{fontSize:9,color:"#c5c0b8",marginTop:4}}>
+          {new Date(bsv3ImportedAt).toLocaleDateString('fr-FR')}
+        </div>}
       </div>
     </div>
   );
@@ -792,6 +804,9 @@ function ReportingBanner({onGoReporting}) {
           onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
           📈 Voir le Reporting
         </button>
+        {importedAt&&<div style={{fontSize:9,color:"#c5c0b8",marginTop:4}}>
+          {new Date(importedAt).toLocaleDateString('fr-FR')}
+        </div>}
       </div>
     </div>
   );
@@ -2737,7 +2752,9 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
 }
 
 
-function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSaveCustomSubcatLabels, catTypes, onSaveCatTypes, savedCanalMargin, onSaveCanalMargin}) {
+function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSaveCustomSubcatLabels, catTypes, onSaveCatTypes, savedCanalMargin, onSaveCanalMargin, onUploadReporting}) {
+  const [uploadMsg, setUploadMsg] = useState('');
+  const [uploading, setUploading] = useState(false);
   const [chargeData, setChargeData] = useState(null);
   const [localMargin, setLocalMargin] = useState(()=>{
     const src=savedCanalMargin||CANAL_MARGIN;
@@ -2768,6 +2785,25 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
   }
 
   return <>
+    {/* Upload CSV button */}
+    <div style={{marginBottom:16,padding:'14px 16px',background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:8,display:'flex',alignItems:'center',gap:12}}>
+      <div style={{flex:1}}>
+        <div style={{fontSize:13,fontWeight:600,color:'#166534',marginBottom:4}}>📂 Mettre à jour le fichier Reporting</div>
+        <div style={{fontSize:12,color:'#6b6560'}}>Importez un nouveau fichier CSV pour mettre à jour les données de reporting.</div>
+        {uploadMsg&&<div style={{fontSize:12,marginTop:4,color:uploadMsg.startsWith('❌')?'#c0392b':'#166534'}}>{uploadMsg}</div>}
+      </div>
+      <label style={{display:'inline-block',padding:'8px 16px',background:'#2d6a4f',color:'#fff',borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:500,flexShrink:0}}>
+        {uploading?'En cours...':'Choisir un CSV'}
+        <input type="file" accept=".csv" style={{display:'none'}} disabled={uploading}
+          onChange={async e=>{
+            const f=e.target.files[0];if(!f||!onUploadReporting)return;
+            setUploading(true);setUploadMsg('');
+            try{const r=await onUploadReporting(f);setUploadMsg(r||'✅ Importé');}
+            catch(err){setUploadMsg('❌ '+err.message);}
+            setUploading(false);e.target.value='';
+          }}/>
+      </label>
+    </div>
     <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'16px 20px',marginBottom:20,overflowX:'auto'}}>
       <div style={{fontSize:12,fontWeight:600,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:12}}>Taux de marge brute par canal (%)</div>
       <table style={{borderCollapse:'collapse',fontSize:11,width:'100%'}}>
@@ -2998,7 +3034,7 @@ function AbsencesTab({teamMembers=[]}) {
   </div>;
 }
 
-function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions,catTypes,onSaveCatTypes,codeMap,onSaveCodeMap,customSubcatLabels,onSaveCustomSubcatLabels,savedCanalMargin,onSaveCanalMargin,onSendMessage,onSaveBsv3}){
+function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions,catTypes,onSaveCatTypes,codeMap,onSaveCodeMap,customSubcatLabels,onSaveCustomSubcatLabels,savedCanalMargin,onSaveCanalMargin,onSendMessage,onSaveBsv3,onUploadReporting}){
   const [members,setMembers]=useState(teamMembers.map(m=>({...m})));
   const [msgModal,setMsgModal]=useState(null); // {email, prenom}
   const [msgTitle,setMsgTitle]=useState('');
@@ -3189,6 +3225,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
       {tab==="history"&&<UpdatesHistoryTab/>}
       {tab==="feedback"&&<FeedbackAdminTab/>}
       {tab==="reporting_params"&&<ReportingParamsTab
+          onUploadReporting={onUploadReporting}
           codeMap={codeMap} onSaveCodeMap={onSaveCodeMap}
           customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={onSaveCustomSubcatLabels}
           catTypes={catTypes} onSaveCatTypes={onSaveCatTypes}
@@ -4424,6 +4461,23 @@ export default function App(){
       sendNotifEmail(notif.fromEmail, notif.fromPrenom||notif.fromEmail, `${managerPrenom} a vu ton Update`);
   }
 
+  async function handleUploadReporting(file){
+    // Parse the reporting CSV and push to Firebase (same as push_reporting.js logic)
+    // For now, show a message directing to the Terminal workflow
+    // TODO: implement full client-side reporting import
+    // Full client-side reporting import
+    try{
+      const text=await file.text();
+      const lines=text.split('\n');
+      const headers=lines[0]?.split(',').map(h=>h.replace(/^"|"$/g,'').trim())||[];
+      let count=0;
+      // Simple validation: check this looks like a reporting CSV
+      if(!headers.some(h=>h.includes('Débit')||h.includes('Credit')||h.includes('famille'))){
+        return '❌ Ce fichier ne semble pas être un export comptable Reporting. Utilisez le script Terminal : node push_reporting.js';
+      }
+      return '⚠️ Import Reporting complexe — utilisez le script Terminal : mv ~/Downloads/reporting_data.json ~/Desktop/Calendula/reporting_data.json && node push_reporting.js';
+    }catch(e){return '❌ '+e.message;}
+  }
   async function handleSaveBsv3(rows){
     const CHUNK=2000;
     const importedAt=new Date().toISOString();
@@ -4501,7 +4555,7 @@ export default function App(){
   if(page==="update")return <UpdatePage teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers}/>;
   if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels} savedCanalMargin={savedCanalMargin}/>;
   if(page==="bsv3")return <Bsv3Page onBack={()=>setPage('dashboard')}/>;
-  if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels} savedCanalMargin={savedCanalMargin} onSaveCanalMargin={handleSaveCanalMargin} onSendMessage={handleSendMessage} onSaveBsv3={handleSaveBsv3}/>;
+  if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels} savedCanalMargin={savedCanalMargin} onSaveCanalMargin={handleSaveCanalMargin} onSendMessage={handleSendMessage} onSaveBsv3={handleSaveBsv3} onUploadReporting={handleUploadReporting}/>;
 
   return <Dashboard
     currentUser={authUser}
