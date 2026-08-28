@@ -1681,6 +1681,35 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
                 </label>)}
               </div>
             </div>;
+            if(q.type==="okr"){
+              const myKRs=(okrData?.keyresults||[]).filter(k=>k.owner===teamMember?.prenom);
+              const seasonKey=okrData?.seasonKey||'';
+              const checkedIds=answers[q.id]?.krIds||[];
+              function toggleKR(id){
+                const next=checkedIds.includes(id)?checkedIds.filter(x=>x!==id):[...checkedIds,id];
+                upd(q.id,{seasonKey,krIds:next});
+              }
+              return <div key={q.id} style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"14px 16px"}}>
+                <div style={{fontSize:13,fontWeight:500,color:"#1a1814",marginBottom:12}}>{q.text}</div>
+                {myKRs.length===0?<div style={{fontSize:12,color:"#9e9890"}}>Aucun KR assigné cette saison.</div>
+                :<div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  {myKRs.sort((a,b)=>a.id.localeCompare(b.id,undefined,{numeric:true})).map(kr=>{
+                    const checked=checkedIds.includes(kr.id);
+                    const contribs=kr.contributors||[];
+                    return <label key={kr.id} style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",padding:"6px 8px",borderRadius:6,background:checked?"#f0fdf4":"#f8f7f5",border:`1px solid ${checked?"#86efac":"#e2ddd6"}`}}>
+                      <input type="checkbox" checked={checked} onChange={()=>toggleKR(kr.id)} style={{accentColor:"#2d6a4f",marginTop:2,flexShrink:0}}/>
+                      <div style={{flex:1}}>
+                        <span style={{fontSize:11,fontFamily:"monospace",color:"#9e9890",marginRight:6}}>{kr.id}</span>
+                        <span style={{fontSize:12,color:"#1a1814"}}>{kr.title}</span>
+                        {contribs.length>0&&<span style={{marginLeft:8}}>
+                          {contribs.map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:20,height:20,borderRadius:"50%",background:pBg(c),color:"#fff",fontSize:9,fontWeight:600,marginLeft:2}}>{ini(c)}</span>)}
+                        </span>}
+                      </div>
+                    </label>;
+                  })}
+                </div>}
+              </div>;
+            }
             return <div key={q.id} style={{background:q.confidentiel?"#fdf4ff":"#fff",borderRadius:10,border:`1px solid ${q.confidentiel?"#d946ef":"#e2ddd6"}`,padding:"14px 18px"}}>
               <div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:q.confidentiel&&q.note?6:10}}>
                 <div style={{fontSize:13,fontWeight:500,color:"#1a1814",flex:1}}>{q.text}</div>
@@ -3338,7 +3367,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
         </div>
       </div>}
 
-      {tab==="questions"&&<QuestionsEditor qs={qs} onSave={newQs=>{setQs(newQs);onSaveQuestions&&onSaveQuestions(newQs);}}/>}
+      {tab==="questions"&&<QuestionsEditor qs={qs} onSave={newQs=>{setQs(newQs);onSaveQuestions&&onSaveQuestions(newQs);}}/>
 
       {tab==="history"&&<UpdatesHistoryTab/>}
       {tab==="feedback"&&<FeedbackAdminTab/>}
