@@ -84,7 +84,7 @@ function makeFreshSeason(people){return{objectives:[],subobjectives:[],keyresult
 function calcSobj(sobjId,krs){
   const a=krs.filter(k=>k.parent===sobjId&&k.poids>0);
   const tw=a.reduce((s,k)=>s+k.poids,0);if(!tw)return 0;
-  return a.reduce((s,k)=>s+k.taux*k.poids,0)/tw;
+  return a.reduce((s,k)=>s+calcTaux(k.val_depart,k.val_actuel,k.val_cible,k.unite)*k.poids,0)/tw;
 }
 function calcObj(objId,sobjs,krs){
   const ss=sobjs.filter(s=>s.parent===objId);
@@ -930,12 +930,12 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
   const totalKR=keyresults.length,doneKR=keyresults.filter(k=>k.taux>=100).length;
   const myPrenom=teamMember?.prenom;
   const myKRs=keyresults.filter(k=>k.owner===myPrenom);
-  const myKRDone=myKRs.filter(k=>k.taux>=100).length;
+  const myKRDone=myKRs.filter(k=>calcTaux(k.val_depart,k.val_actuel,k.val_cible,k.unite)>=100).length;
 
   // Personal weighted progress: weight = KR_poids * sobj_poids * obj_etp
   // Owner-only KRs for personal progress (not contributor)
   const myKRsOwned=useMemo(()=>keyresults.filter(k=>k.owner===myPrenom),[keyresults,myPrenom]);
-  const myKRDoneOwned=useMemo(()=>myKRsOwned.filter(k=>k.taux>=100).length,[myKRsOwned]);
+  const myKRDoneOwned=useMemo(()=>myKRsOwned.filter(k=>calcTaux(k.val_depart,k.val_actuel,k.val_cible,k.unite)>=100).length,[myKRsOwned]);
   const myPersonalProg=useMemo(()=>{
     let totalW=0,weightedSum=0;
     myKRsOwned.filter(k=>k.poids>0).forEach(kr=>{
@@ -945,7 +945,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
       const sobjPoids=sobj?sobj.poids:100;
       const objEtp=obj?Math.max(obj.etp||0,0.01):1;
       const w=kr.poids*(sobjPoids/100)*objEtp;
-      const taux=parseFloat(kr.taux)||0;
+      const taux=calcTaux(kr.val_depart,kr.val_actuel,kr.val_cible,kr.unite)||0;
       totalW+=w;
       weightedSum+=taux*w;
     });
@@ -3505,7 +3505,7 @@ function SobjSection({sobj,krs,people,objLocked,onEditKR,onAddKR,onEditSobj,coll
         </tr></thead>
         <tbody>
           {myKRs.map(kr=>{
-            const p=kr.taux,col=progColor(p),hasRevise=kr.val_revise!==kr.val_cible;
+            const p=calcTaux(kr.val_depart,kr.val_actuel,kr.val_cible,kr.unite),col=progColor(p),hasRevise=kr.val_revise!==kr.val_cible;
             return <React.Fragment key={kr.id}>
               {dragOverKR?.id===kr.id&&dragOverKR?.before&&<tr><td colSpan={20} style={{height:2,background:'#2d6a4f',padding:0}}/></tr>}
               <tr
@@ -3931,7 +3931,7 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
 
   const allLocked=objectives.length>0&&objectives.every(o=>!!o.locked);
   const visObjs=filterP?objectives.filter(o=>subobjectives.filter(s=>s.parent===o.id).some(s=>keyresults.filter(k=>k.parent===s.id).some(k=>k.owner===filterP))):objectives;
-  const totalKR=keyresults.length,doneKR=keyresults.filter(k=>k.taux>=100).length,avgProg=calcWeightedAvg(objectives,subobjectives,keyresults);
+  const totalKR=keyresults.length,doneKR=keyresults.filter(k=>calcTaux(k.val_depart,k.val_actuel,k.val_cible,k.unite)>=100).length,avgProg=calcWeightedAvg(objectives,subobjectives,keyresults);
 
   if(!loaded)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:200,color:"#9e9890",fontSize:13}}>Chargement…</div>;
 
@@ -3969,7 +3969,7 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
             const sobjPoids=sobj?sobj.poids:100;
             const objEtp=obj?Math.max(obj.etp||0,0.01):1;
             const w=kr.poids*(sobjPoids/100)*objEtp;
-            const taux=parseFloat(kr.taux)||0;
+            const taux=calcTaux(kr.val_depart,kr.val_actuel,kr.val_cible,kr.unite)||0;
             totalW+=w;weightedSum+=taux*w;
           });
           const fProg=totalW>0?Math.round(weightedSum/totalW*10)/10:0;
