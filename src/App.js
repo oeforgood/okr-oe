@@ -693,8 +693,8 @@ function Bsv3Banner({onGoBsv3}) {
           onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
           📊 Base Sales v3
         </button>
-        {bsv3ImportedAt&&<div style={{fontSize:9,color:"#c5c0b8",marginTop:4}}>
-          {new Date(bsv3ImportedAt).toLocaleDateString('fr-FR')}
+        {bsv3ImportedAt&&<div style={{fontSize:9,color:"#c5c0b8",marginTop:4,textAlign:'center'}}>
+          mis à jour le {new Date(bsv3ImportedAt).toLocaleDateString('fr-FR')}
         </div>}
       </div>
     </div>
@@ -804,8 +804,8 @@ function ReportingBanner({onGoReporting}) {
           onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
           📈 Voir le Reporting
         </button>
-        {importedAt&&<div style={{fontSize:9,color:"#c5c0b8",marginTop:4}}>
-          {new Date(importedAt).toLocaleDateString('fr-FR')}
+        {importedAt&&<div style={{fontSize:9,color:"#c5c0b8",marginTop:4,textAlign:'center'}}>
+          mis à jour le {new Date(importedAt).toLocaleDateString('fr-FR')}
         </div>}
       </div>
     </div>
@@ -4061,7 +4061,7 @@ function fmtBPct(v){if(v==null||isNaN(v))return '—';return (v*100).toFixed(1)+
 function Bsv3ClientRow({client,clRows,clPrev}){
   const [exp,setExp]=React.useState(false);
   const clA=aggBsv3(clRows);const clPA=aggBsv3(clPrev);
-  const produits=[...new Set(clRows.map(r=>r['Contenant+Appelation/Robe']))].sort();
+  const produits=[...new Set(clRows.map(r=>r['Contenant+Appelation/Robe']))].sort((a,b)=>a.localeCompare(b));
   const cellC={padding:'5px 10px',fontSize:11,textAlign:'right',borderBottom:'1px solid #f0ede8',fontFamily:'monospace',background:'#f0fdf4'};
   const lblC={padding:'5px 10px 5px 36px',fontSize:11,borderBottom:'1px solid #f0ede8',cursor:'pointer',background:'#f0fdf4',display:'flex',alignItems:'center',gap:6};
   return <React.Fragment>
@@ -4095,7 +4095,11 @@ function Bsv3ClientRow({client,clRows,clPrev}){
 function Bsv3CanalRow({canal,cRows,cPrev}){
   const [exp,setExp]=React.useState(false);
   const cA=aggBsv3(cRows);const cPA=aggBsv3(cPrev);
-  const clients=[...new Set(cRows.map(r=>r['Client PL']))].sort();
+  const clientCa={};
+  [...new Set(cRows.map(r=>r['Client PL']))].forEach(cl=>{
+    clientCa[cl]=cRows.filter(r=>r['Client PL']===cl).reduce((s,r)=>s+parseBsv3Amt(r['Montant HT']),0);
+  });
+  const clients=Object.keys(clientCa).sort((a,b)=>clientCa[b]-clientCa[a]);
   const cell={padding:'6px 10px',fontSize:11,textAlign:'right',borderBottom:'1px solid #f5f5f5',fontFamily:'monospace',background:'#f8f7f5'};
   const lbl={padding:'6px 10px 6px 24px',fontSize:11,borderBottom:'1px solid #f5f5f5',cursor:'pointer',background:'#f8f7f5',display:'flex',alignItems:'center',gap:6};
   return <React.Fragment>
@@ -4154,9 +4158,9 @@ function Bsv3Page({onBack}){
   const importDate=importedAt?new Date(importedAt):new Date();
   const year=importDate.getMonth()===0?importDate.getFullYear()-1:importDate.getFullYear();
   const prevYear=year-1;
-  const validRows=rows.filter(r=>r['Année Emission']===String(year)&&r['Marge brute']!=='MARGE NON CALCULABLE'&&!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])&&r['Canal']);
-  const prevRows=rows.filter(r=>r['Année Emission']===String(prevYear)&&r['Marge brute']!=='MARGE NON CALCULABLE'&&!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])&&r['Canal']);
-  const allValid=rows.filter(r=>r['Marge brute']!=='MARGE NON CALCULABLE'&&!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])&&r['Canal']);
+  const validRows=rows.filter(r=>r['Année Emission']===String(year)&&!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])&&r['Canal']);
+  const prevRows=rows.filter(r=>r['Année Emission']===String(prevYear)&&!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])&&r['Canal']);
+  const allValid=rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])&&r['Canal']);
   const th={padding:'8px 10px',fontSize:11,fontWeight:600,color:'#6b6560',textAlign:'right',borderBottom:'2px solid #e2ddd6',background:'#f8f7f5',whiteSpace:'nowrap'};
   return <div style={{minHeight:'100vh',background:'#f8f7f5'}}>
     <div style={{maxWidth:1200,margin:'0 auto',padding:'24px 16px'}}>
