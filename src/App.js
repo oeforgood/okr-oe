@@ -689,7 +689,16 @@ function Bsv3Banner({onGoBsv3}) {
   // Compute KPIs
   // All BSv3 rows (all years) for N-1
   const [bsv3AllRows,setBsv3AllRows]=React.useState([]);
-  React.useEffect(()=>{setBsv3AllRows(bsv3Rows);},[bsv3Rows]);
+  // Load ALL years for N-1 comparison
+  React.useEffect(()=>{
+    getDocs(collection(db,'bsv3_data')).then(snap=>{
+      if(!snap.empty){
+        let all=[];
+        snap.docs.sort((a,b)=>a.id.localeCompare(b.id)).forEach(d=>all=all.concat(d.data().rows||[]));
+        setBsv3AllRows(all);
+      }
+    }).catch(()=>{});
+  },[]);
 
   const bsv3CA=bsv3Rows.reduce((s,r)=>s+parseBsv3Amt(r['Montant HT']),0);
   const bsv3Marge=bsv3Rows.reduce((s,r)=>s+parseBsv3Amt(r['Marge brute']),0);
