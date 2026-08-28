@@ -3367,7 +3367,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
         </div>
       </div>}
 
-      {tab==="questions"&&<QuestionsEditor qs={qs} onSave={newQs=>{setQs(newQs);onSaveQuestions&&onSaveQuestions(newQs);}}/>
+      {tab==="questions"&&<QuestionsEditor qs={qs} onSave={newQs=>{setQs(newQs);onSaveQuestions&&onSaveQuestions(newQs);}}/>}
 
       {tab==="history"&&<UpdatesHistoryTab/>}
       {tab==="feedback"&&<FeedbackAdminTab/>}
