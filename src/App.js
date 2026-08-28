@@ -4779,7 +4779,13 @@ export default function App(){
     return SEASONS[idx-1].key; // use previous season
   }
   return s.key;
-})();const s=d.allSeasons[curSk]||{};setOkrData({objectives:s.objectives||[],subobjectives:s.subobjectives||[],keyresults:s.keyresults||[],seasonKey:curSk});}});
+})();
+        // Use stored seasonKey if set, otherwise use date-based
+        const activeSk=d.seasonKey||curSk;
+        const s=d.allSeasons[activeSk]||{};
+        setOkrData({objectives:s.objectives||[],subobjectives:s.subobjectives||[],keyresults:s.keyresults||[],seasonKey:activeSk,allSeasons:d.allSeasons});
+      }
+    });
 
     return()=>{unsub();unsubOkr();};
   },[authUser]);
