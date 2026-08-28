@@ -84,7 +84,7 @@ function makeFreshSeason(people){return{objectives:[],subobjectives:[],keyresult
 function calcSobj(sobjId,krs){
   const a=krs.filter(k=>k.parent===sobjId&&k.poids>0);
   const tw=a.reduce((s,k)=>s+k.poids,0);if(!tw)return 0;
-  return a.reduce((s,k)=>s+k.taux*k.poids,0)/tw;
+  return a.reduce((s,k)=>s+calcTaux(k.val_depart,k.val_actuel,k.val_cible,k.unite)*k.poids,0)/tw;
 }
 function calcObj(objId,sobjs,krs){
   const ss=sobjs.filter(s=>s.parent===objId);
@@ -97,8 +97,14 @@ function calcWeightedAvg(objectives,sobjs,krs){
 }
 function calcTaux(dep,act,cib,u){
   if(u==="oui/non")return act>=1?100:0;
-  const sp=cib-dep;if(!sp)return act>=cib?100:0;
-  return Math.max(0,Math.min(100,(act-dep)/sp*100));
+  // For %: normalize to same scale
+  // If cible<=1 but actuel>1, actuel is in 0-100 scale → convert to 0-1
+  let d=dep,a=act,c=cib;
+  if(u==="%"&&c>0&&c<=1&&a>1){a=a/100;d=d/100;}
+  // If cible>1 and actuel<=1, actuel is in 0-1 scale → convert to 0-100
+  if(u==="%"&&c>1&&a<=1&&a>0){a=a*100;d=d*100;}
+  const sp=c-d;if(!sp)return a>=c?100:0;
+  return Math.max(0,Math.min(100,(a-d)/sp*100));
 }
 function fmtV(v,u){
   if(u==="oui/non")return v>=1?"ok":"0";
@@ -107,7 +113,7 @@ function fmtV(v,u){
   return v%1===0?String(v):v.toFixed(1);
 }
 function toEditVal(v,u){if(u==="%"){if(v<=1&&v>0)return Math.round(v*100);return Math.round(v);}return v;}
-function fromEditVal(v,u){const n=parseFloat(v)||0;if(u==="%"){return n;}return n;}
+function fromEditVal(v,u){const n=parseFloat(v)||0;if(u==="%"){return n/100;}return n;}
 function formatDate(ts){
   const d=new Date(ts);
   const day=d.getDate(),month=d.toLocaleString("fr-FR",{month:"short"});
@@ -497,7 +503,8 @@ function NotifDetail({notif, teamMember, teamMembers=[], onSendMessage}) {
   const authorEmail=notif?.fromEmail||notif?.email;
   const isManager=!!(viewerEmail&&authorEmail&&
     teamMembers.find(m=>m.email===authorEmail&&m.managerEmail===viewerEmail));
-  const visibleQs=DEFAULT_QUESTIONS.filter(q=>answers[q.id]&&(q.id!=='q6'||isManager));
+  const allQs=notif?.weekQuestions||DEFAULT_QUESTIONS;
+  const visibleQs=allQs.filter(q=>answers[q.id]&&(q.id!=='q6'||isManager));
   const [replyText,setReplyText]=useState('');
   const [replySent,setReplySent]=useState(false);
   async function sendReply(){
@@ -517,11 +524,35 @@ function NotifDetail({notif, teamMember, teamMembers=[], onSendMessage}) {
       if(q.type==="mood")return null;
       if(q.type==="presence")return <div key={q.id} style={{marginBottom:10}}>
         <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:3}}>{q.text.replace(" *","")}</div>
-        <div style={{fontSize:13,background:"#f5f3ef",borderRadius:6,padding:"5px 10px"}}>{val}</div>
+        <div style={{fontSize:13,background:"#f5f3ef",borderRadius:6,padding:"5px 10px"}}>{typeof val==="object"?(val?.krIds||[]).join(', '):val}</div>
       </div>;
+      if(q.type==="okr"&&val?.krIds){
+        const krIds=val.krIds||[];
+        const seasonKRs=(window._okrSeasons&&val.seasonKey?window._okrSeasons[val.seasonKey]?.keyresults:null)||[];
+        return <div key={q.id} style={{marginBottom:10,background:"#fff",borderRadius:6,border:"1px solid #e2ddd6",padding:"8px 10px"}}>
+          <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:6}}>{q.text.replace(" *","")}</div>
+          {krIds.map(id=>{
+            const kr=seasonKRs.find(k=>k.id===id);
+            const contribs=kr?.contributors||[];
+            return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"3px 0",display:"flex",alignItems:"center",gap:6}}>
+              ✅ <span style={{fontFamily:"monospace",color:"#9e9890",fontSize:11}}>{id}</span>
+              <span>{kr?.title||id}</span>
+              {contribs.map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:18,height:18,borderRadius:"50%",background:pBg(c),color:"#fff",fontSize:8,fontWeight:600}}>{ini(c)}</span>)}
+            </div>;
+          })}
+        </div>;
+      }
+      if(q.type==="okr"&&val?.krIds){
+        const krIds=val.krIds||[];
+        const seasonKRs=(window._okrSeasons&&val.seasonKey?window._okrSeasons[val.seasonKey]?.keyresults:null)||[];
+        return <div key={q.id} style={{background:"#fff",borderRadius:6,border:"1px solid #e2ddd6",padding:"8px 10px"}}>
+          <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text.replace(" *","")}</div>
+          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(kr?.contributors||[]).map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",background:pBg(c),color:"#fff",fontSize:9,fontWeight:600,marginLeft:3}}>{ini(c)}</span>)}</div>;})}
+        </div>;
+      }
       return <div key={q.id} style={{marginBottom:10,background:q.confidentiel?"#fdf4ff":"transparent",padding:q.confidentiel?"6px 10px":"0",borderRadius:q.confidentiel?6:0}}>
         <div style={{fontSize:11,fontWeight:600,color:q.confidentiel?"#a21caf":"#9e9890",marginBottom:3}}>{q.confidentiel?"🔒 ":""}{q.text.replace(" *","")}</div>
-        <div style={{fontSize:13,whiteSpace:"pre-wrap",color:"#1a1814"}}>{val}</div>
+        <div style={{fontSize:13,whiteSpace:"pre-wrap",color:"#1a1814"}}>{typeof val==="object"?(val?.krIds||[]).join(', '):val}</div>
       </div>;
     })}
     {isManager&&<div style={{marginTop:16,borderTop:"1px solid #e2ddd6",paddingTop:16}}>
@@ -607,7 +638,7 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,t
       // Use updatedAt if available (last modification), otherwise submittedAt
       const msgDate=new Date(n.updatedAt||n.submittedAt);
       const updateData=allUpdates.find(u=>u.email===n.fromEmail&&u.weekKey===n.weekKey);
-      return{id:n.id,title:`Nouvel Update de ${n.fromPrenom}`,content:null,notif:{...n,answers:updateData?.answers||{},fromEmail:n.fromEmail||updateData?.email},date:msgDate,read:n.read,isSystem:false,fromPrenom:n.fromPrenom,weekLabel:(mon.getMonth()===fri.getMonth()?`lundi ${mon.getDate()} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`:`lundi ${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"long"})} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`)};
+      return{id:n.id,title:`Nouvel Update de ${n.fromPrenom}`,content:null,notif:{...n,answers:n.answers||updateData?.answers||{},fromEmail:n.fromEmail||updateData?.email},date:msgDate,read:n.read,isSystem:false,fromPrenom:n.fromPrenom,weekLabel:(mon.getMonth()===fri.getMonth()?`lundi ${mon.getDate()} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`:`lundi ${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"long"})} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`)};
     }).sort((a,b)=>b.date-a.date);
 
   // Teammate notifications (manager read your update)
@@ -654,6 +685,113 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,t
       </div>
     </div>}
   </div>;
+}
+
+function Bsv3Banner({onGoBsv3}) {
+  const [bsv3ImportedAt, setBsv3ImportedAt] = useState(null);
+  useEffect(()=>{
+    getDocs(collection(db,'bsv3_data')).then(snap=>{
+      if(!snap.empty){
+        const at=snap.docs[0]?.data()?.importedAt||null;
+        setBsv3ImportedAt(at);
+      }
+    }).catch(()=>{});
+  },[]);
+  const [bsv3Rows, setBsv3Rows] = useState([]);
+  const [bsv3Year, setBsv3Year] = useState(null);
+  useEffect(()=>{
+    getDocs(collection(db,'bsv3_data')).then(snap=>{
+      if(!snap.empty){
+        let all=[];let at=null;
+        snap.docs.sort((a,b)=>a.id.localeCompare(b.id)).forEach(d=>{
+          const data=d.data();all=all.concat(data.rows||[]);
+          if(!at)at=data.importedAt;
+        });
+        setBsv3ImportedAt(at);
+        const importDate=at?new Date(at):new Date();
+        const yr=importDate.getMonth()===0?importDate.getFullYear()-1:importDate.getFullYear();
+        setBsv3Year(yr);
+        const valid=all.filter(r=>r['Année Emission']===String(yr)&&!['CASIER-OE','COIFFE-OE','CONTENANT BOUTEILLE'].includes(r['Contenant+Appelation/Robe'])&&r['Canal']);
+        setBsv3Rows(valid);
+      }
+    }).catch(()=>{});
+  },[]);
+
+  // Compute KPIs
+  // All BSv3 rows (all years) for N-1
+  const [bsv3AllRows,setBsv3AllRows]=React.useState([]);
+  // Load ALL years for N-1 comparison
+  React.useEffect(()=>{
+    getDocs(collection(db,'bsv3_data')).then(snap=>{
+      if(!snap.empty){
+        let all=[];
+        snap.docs.sort((a,b)=>a.id.localeCompare(b.id)).forEach(d=>all=all.concat(d.data().rows||[]));
+        setBsv3AllRows(all);
+      }
+    }).catch(()=>{});
+  },[]);
+
+  const bsv3CA=bsv3Rows.reduce((s,r)=>s+parseBsv3Amt(r['Montant HT']),0);
+  const bsv3Marge=bsv3Rows.reduce((s,r)=>s+parseBsv3Amt(r['Marge brute']),0);
+  const bsv3Taux=bsv3CA?bsv3Marge/bsv3CA:null;
+  const maxMonth=bsv3Rows.length?Math.max(...bsv3Rows.map(r=>parseInt(r['Mois Emission'])||0)):0;
+  const prevYear=bsv3Year?bsv3Year-1:null;
+
+  // Last month taux
+  const lastMonthRows=bsv3Rows.filter(r=>parseInt(r['Mois Emission'])===maxMonth);
+  const lastMonthAgg=aggBsv3(lastMonthRows);
+  // 6M rolling from last month
+  let roll6=[];
+  for(let dm=0;dm<6;dm++){
+    let m=maxMonth-dm,y=bsv3Year;if(m<=0){m+=12;y--;}
+    roll6=roll6.concat(bsv3AllRows.filter(r=>r['Mois Emission']===String(m)&&r['Année Emission']===String(y)&&!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])));
+  }
+  const roll6Taux=aggBsv3(roll6).taux;
+  const lastMonthArrow=lastMonthAgg.taux!=null&&roll6Taux!=null?(lastMonthAgg.taux>roll6Taux?'↑':'↓'):null;
+
+  // N-1 YTD marge
+  // N-1: load from bsv3AllRows (all years are stored)
+  const prevYearRows=bsv3AllRows.filter(r=>r['Année Emission']===String(prevYear)&&!['CASIER-OE','COIFFE-OE','CONTENANT BOUTEILLE'].includes(r['Contenant+Appelation/Robe']));
+  const prevYtdRows=prevYearRows.filter(r=>parseInt(r['Mois Emission'])<=maxMonth);
+  const bsv3MargeN1=prevYtdRows.reduce((s,r)=>s+parseBsv3Amt(r['Marge brute']),0);
+  const bsv3VarMarge=bsv3Marge-bsv3MargeN1;
+
+  const fmtK=v=>{if(!v&&v!==0)return '—';const abs=Math.abs(v);const s=abs>=1000?(abs/1000).toFixed(0)+'k€':abs.toFixed(0)+'€';return (v<0?'-':'')+s;};
+  const fmtPctB=v=>v!=null?(v*100).toFixed(1)+'%':'—';
+  const items=[
+    {label:"CA YTD",val:bsv3CA||null,col:"#1a1814",fmt:fmtK},
+    {label:"Marge YTD",val:bsv3Marge||null,col:bsv3Marge<0?"#c0392b":"#1a1814",fmt:fmtK},
+    {label:`Taux ${MOIS_LABELS[maxMonth]||''}`,val:lastMonthAgg.taux,col:lastMonthArrow==='↑'?"#2d6a4f":lastMonthArrow==='↓'?"#c0392b":"#1a1814",fmt:v=>`${fmtPctB(v)}${lastMonthArrow?` ${lastMonthArrow}`:''}`,arrow:lastMonthArrow},
+    {label:"Taux YTD",val:bsv3Taux,col:bsv3Taux!=null&&bsv3Taux<0?"#c0392b":"#1a1814",fmt:fmtPctB},
+    {label:"Var. Marge N-1",val:bsv3VarMarge,col:bsv3VarMarge<0?"#c0392b":"#2d6a4f",fmt:v=>v>=0?'+'+fmtK(v):fmtK(v)},
+  ];
+  return (
+    <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"14px 20px",
+      display:"flex",alignItems:"center",gap:0,boxShadow:"0 1px 3px rgba(0,0,0,.04)",marginBottom:4}}>
+      {items.map((item,i)=><React.Fragment key={i}>
+        <div style={{flex:1,textAlign:"center",padding:"0 12px"}}>
+          <div style={{fontSize:26,fontWeight:700,color:item.val!=null?item.col:"#9e9890",lineHeight:1,fontFamily:"monospace"}}>{item.val!=null?(item.fmt||String)(item.val):'—'}</div>
+          <div style={{fontSize:9,color:"#9e9890",marginTop:3,textTransform:"uppercase",letterSpacing:".05em"}}>{item.label}</div>
+        </div>
+        {i<4&&<div key={"sep"+i} style={{width:1,background:"#e2ddd6",alignSelf:"stretch",flexShrink:0}}/>}
+      </React.Fragment>)}
+      <div style={{width:1,background:"#e2ddd6",alignSelf:"stretch",flexShrink:0}}/>
+      <div style={{flex:1,textAlign:"center",padding:"0 12px"}}>
+        <button onClick={onGoBsv3}
+          style={{display:"inline-flex",alignItems:"center",gap:6,padding:"8px 16px",
+            background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,
+            cursor:"pointer",fontSize:12,fontWeight:500,minWidth:140,
+            transition:"opacity .15s"}}
+          onMouseEnter={e=>e.currentTarget.style.opacity=".85"}
+          onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+          📊 Base Sales v3
+        </button>
+        {bsv3ImportedAt&&<div style={{fontSize:9,color:"#c5c0b8",marginTop:4,textAlign:'center'}}>
+          mis à jour le {new Date(bsv3ImportedAt).toLocaleDateString('fr-FR')}
+        </div>}
+      </div>
+    </div>
+  );
 }
 
 function ReportingBanner({onGoReporting}) {
@@ -753,12 +891,15 @@ function ReportingBanner({onGoReporting}) {
         <button onClick={onGoReporting}
           style={{display:"inline-flex",alignItems:"center",gap:6,padding:"8px 16px",
             background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,
-            cursor:"pointer",fontSize:12,fontWeight:500,
+            cursor:"pointer",fontSize:12,fontWeight:500,minWidth:140,
             transition:"opacity .15s"}}
           onMouseEnter={e=>e.currentTarget.style.opacity=".85"}
           onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
           📈 Voir le Reporting
         </button>
+        {importedAt&&<div style={{fontSize:9,color:"#c5c0b8",marginTop:4,textAlign:'center'}}>
+          mis à jour le {new Date(importedAt).toLocaleDateString('fr-FR')}
+        </div>}
       </div>
     </div>
   );
@@ -813,19 +954,19 @@ function FeedbackBox({currentUser, teamMember}) {
   );
 }
 
-function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onGoReporting,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,okrData,isAdmin,onOpenSettings,onSendMessage,absencesList=[]}){
+function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,okrData,isAdmin,onOpenSettings,onChangeSeasonKey,onSendMessage,absencesList=[]}){
   const {objectives=[],subobjectives=[],keyresults=[],seasonKey:_sk}=okrData||{};
   const seasonKey=okrData?.seasonKey||"printemps_2026";
   const avgProg=calcWeightedAvg(objectives,subobjectives,keyresults);
   const totalKR=keyresults.length,doneKR=keyresults.filter(k=>k.taux>=100).length;
   const myPrenom=teamMember?.prenom;
   const myKRs=keyresults.filter(k=>k.owner===myPrenom);
-  const myKRDone=myKRs.filter(k=>k.taux>=100).length;
+  const myKRDone=myKRs.filter(k=>calcTaux(k.val_depart,k.val_actuel,k.val_cible,k.unite)>=100).length;
 
   // Personal weighted progress: weight = KR_poids * sobj_poids * obj_etp
   // Owner-only KRs for personal progress (not contributor)
   const myKRsOwned=useMemo(()=>keyresults.filter(k=>k.owner===myPrenom),[keyresults,myPrenom]);
-  const myKRDoneOwned=useMemo(()=>myKRsOwned.filter(k=>k.taux>=100).length,[myKRsOwned]);
+  const myKRDoneOwned=useMemo(()=>myKRsOwned.filter(k=>calcTaux(k.val_depart,k.val_actuel,k.val_cible,k.unite)>=100).length,[myKRsOwned]);
   const myPersonalProg=useMemo(()=>{
     let totalW=0,weightedSum=0;
     myKRsOwned.filter(k=>k.poids>0).forEach(kr=>{
@@ -835,7 +976,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
       const sobjPoids=sobj?sobj.poids:100;
       const objEtp=obj?Math.max(obj.etp||0,0.01):1;
       const w=kr.poids*(sobjPoids/100)*objEtp;
-      const taux=parseFloat(kr.taux)||0;
+      const taux=calcTaux(kr.val_depart,kr.val_actuel,kr.val_cible,kr.unite)||0;
       totalW+=w;
       weightedSum+=taux*w;
     });
@@ -866,7 +1007,8 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
 
       {/* ── SECTION OKR ── pleine largeur */}
       <div style={{display:"flex",flexDirection:"column",gap:2,marginBottom:16}}>
-        <SeasonBanner seasonKey={seasonKey||"printemps_2026"} avgProg={avgProg} totalKR={totalKR} doneKR={doneKR}/>
+        <SeasonBanner seasonKey={seasonKey||"printemps_2026"} avgProg={avgProg} totalKR={totalKR} doneKR={doneKR}
+          onChangeSeason={onChangeSeasonKey} isOwner={currentUser?.email===OWNER_EMAIL}/>
         {/* Personal banner with OKR button inside */}
         {myKRsOwned.length>0&&(()=>{
           const col=progColorRel(myPersonalProg,avgProg);
@@ -890,7 +1032,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
                   transition:"opacity .15s"}}
                   onMouseEnter={e=>e.currentTarget.style.opacity=".85"}
                   onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
-                  <span>📊</span> Aller aux OKR et mettre à jour
+                  <span>🎯</span> Aller aux OKR et mettre à jour
                 </button>
               </div>
             </div>
@@ -1188,7 +1330,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
       {(()=>{
         const reportingData=window._reportingCache||null;
         // Load from Firebase if not cached
-        return <ReportingBanner onGoReporting={onGoReporting}/>;
+        return <><ReportingBanner onGoReporting={onGoReporting}/><div style={{marginTop:12}}><Bsv3Banner onGoBsv3={onGoBsv3}/></div></>;
       })()}
 
 
@@ -1255,7 +1397,8 @@ function UpdateViewModal({notif,onClose,onRead,teamMembers=[]}){
     setReplySent(true);
     setTimeout(()=>{setReplyText('');setReplySent(false);},2000);
   }
-  const visibleQs=DEFAULT_QUESTIONS.filter(q=>q.id!=="q7"&&answers[q.id]&&(q.id!=="q6"||canSeeQ6));
+  const weekQs=notif?.updateData?.weekQuestions||notif?.weekQuestions||DEFAULT_QUESTIONS;
+  const visibleQs=weekQs.filter(q=>q.id!=="q7"&&answers[q.id]&&(q.id!=="q6"||canSeeQ6));
   return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
     <div style={{background:"#fff",borderRadius:12,padding:28,width:"90%",maxWidth:580,maxHeight:"85vh",overflowY:"auto"}}>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
@@ -1268,13 +1411,21 @@ function UpdateViewModal({notif,onClose,onRead,teamMembers=[]}){
         if(!val)return null;
         if(q.type==="presence")return <div key={q.id} style={{marginBottom:14}}>
           <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text.replace(" *","")}</div>
-          <div style={{fontSize:13,background:"#f5f3ef",borderRadius:6,padding:"6px 10px"}}>{val}</div>
+          <div style={{fontSize:13,background:"#f5f3ef",borderRadius:6,padding:"6px 10px"}}>{typeof val==="object"?(val?.krIds||[]).join(', '):val}</div>
         </div>;
+      if(q.type==="okr"&&val?.krIds){
+        const krIds=val.krIds||[];
+        const seasonKRs=(window._okrSeasons&&val.seasonKey?window._okrSeasons[val.seasonKey]?.keyresults:null)||[];
+        return <div key={q.id} style={{marginBottom:10,background:"#fff",borderRadius:6,border:"1px solid #e2ddd6",padding:"8px 10px"}}>
+          <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text.replace(" *","")}</div>
+          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(kr?.contributors||[]).map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",background:pBg(c),color:"#fff",fontSize:9,fontWeight:600,marginLeft:3}}>{ini(c)}</span>)}</div>;})}
+        </div>;
+      }
         return <div key={q.id} style={{marginBottom:14,background:q.confidentiel?"#fdf4ff":"transparent",padding:q.confidentiel?"8px 10px":"0",borderRadius:q.confidentiel?6:0,border:q.confidentiel?"1px solid #e9d5ff":"none"}}>
           <div style={{fontSize:11,fontWeight:600,color:q.confidentiel?"#a21caf":"#9e9890",marginBottom:4}}>
             {q.confidentiel?"🔒 ":""}{q.text.replace(" *","").replace(" ?","").trim()+" ?"}
           </div>
-          <div style={{fontSize:13,whiteSpace:"pre-wrap",color:"#1a1814"}}>{val}</div>
+          <div style={{fontSize:13,whiteSpace:"pre-wrap",color:"#1a1814"}}>{typeof val==="object"?(val?.krIds||[]).join(', '):val}</div>
         </div>;
       })}
       <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginTop:20,borderTop:"1px solid #e2ddd6",paddingTop:16}}>
@@ -1391,7 +1542,7 @@ function TeamUpdatesSection({allUpdates, teamMembers=[], teamMember, onSelectWee
   );
 }
 
-function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,allUpdates=[],teamMembers=[]}){
+function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,allUpdates=[],teamMembers=[],okrData}){
   const _rawWeekKey=getUpdateWeekKey();
   // On Tuesday weekKey is null - use last week for display purposes (read-only)
   const weekKey=_rawWeekKey||(()=>{const d=new Date();d.setDate(d.getDate()-8);return getWeekKey(d);})();
@@ -1524,9 +1675,17 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
             const val=answers[q.id];
             if(q.type==="mood")return <div key={q.id} style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:11,color:"#9e9890",flex:1}}>{q.text.replace(" *","")}</span><span style={{fontSize:22}}>{val}</span></div>;
             if(q.type==="presence")return <div key={q.id}><span style={{fontSize:11,color:"#9e9890"}}>{q.text.replace(" *","")}</span><div style={{fontSize:12,background:"#fff",borderRadius:6,padding:"4px 8px",marginTop:3}}>{val}</div></div>;
+      if(q.type==="okr"&&val?.krIds){
+        const krIds=val.krIds||[];
+        const seasonKRs=(window._okrSeasons&&val.seasonKey?window._okrSeasons[val.seasonKey]?.keyresults:null)||[];
+        return <div key={q.id} style={{marginBottom:10,background:"#fff",borderRadius:6,border:"1px solid #e2ddd6",padding:"8px 10px"}}>
+          <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text.replace(" *","")}</div>
+          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(kr?.contributors||[]).map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",background:pBg(c),color:"#fff",fontSize:9,fontWeight:600,marginLeft:3}}>{ini(c)}</span>)}</div>;})}
+        </div>;
+      }
             return <div key={q.id} style={{background:q.confidentiel?"#fdf4ff":"#fff",borderRadius:6,padding:"8px 10px",border:"1px solid #e2ddd6"}}>
               <div style={{fontSize:10,fontWeight:600,color:q.confidentiel?"#a21caf":"#9e9890",marginBottom:3}}>{q.confidentiel?"🔒 ":""}{q.text.replace(" *","")}</div>
-              <div style={{fontSize:12,whiteSpace:"pre-wrap",color:"#1a1814"}}>{val}</div>
+              <div style={{fontSize:12,whiteSpace:"pre-wrap",color:"#1a1814"}}>{typeof val==="object"?(val?.krIds||[]).join(', '):val}</div>
             </div>;
           })}
         </div>
@@ -1547,6 +1706,39 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
                 </label>)}
               </div>
             </div>;
+            if(q.type==="okr"){
+              const myKRs=(okrData?.keyresults||[]).filter(k=>
+                k.owner===teamMember?.prenom&&
+                !k.stop&&
+                calcTaux(k.val_depart,k.val_actuel,k.val_cible,k.unite)<100
+              );
+              const seasonKey=okrData?.seasonKey||'';
+              const checkedIds=answers[q.id]?.krIds||[];
+              function toggleKR(id){
+                const next=checkedIds.includes(id)?checkedIds.filter(x=>x!==id):[...checkedIds,id];
+                upd(q.id,{seasonKey,krIds:next});
+              }
+              return <div key={q.id} style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"14px 16px"}}>
+                <div style={{fontSize:13,fontWeight:500,color:"#1a1814",marginBottom:12}}>{q.text}</div>
+                {myKRs.length===0?<div style={{fontSize:12,color:"#9e9890"}}>Aucun KR assigné cette saison.</div>
+                :<div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  {myKRs.sort((a,b)=>a.id.localeCompare(b.id,undefined,{numeric:true})).map(kr=>{
+                    const checked=checkedIds.includes(kr.id);
+                    const contribs=kr.contributors||[];
+                    return <label key={kr.id} style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",padding:"6px 8px",borderRadius:6,background:checked?"#f0fdf4":"#f8f7f5",border:`1px solid ${checked?"#86efac":"#e2ddd6"}`}}>
+                      <input type="checkbox" checked={checked} onChange={()=>toggleKR(kr.id)} style={{accentColor:"#2d6a4f",marginTop:2,flexShrink:0}}/>
+                      <div style={{flex:1}}>
+                        <span style={{fontSize:11,fontFamily:"monospace",color:"#9e9890",marginRight:6}}>{kr.id}</span>
+                        <span style={{fontSize:12,color:"#1a1814"}}>{kr.title}</span>
+                        {contribs.length>0&&<span style={{marginLeft:8}}>
+                          {contribs.map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:20,height:20,borderRadius:"50%",background:pBg(c),color:"#fff",fontSize:9,fontWeight:600,marginLeft:2}}>{ini(c)}</span>)}
+                        </span>}
+                      </div>
+                    </label>;
+                  })}
+                </div>}
+              </div>;
+            }
             return <div key={q.id} style={{background:q.confidentiel?"#fdf4ff":"#fff",borderRadius:10,border:`1px solid ${q.confidentiel?"#d946ef":"#e2ddd6"}`,padding:"14px 18px"}}>
               <div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:q.confidentiel&&q.note?6:10}}>
                 <div style={{fontSize:13,fontWeight:500,color:"#1a1814",flex:1}}>{q.text}</div>
@@ -1560,8 +1752,8 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
           })}
         </div>
         {(()=>{
-          const requiredQs=(questions||DEFAULT_QUESTIONS).filter(q=>q.type==="textarea"&&!q.confidentiel||(q.type==="mood"||q.type==="presence"));
-          const allFilled=requiredQs.every(q=>answers[q.id]&&String(answers[q.id]).trim().length>0);
+          const requiredQs=(questions||DEFAULT_QUESTIONS).filter(q=>(q.type==="textarea"||q.type==="okr")&&!q.confidentiel||(q.type==="mood"||q.type==="presence"));
+          const allFilled=requiredQs.every(q=>{if(q.type==="okr")return answers[q.id]?.krIds?.length>0;return answers[q.id]&&String(answers[q.id]).trim().length>0;});
           return <div style={{display:"flex",gap:10,marginTop:20}}>
             <button onClick={async()=>{
               if(!window.confirm("Supprimer définitivement cet update ?"))return;
@@ -1700,9 +1892,17 @@ function UpdatesHistoryTab(){
               const val=u.answers[q.id];
               if(q.type==="mood")return <div key={q.id} style={{marginBottom:8,display:"flex",gap:8,alignItems:"center"}}><span style={{fontSize:10,color:"#9e9890",flex:1}}>{q.text.replace(" *","")}</span><span style={{fontSize:20}}>{val}</span></div>;
               if(q.type==="presence")return <div key={q.id} style={{marginBottom:8}}><div style={{fontSize:10,color:"#9e9890",marginBottom:2}}>{q.text.replace(" *","")}</div><div style={{fontSize:12,background:"#f5f3ef",borderRadius:4,padding:"3px 8px"}}>{val}</div></div>;
+      if(q.type==="okr"&&val?.krIds){
+        const krIds=val.krIds||[];
+        const seasonKRs=(window._okrSeasons&&val.seasonKey?window._okrSeasons[val.seasonKey]?.keyresults:null)||[];
+        return <div key={q.id} style={{marginBottom:8,background:"#fff",borderRadius:6,border:"1px solid #e2ddd6",padding:"8px 10px"}}>
+          <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text.replace(" *","")}</div>
+          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(kr?.contributors||[]).map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",background:pBg(c),color:"#fff",fontSize:9,fontWeight:600,marginLeft:3}}>{ini(c)}</span>)}</div>;})}
+        </div>;
+      }
               return <div key={q.id} style={{marginBottom:8,background:q.confidentiel?"#fdf4ff":"#f8f7f5",borderRadius:6,padding:"6px 10px",border:q.confidentiel?"1px solid #e9d5ff":"none"}}>
                 <div style={{fontSize:10,fontWeight:600,color:q.confidentiel?"#a21caf":"#9e9890",marginBottom:3}}>{q.confidentiel?"🔒 ":""}{q.text.replace(" *","")}</div>
-                <div style={{fontSize:12,whiteSpace:"pre-wrap",color:"#1a1814"}}>{val}</div>
+                <div style={{fontSize:12,whiteSpace:"pre-wrap",color:"#1a1814"}}>{typeof val==="object"?(val?.krIds||[]).join(', '):val}</div>
               </div>;
             })}
           </div>}
@@ -2523,7 +2723,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                   months={d.months} lastMonth={lastMonth} indent={2} inKeur={inKeur}
                   onClick={()=>{toggle(`bil_${section}_${key}_${c}`);loadBilEntriesRef.current&&loadBilEntriesRef.current(section,key);}}
                   isOpen={expanded[`bil_${section}_${key}_${c}`]}>
-                  {expanded[`bil_${section}_${key}_${c}`]&&d.entries?.length>0?<EntryRows entries={d.entries} lastMonth={lastMonth} inKeur={inKeur} monthActive={monthActive}/>:(expanded[`bil_${section}_${key}_${c}`]&&bilEntries[`${section}_${key}`]===undefined?<tr><td colSpan={20} style={{padding:'4px 40px',fontSize:11,color:'#9e9890'}}>Chargement...</td></tr>:null)}
+                  {expanded[`bil_${section}_${key}_${c}`]&&d.entries?.length>0?<EntryRows entries={d.entries} lastMonth={lastMonth} inKeur={inKeur}/>:(expanded[`bil_${section}_${key}_${c}`]&&bilEntries[`${section}_${key}`]===undefined?<tr><td colSpan={20} style={{padding:'4px 40px',fontSize:11,color:'#9e9890'}}>Chargement...</td></tr>:null)}
                 </ReportingRow>
               ));
               const SectionHeader=({label})=><tr><td colSpan={lastMonth+4} style={{height:16,padding:'20px 6px 4px',fontSize:11,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.06em',background:'#fafaf8',borderTop:'2px solid #e2ddd6'}}>{label}</td></tr>;
@@ -2704,7 +2904,9 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
 }
 
 
-function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSaveCustomSubcatLabels, catTypes, onSaveCatTypes, savedCanalMargin, onSaveCanalMargin}) {
+function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSaveCustomSubcatLabels, catTypes, onSaveCatTypes, savedCanalMargin, onSaveCanalMargin, onUploadReporting}) {
+  const [uploadMsg, setUploadMsg] = useState('');
+  const [uploading, setUploading] = useState(false);
   const [chargeData, setChargeData] = useState(null);
   const [localMargin, setLocalMargin] = useState(()=>{
     const src=savedCanalMargin||CANAL_MARGIN;
@@ -2735,6 +2937,25 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
   }
 
   return <>
+    {/* Upload CSV button */}
+    <div style={{marginBottom:16,padding:'14px 16px',background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:8,display:'flex',alignItems:'center',gap:12}}>
+      <div style={{flex:1}}>
+        <div style={{fontSize:13,fontWeight:600,color:'#166534',marginBottom:4}}>📂 Mettre à jour le fichier Reporting</div>
+        <div style={{fontSize:12,color:'#6b6560'}}>Importez un nouveau fichier CSV pour mettre à jour les données de reporting.</div>
+        {uploadMsg&&<div style={{fontSize:12,marginTop:4,color:uploadMsg.startsWith('❌')?'#c0392b':'#166534'}}>{uploadMsg}</div>}
+      </div>
+      <label style={{display:'inline-block',padding:'8px 16px',background:'#2d6a4f',color:'#fff',borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:500,flexShrink:0}}>
+        {uploading?'En cours...':'Choisir un CSV'}
+        <input type="file" accept=".csv" style={{display:'none'}} disabled={uploading}
+          onChange={async e=>{
+            const f=e.target.files[0];if(!f||!onUploadReporting)return;
+            setUploading(true);setUploadMsg('');
+            try{const r=await onUploadReporting(f);setUploadMsg(r||'✅ Importé');}
+            catch(err){setUploadMsg('❌ '+err.message);}
+            setUploading(false);e.target.value='';
+          }}/>
+      </label>
+    </div>
     <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'16px 20px',marginBottom:20,overflowX:'auto'}}>
       <div style={{fontSize:12,fontWeight:600,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:12}}>Taux de marge brute par canal (%)</div>
       <table style={{borderCollapse:'collapse',fontSize:11,width:'100%'}}>
@@ -2965,7 +3186,66 @@ function AbsencesTab({teamMembers=[]}) {
   </div>;
 }
 
-function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions,catTypes,onSaveCatTypes,codeMap,onSaveCodeMap,customSubcatLabels,onSaveCustomSubcatLabels,savedCanalMargin,onSaveCanalMargin,onSendMessage}){
+function QuestionsEditor({qs,onSave}){
+  const [dragFrom,setDragFrom]=useState(null);
+  const [dragOver,setDragOver]=useState(null);
+  const INP2={border:'1px solid #e2ddd6',borderRadius:6,padding:'6px 10px',fontSize:13,width:'100%',boxSizing:'border-box'};
+
+  function save(newQs){onSave(newQs);}
+  function addQ(){save([...qs,{id:'q'+Date.now(),text:'Nouvelle question',type:'textarea',confidentiel:false}]);}
+  function delQ(i){save(qs.filter((_,j)=>j!==i));}
+  function dropQ(toIdx){
+    if(dragFrom===null||dragFrom===toIdx){setDragFrom(null);setDragOver(null);return;}
+    const next=[...qs];const [moved]=next.splice(dragFrom,1);next.splice(toIdx,0,moved);
+    save(next);setDragFrom(null);setDragOver(null);
+  }
+  return <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'18px 20px'}}>
+    <div style={{fontSize:13,fontWeight:600,marginBottom:14}}>Questions de l'Update hebdomadaire</div>
+    {qs.map((q,i)=>(
+      <div key={q.id} draggable
+        onDragStart={()=>setDragFrom(i)}
+        onDragOver={e=>{e.preventDefault();setDragOver(i);}}
+        onDragLeave={()=>setDragOver(null)}
+        onDrop={e=>{e.preventDefault();dropQ(i);}}
+        style={{marginBottom:10,padding:'12px',background:'#f8f7f5',borderRadius:8,
+          border:`1px solid ${dragOver===i&&dragFrom!==i?'#2d6a4f':'#e2ddd6'}`,
+          cursor:'grab',opacity:dragFrom===i?0.5:1}}>
+        <div style={{display:'flex',gap:10,alignItems:'flex-start'}}>
+          <span style={{fontSize:11,color:'#c5c0b8',marginTop:4}}>⠿</span>
+          <span style={{fontSize:11,fontFamily:'monospace',color:'#9e9890',marginTop:3,minWidth:20}}>{i+1}.</span>
+          <div style={{flex:1}}>
+            <input style={{...INP2,marginBottom:8}} value={q.text}
+              onChange={e=>save(qs.map((x,j)=>j===i?{...x,text:e.target.value}:x))}/>
+            <div style={{display:'flex',gap:16,alignItems:'center',flexWrap:'wrap'}}>
+              <label style={{fontSize:12,color:'#6b6560'}}>Type :
+                <select value={q.type} onChange={e=>save(qs.map((x,j)=>j===i?{...x,type:e.target.value}:x))}
+                  style={{fontSize:12,border:'1px solid #e2ddd6',borderRadius:4,padding:'2px 6px',marginLeft:4}}>
+                  <option value="textarea">Texte libre</option>
+                  <option value="mood">Humeur (smileys)</option>
+                  <option value="presence">Présence</option>
+                  <option value="okr">OKR</option>
+                </select>
+              </label>
+              {q.type!=='okr'&&<label style={{fontSize:12,color:'#6b6560',display:'flex',alignItems:'center',gap:4}}>
+                <input type="checkbox" checked={!!q.confidentiel}
+                  onChange={e=>save(qs.map((x,j)=>j===i?{...x,confidentiel:e.target.checked}:x))}
+                  style={{accentColor:'#a21caf'}}/>
+                Confidentiel
+              </label>}
+            </div>
+          </div>
+          <button onClick={()=>delQ(i)} style={{background:'none',border:'none',cursor:'pointer',fontSize:16,color:'#c0392b',padding:'0 4px',flexShrink:0}}>❌</button>
+        </div>
+      </div>
+    ))}
+    <button onClick={addQ} style={{marginTop:8,padding:'8px 16px',background:'#f0fdf4',border:'1px dashed #2d6a4f',borderRadius:8,color:'#2d6a4f',fontSize:13,fontWeight:500,cursor:'pointer',width:'100%'}}>
+      + Ajouter une question
+    </button>
+  </div>;
+}
+
+
+function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions,catTypes,onSaveCatTypes,codeMap,onSaveCodeMap,customSubcatLabels,onSaveCustomSubcatLabels,savedCanalMargin,onSaveCanalMargin,onSendMessage,onSaveBsv3,onUploadReporting}){
   const [members,setMembers]=useState(teamMembers.map(m=>({...m})));
   const [msgModal,setMsgModal]=useState(null); // {email, prenom}
   const [msgTitle,setMsgTitle]=useState('');
@@ -2991,6 +3271,29 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
   const [newPrenom,setNewPrenom]=useState("");
   const [newManager,setNewManager]=useState("");
   const [tab,setTab]=useState("members");
+  const [bsv3Uploading,setBsv3Uploading]=useState(false);
+  const [bsv3Msg,setBsv3Msg]=useState('');
+
+  async function handleBsv3Upload(file){
+    if(!file||!onSaveBsv3)return;
+    setBsv3Uploading(true);
+    setBsv3Msg('Lecture du fichier...');
+    try{
+      const text=await file.text();
+      const lines=text.split('\n');
+      const headers=lines[1]?.split(',').map(h=>h.trim().replace(/^"|"$/g,''))||[];
+      const rows=lines.slice(2).filter(l=>l.trim()).map(l=>{
+        const fields=[];let cur='',inQ=false;
+        for(const ch of l){if(ch==='"'){inQ=!inQ;}else if(ch===','&&!inQ){fields.push(cur.trim());cur='';}else cur+=ch;}
+        fields.push(cur.trim());
+        return Object.fromEntries(headers.map((h,i)=>[h,(fields[i]||'').replace(/^"|"$/g,'')]));
+      });
+      setBsv3Msg(`Envoi de ${rows.length.toLocaleString('fr-FR')} lignes...`);
+      const result=await onSaveBsv3(rows);
+      setBsv3Msg(result||`✅ ${rows.length.toLocaleString('fr-FR')} lignes importées`);
+    }catch(e){setBsv3Msg('❌ Erreur: '+e.message);}
+    setBsv3Uploading(false);
+  }
   const [qs,setQs]=useState(questions||DEFAULT_QUESTIONS);
   const [saved,setSaved]=useState(false);
 
@@ -3037,7 +3340,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
     <TopBar onBack={onBack} title="⚙️ Paramètres"/>
     <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
       <div style={{display:"flex",gap:10,marginBottom:20}}>
-        {([{k:"members",l:"👥 Membres & rôles"},...(currentUser?.email===OWNER_EMAIL?[{k:"questions",l:"❓ Questions Update"},{k:"history",l:"📋 Historique Updates"},{k:"feedback",l:"💡 Feedback"},{k:"reporting_params",l:"⚙️ Reporting"}]:[])]).map(t=><button key={t.k} onClick={()=>setTab(t.k)}
+        {([{k:"members",l:"👥 Membres & rôles"},...(currentUser?.email===OWNER_EMAIL?[{k:"questions",l:"❓ Questions Update"},{k:"history",l:"📋 Historique Updates"},{k:"feedback",l:"💡 Feedback"},{k:"reporting_params",l:"⚙️ Reporting"},{k:"bsv3",l:"📊 Base Sales v3"}]:[])]).map(t=><button key={t.k} onClick={()=>setTab(t.k)}
           style={{padding:"8px 16px",borderRadius:8,border:`1px solid ${tab===t.k?"#2d6a4f":"#e2ddd6"}`,background:tab===t.k?"#2d6a4f":"#fff",color:tab===t.k?"#fff":"#6b6560",cursor:"pointer",fontSize:13,fontWeight:500}}>
           {t.l}
         </button>)}
@@ -3101,38 +3404,12 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
         </div>
       </div>}
 
-      {tab==="questions"&&(
-        <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"18px 20px"}}>
-          <div style={{fontSize:13,fontWeight:600,marginBottom:14}}>Questions de l'Update hebdomadaire</div>
-          {qs.map((q,i)=>(
-            <div key={q.id} style={{marginBottom:14,padding:"12px",background:"#f8f7f5",borderRadius:8,border:"1px solid #e2ddd6"}}>
-              <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
-                <span style={{fontSize:11,fontFamily:"monospace",color:"#9e9890",marginTop:3,minWidth:24}}>{i+1}.</span>
-                <div style={{flex:1}}>
-                  <input style={{...INP,fontSize:13,marginBottom:8}} value={q.text} onChange={e=>setQs(p=>p.map((x,j)=>j===i?{...x,text:e.target.value}:x))}/>
-                  <div style={{display:"flex",gap:16,alignItems:"center"}}>
-                    <label style={{fontSize:12,color:"#6b6560"}}>Type :
-                      <select value={q.type} onChange={e=>setQs(p=>p.map((x,j)=>j===i?{...x,type:e.target.value}:x))} style={{fontSize:12,border:"1px solid #e2ddd6",borderRadius:4,padding:"2px 6px",marginLeft:4}}>
-                        <option value="textarea">Texte libre</option>
-                        <option value="mood">Humeur (smileys)</option>
-                        <option value="presence">Présence</option>
-                      </select>
-                    </label>
-                    <label style={{fontSize:12,color:"#6b6560",display:"flex",alignItems:"center",gap:4}}>
-                      <input type="checkbox" checked={!!q.confidentiel} onChange={e=>setQs(p=>p.map((x,j)=>j===i?{...x,confidentiel:e.target.checked}:x))} style={{accentColor:"#a21caf"}}/>
-                      Confidentiel (manager uniquement)
-                    </label>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      {tab==="questions"&&<QuestionsEditor qs={qs} onSave={newQs=>{setQs(newQs);onSaveQuestions&&onSaveQuestions(newQs);}}/> }
 
       {tab==="history"&&<UpdatesHistoryTab/>}
       {tab==="feedback"&&<FeedbackAdminTab/>}
       {tab==="reporting_params"&&<ReportingParamsTab
+          onUploadReporting={onUploadReporting}
           codeMap={codeMap} onSaveCodeMap={onSaveCodeMap}
           customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={onSaveCustomSubcatLabels}
           catTypes={catTypes} onSaveCatTypes={onSaveCatTypes}
@@ -3163,7 +3440,17 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
           </div>
         </div>
       </div>}
-      {tab!=="history"&&tab!=="reporting"&&tab!=="reporting_params"&&tab!=="members"&&<><button onClick={save} style={{marginTop:20,padding:"12px 28px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600}}>
+      {tab==="bsv3"&&<div style={{padding:"16px 0"}}>
+        <div style={{fontSize:15,fontWeight:600,marginBottom:8}}>📊 Base Sales v3</div>
+        <p style={{fontSize:13,color:"#6b6560",marginBottom:16}}>Importez le fichier CSV mensuel pour mettre à jour les données de marge nette commerciale.</p>
+        <label style={{display:"inline-block",padding:"10px 20px",background:"#2d6a4f",color:"#fff",borderRadius:8,cursor:"pointer",fontSize:13,fontWeight:500}}>
+          {bsv3Uploading?"Importation en cours...":"📂 Choisir un fichier CSV"}
+          <input type="file" accept=".csv" style={{display:"none"}} disabled={bsv3Uploading}
+            onChange={e=>e.target.files[0]&&handleBsv3Upload(e.target.files[0])}/>
+        </label>
+        {bsv3Msg&&<div style={{marginTop:12,fontSize:13,color:bsv3Msg.startsWith('❌')?'#c0392b':'#2d6a4f'}}>{bsv3Msg}</div>}
+      </div>}
+      {tab!=="history"&&tab!=="reporting"&&tab!=="reporting_params"&&tab!=="members"&&tab!=="bsv3"&&<><button onClick={save} style={{marginTop:20,padding:"12px 28px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600}}>
         💾 Enregistrer
       </button>
       {saved&&<span style={{marginLeft:12,fontSize:13,color:"#2d6a4f"}}>✓ Sauvegardé !</span>}</>}
@@ -3340,7 +3627,7 @@ function SobjSection({sobj,krs,people,objLocked,onEditKR,onAddKR,onEditSobj,coll
         </tr></thead>
         <tbody>
           {myKRs.map(kr=>{
-            const p=kr.taux,col=progColor(p),hasRevise=kr.val_revise!==kr.val_cible;
+            const p=calcTaux(kr.val_depart,kr.val_actuel,kr.val_cible,kr.unite),col=progColor(p),hasRevise=kr.val_revise!==kr.val_cible;
             return <React.Fragment key={kr.id}>
               {dragOverKR?.id===kr.id&&dragOverKR?.before&&<tr><td colSpan={20} style={{height:2,background:'#2d6a4f',padding:0}}/></tr>}
               <tr
@@ -3388,7 +3675,7 @@ function SobjSection({sobj,krs,people,objLocked,onEditKR,onAddKR,onEditSobj,coll
   </div>;
 }
 
-function SeasonBanner({seasonKey,avgProg,totalKR,doneKR}){
+function SeasonBanner({seasonKey,avgProg,totalKR,doneKR,onChangeSeason,isOwner}){
   const info=getSeasonInfo(seasonKey),timeProg=getSeasonProgress(seasonKey);
   const start=new Date(info.start),end=new Date(info.end);
   const fmt=d=>d.toLocaleDateString("fr-FR",{day:"numeric",month:"short"});
@@ -3401,7 +3688,21 @@ function SeasonBanner({seasonKey,avgProg,totalKR,doneKR}){
     <div style={{width:1,background:"#e2ddd6",alignSelf:"stretch",flexShrink:0}}/>
     <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",gap:10}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-        <span style={{fontSize:12,fontWeight:500,color:"#1a1814"}}>{info.label}</span>
+        <div style={{display:'flex',alignItems:'center',gap:6}}>
+          {isOwner&&(()=>{
+            const allKeys=["printemps_2026","ete_2026","automne_2026","hiver_2027","printemps_2027","ete_2027","automne_2027"];
+            const idx=allKeys.indexOf(seasonKey);
+            return <><button onClick={idx>0?()=>onChangeSeason&&onChangeSeason(allKeys[idx-1]):undefined}
+              style={{background:'none',border:'none',cursor:idx>0?'pointer':'default',fontSize:14,color:idx>0?'#2d6a4f':'#c5c0b8',padding:'0 2px',lineHeight:1}}>←</button></>;
+          })()}
+          <span style={{fontSize:12,fontWeight:500,color:"#1a1814"}}>{info.label}</span>
+          {isOwner&&(()=>{
+            const allKeys=["printemps_2026","ete_2026","automne_2026","hiver_2027","printemps_2027","ete_2027","automne_2027"];
+            const idx=allKeys.indexOf(seasonKey);
+            return <><button onClick={idx<allKeys.length-1?()=>onChangeSeason&&onChangeSeason(allKeys[idx+1]):undefined}
+              style={{background:'none',border:'none',cursor:idx<allKeys.length-1?'pointer':'default',fontSize:14,color:idx<allKeys.length-1?'#2d6a4f':'#c5c0b8',padding:'0 2px',lineHeight:1}}>→</button></>;
+          })()}
+        </div>
         <span style={{fontSize:11,color:"#9e9890"}}>{fmt(start)} → {fmt(end)}</span>
       </div>
       <Bar v={avgProg} label="Avancement total des OKR" w={0}/>
@@ -3766,7 +4067,7 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
 
   const allLocked=objectives.length>0&&objectives.every(o=>!!o.locked);
   const visObjs=filterP?objectives.filter(o=>subobjectives.filter(s=>s.parent===o.id).some(s=>keyresults.filter(k=>k.parent===s.id).some(k=>k.owner===filterP))):objectives;
-  const totalKR=keyresults.length,doneKR=keyresults.filter(k=>k.taux>=100).length,avgProg=calcWeightedAvg(objectives,subobjectives,keyresults);
+  const totalKR=keyresults.length,doneKR=keyresults.filter(k=>calcTaux(k.val_depart,k.val_actuel,k.val_cible,k.unite)>=100).length,avgProg=calcWeightedAvg(objectives,subobjectives,keyresults);
 
   if(!loaded)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:200,color:"#9e9890",fontSize:13}}>Chargement…</div>;
 
@@ -3804,7 +4105,7 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
             const sobjPoids=sobj?sobj.poids:100;
             const objEtp=obj?Math.max(obj.etp||0,0.01):1;
             const w=kr.poids*(sobjPoids/100)*objEtp;
-            const taux=parseFloat(kr.taux)||0;
+            const taux=calcTaux(kr.val_depart,kr.val_actuel,kr.val_cible,kr.unite)||0;
             totalW+=w;weightedSum+=taux*w;
           });
           const fProg=totalW>0?Math.round(weightedSum/totalW*10)/10:0;
@@ -3909,6 +4210,457 @@ function ReportingPagePublic({onBack, catTypes, codeMap, customSubcatLabels={}, 
   </div>;
 }
 
+const BSV3_EXCLUDE_PRODUITS=new Set(['CASIER-OE','COIFFE-OE','CONTENANT BOUTEILLE']);
+const MOIS_LABELS=['','Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+
+function parseBsv3Amt(s){
+  if(!s||s==='MARGE NON CALCULABLE')return 0;
+  try{
+    const clean=String(s).replace(/€/g,'').replace(/[\s\u00a0\u202f\u2009]/g,'').replace(',','.').trim();
+    const v=parseFloat(clean);
+    return isNaN(v)?0:v;
+  }catch(e){return 0;}
+}
+
+function useBsv3Data(){
+  const [rows,setRows]=React.useState([]);
+  const [importedAt,setImportedAt]=React.useState(null);
+  const [loading,setLoading]=React.useState(true);
+  React.useEffect(()=>{
+    (async()=>{
+      try{
+        const snap=await getDocs(collection(db,'bsv3_data'));
+        if(!snap.empty){
+          let all=[];let at=null;
+          snap.docs.sort((a,b)=>a.id.localeCompare(b.id)).forEach(d=>{
+            const data=d.data();
+            all=all.concat(data.rows||[]);
+            if(!at)at=data.importedAt;
+          });
+          setRows(all);setImportedAt(at);
+        }
+      }catch(e){console.warn('bsv3',e);}
+      setLoading(false);
+    })();
+  },[]);
+  return {rows,importedAt,loading};
+}
+
+function aggBsv3(rows){
+  let ca=0,marge=0,qty=0;
+  rows.forEach(r=>{
+    ca+=parseBsv3Amt(r['Montant HT']);
+    marge+=parseBsv3Amt(r['Marge brute']);
+    const qStr=String(r['Quantité équivalent unité']||'0').replace(/[\s  ]/g,'').replace(',','.');
+    qty+=parseFloat(qStr)||0;
+  });
+  return {ca,marge,qty,taux:ca?marge/ca:null};
+}
+
+function fmtBEur(v){if(v==null||isNaN(v))return '—';return Math.round(v).toLocaleString('fr-FR')+'€';}
+function fmtBPct(v){if(v==null||isNaN(v))return '—';return (v*100).toFixed(1)+'%';}
+
+function Bsv3ClientRow({client,clRows,clPrev}){
+  const [exp,setExp]=React.useState(false);
+  const clA=aggBsv3(clRows);const clPA=aggBsv3(clPrev);
+  const produits=[...new Set(clRows.map(r=>r['Contenant+Appelation/Robe']))].sort((a,b)=>a.localeCompare(b));
+  const cellC={padding:'5px 10px',fontSize:11,textAlign:'right',borderBottom:'1px solid #f0ede8',fontFamily:'monospace',background:'#f0fdf4'};
+  const lblC={padding:'5px 10px 5px 36px',fontSize:11,borderBottom:'1px solid #f0ede8',cursor:'pointer',background:'#f0fdf4',display:'flex',alignItems:'center',gap:6};
+  return <React.Fragment>
+    <tr onClick={()=>setExp(p=>!p)}>
+      <td style={lblC}><span style={{fontSize:10,color:'#9e9890'}}>{exp?'▼':'▶'}</span>{client}</td>
+      <td style={{...cellC,textAlign:'center'}}>—</td>
+      <td style={cellC}>{fmtBEur(clA.ca)}</td><td style={cellC}>{fmtBEur(clA.marge)}</td>
+      <td style={{...cellC,color:clA.taux!=null&&clA.taux<0?'#c0392b':'#1a1814'}}>{fmtBPct(clA.taux)}</td>
+      <td style={cellC}>—</td>
+      <td style={{...cellC,color:'#9e9890'}}>{fmtBEur(clPA.ca)}</td><td style={{...cellC,color:'#9e9890'}}>{fmtBEur(clPA.marge)}</td>
+      <td style={{...cellC,color:'#9e9890'}}>{fmtBPct(clPA.taux)}</td>
+    </tr>
+    {exp&&produits.map(prod=>{
+      const pR=clRows.filter(r=>r['Contenant+Appelation/Robe']===prod);
+      const pP=clPrev.filter(r=>r['Contenant+Appelation/Robe']===prod);
+      const pA=aggBsv3(pR);const pPA=aggBsv3(pP);
+      const cellP={padding:'4px 10px',fontSize:10,textAlign:'right',borderBottom:'1px solid #eae7e1',fontFamily:'monospace',background:'#efecea'};
+      return <tr key={prod}>
+        <td style={{...cellP,textAlign:'left',paddingLeft:48}}>{prod}</td>
+        <td style={{...cellP,textAlign:'center'}}>{Math.round(pA.qty).toLocaleString('fr-FR')}</td>
+        <td style={cellP}>{fmtBEur(pA.ca)}</td><td style={cellP}>{fmtBEur(pA.marge)}</td>
+        <td style={{...cellP,color:pA.taux!=null&&pA.taux<0?'#c0392b':'#1a1814'}}>{fmtBPct(pA.taux)}</td>
+        <td style={cellP}>—</td>
+        <td style={{...cellP,color:'#9e9890'}}>{fmtBEur(pPA.ca)}</td><td style={{...cellP,color:'#9e9890'}}>{fmtBEur(pPA.marge)}</td>
+        <td style={{...cellP,color:'#9e9890'}}>{fmtBPct(pPA.taux)}</td>
+      </tr>;
+    })}
+  </React.Fragment>;
+}
+
+function Bsv3CanalRow({canal,cRows,cPrev}){
+  const [exp,setExp]=React.useState(false);
+  const cA=aggBsv3(cRows);const cPA=aggBsv3(cPrev);
+  const clientCa={};
+  [...new Set(cRows.map(r=>r['Client PL']))].forEach(cl=>{
+    clientCa[cl]=cRows.filter(r=>r['Client PL']===cl).reduce((s,r)=>s+parseBsv3Amt(r['Montant HT']),0);
+  });
+  const clients=Object.keys(clientCa).sort((a,b)=>clientCa[b]-clientCa[a]);
+  const cell={padding:'6px 10px',fontSize:11,textAlign:'right',borderBottom:'1px solid #f5f5f5',fontFamily:'monospace',background:'#f8f7f5'};
+  const lbl={padding:'6px 10px 6px 24px',fontSize:11,borderBottom:'1px solid #f5f5f5',cursor:'pointer',background:'#f8f7f5',display:'flex',alignItems:'center',gap:6};
+  return <React.Fragment>
+    <tr onClick={()=>setExp(p=>!p)}>
+      <td style={lbl}><span style={{fontSize:10,color:'#9e9890'}}>{exp?'▼':'▶'}</span>{canal}</td>
+      <td style={{...cell,textAlign:'center'}}>—</td>
+      <td style={cell}>{fmtBEur(cA.ca)}</td><td style={cell}>{fmtBEur(cA.marge)}</td>
+      <td style={{...cell,color:cA.taux!=null&&cA.taux<0?'#c0392b':'#1a1814'}}>{fmtBPct(cA.taux)}</td>
+      <td style={cell}>—</td>
+      <td style={{...cell,color:'#9e9890'}}>{fmtBEur(cPA.ca)}</td><td style={{...cell,color:'#9e9890'}}>{fmtBEur(cPA.marge)}</td>
+      <td style={{...cell,color:'#9e9890'}}>{fmtBPct(cPA.taux)}</td>
+    </tr>
+    {exp&&clients.map(cl=>{
+      const clR=cRows.filter(r=>r['Client PL']===cl);
+      const clP=cPrev.filter(r=>r['Client PL']===cl);
+      return <Bsv3ClientRow key={cl} client={cl} clRows={clR} clPrev={clP}/>;
+    })}
+  </React.Fragment>;
+}
+
+function Bsv3MonthRow({month,year,rows,rowsPrev,allRows,expanded,onToggle}){
+  const mRows=rows.filter(r=>r['Mois Emission']===String(month));
+  const mPrev=rowsPrev.filter(r=>r['Mois Emission']===String(month));
+  const agg=aggBsv3(mRows);const aggPrev=aggBsv3(mPrev);
+  let roll6=[];
+  for(let dm=0;dm<6;dm++){
+    let m=month-dm,y=year;if(m<=0){m+=12;y--;}
+    roll6=roll6.concat(allRows.filter(r=>r['Mois Emission']===String(m)&&r['Année Emission']===String(y)));
+  }
+  const r6=aggBsv3(roll6);
+  const canals=[...new Set(mRows.map(r=>r['Canal']))].sort();
+  const cell={padding:'7px 10px',fontSize:12,textAlign:'right',borderBottom:'1px solid #eee',fontFamily:'monospace'};
+  const lbl={padding:'7px 10px',fontSize:12,borderBottom:'1px solid #eee',cursor:'pointer',display:'flex',alignItems:'center',gap:6,fontWeight:500};
+  return <React.Fragment>
+    <tr style={{background:'#fff'}} onClick={onToggle}>
+      <td style={lbl}><span style={{fontSize:10,color:'#9e9890'}}>{expanded?'▼':'▶'}</span>{MOIS_LABELS[month]}</td>
+      <td style={{...cell,textAlign:'center'}}>—</td>
+      <td style={cell}>{fmtBEur(agg.ca)}</td><td style={cell}>{fmtBEur(agg.marge)}</td>
+      <td style={{...cell,color:agg.taux!=null&&agg.taux<0?'#c0392b':'#1a1814'}}>{fmtBPct(agg.taux)}</td>
+      <td style={{...cell,color:'#6b6560'}}>{fmtBPct(r6.taux)}</td>
+      <td style={{...cell,color:'#9e9890'}}>{fmtBEur(aggPrev.ca)}</td><td style={{...cell,color:'#9e9890'}}>{fmtBEur(aggPrev.marge)}</td>
+      <td style={{...cell,color:'#9e9890'}}>{fmtBPct(aggPrev.taux)}</td>
+    </tr>
+    {expanded&&canals.map(c=>{
+      const cR=mRows.filter(r=>r['Canal']===c);
+      const cP=mPrev.filter(r=>r['Canal']===c);
+      return <Bsv3CanalRow key={c} canal={c} cRows={cR} cPrev={cP}/>;
+    })}
+  </React.Fragment>;
+}
+
+const CANAL_ORDER=['#N/A','Tiers absent de Hubspot','B2C','CHR','Grands Comptes','Retail','Export'];
+const CANAL_LAST=['Régénération'];
+function sortCanaux(vals){
+  return [...vals].sort((a,b)=>{
+    const ia=CANAL_ORDER.indexOf(a),ib=CANAL_ORDER.indexOf(b);
+    const la=CANAL_LAST.indexOf(a),lb=CANAL_LAST.indexOf(b);
+    if(ia>=0&&ib>=0)return ia-ib;
+    if(ia>=0)return -1;if(ib>=0)return 1;
+    if(la>=0&&lb>=0)return la-lb;
+    if(la>=0)return 1;if(lb>=0)return -1;
+    return a.localeCompare(b);
+  });
+}
+function sortProduits(vals){
+  const prefix=(s)=>{
+    if(s.startsWith('E'))return 0;
+    if(s.startsWith('P'))return 1;
+    if(s.startsWith('M'))return 2;
+    if(s.startsWith('C'))return 3;
+    return 4;
+  };
+  return [...vals].sort((a,b)=>{
+    const pa=prefix(a),pb=prefix(b);
+    if(pa!==pb)return pa-pb;
+    return a.localeCompare(b);
+  });
+}
+// Generic BSv3 table with configurable drill-down order
+function getField(level){
+  return level==='mois'?'Mois Emission':level==='canal'?'Canal':level==='client'?'Client PL':'Contenant+Appelation/Robe';
+}
+
+function sortByLevel(level, vals, currentRows, prevRows){
+  if(level==='mois') return [1,2,3,4,5,6,7,8,9,10,11,12].map(String);
+  if(level==='client'){
+    const caMap={};const caPrevMap={};
+    vals.forEach(v=>{
+      caMap[v]=currentRows.filter(r=>r['Client PL']===v).reduce((s,r)=>s+parseBsv3Amt(r['Montant HT']),0);
+      caPrevMap[v]=prevRows.filter(r=>r['Client PL']===v).reduce((s,r)=>s+parseBsv3Amt(r['Montant HT']),0);
+    });
+    return [...vals].sort((a,b)=>{
+      const diff=caMap[b]-caMap[a];
+      if(Math.abs(diff)>0.01)return diff;
+      return caPrevMap[b]-caPrevMap[a];
+    });
+  }
+  if(level==='canal') return sortCanaux(vals);
+  if(level==='produit') return sortProduits(vals);
+  return [...vals].sort((a,b)=>a.localeCompare(b));
+}
+
+function calc6M(contextRows, month, year){
+  let roll=[];
+  for(let dm=0;dm<6;dm++){
+    let m=month-dm,y=year;
+    if(m<=0){m+=12;y--;}
+    roll=roll.concat(contextRows.filter(r=>r['Mois Emission']===String(m)&&r['Année Emission']===String(y)));
+  }
+  return aggBsv3(roll).taux;
+}
+
+function produitIsAtOrBefore(levels, levelIdx){
+  for(let i=0;i<=levelIdx;i++) if(levels[i]==='produit') return true;
+  return false;
+}
+
+function fmtEvo(n, p){
+  // evolution between N and N-1
+  if(!p||Math.abs(p)<0.01)return null;
+  const pct=(n-p)/Math.abs(p)*100;
+  const sign=pct>=0?'+':'';
+  return `${sign}${pct.toFixed(0)}%`;
+}
+
+function EvoSpan({n, p}){
+  const evo=fmtEvo(n,p);
+  if(!evo)return null;
+  const pos=(n-p)>=0;
+  return <span style={{fontSize:9,color:pos?'#2d6a4f':'#c0392b',marginLeft:4,fontWeight:400}}>({evo})</span>;
+}
+
+function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,depth,ytdMode,maxYtdMonth}){
+  const [exp,setExp]=React.useState(false);
+  const currentLevel=levels[levelIdx];
+  const nextLevel=levels[levelIdx+1];
+  const isLeaf=levelIdx>=levels.length-1;
+  const isMoisLevel=currentLevel==='mois';
+  const monthNum=isMoisLevel?parseInt(label):0;
+  const isFutureMonth=isMoisLevel&&monthNum>maxYtdMonth;
+
+  // Always filter prevRows to YTD when ytdMode
+  const filteredPrev=ytdMode?prevRows.filter(r=>parseInt(r['Mois Emission'])<=maxYtdMonth):prevRows;
+
+  const agg=aggBsv3(rows);
+  const aggP=aggBsv3(filteredPrev);
+  const showQty=produitIsAtOrBefore(levels,levelIdx);
+
+  // 6M rolling — contextual, only for past months
+  let roll6Taux=null;
+  if(isMoisLevel&&!isFutureMonth){
+    roll6Taux=calc6M(contextRows,monthNum,year);
+  }
+
+  const bg=depth===0?'#fff':depth===1?'#f8f7f5':depth===2?'#f0fdf4':'#efecea';
+  const fs=depth===0?12:depth===1?11:10;
+  const pl=10+depth*14;
+  const pd=depth===0?7:depth===1?6:5;
+  const cell={padding:`${pd}px 10px`,fontSize:fs,textAlign:'right',borderBottom:'1px solid #eee',fontFamily:'monospace',background:bg};
+  const cellPrev={...cell,borderLeft:'2px solid #ece8e0'};
+  const lbl={padding:`${pd}px 10px`,paddingLeft:pl,fontSize:fs,borderBottom:'1px solid #eee',cursor:isLeaf?'default':'pointer',background:bg,display:'flex',alignItems:'center',gap:6,fontWeight:depth===0?500:400};
+
+  const displayLabel=isMoisLevel?MOIS_LABELS[parseInt(label)]||label:label;
+
+  // Children: union current + prev year values
+  let children=[];
+  if(!isLeaf&&nextLevel){
+    const field=getField(nextLevel);
+    if(nextLevel==='mois'){
+      children=ytdMode?[1,2,3,4,5,6,7,8,9,10,11,12].filter(m=>m<=maxYtdMonth).map(String):[1,2,3,4,5,6,7,8,9,10,11,12].map(String);
+    } else {
+      const currentVals=new Set(rows.map(r=>r[field]));
+      const prevVals=new Set(filteredPrev.map(r=>r[field]));
+      const allVals=[...new Set([...currentVals,...prevVals])];
+      children=sortByLevel(nextLevel,allVals,rows,filteredPrev);
+    }
+  }
+
+  return <React.Fragment>
+    <tr style={{background:bg}} onClick={isLeaf?undefined:()=>setExp(p=>!p)}>
+      <td style={lbl}>{!isLeaf&&<span style={{fontSize:10,color:'#9e9890'}}>{exp?'▼':'▶'}</span>}{displayLabel}</td>
+      <td style={{...cell,textAlign:'center'}}>{showQty?Math.round(agg.qty).toLocaleString('fr-FR'):'—'}</td>
+      <td style={cell}>{fmtBEur(agg.ca)}</td>
+      <td style={cell}>{fmtBEur(agg.marge)}</td>
+      <td style={{...cell,color:agg.taux!=null&&agg.taux<0?'#c0392b':'#1a1814'}}>{fmtBPct(agg.taux)}</td>
+      <td style={{...cell,color:'#6b6560'}}>{roll6Taux!==null?fmtBPct(roll6Taux):'—'}</td>
+      <td style={{...cellPrev,textAlign:'center'}}>{showQty?Math.round(aggP.qty).toLocaleString('fr-FR'):'—'}</td>
+      <td style={cell}>{aggP.ca?fmtBEur(aggP.ca):'—'}<EvoSpan n={agg.ca} p={aggP.ca}/></td>
+      <td style={cell}>{aggP.marge?fmtBEur(aggP.marge):'—'}<EvoSpan n={agg.marge} p={aggP.marge}/></td>
+      <td style={{...cell,color:aggP.taux!=null&&aggP.taux<0?'#c0392b':'#9e9890'}}>{fmtBPct(aggP.taux)}</td>
+    </tr>
+    {exp&&children.map(child=>{
+      const field=getField(nextLevel);
+      const childRows=rows.filter(r=>r[field]===child);
+      const childPrev=filteredPrev.filter(r=>r[field]===child);
+      return <Bsv3DrillRow key={child} label={child} rows={childRows} prevRows={childPrev}
+        contextRows={nextLevel==='mois'?contextRows:childRows}
+        year={year} levels={levels} levelIdx={levelIdx+1} depth={depth+1}
+        ytdMode={ytdMode} maxYtdMonth={maxYtdMonth}/>;
+    })}
+  </React.Fragment>;
+}
+
+function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,maxYtdMonth}){
+  const topLevel=levels[0];
+  const topField=getField(topLevel);
+  // Always filter prevRows to YTD when ytdMode
+  const filteredPrev=ytdMode?prevRows.filter(r=>parseInt(r['Mois Emission'])<=maxYtdMonth):prevRows;
+
+  const currentTopVals=new Set(validRows.map(r=>r[topField]));
+  const prevTopVals=new Set(filteredPrev.map(r=>r[topField]));
+  const allTopVals=[...new Set([...currentTopVals,...prevTopVals])];
+  const topSorted=topLevel==='mois'
+    ?(ytdMode?[1,2,3,4,5,6,7,8,9,10,11,12].filter(m=>m<=maxYtdMonth).map(String):[1,2,3,4,5,6,7,8,9,10,11,12].map(String))
+    :sortByLevel(topLevel,allTopVals,validRows,filteredPrev);
+
+  const firstLabel=topLevel==='mois'?`Mois ${year}`:topLevel==='canal'?'Canal':topLevel==='client'?'Client':'Produit';
+  const showQtyTop=produitIsAtOrBefore(levels,0);
+  const th={padding:'8px 10px',fontSize:11,fontWeight:600,color:'#6b6560',textAlign:'right',borderBottom:'2px solid #e2ddd6',background:'#f8f7f5',whiteSpace:'nowrap'};
+  const thPrev={...th,borderLeft:'2px solid #e2ddd6'};
+
+  const aggTotal=aggBsv3(validRows);
+  const aggTotalP=aggBsv3(filteredPrev);
+  const ytdPrevRows=prevRows.filter(r=>parseInt(r['Mois Emission'])<=maxYtdMonth);
+  const aggYTD=aggBsv3(ytdPrevRows);
+  const tf={padding:'8px 10px',fontSize:12,textAlign:'right',borderTop:'2px solid #e2ddd6',fontFamily:'monospace',fontWeight:600,background:'#f8f7f5'};
+  const tfPrev={...tf,borderLeft:'2px solid #ece8e0'};
+  const tfl={...tf,textAlign:'left'};
+
+  return <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',overflow:'hidden'}}>
+    <div style={{overflowX:'auto'}}>
+      <table style={{width:'100%',borderCollapse:'collapse'}}>
+        <thead><tr>
+          <th style={{...th,textAlign:'left',minWidth:150}}>{firstLabel}</th>
+          <th style={th}>Qté</th>
+          <th style={th}>CA</th><th style={th}>Marge</th><th style={th}>Taux</th>
+          <th style={th}>Moy.6M</th>
+          <th style={thPrev}>Qté {prevYear}</th>
+          <th style={th}>CA {prevYear}</th><th style={th}>Marge {prevYear}</th><th style={th}>Taux {prevYear}</th>
+        </tr></thead>
+        <tbody>
+          {topSorted.map(val=>{
+            const rows=topLevel==='mois'?validRows.filter(r=>r['Mois Emission']===val):validRows.filter(r=>r[topField]===val);
+            const prev=filteredPrev.filter(r=>r[topField]===val);
+            return <Bsv3DrillRow key={val} label={val} rows={rows} prevRows={prev}
+              contextRows={topLevel==='mois'?allYearRows:rows}
+              year={year} levels={levels} levelIdx={0} depth={0}
+              ytdMode={ytdMode} maxYtdMonth={maxYtdMonth}/>;
+          })}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td style={tfl}>{ytdMode?`YTD ${year} (jan-${MOIS_LABELS[maxYtdMonth]})`:`TOTAL ${year}`}</td>
+            <td style={{...tf,textAlign:'center'}}>{showQtyTop?Math.round(aggTotal.qty).toLocaleString('fr-FR'):'—'}</td>
+            <td style={tf}>{fmtBEur(aggTotal.ca)}</td>
+            <td style={tf}>{fmtBEur(aggTotal.marge)}</td>
+            <td style={{...tf,color:aggTotal.taux!=null&&aggTotal.taux<0?'#c0392b':'#2d6a4f'}}>{fmtBPct(aggTotal.taux)}</td>
+            <td style={tf}>—</td>
+            <td style={{...tfPrev,textAlign:'center'}}>{showQtyTop?Math.round(aggTotalP.qty).toLocaleString('fr-FR'):'—'}</td>
+            <td style={tf}>{fmtBEur(aggTotalP.ca)}<EvoSpan n={aggTotal.ca} p={aggTotalP.ca}/></td>
+            <td style={tf}>{fmtBEur(aggTotalP.marge)}<EvoSpan n={aggTotal.marge} p={aggTotalP.marge}/></td>
+            <td style={{...tf,color:aggTotalP.taux!=null&&aggTotalP.taux<0?'#c0392b':'#9e9890'}}>{fmtBPct(aggTotalP.taux)}</td>
+          </tr>
+          {!ytdMode&&<tr>
+            <td style={{...tfl,fontSize:11,fontWeight:400,color:'#6b6560'}}>YTD {prevYear} (jan-{MOIS_LABELS[maxYtdMonth]})</td>
+            <td style={{...tf,fontSize:11,fontWeight:400,textAlign:'center'}}>—</td>
+            <td style={{...tf,fontSize:11,fontWeight:400,color:'#9e9890'}}>{fmtBEur(aggYTD.ca)}</td>
+            <td style={{...tf,fontSize:11,fontWeight:400,color:'#9e9890'}}>{fmtBEur(aggYTD.marge)}</td>
+            <td style={{...tf,fontSize:11,fontWeight:400,color:'#9e9890'}}>{fmtBPct(aggYTD.taux)}</td>
+            <td style={{...tf,fontSize:11,fontWeight:400}}>—</td>
+            <td style={{...tfPrev,fontSize:11,fontWeight:400,textAlign:'center'}}>—</td>
+            <td style={{...tf,fontSize:11,fontWeight:400,color:'#c5c0b8'}}>—</td>
+            <td style={{...tf,fontSize:11,fontWeight:400,color:'#c5c0b8'}}>—</td>
+            <td style={{...tf,fontSize:11,fontWeight:400,color:'#c5c0b8'}}>—</td>
+          </tr>}
+        </tfoot>
+      </table>
+    </div>
+  </div>;
+}
+
+function DragPill({level,index,onDragStart,onDragOver,onDrop,isDragOver}){
+  const labels={mois:'Mois',canal:'Canal',client:'Client',produit:'Produit'};
+  return <div draggable
+    onDragStart={e=>{e.dataTransfer.setData('text/plain',String(index));onDragStart(index);}}
+    onDragOver={e=>{e.preventDefault();onDragOver(index);}}
+    onDrop={e=>{e.preventDefault();onDrop(index);}}
+    style={{padding:'6px 16px',borderRadius:20,border:`2px solid ${isDragOver?'#2d6a4f':'#e2ddd6'}`,
+      background:isDragOver?'#d8f3dc':'#fff',cursor:'grab',fontSize:13,fontWeight:500,
+      color:'#1a1814',userSelect:'none',display:'flex',alignItems:'center',gap:6,
+      boxShadow:'0 1px 3px rgba(0,0,0,.08)',transition:'all .15s'}}>
+    <span style={{fontSize:10,color:'#9e9890'}}>⠿</span>{labels[level]}
+  </div>;
+}
+
+function Bsv3Page({onBack}){
+  const {rows,importedAt,loading}=useBsv3Data();
+  const [levels,setLevels]=React.useState(['mois','canal','client','produit']);
+  const [ytdMode,setYtdMode]=React.useState(false);
+  const [dragFrom,setDragFrom]=React.useState(null);
+  const [dragOver,setDragOver]=React.useState(null);
+
+  const importDate=importedAt?new Date(importedAt):new Date();
+  const year=importDate.getMonth()===0?importDate.getFullYear()-1:importDate.getFullYear();
+  const prevYear=year-1;
+
+  const validRows=rows.filter(r=>r['Année Emission']===String(year)&&!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']));
+  const prevRows=rows.filter(r=>r['Année Emission']===String(prevYear)&&!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']));
+  const allYearRows=rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']));
+
+  const maxYtdMonth=validRows.length?Math.max(...validRows.map(r=>parseInt(r['Mois Emission'])||0)):12;
+  const displayRows=ytdMode?validRows.filter(r=>parseInt(r['Mois Emission'])<=maxYtdMonth):validRows;
+
+  function handleDrop(toIdx){
+    if(dragFrom===null||dragFrom===toIdx){setDragFrom(null);setDragOver(null);return;}
+    const newLevels=[...levels];const [moved]=newLevels.splice(dragFrom,1);
+    newLevels.splice(toIdx,0,moved);setLevels(newLevels);
+    setDragFrom(null);setDragOver(null);
+  }
+
+  return <div style={{minHeight:'100vh',background:'#f8f7f5'}}>
+    <div style={{maxWidth:1300,margin:'0 auto',padding:'24px 16px'}}>
+      <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:16}}>
+        <button onClick={onBack} style={{background:'none',border:'none',cursor:'pointer',fontSize:20,color:'#9e9890',padding:0}}>←</button>
+        <div>
+          <div style={{fontSize:20,fontWeight:700,color:'#1a1814'}}>📊 Base Sales v3</div>
+          {importedAt&&<div style={{fontSize:11,color:'#9e9890',marginTop:2}}>
+            Dernier chargement le {new Date(importedAt).toLocaleDateString('fr-FR')} à {new Date(importedAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}
+          </div>}
+        </div>
+      </div>
+      <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20,flexWrap:'wrap'}}>
+        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+          <span style={{fontSize:11,color:'#9e9890',marginRight:4}}>Ordre :</span>
+          {levels.map((level,i)=><DragPill key={level} level={level} index={i}
+            onDragStart={setDragFrom} onDragOver={setDragOver} onDrop={handleDrop}
+            isDragOver={dragOver===i&&dragFrom!==i}/>)}
+        </div>
+        <div style={{marginLeft:'auto',display:'flex',gap:0,background:'#fff',border:'1px solid #e2ddd6',borderRadius:8,padding:'4px'}}>
+          <button onClick={()=>setYtdMode(false)}
+            style={{padding:'5px 12px',borderRadius:6,border:'none',background:!ytdMode?'#2d6a4f':'transparent',color:!ytdMode?'#fff':'#6b6560',fontSize:12,fontWeight:500,cursor:'pointer'}}>
+            Toute l'année
+          </button>
+          <button onClick={()=>setYtdMode(true)}
+            style={{padding:'5px 12px',borderRadius:6,border:'none',background:ytdMode?'#2d6a4f':'transparent',color:ytdMode?'#fff':'#6b6560',fontSize:12,fontWeight:500,cursor:'pointer'}}>
+            YTD
+          </button>
+        </div>
+      </div>
+      {loading?<div style={{textAlign:'center',padding:40,color:'#9e9890'}}>Chargement...</div>
+      :rows.length===0?<div style={{textAlign:'center',padding:40,color:'#9e9890'}}>Aucune donnée — importez un CSV dans les Paramètres.</div>
+      :<Bsv3Table levels={levels} year={year} prevYear={prevYear}
+          validRows={displayRows} prevRows={prevRows} allYearRows={allYearRows}
+          ytdMode={ytdMode} maxYtdMonth={maxYtdMonth}/>}
+    </div>
+  </div>;
+}
+
+
 export default function App(){
   const [authUser,setAuthUser]=useState(null);
   const [authLoading,setAuthLoading]=useState(true);
@@ -3925,6 +4677,8 @@ export default function App(){
   const [teammateNotifs,setTeammateNotifs]=useState([]);
   const [appLoaded,setAppLoaded]=useState(false);
   const [okrData,setOkrData]=useState({objectives:[],subobjectives:[],keyresults:[]});
+  // Expose allSeasons globally for OKR question rendering in updates
+  useEffect(()=>{if(okrData?.allSeasons)window._okrSeasons=okrData.allSeasons;},[okrData]);
 
   // Firebase auth listener
   useEffect(()=>{
@@ -4025,7 +4779,13 @@ export default function App(){
     return SEASONS[idx-1].key; // use previous season
   }
   return s.key;
-})();const s=d.allSeasons[curSk]||{};setOkrData({objectives:s.objectives||[],subobjectives:s.subobjectives||[],keyresults:s.keyresults||[],seasonKey:curSk});}});
+})();
+        // Use stored seasonKey if set, otherwise use date-based
+        const activeSk=d.seasonKey||curSk;
+        const s=d.allSeasons[activeSk]||{};
+        setOkrData({objectives:s.objectives||[],subobjectives:s.subobjectives||[],keyresults:s.keyresults||[],seasonKey:activeSk,allSeasons:d.allSeasons});
+      }
+    });
 
     return()=>{unsub();unsubOkr();};
   },[authUser]);
@@ -4094,7 +4854,7 @@ export default function App(){
     const me=currentTeamMember;
     // Save update with updatedAt timestamp
     const weekDocId=`${authUser.email}_${updateData.weekKey}`;
-    const updateWithMeta={...updateData,email:authUser.email,prenom:me?.prenom,updatedAt:Date.now()};
+    const updateWithMeta={...updateData,email:authUser.email,prenom:me?.prenom,updatedAt:Date.now(),weekQuestions:questions||DEFAULT_QUESTIONS};
     await setDoc(doc(db,"updates",weekDocId),updateWithMeta);
 
     // Create/update notification for manager
@@ -4166,6 +4926,44 @@ export default function App(){
       sendNotifEmail(notif.fromEmail, notif.fromPrenom||notif.fromEmail, `${managerPrenom} a vu ton Update`);
   }
 
+  async function handleUploadReporting(file){
+    // Parse the reporting CSV and push to Firebase (same as push_reporting.js logic)
+    // For now, show a message directing to the Terminal workflow
+    // TODO: implement full client-side reporting import
+    // Full client-side reporting import
+    try{
+      const text=await file.text();
+      const lines=text.split('\n');
+      const headers=lines[0]?.split(',').map(h=>h.replace(/^"|"$/g,'').trim())||[];
+      let count=0;
+      // Simple validation: check this looks like a reporting CSV
+      if(!headers.some(h=>h.includes('Débit')||h.includes('Credit')||h.includes('famille'))){
+        return '❌ Ce fichier ne semble pas être un export comptable Reporting. Utilisez le script Terminal : node push_reporting.js';
+      }
+      return '⚠️ Import Reporting complexe — utilisez le script Terminal : mv ~/Downloads/reporting_data.json ~/Desktop/Calendula/reporting_data.json && node push_reporting.js';
+    }catch(e){return '❌ '+e.message;}
+  }
+  async function handleChangeSeasonKey(newKey){
+    const current=okrData?.allSeasons||{};
+    await setDoc(doc(db,"okr","data"),{allSeasons:current,seasonKey:newKey},{merge:true});
+  }
+  async function handleSaveBsv3(rows){
+    const CHUNK=2000;
+    const importedAt=new Date().toISOString();
+    // Delete old chunks
+    const oldSnap=await getDocs(collection(db,'bsv3_data'));
+    await Promise.all(oldSnap.docs.map(d=>deleteDoc(d.ref)));
+    // Store new chunks
+    for(let i=0;i<rows.length;i+=CHUNK){
+      const chunk=rows.slice(i,i+CHUNK);
+      await setDoc(doc(db,'bsv3_data',`chunk_${Math.floor(i/CHUNK)}`),{
+        rows:chunk,chunk:Math.floor(i/CHUNK),
+        total:Math.ceil(rows.length/CHUNK),
+        importedAt,totalRows:rows.length
+      });
+    }
+    return `✅ ${rows.length.toLocaleString('fr-FR')} lignes importées`;
+  }
   async function handleSendMessage(toEmail, toPrenom, title, message){
     const notifId=`msg_${Date.now()}_${toEmail.replace(/[@.]/g,'_')}`;
     await setDoc(doc(db,'teammate_notifications',notifId),{
@@ -4223,15 +5021,16 @@ export default function App(){
   }
 
   if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers}/>;
-  if(page==="update")return <UpdatePage teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers}/>;
+  if(page==="update")return <UpdatePage teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} okrData={okrData} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers}/>;
   if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels} savedCanalMargin={savedCanalMargin}/>;
-  if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels} savedCanalMargin={savedCanalMargin} onSaveCanalMargin={handleSaveCanalMargin} onSendMessage={handleSendMessage}/>;
+  if(page==="bsv3")return <Bsv3Page onBack={()=>setPage('dashboard')}/>;
+  if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels} savedCanalMargin={savedCanalMargin} onSaveCanalMargin={handleSaveCanalMargin} onSendMessage={handleSendMessage} onSaveBsv3={handleSaveBsv3} onUploadReporting={handleUploadReporting}/>;
 
   return <Dashboard
     currentUser={authUser}
     teamMember={currentTeamMember}
     teamMembers={teamMembers}
-    onGoReporting={()=>setPage("reporting")}
+    onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} onChangeSeasonKey={handleChangeSeasonKey}
     onGoOKR={()=>setPage("okr")}
     onGoUpdate={()=>setPage("update")}
     onGoSettings={()=>setPage("settings")}
