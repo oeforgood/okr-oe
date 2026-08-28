@@ -4115,7 +4115,8 @@ function aggBsv3(rows){
   rows.forEach(r=>{
     ca+=parseBsv3Amt(r['Montant HT']);
     marge+=parseBsv3Amt(r['Marge brute']);
-    qty+=parseFloat(r['Quantité équivalent unité']||0)||0;
+    const qStr=String(r['Quantité équivalent unité']||'0').replace(/[\s  ]/g,'').replace(',','.');
+    qty+=parseFloat(qStr)||0;
   });
   return {ca,marge,qty,taux:ca?marge/ca:null};
 }
