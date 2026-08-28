@@ -1007,25 +1007,8 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
 
       {/* ── SECTION OKR ── pleine largeur */}
       <div style={{display:"flex",flexDirection:"column",gap:2,marginBottom:16}}>
-        <div style={{display:'flex',alignItems:'center',gap:8}}>
-          {currentUser?.email===OWNER_EMAIL&&(()=>{
-            const allKeys=["printemps_2026","ete_2026","automne_2026","hiver_2027","printemps_2027","ete_2027","automne_2027"];
-            const idx=allKeys.indexOf(seasonKey||"printemps_2026");
-            const canPrev=idx>0;const canNext=idx<allKeys.length-1;
-            return <><button onClick={canPrev?()=>onChangeSeasonKey&&onChangeSeasonKey(allKeys[idx-1]):undefined}
-              style={{background:'none',border:'1px solid #e2ddd6',borderRadius:6,cursor:canPrev?'pointer':'not-allowed',padding:'2px 8px',fontSize:16,color:canPrev?'#2d6a4f':'#c5c0b8',lineHeight:1}}>←</button></>;
-          })()}
-          <div style={{flex:1}}>
-            <SeasonBanner seasonKey={seasonKey||"printemps_2026"} avgProg={avgProg} totalKR={totalKR} doneKR={doneKR}/>
-          </div>
-          {currentUser?.email===OWNER_EMAIL&&(()=>{
-            const allKeys=["printemps_2026","ete_2026","automne_2026","hiver_2027","printemps_2027","ete_2027","automne_2027"];
-            const idx=allKeys.indexOf(seasonKey||"printemps_2026");
-            const canNext=idx<allKeys.length-1;
-            return <><button onClick={canNext?()=>onChangeSeasonKey&&onChangeSeasonKey(allKeys[idx+1]):undefined}
-              style={{background:'none',border:'1px solid #e2ddd6',borderRadius:6,cursor:canNext?'pointer':'not-allowed',padding:'2px 8px',fontSize:16,color:canNext?'#2d6a4f':'#c5c0b8',lineHeight:1}}>→</button></>;
-          })()}
-        </div>
+        <SeasonBanner seasonKey={seasonKey||"printemps_2026"} avgProg={avgProg} totalKR={totalKR} doneKR={doneKR}
+          onChangeSeason={onChangeSeasonKey} isOwner={currentUser?.email===OWNER_EMAIL}/>
         {/* Personal banner with OKR button inside */}
         {myKRsOwned.length>0&&(()=>{
           const col=progColorRel(myPersonalProg,avgProg);
@@ -3692,7 +3675,7 @@ function SobjSection({sobj,krs,people,objLocked,onEditKR,onAddKR,onEditSobj,coll
   </div>;
 }
 
-function SeasonBanner({seasonKey,avgProg,totalKR,doneKR}){
+function SeasonBanner({seasonKey,avgProg,totalKR,doneKR,onChangeSeason,isOwner}){
   const info=getSeasonInfo(seasonKey),timeProg=getSeasonProgress(seasonKey);
   const start=new Date(info.start),end=new Date(info.end);
   const fmt=d=>d.toLocaleDateString("fr-FR",{day:"numeric",month:"short"});
@@ -3705,7 +3688,21 @@ function SeasonBanner({seasonKey,avgProg,totalKR,doneKR}){
     <div style={{width:1,background:"#e2ddd6",alignSelf:"stretch",flexShrink:0}}/>
     <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",gap:10}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-        <span style={{fontSize:12,fontWeight:500,color:"#1a1814"}}>{info.label}</span>
+        <div style={{display:'flex',alignItems:'center',gap:6}}>
+          {isOwner&&(()=>{
+            const allKeys=["printemps_2026","ete_2026","automne_2026","hiver_2027","printemps_2027","ete_2027","automne_2027"];
+            const idx=allKeys.indexOf(seasonKey);
+            return <><button onClick={idx>0?()=>onChangeSeason&&onChangeSeason(allKeys[idx-1]):undefined}
+              style={{background:'none',border:'none',cursor:idx>0?'pointer':'default',fontSize:14,color:idx>0?'#2d6a4f':'#c5c0b8',padding:'0 2px',lineHeight:1}}>←</button></>;
+          })()}
+          <span style={{fontSize:12,fontWeight:500,color:"#1a1814"}}>{info.label}</span>
+          {isOwner&&(()=>{
+            const allKeys=["printemps_2026","ete_2026","automne_2026","hiver_2027","printemps_2027","ete_2027","automne_2027"];
+            const idx=allKeys.indexOf(seasonKey);
+            return <><button onClick={idx<allKeys.length-1?()=>onChangeSeason&&onChangeSeason(allKeys[idx+1]):undefined}
+              style={{background:'none',border:'none',cursor:idx<allKeys.length-1?'pointer':'default',fontSize:14,color:idx<allKeys.length-1?'#2d6a4f':'#c5c0b8',padding:'0 2px',lineHeight:1}}>→</button></>;
+          })()}
+        </div>
         <span style={{fontSize:11,color:"#9e9890"}}>{fmt(start)} → {fmt(end)}</span>
       </div>
       <Bar v={avgProg} label="Avancement total des OKR" w={0}/>
