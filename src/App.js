@@ -687,24 +687,42 @@ function Bsv3Banner({onGoBsv3}) {
   },[]);
 
   // Compute KPIs
+  // All BSv3 rows (all years) for N-1
+  const [bsv3AllRows,setBsv3AllRows]=React.useState([]);
+  React.useEffect(()=>{setBsv3AllRows(bsv3Rows);},[bsv3Rows]);
+
   const bsv3CA=bsv3Rows.reduce((s,r)=>s+parseBsv3Amt(r['Montant HT']),0);
   const bsv3Marge=bsv3Rows.reduce((s,r)=>s+parseBsv3Amt(r['Marge brute']),0);
   const bsv3Taux=bsv3CA?bsv3Marge/bsv3CA:null;
-  // Last 6 months rolling
   const maxMonth=bsv3Rows.length?Math.max(...bsv3Rows.map(r=>parseInt(r['Mois Emission'])||0)):0;
   const prevYear=bsv3Year?bsv3Year-1:null;
-  const validPrev=bsv3Rows.length&&bsv3Year?[]:[];// prev year loaded separately if needed - placeholder
-  const bsv3MargeN1=0;// placeholder until prev year data loaded
+
+  // Last month taux
+  const lastMonthRows=bsv3Rows.filter(r=>parseInt(r['Mois Emission'])===maxMonth);
+  const lastMonthAgg=aggBsv3(lastMonthRows);
+  // 6M rolling from last month
+  let roll6=[];
+  for(let dm=0;dm<6;dm++){
+    let m=maxMonth-dm,y=bsv3Year;if(m<=0){m+=12;y--;}
+    roll6=roll6.concat(bsv3AllRows.filter(r=>r['Mois Emission']===String(m)&&r['Année Emission']===String(y)&&!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])));
+  }
+  const roll6Taux=aggBsv3(roll6).taux;
+  const lastMonthArrow=lastMonthAgg.taux!=null&&roll6Taux!=null?(lastMonthAgg.taux>roll6Taux?'↑':'↓'):null;
+
+  // N-1 YTD marge
+  const prevYearRows=bsv3AllRows.filter(r=>r['Année Emission']===String(prevYear)&&!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']));
+  const prevYtdRows=prevYearRows.filter(r=>parseInt(r['Mois Emission'])<=maxMonth);
+  const bsv3MargeN1=prevYtdRows.reduce((s,r)=>s+parseBsv3Amt(r['Marge brute']),0);
   const bsv3VarMarge=bsv3Marge-bsv3MargeN1;
 
-  const fmtK=v=>{if(!v&&v!==0)return '—';const abs=Math.abs(v);const s=abs>=1000?(abs/1000).toFixed(0)+'k':abs.toFixed(0);return (v<0?'-':'')+s+'€';};
+  const fmtK=v=>{if(!v&&v!==0)return '—';const abs=Math.abs(v);const s=abs>=1000?(abs/1000).toFixed(0)+'k€':abs.toFixed(0)+'€';return (v<0?'-':'')+s;};
   const fmtPctB=v=>v!=null?(v*100).toFixed(1)+'%':'—';
   const items=[
     {label:"CA YTD",val:bsv3CA||null,col:"#1a1814",fmt:fmtK},
     {label:"Marge YTD",val:bsv3Marge||null,col:bsv3Marge<0?"#c0392b":"#1a1814",fmt:fmtK},
-    {label:"Moy. 6M",val:bsv3Taux,col:"#1a1814",fmt:fmtPctB},
+    {label:`Taux ${MOIS_LABELS[maxMonth]||''}`,val:lastMonthAgg.taux,col:lastMonthArrow==='↑'?"#2d6a4f":lastMonthArrow==='↓'?"#c0392b":"#1a1814",fmt:v=>`${fmtPctB(v)}${lastMonthArrow?` ${lastMonthArrow}`:''}`,arrow:lastMonthArrow},
     {label:"Taux YTD",val:bsv3Taux,col:bsv3Taux!=null&&bsv3Taux<0?"#c0392b":"#1a1814",fmt:fmtPctB},
-    {label:"Var. Marge N-1",val:bsv3VarMarge||null,col:bsv3VarMarge<0?"#c0392b":"#2d6a4f",fmt:fmtK},
+    {label:"Var. Marge N-1",val:bsv3VarMarge,col:bsv3VarMarge<0?"#c0392b":"#2d6a4f",fmt:v=>v>=0?'+'+fmtK(v):fmtK(v)},
   ];
   return (
     <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"14px 20px",
@@ -721,7 +739,7 @@ function Bsv3Banner({onGoBsv3}) {
         <button onClick={onGoBsv3}
           style={{display:"inline-flex",alignItems:"center",gap:6,padding:"8px 16px",
             background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,
-            cursor:"pointer",fontSize:12,fontWeight:500,
+            cursor:"pointer",fontSize:12,fontWeight:500,minWidth:140,
             transition:"opacity .15s"}}
           onMouseEnter={e=>e.currentTarget.style.opacity=".85"}
           onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
@@ -832,7 +850,7 @@ function ReportingBanner({onGoReporting}) {
         <button onClick={onGoReporting}
           style={{display:"inline-flex",alignItems:"center",gap:6,padding:"8px 16px",
             background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,
-            cursor:"pointer",fontSize:12,fontWeight:500,
+            cursor:"pointer",fontSize:12,fontWeight:500,minWidth:140,
             transition:"opacity .15s"}}
           onMouseEnter={e=>e.currentTarget.style.opacity=".85"}
           onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
@@ -4216,107 +4234,110 @@ function sortProduits(vals){
   });
 }
 // Generic BSv3 table with configurable drill-down order
-function Bsv3LeafRows({rows,prevRows,indent=48}){
-  const cellS={padding:'4px 10px',fontSize:10,textAlign:'right',borderBottom:'1px solid #eae7e1',fontFamily:'monospace',background:'#efecea'};
-  if(rows.length===0)return null;
-  const agg=aggBsv3(rows);const aggP=aggBsv3(prevRows);
-  return <tr>
-    <td style={{...cellS,textAlign:'left',paddingLeft:indent}}>Total</td>
-    <td style={{...cellS,textAlign:'center'}}>{Math.round(agg.qty).toLocaleString('fr-FR')}</td>
-    <td style={cellS}>{fmtBEur(agg.ca)}</td><td style={cellS}>{fmtBEur(agg.marge)}</td>
-    <td style={{...cellS,color:agg.taux!=null&&agg.taux<0?'#c0392b':'#1a1814'}}>{fmtBPct(agg.taux)}</td>
-    <td style={cellS}>—</td>
-    <td style={{...cellS,color:'#9e9890'}}>{fmtBEur(aggP.ca)}</td><td style={{...cellS,color:'#9e9890'}}>{fmtBEur(aggP.marge)}</td>
-    <td style={{...cellS,color:'#9e9890'}}>{fmtBPct(aggP.taux)}</td>
-  </tr>;
+function getField(level){
+  return level==='mois'?'Mois Emission':level==='canal'?'Canal':level==='client'?'Client PL':'Contenant+Appelation/Robe';
 }
 
-function Bsv3DrillRow({label,rows,prevRows,allRows,year,levels,levelIdx,depth,allValid6M,expanded,setExpanded}){
-  const key=`${depth}_${label}`;
+function sortByLevel(level, vals, rows){
+  if(level==='mois') return [...vals].sort((a,b)=>parseInt(a)-parseInt(b));
+  if(level==='client'){
+    const caMap={};
+    vals.forEach(v=>{caMap[v]=rows.filter(r=>r['Client PL']===v).reduce((s,r)=>s+parseBsv3Amt(r['Montant HT']),0);});
+    return [...vals].sort((a,b)=>caMap[b]-caMap[a]);
+  }
+  if(level==='canal') return sortCanaux(vals);
+  if(level==='produit') return sortProduits(vals);
+  return [...vals].sort((a,b)=>a.localeCompare(b));
+}
+
+function calc6M(contextRows, month, year){
+  // Rolling 6M on contextRows (filtered to current context)
+  let roll=[];
+  for(let dm=0;dm<6;dm++){
+    let m=month-dm, y=year;
+    if(m<=0){m+=12;y--;}
+    roll=roll.concat(contextRows.filter(r=>r['Mois Emission']===String(m)&&r['Année Emission']===String(y)));
+  }
+  return aggBsv3(roll).taux;
+}
+
+function Bsv3DrillRow({label,rows,prevRows,contextRows,year,allYearRows,levels,levelIdx,depth,ytdMode,maxYtdMonth}){
   const [exp,setExp]=React.useState(false);
-  const agg=aggBsv3(rows);const aggP=aggBsv3(prevRows);
+  const agg=aggBsv3(rows);
+  const aggP=ytdMode?aggBsv3(prevRows.filter(r=>parseInt(r['Mois Emission'])<=maxYtdMonth)):aggBsv3(prevRows);
   const isLeaf=levelIdx>=levels.length-1;
+  const currentLevel=levels[levelIdx];
+  const nextLevel=levels[levelIdx+1];
+  const isProductLevel=currentLevel==='produit';
+  const isMoisLevel=currentLevel==='mois';
+
+  // 6M rolling — contextual (uses contextRows filtered to parent's scope)
+  const roll6Taux=isMoisLevel?calc6M(contextRows,parseInt(label),year):null;
+
   const bg=depth===0?'#fff':depth===1?'#f8f7f5':depth===2?'#f0fdf4':'#efecea';
   const fs=depth===0?12:depth===1?11:10;
-  const pl=depth===0?10:depth===1?24:depth===2?36:48;
-  const cell={padding:`${depth===0?7:depth===1?6:5}px 10px`,fontSize:fs,textAlign:'right',borderBottom:'1px solid #eee',fontFamily:'monospace',background:bg};
-  const lbl={padding:`${depth===0?7:depth===1?6:5}px 10px`,paddingLeft:pl,fontSize:fs,borderBottom:'1px solid #eee',cursor:isLeaf?'default':'pointer',background:bg,display:'flex',alignItems:'center',gap:6,fontWeight:depth===0?500:400};
+  const pl=10+depth*14;
+  const pd=depth===0?7:depth===1?6:5;
+  const cell={padding:`${pd}px 10px`,fontSize:fs,textAlign:'right',borderBottom:'1px solid #eee',fontFamily:'monospace',background:bg};
+  const lbl={padding:`${pd}px 10px`,paddingLeft:pl,fontSize:fs,borderBottom:'1px solid #eee',cursor:isLeaf?'default':'pointer',background:bg,display:'flex',alignItems:'center',gap:6,fontWeight:depth===0?500:400};
 
-  // Compute 6-month rolling for month-level rows
-  let roll6Taux=null;
-  if(levels[levelIdx]==='mois'){
-    const m=parseInt(label);
-    let roll6=[];
-    for(let dm=0;dm<6;dm++){
-      let mo=m-dm,y=year;if(mo<=0){mo+=12;y--;}
-      roll6=roll6.concat(allValid6M.filter(r=>r['Mois Emission']===String(mo)&&r['Année Emission']===String(y)));
-    }
-    const r6=aggBsv3(roll6);
-    roll6Taux=r6.taux;
-  }
+  const displayLabel=isMoisLevel?MOIS_LABELS[parseInt(label)]||label:label;
 
-  // Get label display
-  const displayLabel=levels[levelIdx]==='mois'?MOIS_LABELS[parseInt(label)]||label:label;
-
-  // Get children
-  const nextLevel=levels[levelIdx+1];
+  // Children
   let children=[];
   if(!isLeaf&&nextLevel){
-    const field=nextLevel==='mois'?'Mois Emission':nextLevel==='canal'?'Canal':nextLevel==='client'?'Client PL':'Contenant+Appelation/Robe';
+    const field=getField(nextLevel);
     const vals=[...new Set(rows.map(r=>r[field]))];
-    // Sort: mois by number, client by CA desc, produit alphabetically, canal alphabetically
-    if(nextLevel==='mois') children=vals.sort((a,b)=>parseInt(a)-parseInt(b));
-    else if(nextLevel==='client'){
-      const caMap={};vals.forEach(v=>{caMap[v]=rows.filter(r=>r['Client PL']===v).reduce((s,r)=>s+parseBsv3Amt(r['Montant HT']),0);});
-      children=vals.sort((a,b)=>caMap[b]-caMap[a]);
-    }else if(nextLevel==='canal') children=sortCanaux(vals);
-    else if(nextLevel==='produit') children=sortProduits(vals);
-    else children=vals.sort((a,b)=>a.localeCompare(b));
+    // For mois: show all 12 months
+    if(nextLevel==='mois') children=[1,2,3,4,5,6,7,8,9,10,11,12].map(String);
+    else children=sortByLevel(nextLevel,vals,rows);
   }
-
-  // Show qty only at product level
-  const isProductLevel=levels[levelIdx]==='produit';
-  const showQty=isProductLevel;
 
   return <React.Fragment>
     <tr style={{background:bg}} onClick={isLeaf?undefined:()=>setExp(p=>!p)}>
       <td style={lbl}>{!isLeaf&&<span style={{fontSize:10,color:'#9e9890'}}>{exp?'▼':'▶'}</span>}{displayLabel}</td>
-      <td style={{...cell,textAlign:'center'}}>{showQty?Math.round(agg.qty).toLocaleString('fr-FR'):'—'}</td>
-      <td style={cell}>{fmtBEur(agg.ca)}</td><td style={cell}>{fmtBEur(agg.marge)}</td>
+      <td style={{...cell,textAlign:'center'}}>{isProductLevel?Math.round(agg.qty).toLocaleString('fr-FR'):'—'}</td>
+      <td style={cell}>{fmtBEur(agg.ca)}</td>
+      <td style={cell}>{fmtBEur(agg.marge)}</td>
       <td style={{...cell,color:agg.taux!=null&&agg.taux<0?'#c0392b':'#1a1814'}}>{fmtBPct(agg.taux)}</td>
       <td style={{...cell,color:'#6b6560'}}>{roll6Taux!==null?fmtBPct(roll6Taux):'—'}</td>
-      <td style={{...cell,color:'#9e9890'}}>{fmtBEur(aggP.ca)}</td><td style={{...cell,color:'#9e9890'}}>{fmtBEur(aggP.marge)}</td>
+      <td style={{...cell,color:'#9e9890'}}>{aggP.ca?fmtBEur(aggP.ca):'—'}</td>
+      <td style={{...cell,color:'#9e9890'}}>{aggP.marge?fmtBEur(aggP.marge):'—'}</td>
       <td style={{...cell,color:'#9e9890'}}>{fmtBPct(aggP.taux)}</td>
     </tr>
     {exp&&children.map(child=>{
-      const field=nextLevel==='mois'?'Mois Emission':nextLevel==='canal'?'Canal':nextLevel==='client'?'Client PL':'Contenant+Appelation/Robe';
-      const childRows=rows.filter(r=>r[field]===child);
-      const childPrev=prevRows.filter(r=>r[field]===child);
+      const field=getField(nextLevel);
+      const childRows=nextLevel==='mois'?rows.filter(r=>r['Mois Emission']===child):rows.filter(r=>r[field]===child);
+      const childPrev=nextLevel==='mois'?prevRows.filter(r=>r['Mois Emission']===child):prevRows.filter(r=>r[field]===child);
+      // contextRows for 6M: for mois level children, use current rows (filtered to parent context)
+      const childContext=nextLevel==='mois'?rows:contextRows;
       return <Bsv3DrillRow key={child} label={child} rows={childRows} prevRows={childPrev}
-        allRows={allRows} year={year} levels={levels} levelIdx={levelIdx+1}
-        depth={depth+1} allValid6M={allValid6M} expanded={expanded} setExpanded={setExpanded}/>;
+        contextRows={childContext} year={year} allYearRows={allYearRows}
+        levels={levels} levelIdx={levelIdx+1} depth={depth+1}
+        ytdMode={ytdMode} maxYtdMonth={maxYtdMonth}/>;
     })}
   </React.Fragment>;
 }
 
-function Bsv3Table({view,year,prevYear,validRows,prevRows,allValid,expanded,setExpanded,th}){
-  const levelMap={
-    'mois_canal':['mois','canal','client','produit'],
-    'canal_mois':['canal','client','mois','produit'],
-    'canal_produit':['canal','client','produit','mois'],
-    'produit':['produit','mois','canal','client'],
-  };
-  const levels=levelMap[view]||['mois','canal','client','produit'];
-  const topField=levels[0]==='mois'?'Mois Emission':levels[0]==='canal'?'Canal':levels[0]==='client'?'Client PL':'Contenant+Appelation/Robe';
+function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,maxYtdMonth}){
+  const topLevel=levels[0];
+  const topField=getField(topLevel);
   const topVals=[...new Set(validRows.map(r=>r[topField]))];
-  let topSorted;
-  if(levels[0]==='mois') topSorted=topVals.sort((a,b)=>parseInt(a)-parseInt(b));
-  else if(levels[0]==='client'){const caMap={};topVals.forEach(v=>{caMap[v]=validRows.filter(r=>r['Client PL']===v).reduce((s,r)=>s+parseBsv3Amt(r['Montant HT']),0);});topSorted=topVals.sort((a,b)=>caMap[b]-caMap[a]);}
-  else if(levels[0]==='canal') topSorted=sortCanaux(topVals);
-  else if(levels[0]==='produit') topSorted=sortProduits(topVals);
-  else topSorted=topVals.sort((a,b)=>a.localeCompare(b));
+  const topSorted=topLevel==='mois'?[1,2,3,4,5,6,7,8,9,10,11,12].map(String):sortByLevel(topLevel,topVals,validRows);
 
-  const firstLabel=levels[0]==='mois'?`Mois ${year}`:levels[0]==='canal'?'Canal':levels[0]==='client'?'Client':levels[0]==='produit'?'Produit':'';
+  const firstLabel=topLevel==='mois'?`Mois ${year}`:topLevel==='canal'?'Canal':topLevel==='client'?'Client':'Produit';
+  const th={padding:'8px 10px',fontSize:11,fontWeight:600,color:'#6b6560',textAlign:'right',borderBottom:'2px solid #e2ddd6',background:'#f8f7f5',whiteSpace:'nowrap'};
+
+  // Footer totals
+  const aggTotal=aggBsv3(validRows);
+  const prevForTotal=ytdMode?prevRows.filter(r=>parseInt(r['Mois Emission'])<=maxYtdMonth):prevRows;
+  const aggTotalP=aggBsv3(prevForTotal);
+  const tf={padding:'8px 10px',fontSize:12,textAlign:'right',borderTop:'2px solid #e2ddd6',fontFamily:'monospace',fontWeight:600,background:'#f8f7f5'};
+  const tfl={...tf,textAlign:'left'};
+
+  // YTD row for prev year (at last month of current year)
+  const ytdPrev=prevRows.filter(r=>parseInt(r['Mois Emission'])<=maxYtdMonth);
+  const aggYTD=aggBsv3(ytdPrev);
 
   return <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',overflow:'hidden'}}>
     <div style={{overflowX:'auto'}}>
@@ -4330,67 +4351,95 @@ function Bsv3Table({view,year,prevYear,validRows,prevRows,allValid,expanded,setE
         </tr></thead>
         <tbody>
           {topSorted.map(val=>{
-            const rows=validRows.filter(r=>r[topField]===val);
-            const prev=prevRows.filter(r=>r[topField]===val);
+            const rows=topLevel==='mois'?validRows.filter(r=>r['Mois Emission']===val):validRows.filter(r=>r[topField]===val);
+            const prev=topLevel==='mois'?prevRows.filter(r=>r['Mois Emission']===val):prevRows.filter(r=>r[topField]===val);
             return <Bsv3DrillRow key={val} label={val} rows={rows} prevRows={prev}
-              allRows={validRows} year={year} levels={levels} levelIdx={0}
-              depth={0} allValid6M={allValid} expanded={expanded} setExpanded={setExpanded}/>;
+              contextRows={allYearRows} year={year} allYearRows={allYearRows}
+              levels={levels} levelIdx={0} depth={0}
+              ytdMode={ytdMode} maxYtdMonth={maxYtdMonth}/>;
           })}
         </tbody>
         <tfoot>
-          {(()=>{
-            const aggTotal=aggBsv3(validRows);
-            const aggTotalP=aggBsv3(prevRows);
-            // YTD: same months as current year but for prev year
-            const maxMonth=Math.max(...validRows.map(r=>parseInt(r['Mois Emission'])||0));
-            const ytdPrev=prevRows.filter(r=>parseInt(r['Mois Emission'])<=maxMonth);
-            const aggYTD=aggBsv3(ytdPrev);
-            const tf={padding:'8px 10px',fontSize:12,textAlign:'right',borderTop:'2px solid #e2ddd6',fontFamily:'monospace',fontWeight:600,background:'#f8f7f5'};
-            const tfl={...tf,textAlign:'left',minWidth:150};
-            return <>
-              <tr>
-                <td style={tfl}>TOTAL {year}</td>
-                <td style={{...tf,textAlign:'center'}}>—</td>
-                <td style={tf}>{fmtBEur(aggTotal.ca)}</td>
-                <td style={tf}>{fmtBEur(aggTotal.marge)}</td>
-                <td style={{...tf,color:aggTotal.taux!=null&&aggTotal.taux<0?'#c0392b':'#2d6a4f'}}>{fmtBPct(aggTotal.taux)}</td>
-                <td style={tf}>—</td>
-                <td style={{...tf,color:'#9e9890'}}>{fmtBEur(aggTotalP.ca)}</td>
-                <td style={{...tf,color:'#9e9890'}}>{fmtBEur(aggTotalP.marge)}</td>
-                <td style={{...tf,color:'#9e9890'}}>{fmtBPct(aggTotalP.taux)}</td>
-              </tr>
-              <tr>
-                <td style={{...tfl,fontSize:11,fontWeight:400,color:'#6b6560'}}>YTD {prevYear} (jan-{MOIS_LABELS[maxMonth]||maxMonth})</td>
-                <td style={{...tf,fontSize:11,fontWeight:400,textAlign:'center'}}>—</td>
-                <td style={{...tf,fontSize:11,fontWeight:400,color:'#9e9890'}}>{fmtBEur(aggYTD.ca)}</td>
-                <td style={{...tf,fontSize:11,fontWeight:400,color:'#9e9890'}}>{fmtBEur(aggYTD.marge)}</td>
-                <td style={{...tf,fontSize:11,fontWeight:400,color:'#9e9890'}}>{fmtBPct(aggYTD.taux)}</td>
-                <td style={{...tf,fontSize:11,fontWeight:400}}>—</td>
-                <td style={{...tf,fontSize:11,fontWeight:400,color:'#c5c0b8'}}>—</td>
-                <td style={{...tf,fontSize:11,fontWeight:400,color:'#c5c0b8'}}>—</td>
-                <td style={{...tf,fontSize:11,fontWeight:400,color:'#c5c0b8'}}>—</td>
-              </tr>
-            </>;
-          })()}
+          <tr>
+            <td style={tfl}>{ytdMode?`YTD ${year} (jan-${MOIS_LABELS[maxYtdMonth]})`:`TOTAL ${year}`}</td>
+            <td style={{...tf,textAlign:'center'}}>—</td>
+            <td style={tf}>{fmtBEur(aggTotal.ca)}</td>
+            <td style={tf}>{fmtBEur(aggTotal.marge)}</td>
+            <td style={{...tf,color:aggTotal.taux!=null&&aggTotal.taux<0?'#c0392b':'#2d6a4f'}}>{fmtBPct(aggTotal.taux)}</td>
+            <td style={tf}>—</td>
+            <td style={{...tf,color:'#9e9890'}}>{fmtBEur(aggTotalP.ca)}</td>
+            <td style={{...tf,color:'#9e9890'}}>{fmtBEur(aggTotalP.marge)}</td>
+            <td style={{...tf,color:'#9e9890'}}>{fmtBPct(aggTotalP.taux)}</td>
+          </tr>
+          {!ytdMode&&<tr>
+            <td style={{...tfl,fontSize:11,fontWeight:400,color:'#6b6560'}}>YTD {prevYear} (jan-{MOIS_LABELS[maxYtdMonth]})</td>
+            <td style={{...tf,fontSize:11,fontWeight:400,textAlign:'center'}}>—</td>
+            <td style={{...tf,fontSize:11,fontWeight:400,color:'#9e9890'}}>{fmtBEur(aggYTD.ca)}</td>
+            <td style={{...tf,fontSize:11,fontWeight:400,color:'#9e9890'}}>{fmtBEur(aggYTD.marge)}</td>
+            <td style={{...tf,fontSize:11,fontWeight:400,color:'#9e9890'}}>{fmtBPct(aggYTD.taux)}</td>
+            <td style={{...tf,fontSize:11,fontWeight:400}}>—</td>
+            <td style={{...tf,fontSize:11,fontWeight:400,color:'#c5c0b8'}}>—</td>
+            <td style={{...tf,fontSize:11,fontWeight:400,color:'#c5c0b8'}}>—</td>
+            <td style={{...tf,fontSize:11,fontWeight:400,color:'#c5c0b8'}}>—</td>
+          </tr>}
         </tfoot>
       </table>
     </div>
   </div>;
 }
 
+function DragPill({level,index,onDragStart,onDragOver,onDrop,isDragOver}){
+  const labels={mois:'Mois',canal:'Canal',client:'Client',produit:'Produit'};
+  return <div
+    draggable
+    onDragStart={e=>{e.dataTransfer.setData('text/plain',String(index));onDragStart(index);}}
+    onDragOver={e=>{e.preventDefault();onDragOver(index);}}
+    onDrop={e=>{e.preventDefault();onDrop(index);}}
+    style={{
+      padding:'6px 16px',borderRadius:20,border:`2px solid ${isDragOver?'#2d6a4f':'#e2ddd6'}`,
+      background:isDragOver?'#d8f3dc':'#fff',cursor:'grab',fontSize:13,fontWeight:500,
+      color:'#1a1814',userSelect:'none',display:'flex',alignItems:'center',gap:6,
+      boxShadow:'0 1px 3px rgba(0,0,0,.08)',transition:'all .15s'
+    }}>
+    <span style={{fontSize:10,color:'#9e9890'}}>⠿</span>
+    {labels[level]}
+  </div>;
+}
+
 function Bsv3Page({onBack}){
-  const [view,setView]=React.useState('mois_canal');
   const {rows,importedAt,loading}=useBsv3Data();
-  const [expanded,setExpanded]=React.useState({});
+  const [levels,setLevels]=React.useState(['mois','canal','client','produit']);
+  const [ytdMode,setYtdMode]=React.useState(false);
+  const [dragFrom,setDragFrom]=React.useState(null);
+  const [dragOver,setDragOver]=React.useState(null);
+
   const importDate=importedAt?new Date(importedAt):new Date();
   const year=importDate.getMonth()===0?importDate.getFullYear()-1:importDate.getFullYear();
   const prevYear=year-1;
-  const validRows=rows.filter(r=>r['Année Emission']===String(year)&&!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])&&r['Canal']);
-  const prevRows=rows.filter(r=>r['Année Emission']===String(prevYear)&&!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])&&r['Canal']);
-  const allValid=rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])&&r['Canal']);
-  const th={padding:'8px 10px',fontSize:11,fontWeight:600,color:'#6b6560',textAlign:'right',borderBottom:'2px solid #e2ddd6',background:'#f8f7f5',whiteSpace:'nowrap'};
+
+  const validRows=rows.filter(r=>r['Année Emission']===String(year)&&!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']));
+  const prevRows=rows.filter(r=>r['Année Emission']===String(prevYear)&&!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']));
+  const allYearRows=rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']));
+
+  // Determine max month with data (for YTD)
+  const maxYtdMonth=validRows.length?Math.max(...validRows.map(r=>parseInt(r['Mois Emission'])||0)):12;
+
+  // For ytdMode: filter validRows to YTD months only
+  const displayRows=ytdMode?validRows.filter(r=>parseInt(r['Mois Emission'])<=maxYtdMonth):validRows;
+
+  // Drag handlers
+  function handleDrop(toIdx){
+    if(dragFrom===null||dragFrom===toIdx){setDragFrom(null);setDragOver(null);return;}
+    const newLevels=[...levels];
+    const [moved]=newLevels.splice(dragFrom,1);
+    newLevels.splice(toIdx,0,moved);
+    setLevels(newLevels);
+    setDragFrom(null);setDragOver(null);
+  }
+
   return <div style={{minHeight:'100vh',background:'#f8f7f5'}}>
     <div style={{maxWidth:1200,margin:'0 auto',padding:'24px 16px'}}>
+      {/* Header */}
       <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:16}}>
         <button onClick={onBack} style={{background:'none',border:'none',cursor:'pointer',fontSize:20,color:'#9e9890',padding:0}}>←</button>
         <div>
@@ -4400,22 +4449,40 @@ function Bsv3Page({onBack}){
           </div>}
         </div>
       </div>
-      <div style={{display:'flex',gap:8,marginBottom:20}}>
-        {[{k:'mois_canal',l:'Mois / Canal / Client / Produit'},{k:'canal_mois',l:'Canal / Client / Mois / Produit'},{k:'canal_produit',l:'Canal / Client / Produit / Mois'},{k:'produit',l:'Produit / Mois / Canal / Client'}].map(v=>
-          <button key={v.k} onClick={()=>setView(v.k)}
-            style={{padding:'8px 16px',borderRadius:8,border:`1px solid ${view===v.k?'#2d6a4f':'#e2ddd6'}`,
-              background:view===v.k?'#2d6a4f':'#fff',color:view===v.k?'#fff':'#6b6560',
-              fontSize:13,fontWeight:500,cursor:'pointer'}}>{v.l}</button>
-        )}
+
+      {/* Controls */}
+      <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20,flexWrap:'wrap'}}>
+        {/* Drag pills */}
+        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+          <span style={{fontSize:11,color:'#9e9890',marginRight:4}}>Ordre :</span>
+          {levels.map((level,i)=><DragPill key={level} level={level} index={i}
+            onDragStart={setDragFrom}
+            onDragOver={setDragOver}
+            onDrop={handleDrop}
+            isDragOver={dragOver===i&&dragFrom!==i}/>)}
+        </div>
+        {/* YTD toggle */}
+        <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:8,background:'#fff',border:'1px solid #e2ddd6',borderRadius:8,padding:'4px'}}>
+          <button onClick={()=>setYtdMode(false)}
+            style={{padding:'5px 12px',borderRadius:6,border:'none',background:!ytdMode?'#2d6a4f':'transparent',color:!ytdMode?'#fff':'#6b6560',fontSize:12,fontWeight:500,cursor:'pointer'}}>
+            Toute l'année
+          </button>
+          <button onClick={()=>setYtdMode(true)}
+            style={{padding:'5px 12px',borderRadius:6,border:'none',background:ytdMode?'#2d6a4f':'transparent',color:ytdMode?'#fff':'#6b6560',fontSize:12,fontWeight:500,cursor:'pointer'}}>
+            YTD
+          </button>
+        </div>
       </div>
+
       {loading?<div style={{textAlign:'center',padding:40,color:'#9e9890'}}>Chargement...</div>
       :rows.length===0?<div style={{textAlign:'center',padding:40,color:'#9e9890'}}>Aucune donnée — importez un CSV dans les Paramètres.</div>
-      :view==='mois_canal'||view==='canal_mois'||view==='canal_produit'||view==='produit'?
-      <Bsv3Table view={view} year={year} prevYear={prevYear} validRows={validRows} prevRows={prevRows} allValid={allValid} expanded={expanded} setExpanded={setExpanded} th={th}/>
-      :<div style={{textAlign:'center',padding:40,color:'#9e9890'}}>Vue inconnue</div>}
+      :<Bsv3Table levels={levels} year={year} prevYear={prevYear}
+          validRows={displayRows} prevRows={prevRows} allYearRows={allYearRows}
+          ytdMode={ytdMode} maxYtdMonth={maxYtdMonth}/>}
     </div>
   </div>;
 }
+
 
 export default function App(){
   const [authUser,setAuthUser]=useState(null);
