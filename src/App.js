@@ -1682,7 +1682,11 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
               </div>
             </div>;
             if(q.type==="okr"){
-              const myKRs=(okrData?.keyresults||[]).filter(k=>k.owner===teamMember?.prenom);
+              const myKRs=(okrData?.keyresults||[]).filter(k=>
+                k.owner===teamMember?.prenom&&
+                !k.stop&&
+                calcTaux(k.val_depart,k.val_actuel,k.val_cible,k.unite)<100
+              );
               const seasonKey=okrData?.seasonKey||'';
               const checkedIds=answers[q.id]?.krIds||[];
               function toggleKR(id){
@@ -3367,7 +3371,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
         </div>
       </div>}
 
-      {tab==="questions"&&<QuestionsEditor qs={qs} onSave={newQs=>{setQs(newQs);onSaveQuestions&&onSaveQuestions(newQs);}}/>}
+      {tab==="questions"&&<QuestionsEditor qs={qs} onSave={newQs=>{setQs(newQs);onSaveQuestions&&onSaveQuestions(newQs);}}/>
 
       {tab==="history"&&<UpdatesHistoryTab/>}
       {tab==="feedback"&&<FeedbackAdminTab/>}
