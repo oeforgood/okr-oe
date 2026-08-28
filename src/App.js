@@ -682,7 +682,7 @@ function Bsv3Banner({onGoBsv3}) {
             transition:"opacity .15s"}}
           onMouseEnter={e=>e.currentTarget.style.opacity=".85"}
           onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
-          📊 Voir Base Sales v3
+          📊 Base Sales v3
         </button>
       </div>
     </div>
@@ -3971,6 +3971,198 @@ function ReportingPagePublic({onBack, catTypes, codeMap, customSubcatLabels={}, 
     <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
       <ReportingTab onSaveCatTypes={null} savedCatTypes={catTypes} savedCodeMap={codeMap}
         onSaveCodeMap={null} savedCustomLabels={customSubcatLabels} onSaveCustomLabels={null} savedCanalMargin={savedCanalMargin} readOnly={true}/>
+    </div>
+  </div>;
+}
+
+const BSV3_EXCLUDE_PRODUITS=new Set(['CASIER-OE','COIFFE-OE','CONTENANT BOUTEILLE']);
+const MOIS_LABELS=['','Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+
+function parseBsv3Amt(s){
+  if(!s)return 0;
+  try{return parseFloat(String(s).replace(/€/g,'').replace(/[\s\u00a0]/g,'').replace(',','.').trim());}
+  catch(e){return 0;}
+}
+
+function useBsv3Data(){
+  const [rows,setRows]=React.useState([]);
+  const [importedAt,setImportedAt]=React.useState(null);
+  const [loading,setLoading]=React.useState(true);
+  React.useEffect(()=>{
+    (async()=>{
+      try{
+        const snap=await getDocs(collection(db,'bsv3_data'));
+        if(!snap.empty){
+          let all=[];let at=null;
+          snap.docs.sort((a,b)=>a.id.localeCompare(b.id)).forEach(d=>{
+            const data=d.data();
+            all=all.concat(data.rows||[]);
+            if(!at)at=data.importedAt;
+          });
+          setRows(all);setImportedAt(at);
+        }
+      }catch(e){console.warn('bsv3',e);}
+      setLoading(false);
+    })();
+  },[]);
+  return {rows,importedAt,loading};
+}
+
+function aggBsv3(rows){
+  let ca=0,marge=0,qty=0;
+  rows.forEach(r=>{
+    ca+=parseBsv3Amt(r['Montant HT']);
+    marge+=parseBsv3Amt(r['Marge brute']);
+    qty+=parseFloat(r['Quantité équivalent unité']||0)||0;
+  });
+  return {ca,marge,qty,taux:ca?marge/ca:null};
+}
+
+function fmtBEur(v){if(v==null||isNaN(v))return '—';return Math.round(v).toLocaleString('fr-FR')+'€';}
+function fmtBPct(v){if(v==null||isNaN(v))return '—';return (v*100).toFixed(1)+'%';}
+
+function Bsv3ClientRow({client,clRows,clPrev}){
+  const [exp,setExp]=React.useState(false);
+  const clA=aggBsv3(clRows);const clPA=aggBsv3(clPrev);
+  const produits=[...new Set(clRows.map(r=>r['Contenant+Appelation/Robe']))].sort();
+  const cellC={padding:'5px 10px',fontSize:11,textAlign:'right',borderBottom:'1px solid #f0ede8',fontFamily:'monospace',background:'#f0fdf4'};
+  const lblC={padding:'5px 10px 5px 36px',fontSize:11,borderBottom:'1px solid #f0ede8',cursor:'pointer',background:'#f0fdf4',display:'flex',alignItems:'center',gap:6};
+  return <React.Fragment>
+    <tr onClick={()=>setExp(p=>!p)}>
+      <td style={lblC}><span style={{fontSize:10,color:'#9e9890'}}>{exp?'▼':'▶'}</span>{client}</td>
+      <td style={{...cellC,textAlign:'center'}}>—</td>
+      <td style={cellC}>{fmtBEur(clA.ca)}</td><td style={cellC}>{fmtBEur(clA.marge)}</td>
+      <td style={{...cellC,color:clA.taux!=null&&clA.taux<0?'#c0392b':'#1a1814'}}>{fmtBPct(clA.taux)}</td>
+      <td style={cellC}>—</td>
+      <td style={{...cellC,color:'#9e9890'}}>{fmtBEur(clPA.ca)}</td><td style={{...cellC,color:'#9e9890'}}>{fmtBEur(clPA.marge)}</td>
+      <td style={{...cellC,color:'#9e9890'}}>{fmtBPct(clPA.taux)}</td>
+    </tr>
+    {exp&&produits.map(prod=>{
+      const pR=clRows.filter(r=>r['Contenant+Appelation/Robe']===prod);
+      const pP=clPrev.filter(r=>r['Contenant+Appelation/Robe']===prod);
+      const pA=aggBsv3(pR);const pPA=aggBsv3(pP);
+      const cellP={padding:'4px 10px',fontSize:10,textAlign:'right',borderBottom:'1px solid #eae7e1',fontFamily:'monospace',background:'#efecea'};
+      return <tr key={prod}>
+        <td style={{...cellP,textAlign:'left',paddingLeft:48}}>{prod}</td>
+        <td style={{...cellP,textAlign:'center'}}>{Math.round(pA.qty).toLocaleString('fr-FR')}</td>
+        <td style={cellP}>{fmtBEur(pA.ca)}</td><td style={cellP}>{fmtBEur(pA.marge)}</td>
+        <td style={{...cellP,color:pA.taux!=null&&pA.taux<0?'#c0392b':'#1a1814'}}>{fmtBPct(pA.taux)}</td>
+        <td style={cellP}>—</td>
+        <td style={{...cellP,color:'#9e9890'}}>{fmtBEur(pPA.ca)}</td><td style={{...cellP,color:'#9e9890'}}>{fmtBEur(pPA.marge)}</td>
+        <td style={{...cellP,color:'#9e9890'}}>{fmtBPct(pPA.taux)}</td>
+      </tr>;
+    })}
+  </React.Fragment>;
+}
+
+function Bsv3CanalRow({canal,cRows,cPrev}){
+  const [exp,setExp]=React.useState(false);
+  const cA=aggBsv3(cRows);const cPA=aggBsv3(cPrev);
+  const clients=[...new Set(cRows.map(r=>r['Client PL']))].sort();
+  const cell={padding:'6px 10px',fontSize:11,textAlign:'right',borderBottom:'1px solid #f5f5f5',fontFamily:'monospace',background:'#f8f7f5'};
+  const lbl={padding:'6px 10px 6px 24px',fontSize:11,borderBottom:'1px solid #f5f5f5',cursor:'pointer',background:'#f8f7f5',display:'flex',alignItems:'center',gap:6};
+  return <React.Fragment>
+    <tr onClick={()=>setExp(p=>!p)}>
+      <td style={lbl}><span style={{fontSize:10,color:'#9e9890'}}>{exp?'▼':'▶'}</span>{canal}</td>
+      <td style={{...cell,textAlign:'center'}}>—</td>
+      <td style={cell}>{fmtBEur(cA.ca)}</td><td style={cell}>{fmtBEur(cA.marge)}</td>
+      <td style={{...cell,color:cA.taux!=null&&cA.taux<0?'#c0392b':'#1a1814'}}>{fmtBPct(cA.taux)}</td>
+      <td style={cell}>—</td>
+      <td style={{...cell,color:'#9e9890'}}>{fmtBEur(cPA.ca)}</td><td style={{...cell,color:'#9e9890'}}>{fmtBEur(cPA.marge)}</td>
+      <td style={{...cell,color:'#9e9890'}}>{fmtBPct(cPA.taux)}</td>
+    </tr>
+    {exp&&clients.map(cl=>{
+      const clR=cRows.filter(r=>r['Client PL']===cl);
+      const clP=cPrev.filter(r=>r['Client PL']===cl);
+      return <Bsv3ClientRow key={cl} client={cl} clRows={clR} clPrev={clP}/>;
+    })}
+  </React.Fragment>;
+}
+
+function Bsv3MonthRow({month,year,rows,rowsPrev,allRows,expanded,onToggle}){
+  const mRows=rows.filter(r=>r['Mois Emission']===String(month));
+  const mPrev=rowsPrev.filter(r=>r['Mois Emission']===String(month));
+  const agg=aggBsv3(mRows);const aggPrev=aggBsv3(mPrev);
+  let roll6=[];
+  for(let dm=0;dm<6;dm++){
+    let m=month-dm,y=year;if(m<=0){m+=12;y--;}
+    roll6=roll6.concat(allRows.filter(r=>r['Mois Emission']===String(m)&&r['Année Emission']===String(y)));
+  }
+  const r6=aggBsv3(roll6);
+  const canals=[...new Set(mRows.map(r=>r['Canal']))].sort();
+  const cell={padding:'7px 10px',fontSize:12,textAlign:'right',borderBottom:'1px solid #eee',fontFamily:'monospace'};
+  const lbl={padding:'7px 10px',fontSize:12,borderBottom:'1px solid #eee',cursor:'pointer',display:'flex',alignItems:'center',gap:6,fontWeight:500};
+  return <React.Fragment>
+    <tr style={{background:'#fff'}} onClick={onToggle}>
+      <td style={lbl}><span style={{fontSize:10,color:'#9e9890'}}>{expanded?'▼':'▶'}</span>{MOIS_LABELS[month]}</td>
+      <td style={{...cell,textAlign:'center'}}>—</td>
+      <td style={cell}>{fmtBEur(agg.ca)}</td><td style={cell}>{fmtBEur(agg.marge)}</td>
+      <td style={{...cell,color:agg.taux!=null&&agg.taux<0?'#c0392b':'#1a1814'}}>{fmtBPct(agg.taux)}</td>
+      <td style={{...cell,color:'#6b6560'}}>{fmtBPct(r6.taux)}</td>
+      <td style={{...cell,color:'#9e9890'}}>{fmtBEur(aggPrev.ca)}</td><td style={{...cell,color:'#9e9890'}}>{fmtBEur(aggPrev.marge)}</td>
+      <td style={{...cell,color:'#9e9890'}}>{fmtBPct(aggPrev.taux)}</td>
+    </tr>
+    {expanded&&canals.map(c=>{
+      const cR=mRows.filter(r=>r['Canal']===c);
+      const cP=mPrev.filter(r=>r['Canal']===c);
+      return <Bsv3CanalRow key={c} canal={c} cRows={cR} cPrev={cP}/>;
+    })}
+  </React.Fragment>;
+}
+
+function Bsv3Page({onBack}){
+  const [view,setView]=React.useState('commande');
+  const {rows,importedAt,loading}=useBsv3Data();
+  const [expanded,setExpanded]=React.useState({});
+  const importDate=importedAt?new Date(importedAt):new Date();
+  const year=importDate.getMonth()===0?importDate.getFullYear()-1:importDate.getFullYear();
+  const prevYear=year-1;
+  const validRows=rows.filter(r=>r['Année Emission']===String(year)&&r['Marge brute']!=='MARGE NON CALCULABLE'&&!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])&&r['Canal']);
+  const prevRows=rows.filter(r=>r['Année Emission']===String(prevYear)&&r['Marge brute']!=='MARGE NON CALCULABLE'&&!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])&&r['Canal']);
+  const allValid=rows.filter(r=>r['Marge brute']!=='MARGE NON CALCULABLE'&&!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])&&r['Canal']);
+  const th={padding:'8px 10px',fontSize:11,fontWeight:600,color:'#6b6560',textAlign:'right',borderBottom:'2px solid #e2ddd6',background:'#f8f7f5',whiteSpace:'nowrap'};
+  return <div style={{minHeight:'100vh',background:'#f8f7f5'}}>
+    <div style={{maxWidth:1200,margin:'0 auto',padding:'24px 16px'}}>
+      <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:16}}>
+        <button onClick={onBack} style={{background:'none',border:'none',cursor:'pointer',fontSize:20,color:'#9e9890',padding:0}}>←</button>
+        <div>
+          <div style={{fontSize:20,fontWeight:700,color:'#1a1814'}}>📊 Base Sales v3</div>
+          {importedAt&&<div style={{fontSize:11,color:'#9e9890',marginTop:2}}>
+            Dernier chargement le {new Date(importedAt).toLocaleDateString('fr-FR')} à {new Date(importedAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}
+          </div>}
+        </div>
+      </div>
+      <div style={{display:'flex',gap:8,marginBottom:20}}>
+        {[{k:'commande',l:'Analyse par commande'},{k:'produit',l:'Analyse par produit'}].map(v=>
+          <button key={v.k} onClick={()=>setView(v.k)}
+            style={{padding:'8px 16px',borderRadius:8,border:`1px solid ${view===v.k?'#2d6a4f':'#e2ddd6'}`,
+              background:view===v.k?'#2d6a4f':'#fff',color:view===v.k?'#fff':'#6b6560',
+              fontSize:13,fontWeight:500,cursor:'pointer'}}>{v.l}</button>
+        )}
+      </div>
+      {loading?<div style={{textAlign:'center',padding:40,color:'#9e9890'}}>Chargement...</div>
+      :rows.length===0?<div style={{textAlign:'center',padding:40,color:'#9e9890'}}>Aucune donnée — importez un CSV dans les Paramètres.</div>
+      :view==='commande'?<div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',overflow:'hidden'}}>
+        <div style={{overflowX:'auto'}}>
+          <table style={{width:'100%',borderCollapse:'collapse'}}>
+            <thead><tr>
+              <th style={{...th,textAlign:'left',minWidth:100}}>Mois {year}</th>
+              <th style={th}>Qté</th>
+              <th style={th}>CA</th><th style={th}>Marge</th><th style={th}>Taux</th>
+              <th style={th}>Moy.6M</th>
+              <th style={th}>CA {prevYear}</th><th style={th}>Marge {prevYear}</th><th style={th}>Taux {prevYear}</th>
+            </tr></thead>
+            <tbody>
+              {[1,2,3,4,5,6,7,8,9,10,11,12].map(m=>
+                <Bsv3MonthRow key={m} month={m} year={year}
+                  rows={validRows} rowsPrev={prevRows} allRows={allValid}
+                  expanded={!!expanded[m]} onToggle={()=>setExpanded(p=>({...p,[m]:!p[m]}))}/>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      :<div style={{textAlign:'center',padding:40,color:'#9e9890'}}>Analyse par produit — à venir</div>}
     </div>
   </div>;
 }
