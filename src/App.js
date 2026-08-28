@@ -946,7 +946,7 @@ function FeedbackBox({currentUser, teamMember}) {
   );
 }
 
-function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,okrData,isAdmin,onOpenSettings,onSendMessage,absencesList=[]}){
+function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,okrData,isAdmin,onOpenSettings,onChangeSeasonKey,onSendMessage,absencesList=[]}){
   const {objectives=[],subobjectives=[],keyresults=[],seasonKey:_sk}=okrData||{};
   const seasonKey=okrData?.seasonKey||"printemps_2026";
   const avgProg=calcWeightedAvg(objectives,subobjectives,keyresults);
@@ -999,7 +999,25 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
 
       {/* ── SECTION OKR ── pleine largeur */}
       <div style={{display:"flex",flexDirection:"column",gap:2,marginBottom:16}}>
-        <SeasonBanner seasonKey={seasonKey||"printemps_2026"} avgProg={avgProg} totalKR={totalKR} doneKR={doneKR}/>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          {currentUser?.email===OWNER_EMAIL&&(()=>{
+            const allKeys=["printemps_2026","ete_2026","automne_2026","hiver_2027","printemps_2027","ete_2027","automne_2027"];
+            const idx=allKeys.indexOf(seasonKey||"printemps_2026");
+            const canPrev=idx>0;const canNext=idx<allKeys.length-1;
+            return <><button onClick={canPrev?()=>onChangeSeasonKey&&onChangeSeasonKey(allKeys[idx-1]):undefined}
+              style={{background:'none',border:'1px solid #e2ddd6',borderRadius:6,cursor:canPrev?'pointer':'not-allowed',padding:'2px 8px',fontSize:16,color:canPrev?'#2d6a4f':'#c5c0b8',lineHeight:1}}>←</button></>;
+          })()}
+          <div style={{flex:1}}>
+            <SeasonBanner seasonKey={seasonKey||"printemps_2026"} avgProg={avgProg} totalKR={totalKR} doneKR={doneKR}/>
+          </div>
+          {currentUser?.email===OWNER_EMAIL&&(()=>{
+            const allKeys=["printemps_2026","ete_2026","automne_2026","hiver_2027","printemps_2027","ete_2027","automne_2027"];
+            const idx=allKeys.indexOf(seasonKey||"printemps_2026");
+            const canNext=idx<allKeys.length-1;
+            return <><button onClick={canNext?()=>onChangeSeasonKey&&onChangeSeasonKey(allKeys[idx+1]):undefined}
+              style={{background:'none',border:'1px solid #e2ddd6',borderRadius:6,cursor:canNext?'pointer':'not-allowed',padding:'2px 8px',fontSize:16,color:canNext?'#2d6a4f':'#c5c0b8',lineHeight:1}}>→</button></>;
+          })()}
+        </div>
         {/* Personal banner with OKR button inside */}
         {myKRsOwned.length>0&&(()=>{
           const col=progColorRel(myPersonalProg,avgProg);
@@ -4890,6 +4908,10 @@ export default function App(){
       return '⚠️ Import Reporting complexe — utilisez le script Terminal : mv ~/Downloads/reporting_data.json ~/Desktop/Calendula/reporting_data.json && node push_reporting.js';
     }catch(e){return '❌ '+e.message;}
   }
+  async function handleChangeSeasonKey(newKey){
+    const current=okrData?.allSeasons||{};
+    await setDoc(doc(db,"okr","data"),{allSeasons:current,seasonKey:newKey},{merge:true});
+  }
   async function handleSaveBsv3(rows){
     const CHUNK=2000;
     const importedAt=new Date().toISOString();
@@ -4973,7 +4995,7 @@ export default function App(){
     currentUser={authUser}
     teamMember={currentTeamMember}
     teamMembers={teamMembers}
-    onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")}
+    onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} onChangeSeasonKey={handleChangeSeasonKey}
     onGoOKR={()=>setPage("okr")}
     onGoUpdate={()=>setPage("update")}
     onGoSettings={()=>setPage("settings")}
