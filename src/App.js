@@ -666,27 +666,61 @@ function Bsv3Banner({onGoBsv3}) {
       }
     }).catch(()=>{});
   },[]);
+  const [bsv3Rows, setBsv3Rows] = useState([]);
+  const [bsv3Year, setBsv3Year] = useState(null);
+  useEffect(()=>{
+    getDocs(collection(db,'bsv3_data')).then(snap=>{
+      if(!snap.empty){
+        let all=[];let at=null;
+        snap.docs.sort((a,b)=>a.id.localeCompare(b.id)).forEach(d=>{
+          const data=d.data();all=all.concat(data.rows||[]);
+          if(!at)at=data.importedAt;
+        });
+        setBsv3ImportedAt(at);
+        const importDate=at?new Date(at):new Date();
+        const yr=importDate.getMonth()===0?importDate.getFullYear()-1:importDate.getFullYear();
+        setBsv3Year(yr);
+        const valid=all.filter(r=>r['Année Emission']===String(yr)&&!['CASIER-OE','COIFFE-OE','CONTENANT BOUTEILLE'].includes(r['Contenant+Appelation/Robe'])&&r['Canal']);
+        setBsv3Rows(valid);
+      }
+    }).catch(()=>{});
+  },[]);
+
+  // Compute KPIs
+  const bsv3CA=bsv3Rows.reduce((s,r)=>s+parseBsv3Amt(r['Montant HT']),0);
+  const bsv3Marge=bsv3Rows.reduce((s,r)=>s+parseBsv3Amt(r['Marge brute']),0);
+  const bsv3Taux=bsv3CA?bsv3Marge/bsv3CA:null;
+  // Last 6 months rolling
+  const maxMonth=bsv3Rows.length?Math.max(...bsv3Rows.map(r=>parseInt(r['Mois Emission'])||0)):0;
+  const prevYear=bsv3Year?bsv3Year-1:null;
+  const validPrev=bsv3Rows.length&&bsv3Year?[]:[];// prev year loaded separately if needed - placeholder
+  const bsv3MargeN1=0;// placeholder until prev year data loaded
+  const bsv3VarMarge=bsv3Marge-bsv3MargeN1;
+
+  const fmtK=v=>{if(!v&&v!==0)return '—';const abs=Math.abs(v);const s=abs>=1000?(abs/1000).toFixed(0)+'k':abs.toFixed(0);return (v<0?'-':'')+s+'€';};
+  const fmtPctB=v=>v!=null?(v*100).toFixed(1)+'%':'—';
   const items=[
-    {label:"KPI 1",val:null,col:"#1a1814"},
-    {label:"KPI 2",val:null,col:"#1a1814"},
-    {label:"KPI 3",val:null,col:"#1a1814"},
-    {label:"KPI 4",val:null,col:"#1a1814"},
-    {label:"KPI 5",val:null,col:"#1a1814"},
+    {label:"CA YTD",val:bsv3CA||null,col:"#1a1814",fmt:fmtK},
+    {label:"Marge YTD",val:bsv3Marge||null,col:bsv3Marge<0?"#c0392b":"#1a1814",fmt:fmtK},
+    {label:"Moy. 6M",val:bsv3Taux,col:"#1a1814",fmt:fmtPctB},
+    {label:"Taux YTD",val:bsv3Taux,col:bsv3Taux!=null&&bsv3Taux<0?"#c0392b":"#1a1814",fmt:fmtPctB},
+    {label:"Var. Marge N-1",val:bsv3VarMarge||null,col:bsv3VarMarge<0?"#c0392b":"#2d6a4f",fmt:fmtK},
   ];
   return (
     <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"14px 20px",
       display:"flex",alignItems:"center",gap:0,boxShadow:"0 1px 3px rgba(0,0,0,.04)",marginBottom:4}}>
       {items.map((item,i)=><React.Fragment key={i}>
         <div style={{flex:1,textAlign:"center",padding:"0 12px"}}>
-          <div style={{fontSize:26,fontWeight:700,color:"#9e9890",lineHeight:1,fontFamily:"monospace"}}>—</div>
+          <div style={{fontSize:26,fontWeight:700,color:item.val!=null?item.col:"#9e9890",lineHeight:1,fontFamily:"monospace"}}>{item.val!=null?(item.fmt||String)(item.val):'—'}</div>
           <div style={{fontSize:9,color:"#9e9890",marginTop:3,textTransform:"uppercase",letterSpacing:".05em"}}>{item.label}</div>
         </div>
-        {i<4&&<div style={{width:1,background:"#e2ddd6",alignSelf:"stretch",flexShrink:0}}/>}
+        {i<4&&<div key={"sep"+i} style={{width:1,background:"#e2ddd6",alignSelf:"stretch",flexShrink:0}}/>}
       </React.Fragment>)}
       <div style={{width:1,background:"#e2ddd6",alignSelf:"stretch",flexShrink:0}}/>
-      <div style={{paddingLeft:20,flexShrink:0}}>
+      <div style={{flex:1,textAlign:"center",padding:"0 12px"}}>
         <button onClick={onGoBsv3}
-          style={{display:"block",padding:"8px 14px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,
+          style={{display:"inline-flex",alignItems:"center",gap:6,padding:"8px 16px",
+            background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,
             cursor:"pointer",fontSize:12,fontWeight:500,
             transition:"opacity .15s"}}
           onMouseEnter={e=>e.currentTarget.style.opacity=".85"}
@@ -4016,9 +4050,12 @@ const BSV3_EXCLUDE_PRODUITS=new Set(['CASIER-OE','COIFFE-OE','CONTENANT BOUTEILL
 const MOIS_LABELS=['','Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
 
 function parseBsv3Amt(s){
-  if(!s)return 0;
-  try{return parseFloat(String(s).replace(/€/g,'').replace(/[\s\u00a0]/g,'').replace(',','.').trim());}
-  catch(e){return 0;}
+  if(!s||s==='MARGE NON CALCULABLE')return 0;
+  try{
+    const clean=String(s).replace(/€/g,'').replace(/[\s\u00a0\u202f\u2009]/g,'').replace(',','.').trim();
+    const v=parseFloat(clean);
+    return isNaN(v)?0:v;
+  }catch(e){return 0;}
 }
 
 function useBsv3Data(){
@@ -4151,6 +4188,33 @@ function Bsv3MonthRow({month,year,rows,rowsPrev,allRows,expanded,onToggle}){
   </React.Fragment>;
 }
 
+const CANAL_ORDER=['#N/A','Tiers absent de Hubspot','B2C','CHR','Grands Comptes','Retail','Export'];
+const CANAL_LAST=['Régénération'];
+function sortCanaux(vals){
+  return [...vals].sort((a,b)=>{
+    const ia=CANAL_ORDER.indexOf(a),ib=CANAL_ORDER.indexOf(b);
+    const la=CANAL_LAST.indexOf(a),lb=CANAL_LAST.indexOf(b);
+    if(ia>=0&&ib>=0)return ia-ib;
+    if(ia>=0)return -1;if(ib>=0)return 1;
+    if(la>=0&&lb>=0)return la-lb;
+    if(la>=0)return 1;if(lb>=0)return -1;
+    return a.localeCompare(b);
+  });
+}
+function sortProduits(vals){
+  const prefix=(s)=>{
+    if(s.startsWith('E'))return 0;
+    if(s.startsWith('P'))return 1;
+    if(s.startsWith('M'))return 2;
+    if(s.startsWith('C'))return 3;
+    return 4;
+  };
+  return [...vals].sort((a,b)=>{
+    const pa=prefix(a),pb=prefix(b);
+    if(pa!==pb)return pa-pb;
+    return a.localeCompare(b);
+  });
+}
 // Generic BSv3 table with configurable drill-down order
 function Bsv3LeafRows({rows,prevRows,indent=48}){
   const cellS={padding:'4px 10px',fontSize:10,textAlign:'right',borderBottom:'1px solid #eae7e1',fontFamily:'monospace',background:'#efecea'};
@@ -4205,7 +4269,9 @@ function Bsv3DrillRow({label,rows,prevRows,allRows,year,levels,levelIdx,depth,al
     else if(nextLevel==='client'){
       const caMap={};vals.forEach(v=>{caMap[v]=rows.filter(r=>r['Client PL']===v).reduce((s,r)=>s+parseBsv3Amt(r['Montant HT']),0);});
       children=vals.sort((a,b)=>caMap[b]-caMap[a]);
-    }else children=vals.sort((a,b)=>a.localeCompare(b));
+    }else if(nextLevel==='canal') children=sortCanaux(vals);
+    else if(nextLevel==='produit') children=sortProduits(vals);
+    else children=vals.sort((a,b)=>a.localeCompare(b));
   }
 
   // Show qty only at product level
@@ -4246,6 +4312,8 @@ function Bsv3Table({view,year,prevYear,validRows,prevRows,allValid,expanded,setE
   let topSorted;
   if(levels[0]==='mois') topSorted=topVals.sort((a,b)=>parseInt(a)-parseInt(b));
   else if(levels[0]==='client'){const caMap={};topVals.forEach(v=>{caMap[v]=validRows.filter(r=>r['Client PL']===v).reduce((s,r)=>s+parseBsv3Amt(r['Montant HT']),0);});topSorted=topVals.sort((a,b)=>caMap[b]-caMap[a]);}
+  else if(levels[0]==='canal') topSorted=sortCanaux(topVals);
+  else if(levels[0]==='produit') topSorted=sortProduits(topVals);
   else topSorted=topVals.sort((a,b)=>a.localeCompare(b));
 
   const firstLabel=levels[0]==='mois'?`Mois ${year}`:levels[0]==='canal'?'Canal':levels[0]==='client'?'Client':levels[0]==='produit'?'Produit':'';
@@ -4269,6 +4337,42 @@ function Bsv3Table({view,year,prevYear,validRows,prevRows,allValid,expanded,setE
               depth={0} allValid6M={allValid} expanded={expanded} setExpanded={setExpanded}/>;
           })}
         </tbody>
+        <tfoot>
+          {(()=>{
+            const aggTotal=aggBsv3(validRows);
+            const aggTotalP=aggBsv3(prevRows);
+            // YTD: same months as current year but for prev year
+            const maxMonth=Math.max(...validRows.map(r=>parseInt(r['Mois Emission'])||0));
+            const ytdPrev=prevRows.filter(r=>parseInt(r['Mois Emission'])<=maxMonth);
+            const aggYTD=aggBsv3(ytdPrev);
+            const tf={padding:'8px 10px',fontSize:12,textAlign:'right',borderTop:'2px solid #e2ddd6',fontFamily:'monospace',fontWeight:600,background:'#f8f7f5'};
+            const tfl={...tf,textAlign:'left',minWidth:150};
+            return <>
+              <tr>
+                <td style={tfl}>TOTAL {year}</td>
+                <td style={{...tf,textAlign:'center'}}>—</td>
+                <td style={tf}>{fmtBEur(aggTotal.ca)}</td>
+                <td style={tf}>{fmtBEur(aggTotal.marge)}</td>
+                <td style={{...tf,color:aggTotal.taux!=null&&aggTotal.taux<0?'#c0392b':'#2d6a4f'}}>{fmtBPct(aggTotal.taux)}</td>
+                <td style={tf}>—</td>
+                <td style={{...tf,color:'#9e9890'}}>{fmtBEur(aggTotalP.ca)}</td>
+                <td style={{...tf,color:'#9e9890'}}>{fmtBEur(aggTotalP.marge)}</td>
+                <td style={{...tf,color:'#9e9890'}}>{fmtBPct(aggTotalP.taux)}</td>
+              </tr>
+              <tr>
+                <td style={{...tfl,fontSize:11,fontWeight:400,color:'#6b6560'}}>YTD {prevYear} (jan-{MOIS_LABELS[maxMonth]||maxMonth})</td>
+                <td style={{...tf,fontSize:11,fontWeight:400,textAlign:'center'}}>—</td>
+                <td style={{...tf,fontSize:11,fontWeight:400,color:'#9e9890'}}>{fmtBEur(aggYTD.ca)}</td>
+                <td style={{...tf,fontSize:11,fontWeight:400,color:'#9e9890'}}>{fmtBEur(aggYTD.marge)}</td>
+                <td style={{...tf,fontSize:11,fontWeight:400,color:'#9e9890'}}>{fmtBPct(aggYTD.taux)}</td>
+                <td style={{...tf,fontSize:11,fontWeight:400}}>—</td>
+                <td style={{...tf,fontSize:11,fontWeight:400,color:'#c5c0b8'}}>—</td>
+                <td style={{...tf,fontSize:11,fontWeight:400,color:'#c5c0b8'}}>—</td>
+                <td style={{...tf,fontSize:11,fontWeight:400,color:'#c5c0b8'}}>—</td>
+              </tr>
+            </>;
+          })()}
+        </tfoot>
       </table>
     </div>
   </div>;
