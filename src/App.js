@@ -497,7 +497,8 @@ function NotifDetail({notif, teamMember, teamMembers=[], onSendMessage}) {
   const authorEmail=notif?.fromEmail||notif?.email;
   const isManager=!!(viewerEmail&&authorEmail&&
     teamMembers.find(m=>m.email===authorEmail&&m.managerEmail===viewerEmail));
-  const visibleQs=DEFAULT_QUESTIONS.filter(q=>answers[q.id]&&(q.id!=='q6'||isManager));
+  const allQs=notif?.weekQuestions||DEFAULT_QUESTIONS;
+  const visibleQs=allQs.filter(q=>answers[q.id]&&(q.id!=='q6'||isManager));
   const [replyText,setReplyText]=useState('');
   const [replySent,setReplySent]=useState(false);
   async function sendReply(){
@@ -519,6 +520,22 @@ function NotifDetail({notif, teamMember, teamMembers=[], onSendMessage}) {
         <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:3}}>{q.text.replace(" *","")}</div>
         <div style={{fontSize:13,background:"#f5f3ef",borderRadius:6,padding:"5px 10px"}}>{val}</div>
       </div>;
+      if(q.type==="okr"&&val?.krIds){
+        const krIds=val.krIds||[];
+        const seasonKRs=(window._okrSeasons&&val.seasonKey?window._okrSeasons[val.seasonKey]?.keyresults:null)||[];
+        return <div key={q.id} style={{marginBottom:10,background:"#f0fdf4",borderRadius:6,padding:"8px 10px"}}>
+          <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:6}}>{q.text.replace(" *","")}</div>
+          {krIds.map(id=>{
+            const kr=seasonKRs.find(k=>k.id===id);
+            const contribs=kr?.contributors||[];
+            return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"3px 0",display:"flex",alignItems:"center",gap:6}}>
+              ✅ <span style={{fontFamily:"monospace",color:"#9e9890",fontSize:11}}>{id}</span>
+              <span>{kr?.title||id}</span>
+              {contribs.map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:18,height:18,borderRadius:"50%",background:pBg(c),color:"#fff",fontSize:8,fontWeight:600}}>{ini(c)}</span>)}
+            </div>;
+          })}
+        </div>;
+      }
       return <div key={q.id} style={{marginBottom:10,background:q.confidentiel?"#fdf4ff":"transparent",padding:q.confidentiel?"6px 10px":"0",borderRadius:q.confidentiel?6:0}}>
         <div style={{fontSize:11,fontWeight:600,color:q.confidentiel?"#a21caf":"#9e9890",marginBottom:3}}>{q.confidentiel?"🔒 ":""}{q.text.replace(" *","")}</div>
         <div style={{fontSize:13,whiteSpace:"pre-wrap",color:"#1a1814"}}>{val}</div>
@@ -1365,7 +1382,8 @@ function UpdateViewModal({notif,onClose,onRead,teamMembers=[]}){
     setReplySent(true);
     setTimeout(()=>{setReplyText('');setReplySent(false);},2000);
   }
-  const visibleQs=DEFAULT_QUESTIONS.filter(q=>q.id!=="q7"&&answers[q.id]&&(q.id!=="q6"||canSeeQ6));
+  const weekQs=notif?.updateData?.weekQuestions||notif?.weekQuestions||DEFAULT_QUESTIONS;
+  const visibleQs=weekQs.filter(q=>q.id!=="q7"&&answers[q.id]&&(q.id!=="q6"||canSeeQ6));
   return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
     <div style={{background:"#fff",borderRadius:12,padding:28,width:"90%",maxWidth:580,maxHeight:"85vh",overflowY:"auto"}}>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
@@ -1501,7 +1519,7 @@ function TeamUpdatesSection({allUpdates, teamMembers=[], teamMember, onSelectWee
   );
 }
 
-function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,allUpdates=[],teamMembers=[]}){
+function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,allUpdates=[],teamMembers=[],okrData}){
   const _rawWeekKey=getUpdateWeekKey();
   // On Tuesday weekKey is null - use last week for display purposes (read-only)
   const weekKey=_rawWeekKey||(()=>{const d=new Date();d.setDate(d.getDate()-8);return getWeekKey(d);})();
@@ -1670,8 +1688,8 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
           })}
         </div>
         {(()=>{
-          const requiredQs=(questions||DEFAULT_QUESTIONS).filter(q=>q.type==="textarea"&&!q.confidentiel||(q.type==="mood"||q.type==="presence"));
-          const allFilled=requiredQs.every(q=>answers[q.id]&&String(answers[q.id]).trim().length>0);
+          const requiredQs=(questions||DEFAULT_QUESTIONS).filter(q=>(q.type==="textarea"||q.type==="okr")&&!q.confidentiel||(q.type==="mood"||q.type==="presence"));
+          const allFilled=requiredQs.every(q=>{if(q.type==="okr")return answers[q.id]?.krIds?.length>0;return answers[q.id]&&String(answers[q.id]).trim().length>0;});
           return <div style={{display:"flex",gap:10,marginTop:20}}>
             <button onClick={async()=>{
               if(!window.confirm("Supprimer définitivement cet update ?"))return;
@@ -3255,34 +3273,63 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
         </div>
       </div>}
 
-      {tab==="questions"&&(
-        <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"18px 20px"}}>
+      {tab==="questions"&&(()=>{
+        const [qDragFrom,setQDragFrom]=useState(null);
+        const [qDragOver,setQDragOver]=useState(null);
+        function saveQs(newQs){setQs(newQs);onSaveQuestions&&onSaveQuestions(newQs);}
+        function addQ(){
+          const newId='q'+Date.now();
+          saveQs([...qs,{id:newId,text:'Nouvelle question',type:'textarea',confidentiel:false}]);
+        }
+        function delQ(i){saveQs(qs.filter((_,j)=>j!==i));}
+        function dropQ(toIdx){
+          if(qDragFrom===null||qDragFrom===toIdx){setQDragFrom(null);setQDragOver(null);return;}
+          const next=[...qs];const [moved]=next.splice(qDragFrom,1);next.splice(toIdx,0,moved);
+          saveQs(next);setQDragFrom(null);setQDragOver(null);
+        }
+        return <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"18px 20px"}}>
           <div style={{fontSize:13,fontWeight:600,marginBottom:14}}>Questions de l'Update hebdomadaire</div>
           {qs.map((q,i)=>(
-            <div key={q.id} style={{marginBottom:14,padding:"12px",background:"#f8f7f5",borderRadius:8,border:"1px solid #e2ddd6"}}>
+            <div key={q.id}
+              draggable
+              onDragStart={()=>setQDragFrom(i)}
+              onDragOver={e=>{e.preventDefault();setQDragOver(i);}}
+              onDragLeave={()=>setQDragOver(null)}
+              onDrop={e=>{e.preventDefault();dropQ(i);}}
+              style={{marginBottom:10,padding:"12px",background:"#f8f7f5",borderRadius:8,
+                border:`1px solid ${qDragOver===i&&qDragFrom!==i?'#2d6a4f':'#e2ddd6'}`,
+                cursor:'grab',opacity:qDragFrom===i?0.5:1}}>
               <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
-                <span style={{fontSize:11,fontFamily:"monospace",color:"#9e9890",marginTop:3,minWidth:24}}>{i+1}.</span>
+                <span style={{fontSize:11,color:"#c5c0b8",marginTop:4}}>⠿</span>
+                <span style={{fontSize:11,fontFamily:"monospace",color:"#9e9890",marginTop:3,minWidth:20}}>{i+1}.</span>
                 <div style={{flex:1}}>
-                  <input style={{...INP,fontSize:13,marginBottom:8}} value={q.text} onChange={e=>setQs(p=>p.map((x,j)=>j===i?{...x,text:e.target.value}:x))}/>
-                  <div style={{display:"flex",gap:16,alignItems:"center"}}>
+                  <input style={{...INP,fontSize:13,marginBottom:8}} value={q.text}
+                    onChange={e=>saveQs(qs.map((x,j)=>j===i?{...x,text:e.target.value}:x))}/>
+                  <div style={{display:"flex",gap:16,alignItems:"center",flexWrap:'wrap'}}>
                     <label style={{fontSize:12,color:"#6b6560"}}>Type :
-                      <select value={q.type} onChange={e=>setQs(p=>p.map((x,j)=>j===i?{...x,type:e.target.value}:x))} style={{fontSize:12,border:"1px solid #e2ddd6",borderRadius:4,padding:"2px 6px",marginLeft:4}}>
+                      <select value={q.type} onChange={e=>saveQs(qs.map((x,j)=>j===i?{...x,type:e.target.value}:x))}
+                        style={{fontSize:12,border:"1px solid #e2ddd6",borderRadius:4,padding:"2px 6px",marginLeft:4}}>
                         <option value="textarea">Texte libre</option>
                         <option value="mood">Humeur (smileys)</option>
                         <option value="presence">Présence</option>
+                        <option value="okr">OKR</option>
                       </select>
                     </label>
-                    <label style={{fontSize:12,color:"#6b6560",display:"flex",alignItems:"center",gap:4}}>
-                      <input type="checkbox" checked={!!q.confidentiel} onChange={e=>setQs(p=>p.map((x,j)=>j===i?{...x,confidentiel:e.target.checked}:x))} style={{accentColor:"#a21caf"}}/>
-                      Confidentiel (manager uniquement)
-                    </label>
+                    {q.type!=='okr'&&<label style={{fontSize:12,color:"#6b6560",display:"flex",alignItems:"center",gap:4}}>
+                      <input type="checkbox" checked={!!q.confidentiel} onChange={e=>saveQs(qs.map((x,j)=>j===i?{...x,confidentiel:e.target.checked}:x))} style={{accentColor:"#a21caf"}}/>
+                      Confidentiel
+                    </label>}
                   </div>
                 </div>
+                <button onClick={()=>delQ(i)} style={{background:'none',border:'none',cursor:'pointer',fontSize:16,color:'#c0392b',padding:'0 4px',flexShrink:0}}>❌</button>
               </div>
             </div>
           ))}
-        </div>
-      )}
+          <button onClick={addQ} style={{marginTop:8,padding:'8px 16px',background:'#f0fdf4',border:'1px dashed #2d6a4f',borderRadius:8,color:'#2d6a4f',fontSize:13,fontWeight:500,cursor:'pointer',width:'100%'}}>
+            + Ajouter une question
+          </button>
+        </div>;
+      })()}
 
       {tab==="history"&&<UpdatesHistoryTab/>}
       {tab==="feedback"&&<FeedbackAdminTab/>}
@@ -4541,6 +4588,8 @@ export default function App(){
   const [teammateNotifs,setTeammateNotifs]=useState([]);
   const [appLoaded,setAppLoaded]=useState(false);
   const [okrData,setOkrData]=useState({objectives:[],subobjectives:[],keyresults:[]});
+  // Expose allSeasons globally for OKR question rendering in updates
+  useEffect(()=>{if(okrData?.allSeasons)window._okrSeasons=okrData.allSeasons;},[okrData]);
 
   // Firebase auth listener
   useEffect(()=>{
@@ -4710,7 +4759,7 @@ export default function App(){
     const me=currentTeamMember;
     // Save update with updatedAt timestamp
     const weekDocId=`${authUser.email}_${updateData.weekKey}`;
-    const updateWithMeta={...updateData,email:authUser.email,prenom:me?.prenom,updatedAt:Date.now()};
+    const updateWithMeta={...updateData,email:authUser.email,prenom:me?.prenom,updatedAt:Date.now(),weekQuestions:questions||DEFAULT_QUESTIONS};
     await setDoc(doc(db,"updates",weekDocId),updateWithMeta);
 
     // Create/update notification for manager
@@ -4873,7 +4922,7 @@ export default function App(){
   }
 
   if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers}/>;
-  if(page==="update")return <UpdatePage teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers}/>;
+  if(page==="update")return <UpdatePage teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} okrData={okrData} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers}/>;
   if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels} savedCanalMargin={savedCanalMargin}/>;
   if(page==="bsv3")return <Bsv3Page onBack={()=>setPage('dashboard')}/>;
   if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels} savedCanalMargin={savedCanalMargin} onSaveCanalMargin={handleSaveCanalMargin} onSendMessage={handleSendMessage} onSaveBsv3={handleSaveBsv3} onUploadReporting={handleUploadReporting}/>;
