@@ -524,7 +524,7 @@ function NotifDetail({notif, teamMember, teamMembers=[], onSendMessage}) {
       if(q.type==="mood")return null;
       if(q.type==="presence")return <div key={q.id} style={{marginBottom:10}}>
         <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:3}}>{q.text.replace(" *","")}</div>
-        <div style={{fontSize:13,background:"#f5f3ef",borderRadius:6,padding:"5px 10px"}}>{val}</div>
+        <div style={{fontSize:13,background:"#f5f3ef",borderRadius:6,padding:"5px 10px"}}>{typeof val==="object"?(val?.krIds||[]).join(', '):val}</div>
       </div>;
       if(q.type==="okr"&&val?.krIds){
         const krIds=val.krIds||[];
@@ -542,9 +542,17 @@ function NotifDetail({notif, teamMember, teamMembers=[], onSendMessage}) {
           })}
         </div>;
       }
+      if(q.type==="okr"&&val?.krIds){
+        const krIds=val.krIds||[];
+        const seasonKRs=(window._okrSeasons&&val.seasonKey?window._okrSeasons[val.seasonKey]?.keyresults:null)||[];
+        return <div key={q.id} style={{background:"#f0fdf4",borderRadius:6,padding:"8px 10px"}}>
+          <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text.replace(" *","")}</div>
+          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||id}</div>;})}
+        </div>;
+      }
       return <div key={q.id} style={{marginBottom:10,background:q.confidentiel?"#fdf4ff":"transparent",padding:q.confidentiel?"6px 10px":"0",borderRadius:q.confidentiel?6:0}}>
         <div style={{fontSize:11,fontWeight:600,color:q.confidentiel?"#a21caf":"#9e9890",marginBottom:3}}>{q.confidentiel?"🔒 ":""}{q.text.replace(" *","")}</div>
-        <div style={{fontSize:13,whiteSpace:"pre-wrap",color:"#1a1814"}}>{val}</div>
+        <div style={{fontSize:13,whiteSpace:"pre-wrap",color:"#1a1814"}}>{typeof val==="object"?(val?.krIds||[]).join(', '):val}</div>
       </div>;
     })}
     {isManager&&<div style={{marginTop:16,borderTop:"1px solid #e2ddd6",paddingTop:16}}>
@@ -1420,13 +1428,21 @@ function UpdateViewModal({notif,onClose,onRead,teamMembers=[]}){
         if(!val)return null;
         if(q.type==="presence")return <div key={q.id} style={{marginBottom:14}}>
           <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text.replace(" *","")}</div>
-          <div style={{fontSize:13,background:"#f5f3ef",borderRadius:6,padding:"6px 10px"}}>{val}</div>
+          <div style={{fontSize:13,background:"#f5f3ef",borderRadius:6,padding:"6px 10px"}}>{typeof val==="object"?(val?.krIds||[]).join(', '):val}</div>
         </div>;
+      if(q.type==="okr"&&val?.krIds){
+        const krIds=val.krIds||[];
+        const seasonKRs=(window._okrSeasons&&val.seasonKey?window._okrSeasons[val.seasonKey]?.keyresults:null)||[];
+        return <div key={q.id} style={{marginBottom:10,background:"#f0fdf4",borderRadius:6,padding:"8px 10px"}}>
+          <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text.replace(" *","")}</div>
+          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||id}</div>;})}
+        </div>;
+      }
         return <div key={q.id} style={{marginBottom:14,background:q.confidentiel?"#fdf4ff":"transparent",padding:q.confidentiel?"8px 10px":"0",borderRadius:q.confidentiel?6:0,border:q.confidentiel?"1px solid #e9d5ff":"none"}}>
           <div style={{fontSize:11,fontWeight:600,color:q.confidentiel?"#a21caf":"#9e9890",marginBottom:4}}>
             {q.confidentiel?"🔒 ":""}{q.text.replace(" *","").replace(" ?","").trim()+" ?"}
           </div>
-          <div style={{fontSize:13,whiteSpace:"pre-wrap",color:"#1a1814"}}>{val}</div>
+          <div style={{fontSize:13,whiteSpace:"pre-wrap",color:"#1a1814"}}>{typeof val==="object"?(val?.krIds||[]).join(', '):val}</div>
         </div>;
       })}
       <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginTop:20,borderTop:"1px solid #e2ddd6",paddingTop:16}}>
@@ -1676,9 +1692,17 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
             const val=answers[q.id];
             if(q.type==="mood")return <div key={q.id} style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:11,color:"#9e9890",flex:1}}>{q.text.replace(" *","")}</span><span style={{fontSize:22}}>{val}</span></div>;
             if(q.type==="presence")return <div key={q.id}><span style={{fontSize:11,color:"#9e9890"}}>{q.text.replace(" *","")}</span><div style={{fontSize:12,background:"#fff",borderRadius:6,padding:"4px 8px",marginTop:3}}>{val}</div></div>;
+      if(q.type==="okr"&&val?.krIds){
+        const krIds=val.krIds||[];
+        const seasonKRs=(window._okrSeasons&&val.seasonKey?window._okrSeasons[val.seasonKey]?.keyresults:null)||[];
+        return <div key={q.id} style={{marginBottom:10,background:"#f0fdf4",borderRadius:6,padding:"8px 10px"}}>
+          <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text.replace(" *","")}</div>
+          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||id}</div>;})}
+        </div>;
+      }
             return <div key={q.id} style={{background:q.confidentiel?"#fdf4ff":"#fff",borderRadius:6,padding:"8px 10px",border:"1px solid #e2ddd6"}}>
               <div style={{fontSize:10,fontWeight:600,color:q.confidentiel?"#a21caf":"#9e9890",marginBottom:3}}>{q.confidentiel?"🔒 ":""}{q.text.replace(" *","")}</div>
-              <div style={{fontSize:12,whiteSpace:"pre-wrap",color:"#1a1814"}}>{val}</div>
+              <div style={{fontSize:12,whiteSpace:"pre-wrap",color:"#1a1814"}}>{typeof val==="object"?(val?.krIds||[]).join(', '):val}</div>
             </div>;
           })}
         </div>
@@ -1885,9 +1909,17 @@ function UpdatesHistoryTab(){
               const val=u.answers[q.id];
               if(q.type==="mood")return <div key={q.id} style={{marginBottom:8,display:"flex",gap:8,alignItems:"center"}}><span style={{fontSize:10,color:"#9e9890",flex:1}}>{q.text.replace(" *","")}</span><span style={{fontSize:20}}>{val}</span></div>;
               if(q.type==="presence")return <div key={q.id} style={{marginBottom:8}}><div style={{fontSize:10,color:"#9e9890",marginBottom:2}}>{q.text.replace(" *","")}</div><div style={{fontSize:12,background:"#f5f3ef",borderRadius:4,padding:"3px 8px"}}>{val}</div></div>;
+      if(q.type==="okr"&&val?.krIds){
+        const krIds=val.krIds||[];
+        const seasonKRs=(window._okrSeasons&&val.seasonKey?window._okrSeasons[val.seasonKey]?.keyresults:null)||[];
+        return <div key={q.id} style={{marginBottom:8,background:"#f0fdf4",borderRadius:6,padding:"8px 10px"}}>
+          <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text.replace(" *","")}</div>
+          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||id}</div>;})}
+        </div>;
+      }
               return <div key={q.id} style={{marginBottom:8,background:q.confidentiel?"#fdf4ff":"#f8f7f5",borderRadius:6,padding:"6px 10px",border:q.confidentiel?"1px solid #e9d5ff":"none"}}>
                 <div style={{fontSize:10,fontWeight:600,color:q.confidentiel?"#a21caf":"#9e9890",marginBottom:3}}>{q.confidentiel?"🔒 ":""}{q.text.replace(" *","")}</div>
-                <div style={{fontSize:12,whiteSpace:"pre-wrap",color:"#1a1814"}}>{val}</div>
+                <div style={{fontSize:12,whiteSpace:"pre-wrap",color:"#1a1814"}}>{typeof val==="object"?(val?.krIds||[]).join(', '):val}</div>
               </div>;
             })}
           </div>}
@@ -3389,7 +3421,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
         </div>
       </div>}
 
-      {tab==="questions"&&<QuestionsEditor qs={qs} onSave={newQs=>{setQs(newQs);onSaveQuestions&&onSaveQuestions(newQs);}}/> }
+      {tab==="questions"&&<QuestionsEditor qs={qs} onSave={newQs=>{setQs(newQs);onSaveQuestions&&onSaveQuestions(newQs);}}/>
 
       {tab==="history"&&<UpdatesHistoryTab/>}
       {tab==="feedback"&&<FeedbackAdminTab/>}
