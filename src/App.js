@@ -547,7 +547,7 @@ function NotifDetail({notif, teamMember, teamMembers=[], onSendMessage}) {
         const seasonKRs=(window._okrSeasons&&val.seasonKey?window._okrSeasons[val.seasonKey]?.keyresults:null)||[];
         return <div key={q.id} style={{background:"#fff",borderRadius:6,border:"1px solid #e2ddd6",padding:"8px 10px"}}>
           <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text.replace(" *","")}</div>
-          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(kr?.contributors||[]).map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",background:pBg(c,teamMembers?.map?.(m=>m.prenom)),color:"#6b6560",fontSize:9,fontWeight:600,marginLeft:3}}>{ini(c)}</span>)}</div>;})}
+          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(kr?.contributors||[]).filter(c=>c!==kr?.owner).map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",background:pBg(c,teamMembers?.map?.(m=>m.prenom)),color:"#6b6560",fontSize:9,fontWeight:600,marginLeft:-4,border:"2px solid #fff"}}>{ini(c)}</span>)}</div>;})}
         </div>;
       }
       return <div key={q.id} style={{marginBottom:10,background:q.confidentiel?"#fdf4ff":"transparent",padding:q.confidentiel?"6px 10px":"0",borderRadius:q.confidentiel?6:0}}>
@@ -669,7 +669,7 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,t
        </div>)}
      </div>
     {selected&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&setSelected(null)}>
-      <div style={{background:"#fff",borderRadius:12,padding:24,width:"90%",maxWidth:520,maxHeight:"80vh",overflowY:"auto"}}>
+      <div style={{background:"#fff",borderRadius:12,padding:24,width:"95%",maxWidth:900,maxHeight:"85vh",overflowY:"auto"}}>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4,flexWrap:"wrap"}}>
           <span style={{fontSize:15,fontWeight:600}}>{selected.title}</span>
           {!selected.isSystem&&selected.notif&&<span style={{fontSize:11,color:"#c0392b",marginLeft:"auto",textAlign:"right"}}>{selected.notif.fromPrenom} a été informé(e) que tu as vu son Update.</span>}
@@ -1400,7 +1400,7 @@ function UpdateViewModal({notif,onClose,onRead,teamMembers=[],readOnly=false}){
   const weekQs=notif?.updateData?.weekQuestions||notif?.weekQuestions||DEFAULT_QUESTIONS;
   const visibleQs=weekQs.filter(q=>q.id!=="q7"&&answers[q.id]&&(q.id!=="q6"||canSeeQ6));
   return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
-    <div style={{background:"#fff",borderRadius:12,padding:28,width:"90%",maxWidth:580,maxHeight:"85vh",overflowY:"auto"}}>
+    <div style={{background:"#fff",borderRadius:12,padding:28,width:"95%",maxWidth:900,maxHeight:"85vh",overflowY:"auto"}}>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
         <div style={{fontSize:16,fontWeight:600}}>Update de {notif.fromPrenom}</div>
         {moodVal&&<span style={{fontSize:26,lineHeight:1}}>{moodVal}</span>}
@@ -1418,7 +1418,7 @@ function UpdateViewModal({notif,onClose,onRead,teamMembers=[],readOnly=false}){
         const seasonKRs=(window._okrSeasons&&val.seasonKey?window._okrSeasons[val.seasonKey]?.keyresults:null)||[];
         return <div key={q.id} style={{marginBottom:10,background:"#fff",borderRadius:6,border:"1px solid #e2ddd6",padding:"8px 10px"}}>
           <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text.replace(" *","")}</div>
-          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(kr?.contributors||[]).map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",background:pBg(c,teamMembers?.map?.(m=>m.prenom)),color:"#6b6560",fontSize:9,fontWeight:600,marginLeft:3}}>{ini(c)}</span>)}</div>;})}
+          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(kr?.contributors||[]).filter(c=>c!==kr?.owner).map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",background:pBg(c,teamMembers?.map?.(m=>m.prenom)),color:"#6b6560",fontSize:9,fontWeight:600,marginLeft:-4,border:"2px solid #fff"}}>{ini(c)}</span>)}</div>;})}
         </div>;
       }
         return <div key={q.id} style={{marginBottom:14,background:q.confidentiel?"#fdf4ff":"transparent",padding:q.confidentiel?"8px 10px":"0",borderRadius:q.confidentiel?6:0,border:q.confidentiel?"1px solid #e9d5ff":"none"}}>
@@ -1681,7 +1681,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
         const seasonKRs=(window._okrSeasons&&val.seasonKey?window._okrSeasons[val.seasonKey]?.keyresults:null)||[];
         return <div key={q.id} style={{marginBottom:10,background:"#fff",borderRadius:6,border:"1px solid #e2ddd6",padding:"8px 10px"}}>
           <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text.replace(" *","")}</div>
-          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(kr?.contributors||[]).map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",background:pBg(c,teamMembers?.map?.(m=>m.prenom)),color:"#6b6560",fontSize:9,fontWeight:600,marginLeft:3}}>{ini(c)}</span>)}</div>;})}
+          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(kr?.contributors||[]).filter(c=>c!==kr?.owner).map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",background:pBg(c,teamMembers?.map?.(m=>m.prenom)),color:"#6b6560",fontSize:9,fontWeight:600,marginLeft:-4,border:"2px solid #fff"}}>{ini(c)}</span>)}</div>;})}
         </div>;
       }
             return <div key={q.id} style={{background:q.confidentiel?"#fdf4ff":"#fff",borderRadius:6,padding:"8px 10px",border:"1px solid #e2ddd6"}}>
@@ -1725,7 +1725,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
                 :<div style={{display:"flex",flexDirection:"column",gap:8}}>
                   {myKRs.sort((a,b)=>a.id.localeCompare(b.id,undefined,{numeric:true})).map(kr=>{
                     const checked=checkedIds.includes(kr.id);
-                    const contribs=kr.contributors||[];
+                    const contribs=(kr.contributors||[]).filter(c=>c!==kr.owner);
                     return <label key={kr.id} style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",padding:"6px 8px",borderRadius:6,background:checked?"#f0fdf4":"#f8f7f5",border:`1px solid ${checked?"#86efac":"#e2ddd6"}`}}>
                       <input type="checkbox" checked={checked} onChange={()=>toggleKR(kr.id)} style={{accentColor:"#2d6a4f",marginTop:2,flexShrink:0}}/>
                       <div style={{flex:1}}>
@@ -1898,7 +1898,7 @@ function UpdatesHistoryTab(){
         const seasonKRs=(window._okrSeasons&&val.seasonKey?window._okrSeasons[val.seasonKey]?.keyresults:null)||[];
         return <div key={q.id} style={{marginBottom:8,background:"#fff",borderRadius:6,border:"1px solid #e2ddd6",padding:"8px 10px"}}>
           <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text.replace(" *","")}</div>
-          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(kr?.contributors||[]).map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",background:pBg(c,teamMembers?.map?.(m=>m.prenom)),color:"#6b6560",fontSize:9,fontWeight:600,marginLeft:3}}>{ini(c)}</span>)}</div>;})}
+          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(kr?.contributors||[]).filter(c=>c!==kr?.owner).map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",background:pBg(c,teamMembers?.map?.(m=>m.prenom)),color:"#6b6560",fontSize:9,fontWeight:600,marginLeft:-4,border:"2px solid #fff"}}>{ini(c)}</span>)}</div>;})}
         </div>;
       }
               return <div key={q.id} style={{marginBottom:8,background:q.confidentiel?"#fdf4ff":"#f8f7f5",borderRadius:6,padding:"6px 10px",border:q.confidentiel?"1px solid #e9d5ff":"none"}}>
@@ -4599,226 +4599,206 @@ function DragPill({level,index,onDragStart,onDragOver,onDrop,isDragOver}){
 }
 
 const BSV3_COMMANDES_USERS = new Set(['fx@oeforgood.com','fiona@oeforgood.com']);
+const SPECIAL_SUFFIXES = ['FL','FE','EC']; // shown before numbers
+const PROD_LETTER_ORDER = ['E','P','M','C'];
 
 function sortProduitsSuffix(vals){
-  // Sort by suffix (chars 1-2) then by initial letter (E, P, M, C, others alphabetically)
-  const LETTER_ORDER = ['E','P','M','C'];
+  function getSfxOrder(code){
+    const sfx = code.slice(1,3).toUpperCase();
+    if(SPECIAL_SUFFIXES.includes(sfx)) return {pri:0, sfx, let: code[0]};
+    const num = parseInt(sfx);
+    if(!isNaN(num)) return {pri:1, sfx: num, let: code[0]};
+    return {pri:2, sfx, let: code[0]};
+  }
+  function letterOrder(l){
+    const i = PROD_LETTER_ORDER.indexOf(l);
+    return i >= 0 ? i : PROD_LETTER_ORDER.length + l.charCodeAt(0);
+  }
   return [...vals].sort((a,b)=>{
-    const sfxA = a.slice(1), sfxB = b.slice(1);
-    // Extract numeric prefix of suffix
-    const numA = parseInt(sfxA), numB = parseInt(sfxB);
-    const isNumA = !isNaN(numA), isNumB = !isNaN(numB);
-    if(isNumA && isNumB && numA !== numB) return numA - numB;
-    if(isNumA && !isNumB) return -1;
-    if(!isNumA && isNumB) return 1;
-    if(sfxA !== sfxB) return sfxA.localeCompare(sfxB);
-    // Same suffix: sort by initial letter
-    const la = LETTER_ORDER.indexOf(a[0]), lb = LETTER_ORDER.indexOf(b[0]);
-    if(la >= 0 && lb >= 0) return la - lb;
-    if(la >= 0) return -1;
-    if(lb >= 0) return 1;
-    return a.localeCompare(b);
+    const oa=getSfxOrder(a), ob=getSfxOrder(b);
+    if(oa.pri !== ob.pri) return oa.pri - ob.pri;
+    if(oa.pri===0){ // special: sort FL,FE,EC in SPECIAL_SUFFIXES order
+      const ia=SPECIAL_SUFFIXES.indexOf(oa.sfx), ib=SPECIAL_SUFFIXES.indexOf(ob.sfx);
+      if(ia!==ib) return ia-ib;
+    } else if(oa.pri===1){ // numeric
+      if(oa.sfx !== ob.sfx) return oa.sfx - ob.sfx;
+    } else { // alpha suffix
+      if(oa.sfx !== ob.sfx) return String(oa.sfx).localeCompare(String(ob.sfx));
+    }
+    return letterOrder(oa.let) - letterOrder(ob.let);
   });
 }
 
 function Bsv3CommandesTable({rows, importedAt, currentUser}){
   const [collapsedYears, setCollapsedYears] = React.useState({});
   const [expandedProds, setExpandedProds] = React.useState({});
+  const [activeLetters, setActiveLetters] = React.useState(null); // null = all
 
   const importDate = importedAt ? new Date(importedAt) : new Date();
-  // Last complete month = month before import month
-  const importMonth = importDate.getMonth() + 1; // 1-12
+  const importMonth = importDate.getMonth() + 1;
   const importYear = importDate.getMonth() === 0 ? importDate.getFullYear()-1 : importDate.getFullYear();
-
-  // Build column list: 12M glissants, YTD, then months going back
-  // Last complete month
   const lastM = importMonth - 1 === 0 ? 12 : importMonth - 1;
   const lastY = importMonth - 1 === 0 ? importYear - 1 : importYear;
 
-  // Build month columns going back: lastM/lastY, lastM-1, ..., showing 2 full years + current YTD
   const months = [];
   let m = lastM, y = lastY;
-  for(let i = 0; i < 24; i++){
-    months.push({m, y});
-    m--; if(m === 0){m = 12; y--;}
+  for(let i=0;i<24;i++){
+    months.push({m,y});
+    m--;if(m===0){m=12;y--;}
   }
-
-  // Years present in months
   const years = [...new Set(months.map(x=>x.y))];
 
-  // Filter valid rows
   const validRows = rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']));
-
-  // All products
   const allProds = [...new Set(validRows.map(r=>r['Contenant+Appelation/Robe']))];
-  const sortedProds = sortProduitsSuffix(allProds);
+  const sortedAllProds = sortProduitsSuffix(allProds);
 
-  function getQty(rows2, mth, yr){
+  // Letter filter buttons
+  const allLetters = [...new Set(sortedAllProds.map(p=>p[0]))].sort((a,b)=>{
+    const ia=PROD_LETTER_ORDER.indexOf(a),ib=PROD_LETTER_ORDER.indexOf(b);
+    if(ia>=0&&ib>=0)return ia-ib;
+    if(ia>=0)return -1;if(ib>=0)return 1;
+    return a.localeCompare(b);
+  });
+
+  const sortedProds = activeLetters
+    ? sortedAllProds.filter(p=>activeLetters.has(p[0]))
+    : sortedAllProds;
+
+  function getQty(rows2,mth,yr){
     return rows2.filter(r=>parseInt(r['Mois Emission'])===mth&&r['Année Emission']===String(yr))
       .reduce((s,r)=>{
         const q=String(r['Quantité équivalent unité']||'0').replace(/[\s\u00a0\u202f]/g,'').replace(',','.');
         return s+(parseFloat(q)||0);
       },0);
   }
-
-  function get12M(rows2){
-    let total=0;
-    let m2=lastM, y2=lastY;
+  function get12M(rows2,fromM,fromY){
+    let total=0,mo=fromM,yr=fromY;
     for(let i=0;i<12;i++){
-      total+=getQty(rows2,m2,y2);
-      m2--;if(m2===0){m2=12;y2--;}
+      total+=getQty(rows2,mo,yr);
+      mo--;if(mo===0){mo=12;yr--;}
     }
     return total;
   }
-
-  function getYTD(rows2, yr){
-    let total=0;
-    for(let mth=1;mth<lastM;mth++) total+=getQty(rows2,mth,yr);
-    // Include lastM if it's current year
-    if(yr===lastY) total+=getQty(rows2,lastM,yr);
+  function getPrev12M(rows2){
+    // 12 months before the gliding 12M window
+    let total=0,mo=lastM,yr=lastY;
+    // skip 12
+    for(let i=0;i<12;i++){mo--;if(mo===0){mo=12;yr--;}}
+    // then sum 12
+    for(let i=0;i<12;i++){
+      total+=getQty(rows2,mo,yr);
+      mo--;if(mo===0){mo=12;yr--;}
+    }
     return total;
   }
-
-  function fmtQ(v){ return v ? Math.round(v).toLocaleString('fr-FR') : '—'; }
+  function getYTD(rows2,yr){
+    let total=0;
+    for(let mth=1;mth<=lastM;mth++) total+=getQty(rows2,mth,yr);
+    return total;
+  }
+  function fmtQ(v){return v?Math.round(v).toLocaleString('fr-FR'):'—';}
 
   const th={padding:'5px 8px',fontSize:10,fontWeight:600,color:'#6b6560',textAlign:'right',borderBottom:'2px solid #e2ddd6',background:'#f8f7f5',whiteSpace:'nowrap'};
-  const thL={...th,textAlign:'left',minWidth:120};
+  const thL={...th,textAlign:'left',minWidth:180};
+  const thG={...th,background:'#f0fdf4'};
   const thTotal={...th,background:'#e8f4f0',color:'#2d6a4f',cursor:'pointer'};
 
-  function renderRow(prodRows, label, depth=0){
-    const bg = depth===0?'#fff':'#f8f7f5';
-    const fs = depth===0?11:10;
-    const pl = depth===0?8:20;
-    const td={padding:'4px 8px',fontSize:fs,textAlign:'right',borderBottom:'1px solid #f0ede8',fontFamily:'monospace',background:bg};
-    const tdL={...td,textAlign:'left',paddingLeft:pl,whiteSpace:'nowrap'};
-    const q12=get12M(prodRows);
-    return <tr style={{background:bg}} key={label}>
-      <td style={tdL}>{label}</td>
-      <td style={{...td,background:'#f0fdf4',fontWeight:600}}>{fmtQ(q12)}</td>
-      {/* YTD current year - collapsible */}
-      <td style={{...td,background:'#e8f4f0',fontWeight:600,cursor:'pointer'}}
-        onClick={()=>setCollapsedYears(p=>({...p,[`ytd_${label}`]:!p[`ytd_${label}`]}))}>
-        {fmtQ(getYTD(prodRows,lastY))}{collapsedYears[`ytd_${label}`]?'▶':'▼'}
+  function toggleYear(key){setCollapsedYears(p=>({...p,[key]:!p[key]}));}
+
+  function renderDataCells(rows2, fs=11){
+    const td={padding:'5px 6px',fontSize:fs,textAlign:'right',borderBottom:'1px solid #f0ede8',fontFamily:'monospace'};
+    return <>
+      <td style={{...td,background:'#f0fdf4',fontWeight:600}}>{fmtQ(get12M(rows2,lastM,lastY))}</td>
+      <td style={{...td,background:'#f0fdf4'}}>{fmtQ(getPrev12M(rows2))}</td>
+      <td style={{...td,background:'#e8f4f0',fontWeight:600,cursor:'pointer'}}>
+        {fmtQ(getYTD(rows2,lastY))}
       </td>
-      {/* Current year months */}
-      {!collapsedYears[`ytd_${label}`]&&months.filter(x=>x.y===lastY).map(({m:mo,y:yr})=>(
-        <td key={`${mo}_${yr}`} style={td}>{fmtQ(getQty(prodRows,mo,yr))}</td>
+      {!collapsedYears['ytd']&&months.filter(x=>x.y===lastY).map(({m:mo,y:yr})=>(
+        <td key={`${mo}_${yr}`} style={td}>{fmtQ(getQty(rows2,mo,yr))}</td>
       ))}
-      {/* Previous years */}
       {years.filter(yr=>yr!==lastY).map(yr=>(
         <React.Fragment key={yr}>
-          <td style={{...td,background:'#e8f4f0',fontWeight:600,cursor:'pointer'}}
-            onClick={()=>setCollapsedYears(p=>({...p,[`${yr}_${label}`]:!p[`${yr}_${label}`]}))}>
-            {fmtQ(months.filter(x=>x.y===yr).reduce((s,{m:mo})=>s+getQty(prodRows,mo,yr),0))}{collapsedYears[`${yr}_${label}`]?'▶':'▼'}
-          </td>
-          {!collapsedYears[`${yr}_${label}`]&&months.filter(x=>x.y===yr).map(({m:mo})=>(
-            <td key={`${mo}_${yr}`} style={td}>{fmtQ(getQty(prodRows,mo,yr))}</td>
+          <td style={{...td,background:'#e8f4f0',fontWeight:600}}>{fmtQ(months.filter(x=>x.y===yr).reduce((s,{m:mo})=>s+getQty(rows2,mo,yr),0))}</td>
+          {!collapsedYears[yr]&&months.filter(x=>x.y===yr).map(({m:mo})=>(
+            <td key={`${mo}_${yr}`} style={td}>{fmtQ(getQty(rows2,mo,yr))}</td>
           ))}
         </React.Fragment>
       ))}
-    </tr>;
+    </>;
   }
 
-  // Build header months
-  function buildHeaders(){
-    const hdrs=[];
-    // Fixed cols
-    hdrs.push(<th key="label" style={thL}>Produit</th>);
-    hdrs.push(<th key="12m" style={{...th,background:'#f0fdf4'}}>12M glissants</th>);
-    hdrs.push(<th key="ytd" style={thTotal}>YTD {lastY}</th>);
-    const curYearMonths=months.filter(x=>x.y===lastY);
-    if(!collapsedYears['header_ytd']) curYearMonths.forEach(({m:mo,y:yr})=>{
-      hdrs.push(<th key={`${mo}_${yr}`} style={th}>{MOIS_LABELS[mo]}</th>);
-    });
-    years.filter(y=>y!==lastY).forEach(yr=>{
-      hdrs.push(<th key={`total_${yr}`} style={thTotal}>{yr}</th>);
-      if(!collapsedYears[`header_${yr}`]) months.filter(x=>x.y===yr).forEach(({m:mo})=>{
-        hdrs.push(<th key={`${mo}_${yr}`} style={th}>{MOIS_LABELS[mo]}</th>);
-      });
-    });
-    return hdrs;
-  }
-
-  return <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',overflow:'hidden'}}>
-    <div style={{overflowX:'auto'}}>
-      <table style={{width:'100%',borderCollapse:'collapse'}}>
-        <thead><tr>
-          <th style={thL}>Produit</th>
-          <th style={{...th,background:'#f0fdf4'}}>12M glissants</th>
-          <th style={thTotal} onClick={()=>setCollapsedYears(p=>({...p,'header_ytd':!p['header_ytd']}))}>
-            YTD {lastY}{collapsedYears['header_ytd']?'▶':'▼'}
-          </th>
-          {!collapsedYears['header_ytd']&&months.filter(x=>x.y===lastY).map(({m:mo,y:yr})=>(
-            <th key={`${mo}_${yr}`} style={th}>{MOIS_LABELS[mo]}</th>
-          ))}
-          {years.filter(yr=>yr!==lastY).map(yr=>(
-            <React.Fragment key={yr}>
-              <th style={thTotal} onClick={()=>setCollapsedYears(p=>({...p,[`header_${yr}`]:!p[`header_${yr}`]}))}>
-                {yr}{collapsedYears[`header_${yr}`]?'▶':'▼'}
-              </th>
-              {!collapsedYears[`header_${yr}`]&&months.filter(x=>x.y===yr).map(({m:mo})=>(
-                <th key={`${mo}_${yr}`} style={th}>{MOIS_LABELS[mo]}</th>
-              ))}
-            </React.Fragment>
-          ))}
-        </tr></thead>
-        <tbody>
-          {sortedProds.map(prod=>{
-            const prodRows=validRows.filter(r=>r['Contenant+Appelation/Robe']===prod);
-            const isExp=expandedProds[prod];
-            // Clients sorted by 12M volume desc
-            const clients=[...new Set(prodRows.map(r=>r['Client PL']))];
-            const c12m={};clients.forEach(cl=>{
-              const clRows=prodRows.filter(r=>r['Client PL']===cl);
-              c12m[cl]=get12M(clRows);
-            });
-            const sortedClients=clients.sort((a,b)=>c12m[b]-c12m[a]);
-            return <React.Fragment key={prod}>
-              <tr style={{background:'#fff',cursor:'pointer'}} onClick={()=>setExpandedProds(p=>({...p,[prod]:!p[prod]}))}>
-                <td style={{padding:'5px 8px',fontSize:11,textAlign:'left',borderBottom:'1px solid #eee',fontWeight:500,display:'flex',alignItems:'center',gap:4}}>
-                  <span style={{fontSize:9,color:'#9e9890'}}>{isExp?'▼':'▶'}</span>{prod}
-                </td>
-                <td style={{padding:'5px 8px',fontSize:11,textAlign:'right',borderBottom:'1px solid #eee',fontFamily:'monospace',background:'#f0fdf4',fontWeight:600}}>{fmtQ(get12M(prodRows))}</td>
-                <td style={{padding:'5px 8px',fontSize:11,textAlign:'right',borderBottom:'1px solid #eee',fontFamily:'monospace',background:'#e8f4f0',fontWeight:600}}>{!collapsedYears['header_ytd']?fmtQ(getYTD(prodRows,lastY)):'—'}</td>
-                {!collapsedYears['header_ytd']&&months.filter(x=>x.y===lastY).map(({m:mo,y:yr})=>(
-                  <td key={`${mo}_${yr}`} style={{padding:'5px 8px',fontSize:11,textAlign:'right',borderBottom:'1px solid #eee',fontFamily:'monospace'}}>{fmtQ(getQty(prodRows,mo,yr))}</td>
+  return <div>
+    {/* Letter filter buttons */}
+    <div style={{display:'flex',gap:6,marginBottom:12,flexWrap:'wrap',alignItems:'center'}}>
+      <span style={{fontSize:11,color:'#9e9890'}}>Filtrer :</span>
+      {allLetters.map(l=>{
+        const on=!activeLetters||activeLetters.has(l);
+        return <button key={l} onClick={()=>{
+          if(!activeLetters){
+            // All on → turn off all except this one
+            setActiveLetters(new Set([l]));
+          } else {
+            const next=new Set(activeLetters);
+            if(next.has(l)){next.delete(l);}else{next.add(l);}
+            if(next.size===0||next.size===allLetters.length) setActiveLetters(null);
+            else setActiveLetters(next);
+          }
+        }} style={{padding:'3px 10px',borderRadius:6,border:`1px solid ${on?'#2d6a4f':'#e2ddd6'}`,
+          background:on?'#2d6a4f':'#fff',color:on?'#fff':'#9e9890',fontSize:12,fontWeight:600,cursor:'pointer'}}>
+          {l}
+        </button>;
+      })}
+      {activeLetters&&<button onClick={()=>setActiveLetters(null)}
+        style={{padding:'3px 8px',borderRadius:6,border:'1px solid #e2ddd6',background:'#fff',color:'#9e9890',fontSize:11,cursor:'pointer'}}>
+        Tout
+      </button>}
+    </div>
+    <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',overflow:'hidden'}}>
+      <div style={{overflowX:'auto'}}>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead><tr>
+            <th style={thL}>Produit</th>
+            <th style={thG}>12M glissants</th>
+            <th style={thG}>12M précédents</th>
+            <th style={thTotal} onClick={()=>toggleYear('ytd')}>YTD {lastY} {collapsedYears['ytd']?'▶':'▼'}</th>
+            {!collapsedYears['ytd']&&months.filter(x=>x.y===lastY).map(({m:mo})=>(
+              <th key={mo} style={th}>{MOIS_LABELS[mo]}</th>
+            ))}
+            {years.filter(yr=>yr!==lastY).map(yr=>(
+              <React.Fragment key={yr}>
+                <th style={thTotal} onClick={()=>toggleYear(yr)}>{yr} {collapsedYears[yr]?'▶':'▼'}</th>
+                {!collapsedYears[yr]&&months.filter(x=>x.y===yr).map(({m:mo})=>(
+                  <th key={mo} style={th}>{MOIS_LABELS[mo]}</th>
                 ))}
-                {years.filter(yr=>yr!==lastY).map(yr=>(
-                  <React.Fragment key={yr}>
-                    <td style={{padding:'5px 8px',fontSize:11,textAlign:'right',borderBottom:'1px solid #eee',fontFamily:'monospace',background:'#e8f4f0',fontWeight:600}}>
-                      {fmtQ(months.filter(x=>x.y===yr).reduce((s,{m:mo})=>s+getQty(prodRows,mo,yr),0))}
-                    </td>
-                    {!collapsedYears[`header_${yr}`]&&months.filter(x=>x.y===yr).map(({m:mo})=>(
-                      <td key={`${mo}_${yr}`} style={{padding:'5px 8px',fontSize:11,textAlign:'right',borderBottom:'1px solid #eee',fontFamily:'monospace'}}>{fmtQ(getQty(prodRows,mo,yr))}</td>
-                    ))}
-                  </React.Fragment>
-                ))}
-              </tr>
-              {isExp&&sortedClients.map(cl=>{
-                const clRows=prodRows.filter(r=>r['Client PL']===cl);
-                return <tr key={cl} style={{background:'#f8f7f5'}}>
-                  <td style={{padding:'4px 8px 4px 20px',fontSize:10,textAlign:'left',borderBottom:'1px solid #f0ede8',color:'#6b6560'}}>{cl}</td>
-                  <td style={{padding:'4px 8px',fontSize:10,textAlign:'right',borderBottom:'1px solid #f0ede8',fontFamily:'monospace',background:'#f0fdf4'}}>{fmtQ(get12M(clRows))}</td>
-                  <td style={{padding:'4px 8px',fontSize:10,textAlign:'right',borderBottom:'1px solid #f0ede8',fontFamily:'monospace',background:'#e8f4f0'}}>{!collapsedYears['header_ytd']?fmtQ(getYTD(clRows,lastY)):'—'}</td>
-                  {!collapsedYears['header_ytd']&&months.filter(x=>x.y===lastY).map(({m:mo,y:yr})=>(
-                    <td key={`${mo}_${yr}`} style={{padding:'4px 8px',fontSize:10,textAlign:'right',borderBottom:'1px solid #f0ede8',fontFamily:'monospace'}}>{fmtQ(getQty(clRows,mo,yr))}</td>
-                  ))}
-                  {years.filter(yr=>yr!==lastY).map(yr=>(
-                    <React.Fragment key={yr}>
-                      <td style={{padding:'4px 8px',fontSize:10,textAlign:'right',borderBottom:'1px solid #f0ede8',fontFamily:'monospace',background:'#e8f4f0'}}>
-                        {fmtQ(months.filter(x=>x.y===yr).reduce((s,{m:mo})=>s+getQty(clRows,mo,yr),0))}
-                      </td>
-                      {!collapsedYears[`header_${yr}`]&&months.filter(x=>x.y===yr).map(({m:mo})=>(
-                        <td key={`${mo}_${yr}`} style={{padding:'4px 8px',fontSize:10,textAlign:'right',borderBottom:'1px solid #f0ede8',fontFamily:'monospace'}}>{fmtQ(getQty(clRows,mo,yr))}</td>
-                      ))}
-                    </React.Fragment>
-                  ))}
-                </tr>;
-              })}
-            </React.Fragment>;
-          })}
-        </tbody>
-      </table>
+              </React.Fragment>
+            ))}
+          </tr></thead>
+          <tbody>
+            {sortedProds.map(prod=>{
+              const prodRows=validRows.filter(r=>r['Contenant+Appelation/Robe']===prod);
+              const isExp=expandedProds[prod];
+              const clients=[...new Set(prodRows.map(r=>r['Client PL']))];
+              const c12m={};clients.forEach(cl=>{c12m[cl]=get12M(prodRows.filter(r=>r['Client PL']===cl),lastM,lastY);});
+              const sortedClients=clients.sort((a,b)=>c12m[b]-c12m[a]);
+              return <React.Fragment key={prod}>
+                <tr style={{background:'#fff',cursor:'pointer'}} onClick={()=>setExpandedProds(p=>({...p,[prod]:!p[prod]}))}>
+                  <td style={{padding:'5px 8px',fontSize:11,textAlign:'left',borderBottom:'1px solid #eee',fontWeight:500,whiteSpace:'nowrap'}}>
+                    <span style={{fontSize:9,color:'#9e9890',marginRight:4}}>{isExp?'▼':'▶'}</span>{prod}
+                  </td>
+                  {renderDataCells(prodRows)}
+                </tr>
+                {isExp&&sortedClients.map(cl=>{
+                  const clRows=prodRows.filter(r=>r['Client PL']===cl);
+                  return <tr key={cl} style={{background:'#f8f7f5'}}>
+                    <td style={{padding:'4px 8px 4px 20px',fontSize:10,textAlign:'left',borderBottom:'1px solid #f0ede8',color:'#6b6560',whiteSpace:'nowrap',minWidth:180,maxWidth:260,overflow:'hidden',textOverflow:'ellipsis'}}>{cl}</td>
+                    {renderDataCells(clRows,10)}
+                  </tr>;
+                })}
+              </React.Fragment>;
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>;
 }
