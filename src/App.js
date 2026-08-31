@@ -1036,9 +1036,11 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
                 </div>
                 <span style={{fontSize:11,color:"#9e9890"}}>{fmt(start)} → {fmt(end)}</span>
               </div>
-              <Bar v={avgProg} label="Avancement total des OKR" w={0}/>
-              <Bar v={timeProg} label="Avancement de la saison" w={0}/>
-              {myKRsOwned.length>0&&<Bar v={myPersonalProg} label="Mon avancement" w={0}/>}
+              <div style={{display:'flex',flexDirection:'column',gap:15}}>
+                <Bar v={avgProg} label="Avancement total des OKR" w={0}/>
+                <Bar v={timeProg} label="Avancement de la saison" w={0}/>
+                {myKRsOwned.length>0&&<Bar v={myPersonalProg} label="Mon avancement" w={0}/>}
+              </div>
             </div>
             <div style={{width:1,background:"#e2ddd6",alignSelf:"stretch",flexShrink:0}}/>
             {/* Right: KR counts + button */}
