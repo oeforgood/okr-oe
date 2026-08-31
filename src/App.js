@@ -4761,13 +4761,37 @@ function Bsv3CommandesTable({rows, importedAt, currentUser, activeLetters}){
                   </td>
                   {renderDataCells(prodRows)}
                 </tr>
-                {isExp&&sortedClients.map(cl=>{
-                  const clRows=prodRows.filter(r=>r['Client PL']===cl);
-                  return <tr key={cl} style={{background:'#f8f7f5'}}>
-                    <td style={{padding:'4px 8px 4px 20px',fontSize:10,textAlign:'left',borderBottom:'1px solid #f0ede8',color:'#6b6560',whiteSpace:'nowrap',minWidth:180,maxWidth:260,overflow:'hidden',textOverflow:'ellipsis'}}>{cl}</td>
-                    {renderDataCells(clRows,10)}
-                  </tr>;
-                })}
+                {isExp&&(()=>{
+                  // Build SKU4 groups
+                  const VALID_SKU4=r=>r['SKU']&&r['SKU'].length>=4&&!/^[0-9]/.test(r['SKU'])&&!['PAS ','COFF','FRAI','PROD','CASE','TIRE','SUBV','HORS','OFBL','OEBL','VASC','PALOX','COIF','CONT','SCHRE','N/A'].some(x=>r['SKU'].startsWith(x));
+                  const sku4Set=new Set(prodRows.filter(VALID_SKU4).map(r=>r['SKU'].slice(0,4)));
+                  const hasOther=prodRows.some(r=>!VALID_SKU4(r));
+                  const sortedSku4=[...sku4Set].sort((a,b)=>a.localeCompare(b));
+                  if(hasOther) sortedSku4.push('__other__');
+                  return sortedSku4.map(sku4=>{
+                    const sku4Rows=sku4==='__other__'?prodRows.filter(r=>!VALID_SKU4(r)):prodRows.filter(r=>VALID_SKU4(r)&&r['SKU'].slice(0,4)===sku4);
+                    const sku4Label=sku4==='__other__'?'(autres)':sku4;
+                    const sku4Exp=expandedProds[prod+'_'+sku4];
+                    const clients2=[...new Set(sku4Rows.map(r=>r['Client PL']))];
+                    const c12m2={};clients2.forEach(cl=>{c12m2[cl]=get12M(sku4Rows.filter(r=>r['Client PL']===cl),lastM,lastY);});
+                    const sortedClients2=clients2.sort((a,b)=>c12m2[b]-c12m2[a]);
+                    return <React.Fragment key={sku4}>
+                      <tr style={{background:'#f0fdf4',cursor:'pointer'}} onClick={()=>setExpandedProds(p=>({...p,[prod+'_'+sku4]:!p[prod+'_'+sku4]}))}>
+                        <td style={{padding:'4px 8px 4px 20px',fontSize:10,textAlign:'left',borderBottom:'1px solid #e8f0e8',fontWeight:500,whiteSpace:'nowrap'}}>
+                          <span style={{fontSize:9,color:'#9e9890',marginRight:4}}>{sku4Exp?'▼':'▶'}</span>{sku4Label}
+                        </td>
+                        {renderDataCells(sku4Rows,10)}
+                      </tr>
+                      {sku4Exp&&sortedClients2.map(cl=>{
+                        const clRows=sku4Rows.filter(r=>r['Client PL']===cl);
+                        return <tr key={cl} style={{background:'#f8f7f5'}}>
+                          <td style={{padding:'3px 8px 3px 32px',fontSize:10,textAlign:'left',borderBottom:'1px solid #f0ede8',color:'#6b6560',whiteSpace:'nowrap'}}>{cl}</td>
+                          {renderDataCells(clRows,10)}
+                        </tr>;
+                      })}
+                    </React.Fragment>;
+                  });
+                })()}
               </React.Fragment>;
             })}
           </tbody>
