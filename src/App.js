@@ -957,6 +957,7 @@ function FeedbackBox({currentUser, teamMember}) {
 function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,okrData,isAdmin,onOpenSettings,onChangeSeasonKey,onSendMessage,absencesList=[]}){
   const {objectives=[],subobjectives=[],keyresults=[],seasonKey:_sk}=okrData||{};
   const seasonKey=okrData?.seasonKey||"printemps_2026";
+  const isOwner=currentUser?.email===OWNER_EMAIL;
   const avgProg=calcWeightedAvg(objectives,subobjectives,keyresults);
   const totalKR=keyresults.length,doneKR=keyresults.filter(k=>k.taux>=100).length;
   const myPrenom=teamMember?.prenom;
@@ -1007,40 +1008,48 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
 
       {/* ── SECTION OKR ── pleine largeur */}
       <div style={{display:"flex",flexDirection:"column",gap:2,marginBottom:16}}>
-        <SeasonBanner seasonKey={seasonKey||"printemps_2026"} avgProg={avgProg} totalKR={totalKR} doneKR={doneKR}
-          onChangeSeason={onChangeSeasonKey} isOwner={currentUser?.email===OWNER_EMAIL}/>
-        {/* Personal banner with OKR button inside */}
-        {myKRsOwned.length>0&&(()=>{
-          const col=progColorRel(myPersonalProg,avgProg);
-          const krCol=progColorRel(myKRDoneOwned/Math.max(myKRsOwned.length,1)*100,avgProg);
-          return <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"14px 20px",
+        {(()=>{
+          const col=progColor(avgProg);
+          const colPerso=progColorRel(myPersonalProg,avgProg);
+          const krCol=progColor(doneKR/Math.max(totalKR,1)*100);
+          const krColPerso=progColorRel(myKRDoneOwned/Math.max(myKRsOwned.length,1)*100,avgProg);
+          const info=getSeasonInfo(seasonKey||"printemps_2026");
+          const timeProg=getSeasonProgress(seasonKey||"printemps_2026");
+          const start=new Date(info.start),end=new Date(info.end);
+          const fmt=d=>d.toLocaleDateString("fr-FR",{day:"numeric",month:"short"});
+          return <div style={{background:"#fff",border:"1px solid #86efac",borderRadius:10,padding:"14px 20px",
             display:"flex",alignItems:"center",gap:20,boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
-            {/* Left: % */}
-            <div style={{flexShrink:0,textAlign:"center",width:100}}>
-              <div style={{fontSize:52,fontWeight:700,fontFamily:"monospace",color:col,lineHeight:1}}>{Math.round(myPersonalProg)}%</div>
-              <div style={{fontSize:10,color:"#6b6560",marginTop:3,textTransform:"uppercase",letterSpacing:".06em"}}>{myPrenom||"Moi"}</div>
+            {/* Left: % global + % perso */}
+            <div style={{flexShrink:0,textAlign:"center",width:80}}>
+              <div style={{fontSize:42,fontWeight:700,fontFamily:"monospace",color:col,lineHeight:1}}>{Math.round(avgProg)}%</div>
+              {myKRsOwned.length>0&&<div style={{fontSize:32,fontWeight:700,fontFamily:"monospace",color:colPerso,lineHeight:1,marginTop:2}}>{Math.round(myPersonalProg)}%</div>}
+              <div style={{fontSize:9,color:"#9e9890",marginTop:2,textTransform:"uppercase",letterSpacing:".05em"}}>{myPrenom}</div>
             </div>
-            <div style={{width:1,background:"#86efac",alignSelf:"stretch",flexShrink:0}}/>
-            {/* Middle: bar + OKR button */}
-            <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",gap:8}}>
-              <Bar v={myPersonalProg} label="Mon avancement" w={0}/>
-              <div style={{display:"flex",justifyContent:"flex-end"}}>
-                <button onClick={onGoOKR} style={{
-                  display:"flex",alignItems:"center",gap:8,padding:"6px 16px",
-                  background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,
-                  cursor:"pointer",fontSize:12,fontWeight:500,
-                  transition:"opacity .15s"}}
-                  onMouseEnter={e=>e.currentTarget.style.opacity=".85"}
-                  onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
-                  <span>🎯</span> Aller aux OKR et mettre à jour
-                </button>
+            <div style={{width:1,background:"#e2ddd6",alignSelf:"stretch",flexShrink:0}}/>
+            {/* Center: season + bars */}
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  {isOwner&&(()=>{const allKeys=["printemps_2026","ete_2026","automne_2026","hiver_2027","printemps_2027","ete_2027","automne_2027"];const idx2=allKeys.indexOf(seasonKey||"printemps_2026");return <><button onClick={idx2>0?()=>onChangeSeasonKey&&onChangeSeasonKey(allKeys[idx2-1]):undefined} style={{background:"none",border:"none",cursor:idx2>0?"pointer":"default",fontSize:14,color:idx2>0?"#2d6a4f":"#c5c0b8",padding:"0 2px"}}>←</button></>;})()} 
+                  <span style={{fontSize:12,fontWeight:500,color:"#1a1814"}}>{info.label}</span>
+                  {isOwner&&(()=>{const allKeys=["printemps_2026","ete_2026","automne_2026","hiver_2027","printemps_2027","ete_2027","automne_2027"];const idx2=allKeys.indexOf(seasonKey||"printemps_2026");return <><button onClick={idx2<allKeys.length-1?()=>onChangeSeasonKey&&onChangeSeasonKey(allKeys[idx2+1]):undefined} style={{background:"none",border:"none",cursor:idx2<allKeys.length-1?"pointer":"default",fontSize:14,color:idx2<allKeys.length-1?"#2d6a4f":"#c5c0b8",padding:"0 2px"}}>→</button></>;})()} 
+                </div>
+                <span style={{fontSize:11,color:"#9e9890"}}>{fmt(start)} → {fmt(end)}</span>
               </div>
+              <Bar v={avgProg} label="Avancement total des OKR" w={0}/>
+              <Bar v={timeProg} label="Avancement de la saison" w={0}/>
+              {myKRsOwned.length>0&&<Bar v={myPersonalProg} label="Mon avancement" w={0}/>}
             </div>
-            <div style={{width:1,background:"#86efac",alignSelf:"stretch",flexShrink:0}}/>
-            {/* Right: KR */}
-            <div style={{flexShrink:0,textAlign:"center",width:90}}>
-              <div style={{fontSize:22,fontWeight:600,fontFamily:"monospace",color:krCol}}>{myKRDoneOwned}/{myKRsOwned.length}</div>
-              <div style={{fontSize:10,color:"#6b6560",marginTop:2}}>KR complétés</div>
+            <div style={{width:1,background:"#e2ddd6",alignSelf:"stretch",flexShrink:0}}/>
+            {/* Right: KR counts + button */}
+            <div style={{flexShrink:0,textAlign:"center",minWidth:120}}>
+              <div style={{fontSize:22,fontWeight:700,color:krCol,fontFamily:"monospace"}}>{doneKR}/{totalKR}</div>
+              <div style={{fontSize:9,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",marginBottom:8}}>KR complétés</div>
+              <button onClick={onGoOKR} style={{display:"block",width:"100%",padding:"7px 12px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:11,fontWeight:500,marginBottom:6,transition:"opacity .15s"}}
+                onMouseEnter={e=>e.currentTarget.style.opacity=".85"} onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+                🎯 Aller aux OKR
+              </button>
+              {myKRsOwned.length>0&&<><div style={{fontSize:18,fontWeight:700,color:krColPerso,fontFamily:"monospace"}}>{myKRDoneOwned}/{myKRsOwned.length}</div><div style={{fontSize:9,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em"}}>mes KR</div></>}
             </div>
           </div>;
         })()}
