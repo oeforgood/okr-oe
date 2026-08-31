@@ -1036,7 +1036,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
                 </div>
                 <span style={{fontSize:11,color:"#9e9890"}}>{fmt(start)} → {fmt(end)}</span>
               </div>
-              <div style={{display:'flex',flexDirection:'column',gap:15}}>
+              <div style={{display:'flex',flexDirection:'column',gap:13}}>
                 <Bar v={avgProg} label="Avancement total des OKR" w={0}/>
                 <Bar v={timeProg} label="Avancement de la saison" w={0}/>
                 {myKRsOwned.length>0&&<Bar v={myPersonalProg} label="Mon avancement" w={0}/>}
