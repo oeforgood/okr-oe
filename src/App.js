@@ -4904,14 +4904,7 @@ function Bsv3Page({onBack,currentUser}){
       :<Bsv3CommandesTable rows={rows} importedAt={importedAt} activeLetters={activeLetters}/>}
     </div>
   </div>;
-
-  const {rows,importedAt,loading}=useBsv3Data();
-  const [levels,setLevels]=React.useState(['mois','canal','client','produit']);
-  const [ytdMode,setYtdMode]=React.useState(false);
-  const [showCommandes,setShowCommandes]=React.useState(false);
-  const [activeLetters,setActiveLetters]=React.useState(null);
-  const [dragFrom,setDragFrom]=React.useState(null);
-  const [dragOver,setDragOver]=React.useState(null);
+}
 
   const importDate=importedAt?new Date(importedAt):new Date();
   const year=importDate.getMonth()===0?importDate.getFullYear()-1:importDate.getFullYear();
