@@ -547,7 +547,7 @@ function NotifDetail({notif, teamMember, teamMembers=[], onSendMessage}) {
         const seasonKRs=(window._okrSeasons&&val.seasonKey?window._okrSeasons[val.seasonKey]?.keyresults:null)||[];
         return <div key={q.id} style={{background:"#fff",borderRadius:6,border:"1px solid #e2ddd6",padding:"8px 10px"}}>
           <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text.replace(" *","")}</div>
-          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(kr?.contributors||[]).map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",background:pBg(c,teamMembers?.map?.(m=>m.prenom)),color:"#fff",fontSize:9,fontWeight:600,marginLeft:3}}>{ini(c)}</span>)}</div>;})}
+          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(kr?.contributors||[]).map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",background:pBg(c,teamMembers?.map?.(m=>m.prenom)),color:"#6b6560",fontSize:9,fontWeight:600,marginLeft:3}}>{ini(c)}</span>)}</div>;})}
         </div>;
       }
       return <div key={q.id} style={{marginBottom:10,background:q.confidentiel?"#fdf4ff":"transparent",padding:q.confidentiel?"6px 10px":"0",borderRadius:q.confidentiel?6:0}}>
@@ -1418,7 +1418,7 @@ function UpdateViewModal({notif,onClose,onRead,teamMembers=[],readOnly=false}){
         const seasonKRs=(window._okrSeasons&&val.seasonKey?window._okrSeasons[val.seasonKey]?.keyresults:null)||[];
         return <div key={q.id} style={{marginBottom:10,background:"#fff",borderRadius:6,border:"1px solid #e2ddd6",padding:"8px 10px"}}>
           <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text.replace(" *","")}</div>
-          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(kr?.contributors||[]).map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",background:pBg(c,teamMembers?.map?.(m=>m.prenom)),color:"#fff",fontSize:9,fontWeight:600,marginLeft:3}}>{ini(c)}</span>)}</div>;})}
+          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(kr?.contributors||[]).map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",background:pBg(c,teamMembers?.map?.(m=>m.prenom)),color:"#6b6560",fontSize:9,fontWeight:600,marginLeft:3}}>{ini(c)}</span>)}</div>;})}
         </div>;
       }
         return <div key={q.id} style={{marginBottom:14,background:q.confidentiel?"#fdf4ff":"transparent",padding:q.confidentiel?"8px 10px":"0",borderRadius:q.confidentiel?6:0,border:q.confidentiel?"1px solid #e9d5ff":"none"}}>
@@ -1681,7 +1681,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
         const seasonKRs=(window._okrSeasons&&val.seasonKey?window._okrSeasons[val.seasonKey]?.keyresults:null)||[];
         return <div key={q.id} style={{marginBottom:10,background:"#fff",borderRadius:6,border:"1px solid #e2ddd6",padding:"8px 10px"}}>
           <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text.replace(" *","")}</div>
-          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(kr?.contributors||[]).map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",background:pBg(c,teamMembers?.map?.(m=>m.prenom)),color:"#fff",fontSize:9,fontWeight:600,marginLeft:3}}>{ini(c)}</span>)}</div>;})}
+          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(kr?.contributors||[]).map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",background:pBg(c,teamMembers?.map?.(m=>m.prenom)),color:"#6b6560",fontSize:9,fontWeight:600,marginLeft:3}}>{ini(c)}</span>)}</div>;})}
         </div>;
       }
             return <div key={q.id} style={{background:q.confidentiel?"#fdf4ff":"#fff",borderRadius:6,padding:"8px 10px",border:"1px solid #e2ddd6"}}>
@@ -1732,7 +1732,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
                         <span style={{fontSize:11,fontFamily:"monospace",color:"#9e9890",marginRight:6}}>{kr.id}</span>
                         <span style={{fontSize:12,color:"#1a1814"}}>{kr.title}</span>
                         {contribs.length>0&&<span style={{marginLeft:8}}>
-                          {contribs.map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:20,height:20,borderRadius:"50%",background:pBg(c,teamMembers?.map(m=>m.prenom)),color:"#fff",fontSize:9,fontWeight:600,marginLeft:2}}>{ini(c)}</span>)}
+                          {contribs.map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:20,height:20,borderRadius:"50%",background:pBg(c,teamMembers?.map(m=>m.prenom)),color:"#6b6560",fontSize:9,fontWeight:600,marginLeft:2}}>{ini(c)}</span>)}
                         </span>}
                       </div>
                     </label>;
@@ -1898,7 +1898,7 @@ function UpdatesHistoryTab(){
         const seasonKRs=(window._okrSeasons&&val.seasonKey?window._okrSeasons[val.seasonKey]?.keyresults:null)||[];
         return <div key={q.id} style={{marginBottom:8,background:"#fff",borderRadius:6,border:"1px solid #e2ddd6",padding:"8px 10px"}}>
           <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text.replace(" *","")}</div>
-          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(kr?.contributors||[]).map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",background:pBg(c,teamMembers?.map?.(m=>m.prenom)),color:"#fff",fontSize:9,fontWeight:600,marginLeft:3}}>{ini(c)}</span>)}</div>;})}
+          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(kr?.contributors||[]).map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",background:pBg(c,teamMembers?.map?.(m=>m.prenom)),color:"#6b6560",fontSize:9,fontWeight:600,marginLeft:3}}>{ini(c)}</span>)}</div>;})}
         </div>;
       }
               return <div key={q.id} style={{marginBottom:8,background:q.confidentiel?"#fdf4ff":"#f8f7f5",borderRadius:6,padding:"6px 10px",border:q.confidentiel?"1px solid #e9d5ff":"none"}}>
@@ -4598,10 +4598,236 @@ function DragPill({level,index,onDragStart,onDragOver,onDrop,isDragOver}){
   </div>;
 }
 
-function Bsv3Page({onBack}){
+const BSV3_COMMANDES_USERS = new Set(['fx@oeforgood.com','fiona@oeforgood.com']);
+
+function sortProduitsSuffix(vals){
+  // Sort by suffix (chars 1-2) then by initial letter (E, P, M, C, others alphabetically)
+  const LETTER_ORDER = ['E','P','M','C'];
+  return [...vals].sort((a,b)=>{
+    const sfxA = a.slice(1), sfxB = b.slice(1);
+    // Extract numeric prefix of suffix
+    const numA = parseInt(sfxA), numB = parseInt(sfxB);
+    const isNumA = !isNaN(numA), isNumB = !isNaN(numB);
+    if(isNumA && isNumB && numA !== numB) return numA - numB;
+    if(isNumA && !isNumB) return -1;
+    if(!isNumA && isNumB) return 1;
+    if(sfxA !== sfxB) return sfxA.localeCompare(sfxB);
+    // Same suffix: sort by initial letter
+    const la = LETTER_ORDER.indexOf(a[0]), lb = LETTER_ORDER.indexOf(b[0]);
+    if(la >= 0 && lb >= 0) return la - lb;
+    if(la >= 0) return -1;
+    if(lb >= 0) return 1;
+    return a.localeCompare(b);
+  });
+}
+
+function Bsv3CommandesTable({rows, importedAt, currentUser}){
+  const [collapsedYears, setCollapsedYears] = React.useState({});
+  const [expandedProds, setExpandedProds] = React.useState({});
+
+  const importDate = importedAt ? new Date(importedAt) : new Date();
+  // Last complete month = month before import month
+  const importMonth = importDate.getMonth() + 1; // 1-12
+  const importYear = importDate.getMonth() === 0 ? importDate.getFullYear()-1 : importDate.getFullYear();
+
+  // Build column list: 12M glissants, YTD, then months going back
+  // Last complete month
+  const lastM = importMonth - 1 === 0 ? 12 : importMonth - 1;
+  const lastY = importMonth - 1 === 0 ? importYear - 1 : importYear;
+
+  // Build month columns going back: lastM/lastY, lastM-1, ..., showing 2 full years + current YTD
+  const months = [];
+  let m = lastM, y = lastY;
+  for(let i = 0; i < 24; i++){
+    months.push({m, y});
+    m--; if(m === 0){m = 12; y--;}
+  }
+
+  // Years present in months
+  const years = [...new Set(months.map(x=>x.y))];
+
+  // Filter valid rows
+  const validRows = rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']));
+
+  // All products
+  const allProds = [...new Set(validRows.map(r=>r['Contenant+Appelation/Robe']))];
+  const sortedProds = sortProduitsSuffix(allProds);
+
+  function getQty(rows2, mth, yr){
+    return rows2.filter(r=>parseInt(r['Mois Emission'])===mth&&r['Année Emission']===String(yr))
+      .reduce((s,r)=>{
+        const q=String(r['Quantité équivalent unité']||'0').replace(/[\s\u00a0\u202f]/g,'').replace(',','.');
+        return s+(parseFloat(q)||0);
+      },0);
+  }
+
+  function get12M(rows2){
+    let total=0;
+    let m2=lastM, y2=lastY;
+    for(let i=0;i<12;i++){
+      total+=getQty(rows2,m2,y2);
+      m2--;if(m2===0){m2=12;y2--;}
+    }
+    return total;
+  }
+
+  function getYTD(rows2, yr){
+    let total=0;
+    for(let mth=1;mth<lastM;mth++) total+=getQty(rows2,mth,yr);
+    // Include lastM if it's current year
+    if(yr===lastY) total+=getQty(rows2,lastM,yr);
+    return total;
+  }
+
+  function fmtQ(v){ return v ? Math.round(v).toLocaleString('fr-FR') : '—'; }
+
+  const th={padding:'5px 8px',fontSize:10,fontWeight:600,color:'#6b6560',textAlign:'right',borderBottom:'2px solid #e2ddd6',background:'#f8f7f5',whiteSpace:'nowrap'};
+  const thL={...th,textAlign:'left',minWidth:120};
+  const thTotal={...th,background:'#e8f4f0',color:'#2d6a4f',cursor:'pointer'};
+
+  function renderRow(prodRows, label, depth=0){
+    const bg = depth===0?'#fff':'#f8f7f5';
+    const fs = depth===0?11:10;
+    const pl = depth===0?8:20;
+    const td={padding:'4px 8px',fontSize:fs,textAlign:'right',borderBottom:'1px solid #f0ede8',fontFamily:'monospace',background:bg};
+    const tdL={...td,textAlign:'left',paddingLeft:pl,whiteSpace:'nowrap'};
+    const q12=get12M(prodRows);
+    return <tr style={{background:bg}} key={label}>
+      <td style={tdL}>{label}</td>
+      <td style={{...td,background:'#f0fdf4',fontWeight:600}}>{fmtQ(q12)}</td>
+      {/* YTD current year - collapsible */}
+      <td style={{...td,background:'#e8f4f0',fontWeight:600,cursor:'pointer'}}
+        onClick={()=>setCollapsedYears(p=>({...p,[`ytd_${label}`]:!p[`ytd_${label}`]}))}>
+        {fmtQ(getYTD(prodRows,lastY))}{collapsedYears[`ytd_${label}`]?'▶':'▼'}
+      </td>
+      {/* Current year months */}
+      {!collapsedYears[`ytd_${label}`]&&months.filter(x=>x.y===lastY).map(({m:mo,y:yr})=>(
+        <td key={`${mo}_${yr}`} style={td}>{fmtQ(getQty(prodRows,mo,yr))}</td>
+      ))}
+      {/* Previous years */}
+      {years.filter(yr=>yr!==lastY).map(yr=>(
+        <React.Fragment key={yr}>
+          <td style={{...td,background:'#e8f4f0',fontWeight:600,cursor:'pointer'}}
+            onClick={()=>setCollapsedYears(p=>({...p,[`${yr}_${label}`]:!p[`${yr}_${label}`]}))}>
+            {fmtQ(months.filter(x=>x.y===yr).reduce((s,{m:mo})=>s+getQty(prodRows,mo,yr),0))}{collapsedYears[`${yr}_${label}`]?'▶':'▼'}
+          </td>
+          {!collapsedYears[`${yr}_${label}`]&&months.filter(x=>x.y===yr).map(({m:mo})=>(
+            <td key={`${mo}_${yr}`} style={td}>{fmtQ(getQty(prodRows,mo,yr))}</td>
+          ))}
+        </React.Fragment>
+      ))}
+    </tr>;
+  }
+
+  // Build header months
+  function buildHeaders(){
+    const hdrs=[];
+    // Fixed cols
+    hdrs.push(<th key="label" style={thL}>Produit</th>);
+    hdrs.push(<th key="12m" style={{...th,background:'#f0fdf4'}}>12M glissants</th>);
+    hdrs.push(<th key="ytd" style={thTotal}>YTD {lastY}</th>);
+    const curYearMonths=months.filter(x=>x.y===lastY);
+    if(!collapsedYears['header_ytd']) curYearMonths.forEach(({m:mo,y:yr})=>{
+      hdrs.push(<th key={`${mo}_${yr}`} style={th}>{MOIS_LABELS[mo]}</th>);
+    });
+    years.filter(y=>y!==lastY).forEach(yr=>{
+      hdrs.push(<th key={`total_${yr}`} style={thTotal}>{yr}</th>);
+      if(!collapsedYears[`header_${yr}`]) months.filter(x=>x.y===yr).forEach(({m:mo})=>{
+        hdrs.push(<th key={`${mo}_${yr}`} style={th}>{MOIS_LABELS[mo]}</th>);
+      });
+    });
+    return hdrs;
+  }
+
+  return <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',overflow:'hidden'}}>
+    <div style={{overflowX:'auto'}}>
+      <table style={{width:'100%',borderCollapse:'collapse'}}>
+        <thead><tr>
+          <th style={thL}>Produit</th>
+          <th style={{...th,background:'#f0fdf4'}}>12M glissants</th>
+          <th style={thTotal} onClick={()=>setCollapsedYears(p=>({...p,'header_ytd':!p['header_ytd']}))}>
+            YTD {lastY}{collapsedYears['header_ytd']?'▶':'▼'}
+          </th>
+          {!collapsedYears['header_ytd']&&months.filter(x=>x.y===lastY).map(({m:mo,y:yr})=>(
+            <th key={`${mo}_${yr}`} style={th}>{MOIS_LABELS[mo]}</th>
+          ))}
+          {years.filter(yr=>yr!==lastY).map(yr=>(
+            <React.Fragment key={yr}>
+              <th style={thTotal} onClick={()=>setCollapsedYears(p=>({...p,[`header_${yr}`]:!p[`header_${yr}`]}))}>
+                {yr}{collapsedYears[`header_${yr}`]?'▶':'▼'}
+              </th>
+              {!collapsedYears[`header_${yr}`]&&months.filter(x=>x.y===yr).map(({m:mo})=>(
+                <th key={`${mo}_${yr}`} style={th}>{MOIS_LABELS[mo]}</th>
+              ))}
+            </React.Fragment>
+          ))}
+        </tr></thead>
+        <tbody>
+          {sortedProds.map(prod=>{
+            const prodRows=validRows.filter(r=>r['Contenant+Appelation/Robe']===prod);
+            const isExp=expandedProds[prod];
+            // Clients sorted by 12M volume desc
+            const clients=[...new Set(prodRows.map(r=>r['Client PL']))];
+            const c12m={};clients.forEach(cl=>{
+              const clRows=prodRows.filter(r=>r['Client PL']===cl);
+              c12m[cl]=get12M(clRows);
+            });
+            const sortedClients=clients.sort((a,b)=>c12m[b]-c12m[a]);
+            return <React.Fragment key={prod}>
+              <tr style={{background:'#fff',cursor:'pointer'}} onClick={()=>setExpandedProds(p=>({...p,[prod]:!p[prod]}))}>
+                <td style={{padding:'5px 8px',fontSize:11,textAlign:'left',borderBottom:'1px solid #eee',fontWeight:500,display:'flex',alignItems:'center',gap:4}}>
+                  <span style={{fontSize:9,color:'#9e9890'}}>{isExp?'▼':'▶'}</span>{prod}
+                </td>
+                <td style={{padding:'5px 8px',fontSize:11,textAlign:'right',borderBottom:'1px solid #eee',fontFamily:'monospace',background:'#f0fdf4',fontWeight:600}}>{fmtQ(get12M(prodRows))}</td>
+                <td style={{padding:'5px 8px',fontSize:11,textAlign:'right',borderBottom:'1px solid #eee',fontFamily:'monospace',background:'#e8f4f0',fontWeight:600}}>{!collapsedYears['header_ytd']?fmtQ(getYTD(prodRows,lastY)):'—'}</td>
+                {!collapsedYears['header_ytd']&&months.filter(x=>x.y===lastY).map(({m:mo,y:yr})=>(
+                  <td key={`${mo}_${yr}`} style={{padding:'5px 8px',fontSize:11,textAlign:'right',borderBottom:'1px solid #eee',fontFamily:'monospace'}}>{fmtQ(getQty(prodRows,mo,yr))}</td>
+                ))}
+                {years.filter(yr=>yr!==lastY).map(yr=>(
+                  <React.Fragment key={yr}>
+                    <td style={{padding:'5px 8px',fontSize:11,textAlign:'right',borderBottom:'1px solid #eee',fontFamily:'monospace',background:'#e8f4f0',fontWeight:600}}>
+                      {fmtQ(months.filter(x=>x.y===yr).reduce((s,{m:mo})=>s+getQty(prodRows,mo,yr),0))}
+                    </td>
+                    {!collapsedYears[`header_${yr}`]&&months.filter(x=>x.y===yr).map(({m:mo})=>(
+                      <td key={`${mo}_${yr}`} style={{padding:'5px 8px',fontSize:11,textAlign:'right',borderBottom:'1px solid #eee',fontFamily:'monospace'}}>{fmtQ(getQty(prodRows,mo,yr))}</td>
+                    ))}
+                  </React.Fragment>
+                ))}
+              </tr>
+              {isExp&&sortedClients.map(cl=>{
+                const clRows=prodRows.filter(r=>r['Client PL']===cl);
+                return <tr key={cl} style={{background:'#f8f7f5'}}>
+                  <td style={{padding:'4px 8px 4px 20px',fontSize:10,textAlign:'left',borderBottom:'1px solid #f0ede8',color:'#6b6560'}}>{cl}</td>
+                  <td style={{padding:'4px 8px',fontSize:10,textAlign:'right',borderBottom:'1px solid #f0ede8',fontFamily:'monospace',background:'#f0fdf4'}}>{fmtQ(get12M(clRows))}</td>
+                  <td style={{padding:'4px 8px',fontSize:10,textAlign:'right',borderBottom:'1px solid #f0ede8',fontFamily:'monospace',background:'#e8f4f0'}}>{!collapsedYears['header_ytd']?fmtQ(getYTD(clRows,lastY)):'—'}</td>
+                  {!collapsedYears['header_ytd']&&months.filter(x=>x.y===lastY).map(({m:mo,y:yr})=>(
+                    <td key={`${mo}_${yr}`} style={{padding:'4px 8px',fontSize:10,textAlign:'right',borderBottom:'1px solid #f0ede8',fontFamily:'monospace'}}>{fmtQ(getQty(clRows,mo,yr))}</td>
+                  ))}
+                  {years.filter(yr=>yr!==lastY).map(yr=>(
+                    <React.Fragment key={yr}>
+                      <td style={{padding:'4px 8px',fontSize:10,textAlign:'right',borderBottom:'1px solid #f0ede8',fontFamily:'monospace',background:'#e8f4f0'}}>
+                        {fmtQ(months.filter(x=>x.y===yr).reduce((s,{m:mo})=>s+getQty(clRows,mo,yr),0))}
+                      </td>
+                      {!collapsedYears[`header_${yr}`]&&months.filter(x=>x.y===yr).map(({m:mo})=>(
+                        <td key={`${mo}_${yr}`} style={{padding:'4px 8px',fontSize:10,textAlign:'right',borderBottom:'1px solid #f0ede8',fontFamily:'monospace'}}>{fmtQ(getQty(clRows,mo,yr))}</td>
+                      ))}
+                    </React.Fragment>
+                  ))}
+                </tr>;
+              })}
+            </React.Fragment>;
+          })}
+        </tbody>
+      </table>
+    </div>
+  </div>;
+}
+
+function Bsv3Page({onBack,currentUser}){
   const {rows,importedAt,loading}=useBsv3Data();
   const [levels,setLevels]=React.useState(['mois','canal','client','produit']);
   const [ytdMode,setYtdMode]=React.useState(false);
+  const [showCommandes,setShowCommandes]=React.useState(false);
   const [dragFrom,setDragFrom]=React.useState(null);
   const [dragOver,setDragOver]=React.useState(null);
 
@@ -4641,19 +4867,27 @@ function Bsv3Page({onBack}){
             onDragStart={setDragFrom} onDragOver={setDragOver} onDrop={handleDrop}
             isDragOver={dragOver===i&&dragFrom!==i}/>)}
         </div>
-        <div style={{marginLeft:'auto',display:'flex',gap:0,background:'#fff',border:'1px solid #e2ddd6',borderRadius:8,padding:'4px'}}>
-          <button onClick={()=>setYtdMode(false)}
-            style={{padding:'5px 12px',borderRadius:6,border:'none',background:!ytdMode?'#2d6a4f':'transparent',color:!ytdMode?'#fff':'#6b6560',fontSize:12,fontWeight:500,cursor:'pointer'}}>
-            Toute l'année
-          </button>
-          <button onClick={()=>setYtdMode(true)}
-            style={{padding:'5px 12px',borderRadius:6,border:'none',background:ytdMode?'#2d6a4f':'transparent',color:ytdMode?'#fff':'#6b6560',fontSize:12,fontWeight:500,cursor:'pointer'}}>
-            YTD
-          </button>
+        <div style={{display:'flex',gap:8,alignItems:'center',marginLeft:'auto'}}>
+          {BSV3_COMMANDES_USERS.has(currentUser?.email)&&<button onClick={()=>setShowCommandes(p=>!p)}
+            style={{padding:'5px 14px',borderRadius:8,border:`1px solid ${showCommandes?'#2d6a4f':'#e2ddd6'}`,
+              background:showCommandes?'#2d6a4f':'#fff',color:showCommandes?'#fff':'#6b6560',fontSize:12,fontWeight:500,cursor:'pointer'}}>
+            📦 Commandes
+          </button>}
+          {!showCommandes&&<div style={{display:'flex',gap:0,background:'#fff',border:'1px solid #e2ddd6',borderRadius:8,padding:'4px'}}>
+            <button onClick={()=>setYtdMode(false)}
+              style={{padding:'5px 12px',borderRadius:6,border:'none',background:!ytdMode?'#2d6a4f':'transparent',color:!ytdMode?'#fff':'#6b6560',fontSize:12,fontWeight:500,cursor:'pointer'}}>
+              Toute l'année
+            </button>
+            <button onClick={()=>setYtdMode(true)}
+              style={{padding:'5px 12px',borderRadius:6,border:'none',background:ytdMode?'#2d6a4f':'transparent',color:ytdMode?'#fff':'#6b6560',fontSize:12,fontWeight:500,cursor:'pointer'}}>
+              YTD
+            </button>
+          </div>}
         </div>
       </div>
       {loading?<div style={{textAlign:'center',padding:40,color:'#9e9890'}}>Chargement...</div>
       :rows.length===0?<div style={{textAlign:'center',padding:40,color:'#9e9890'}}>Aucune donnée — importez un CSV dans les Paramètres.</div>
+      :showCommandes?<Bsv3CommandesTable rows={rows} importedAt={importedAt} currentUser={currentUser}/>
       :<Bsv3Table levels={levels} year={year} prevYear={prevYear}
           validRows={displayRows} prevRows={prevRows} allYearRows={allYearRows}
           ytdMode={ytdMode} maxYtdMonth={maxYtdMonth}/>}
@@ -5024,7 +5258,7 @@ export default function App(){
   if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers}/>;
   if(page==="update")return <UpdatePage teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} okrData={okrData} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers}/>;
   if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels} savedCanalMargin={savedCanalMargin}/>;
-  if(page==="bsv3")return <Bsv3Page onBack={()=>setPage('dashboard')}/>;
+  if(page==="bsv3")return <Bsv3Page onBack={()=>setPage('dashboard')} currentUser={authUser}/>;
   if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels} savedCanalMargin={savedCanalMargin} onSaveCanalMargin={handleSaveCanalMargin} onSendMessage={handleSendMessage} onSaveBsv3={handleSaveBsv3} onUploadReporting={handleUploadReporting}/>;
 
   return <Dashboard
