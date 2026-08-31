@@ -4629,10 +4629,9 @@ function sortProduitsSuffix(vals){
   });
 }
 
-function Bsv3CommandesTable({rows, importedAt, currentUser}){
+function Bsv3CommandesTable({rows, importedAt, currentUser, activeLetters}){
   const [collapsedYears, setCollapsedYears] = React.useState({});
   const [expandedProds, setExpandedProds] = React.useState({});
-  const [activeLetters, setActiveLetters] = React.useState(null); // null = all
 
   const importDate = importedAt ? new Date(importedAt) : new Date();
   const importMonth = importDate.getMonth() + 1;
@@ -4728,31 +4727,6 @@ function Bsv3CommandesTable({rows, importedAt, currentUser}){
   }
 
   return <div>
-    {/* Letter filter buttons */}
-    <div style={{display:'flex',gap:6,marginBottom:12,flexWrap:'wrap',alignItems:'center'}}>
-      <span style={{fontSize:11,color:'#9e9890'}}>Filtrer :</span>
-      {allLetters.map(l=>{
-        const on=!activeLetters||activeLetters.has(l);
-        return <button key={l} onClick={()=>{
-          if(!activeLetters){
-            // All on → turn off all except this one
-            setActiveLetters(new Set([l]));
-          } else {
-            const next=new Set(activeLetters);
-            if(next.has(l)){next.delete(l);}else{next.add(l);}
-            if(next.size===0||next.size===allLetters.length) setActiveLetters(null);
-            else setActiveLetters(next);
-          }
-        }} style={{padding:'3px 10px',borderRadius:6,border:`1px solid ${on?'#2d6a4f':'#e2ddd6'}`,
-          background:on?'#2d6a4f':'#fff',color:on?'#fff':'#9e9890',fontSize:12,fontWeight:600,cursor:'pointer'}}>
-          {l}
-        </button>;
-      })}
-      {activeLetters&&<button onClick={()=>setActiveLetters(null)}
-        style={{padding:'3px 8px',borderRadius:6,border:'1px solid #e2ddd6',background:'#fff',color:'#9e9890',fontSize:11,cursor:'pointer'}}>
-        Tout
-      </button>}
-    </div>
     <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',overflow:'hidden'}}>
       <div style={{overflowX:'auto'}}>
         <table style={{width:'100%',borderCollapse:'collapse'}}>
@@ -4808,6 +4782,7 @@ function Bsv3Page({onBack,currentUser}){
   const [levels,setLevels]=React.useState(['mois','canal','client','produit']);
   const [ytdMode,setYtdMode]=React.useState(false);
   const [showCommandes,setShowCommandes]=React.useState(false);
+  const [activeLetters,setActiveLetters]=React.useState(null);
   const [dragFrom,setDragFrom]=React.useState(null);
   const [dragOver,setDragOver]=React.useState(null);
 
@@ -4848,6 +4823,20 @@ function Bsv3Page({onBack,currentUser}){
             isDragOver={dragOver===i&&dragFrom!==i}/>)}
         </div>
         <div style={{display:'flex',gap:8,alignItems:'center',marginLeft:'auto'}}>
+          {BSV3_COMMANDES_USERS.has(currentUser?.email)&&showCommandes&&(()=>{
+            const allProds2=[...new Set(rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])).map(r=>r['Contenant+Appelation/Robe']))];
+            const allLetters2=[...new Set(allProds2.map(p=>p[0]))].sort((a,b)=>{const ia=PROD_LETTER_ORDER.indexOf(a),ib=PROD_LETTER_ORDER.indexOf(b);if(ia>=0&&ib>=0)return ia-ib;if(ia>=0)return -1;if(ib>=0)return 1;return a.localeCompare(b);});
+            return <React.Fragment>
+              {allLetters2.map(l=>{
+                const on=!activeLetters||activeLetters.has(l);
+                return <button key={l} onClick={()=>{
+                  if(!activeLetters){setActiveLetters(new Set([l]));}
+                  else{const next=new Set(activeLetters);if(next.has(l)){next.delete(l);}else{next.add(l);}if(next.size===0||next.size===allLetters2.length)setActiveLetters(null);else setActiveLetters(next);}
+                }} style={{padding:'2px 7px',borderRadius:5,border:`1px solid ${on?'#2d6a4f':'#e2ddd6'}`,background:on?'#2d6a4f':'#fff',color:on?'#fff':'#9e9890',fontSize:10,fontWeight:600,cursor:'pointer'}}>{l}</button>;
+              })}
+              {activeLetters&&<button onClick={()=>setActiveLetters(null)} style={{padding:'2px 6px',borderRadius:5,border:'1px solid #e2ddd6',background:'#fff',color:'#9e9890',fontSize:10,cursor:'pointer'}}>✕</button>}
+            </React.Fragment>;
+          })()}
           {BSV3_COMMANDES_USERS.has(currentUser?.email)&&<button onClick={()=>setShowCommandes(p=>!p)}
             style={{padding:'5px 14px',borderRadius:8,border:`1px solid ${showCommandes?'#2d6a4f':'#e2ddd6'}`,
               background:showCommandes?'#2d6a4f':'#fff',color:showCommandes?'#fff':'#6b6560',fontSize:12,fontWeight:500,cursor:'pointer'}}>
@@ -4867,7 +4856,7 @@ function Bsv3Page({onBack,currentUser}){
       </div>
       {loading?<div style={{textAlign:'center',padding:40,color:'#9e9890'}}>Chargement...</div>
       :rows.length===0?<div style={{textAlign:'center',padding:40,color:'#9e9890'}}>Aucune donnée — importez un CSV dans les Paramètres.</div>
-      :showCommandes?<Bsv3CommandesTable rows={rows} importedAt={importedAt} currentUser={currentUser}/>
+      :showCommandes?<Bsv3CommandesTable rows={rows} importedAt={importedAt} currentUser={currentUser} activeLetters={activeLetters}/>
       :<Bsv3Table levels={levels} year={year} prevYear={prevYear}
           validRows={displayRows} prevRows={prevRows} allYearRows={allYearRows}
           ytdMode={ytdMode} maxYtdMonth={maxYtdMonth}/>}
