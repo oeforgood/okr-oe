@@ -4904,7 +4904,7 @@ function Bsv3Page({onBack,currentUser}){
       :<Bsv3CommandesTable rows={rows} importedAt={importedAt} activeLetters={activeLetters}/>}
     </div>
   </div>;
-}){
+
   const {rows,importedAt,loading}=useBsv3Data();
   const [levels,setLevels]=React.useState(['mois','canal','client','produit']);
   const [ytdMode,setYtdMode]=React.useState(false);
