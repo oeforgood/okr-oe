@@ -547,7 +547,7 @@ function NotifDetail({notif, teamMember, teamMembers=[], onSendMessage}) {
         const seasonKRs=(window._okrSeasons&&val.seasonKey?window._okrSeasons[val.seasonKey]?.keyresults:null)||[];
         return <div key={q.id} style={{background:"#fff",borderRadius:6,border:"1px solid #e2ddd6",padding:"8px 10px"}}>
           <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text.replace(" *","")}</div>
-          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(kr?.contributors||[]).map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",background:pBg(c),color:"#fff",fontSize:9,fontWeight:600,marginLeft:3}}>{ini(c)}</span>)}</div>;})}
+          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(kr?.contributors||[]).map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",background:pBg(c,teamMembers?.map?.(m=>m.prenom)),color:"#fff",fontSize:9,fontWeight:600,marginLeft:3}}>{ini(c)}</span>)}</div>;})}
         </div>;
       }
       return <div key={q.id} style={{marginBottom:10,background:q.confidentiel?"#fdf4ff":"transparent",padding:q.confidentiel?"6px 10px":"0",borderRadius:q.confidentiel?6:0}}>
@@ -1362,7 +1362,7 @@ function UpdateCalendar({myUpdates,onView}){
   </div>;
 }
 
-function UpdateViewModal({notif,onClose,onRead,teamMembers=[]}){
+function UpdateViewModal({notif,onClose,onRead,teamMembers=[],readOnly=false}){
   const u=notif.updateData||notif;
   const weekLabel=notif.weekKey?fmtWeekLabel(notif.weekKey):"";
   const answers=u.answers||u.updateData?.answers||{};
@@ -1418,7 +1418,7 @@ function UpdateViewModal({notif,onClose,onRead,teamMembers=[]}){
         const seasonKRs=(window._okrSeasons&&val.seasonKey?window._okrSeasons[val.seasonKey]?.keyresults:null)||[];
         return <div key={q.id} style={{marginBottom:10,background:"#fff",borderRadius:6,border:"1px solid #e2ddd6",padding:"8px 10px"}}>
           <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text.replace(" *","")}</div>
-          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(kr?.contributors||[]).map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",background:pBg(c),color:"#fff",fontSize:9,fontWeight:600,marginLeft:3}}>{ini(c)}</span>)}</div>;})}
+          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(kr?.contributors||[]).map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",background:pBg(c,teamMembers?.map?.(m=>m.prenom)),color:"#fff",fontSize:9,fontWeight:600,marginLeft:3}}>{ini(c)}</span>)}</div>;})}
         </div>;
       }
         return <div key={q.id} style={{marginBottom:14,background:q.confidentiel?"#fdf4ff":"transparent",padding:q.confidentiel?"8px 10px":"0",borderRadius:q.confidentiel?6:0,border:q.confidentiel?"1px solid #e9d5ff":"none"}}>
@@ -1429,7 +1429,7 @@ function UpdateViewModal({notif,onClose,onRead,teamMembers=[]}){
         </div>;
       })}
       <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginTop:20,borderTop:"1px solid #e2ddd6",paddingTop:16}}>
-        {isManager&&<div style={{marginBottom:16,borderTop:"1px solid #e2ddd6",paddingTop:16}}>
+        {isManager&&!readOnly&&<div style={{marginBottom:16,borderTop:"1px solid #e2ddd6",paddingTop:16}}>
           <div style={{fontSize:12,fontWeight:600,color:"#6b6560",marginBottom:8}}>💬 Répondre à l'update</div>
           <textarea value={replyText} onChange={e=>setReplyText(e.target.value)}
             rows={3} style={{width:"100%",border:"1px solid #e2ddd6",borderRadius:6,padding:"8px 10px",fontSize:13,boxSizing:"border-box",resize:"vertical",fontFamily:"inherit"}}
@@ -1441,8 +1441,9 @@ function UpdateViewModal({notif,onClose,onRead,teamMembers=[]}){
             </button>
           </div>
         </div>}
-        <button onClick={onClose} style={{fontSize:13,color:"#6b6560",border:"1px solid #e2ddd6",padding:"7px 14px",borderRadius:6,cursor:"pointer",background:"none"}}>Fermer</button>
-        {!notif.isOwn&&!notif.read&&<button onClick={onRead} style={{fontSize:13,fontWeight:500,background:"#2d6a4f",color:"#fff",padding:"7px 18px",borderRadius:6,cursor:"pointer",border:"none"}}>✓ Marquer comme lu</button>}
+        {!readOnly&&<button onClick={onClose} style={{fontSize:13,color:"#6b6560",border:"1px solid #e2ddd6",padding:"7px 14px",borderRadius:6,cursor:"pointer",background:"none"}}>Fermer</button>}
+        {readOnly&&<button onClick={onClose} style={{fontSize:13,color:"#6b6560",border:"1px solid #e2ddd6",padding:"7px 14px",borderRadius:6,cursor:"pointer",background:"none"}}>✕ Fermer</button>}
+        {!readOnly&&!notif.isOwn&&!notif.read&&<button onClick={onRead} style={{fontSize:13,fontWeight:500,background:"#2d6a4f",color:"#fff",padding:"7px 18px",borderRadius:6,cursor:"pointer",border:"none"}}>✓ Marquer comme lu</button>}
       </div>
     </div>
   </div>;
@@ -1680,7 +1681,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
         const seasonKRs=(window._okrSeasons&&val.seasonKey?window._okrSeasons[val.seasonKey]?.keyresults:null)||[];
         return <div key={q.id} style={{marginBottom:10,background:"#fff",borderRadius:6,border:"1px solid #e2ddd6",padding:"8px 10px"}}>
           <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text.replace(" *","")}</div>
-          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(kr?.contributors||[]).map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",background:pBg(c),color:"#fff",fontSize:9,fontWeight:600,marginLeft:3}}>{ini(c)}</span>)}</div>;})}
+          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(kr?.contributors||[]).map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",background:pBg(c,teamMembers?.map?.(m=>m.prenom)),color:"#fff",fontSize:9,fontWeight:600,marginLeft:3}}>{ini(c)}</span>)}</div>;})}
         </div>;
       }
             return <div key={q.id} style={{background:q.confidentiel?"#fdf4ff":"#fff",borderRadius:6,padding:"8px 10px",border:"1px solid #e2ddd6"}}>
@@ -1731,7 +1732,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
                         <span style={{fontSize:11,fontFamily:"monospace",color:"#9e9890",marginRight:6}}>{kr.id}</span>
                         <span style={{fontSize:12,color:"#1a1814"}}>{kr.title}</span>
                         {contribs.length>0&&<span style={{marginLeft:8}}>
-                          {contribs.map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:20,height:20,borderRadius:"50%",background:pBg(c),color:"#fff",fontSize:9,fontWeight:600,marginLeft:2}}>{ini(c)}</span>)}
+                          {contribs.map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:20,height:20,borderRadius:"50%",background:pBg(c,teamMembers?.map(m=>m.prenom)),color:"#fff",fontSize:9,fontWeight:600,marginLeft:2}}>{ini(c)}</span>)}
                         </span>}
                       </div>
                     </label>;
@@ -1769,7 +1770,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
         })()}
       </>}
     </div>
-    {selectedWeek&&<UpdateViewModal notif={{updateData:selectedWeek.update,fromPrenom:selectedWeek.prenom||teamMember?.prenom,weekKey:selectedWeek.wk,isOwn:selectedWeek.isOwn,teamMember:teamMember,authorEmail:selectedWeek.authorEmail}} onClose={()=>setSelectedWeek(null)} onRead={()=>setSelectedWeek(null)} teamMembers={teamMembers}/>}
+    {selectedWeek&&<UpdateViewModal notif={{updateData:selectedWeek.update,fromPrenom:selectedWeek.prenom||teamMember?.prenom,weekKey:selectedWeek.wk,isOwn:selectedWeek.isOwn,teamMember:teamMember,authorEmail:selectedWeek.authorEmail}} onClose={()=>setSelectedWeek(null)} onRead={()=>setSelectedWeek(null)} teamMembers={teamMembers} readOnly/>}
 
   {/* Team updates toggle */}
 
@@ -1897,7 +1898,7 @@ function UpdatesHistoryTab(){
         const seasonKRs=(window._okrSeasons&&val.seasonKey?window._okrSeasons[val.seasonKey]?.keyresults:null)||[];
         return <div key={q.id} style={{marginBottom:8,background:"#fff",borderRadius:6,border:"1px solid #e2ddd6",padding:"8px 10px"}}>
           <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text.replace(" *","")}</div>
-          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(kr?.contributors||[]).map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",background:pBg(c),color:"#fff",fontSize:9,fontWeight:600,marginLeft:3}}>{ini(c)}</span>)}</div>;})}
+          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(kr?.contributors||[]).map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",background:pBg(c,teamMembers?.map?.(m=>m.prenom)),color:"#fff",fontSize:9,fontWeight:600,marginLeft:3}}>{ini(c)}</span>)}</div>;})}
         </div>;
       }
               return <div key={q.id} style={{marginBottom:8,background:q.confidentiel?"#fdf4ff":"#f8f7f5",borderRadius:6,padding:"6px 10px",border:q.confidentiel?"1px solid #e9d5ff":"none"}}>
