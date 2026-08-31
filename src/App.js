@@ -4629,7 +4629,7 @@ function sortProduitsSuffix(vals){
   });
 }
 
-function Bsv3CommandesTable({rows, importedAt, currentUser, activeLetters}){
+function Bsv3CommandesTable({rows, importedAt, activeLetters}){
   const [collapsedYears, setCollapsedYears] = React.useState({});
   const [expandedProds, setExpandedProds] = React.useState({});
 
@@ -4802,6 +4802,109 @@ function Bsv3CommandesTable({rows, importedAt, currentUser, activeLetters}){
 }
 
 function Bsv3Page({onBack,currentUser}){
+  const {rows,importedAt,loading}=useBsv3Data();
+  const [mainTab,setMainTab]=React.useState('ventes');
+  const [levels,setLevels]=React.useState(['mois','canal','client','produit']);
+  const [ytdMode,setYtdMode]=React.useState(false);
+  const [dragFrom,setDragFrom]=React.useState(null);
+  const [dragOver,setDragOver]=React.useState(null);
+  const [activeLetters,setActiveLetters]=React.useState(null);
+  const [showCommandes,setShowCommandes]=React.useState(false);
+
+  const importDate=importedAt?new Date(importedAt):new Date();
+  const year=importDate.getMonth()===0?importDate.getFullYear()-1:importDate.getFullYear();
+  const prevYear=year-1;
+
+  const validRows=rows.filter(r=>r['Année Emission']===String(year)&&!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']));
+  const prevRows=rows.filter(r=>r['Année Emission']===String(prevYear)&&!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']));
+  const allYearRows=rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']));
+  const maxYtdMonth=validRows.length?Math.max(...validRows.map(r=>parseInt(r['Mois Emission'])||0)):12;
+  const displayRows=ytdMode?validRows.filter(r=>parseInt(r['Mois Emission'])<=maxYtdMonth):validRows;
+
+  function handleDrop(toIdx){
+    if(dragFrom===null||dragFrom===toIdx){setDragFrom(null);setDragOver(null);return;}
+    const newLevels=[...levels];const [moved]=newLevels.splice(dragFrom,1);
+    newLevels.splice(toIdx,0,moved);setLevels(newLevels);
+    setDragFrom(null);setDragOver(null);
+  }
+
+  // Letter filter for écoulements
+  const allProdsForFilter=[...new Set(rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])).map(r=>r['Contenant+Appelation/Robe']))];
+  const allLetters=[...new Set(allProdsForFilter.map(p=>p[0]))].sort((a,b)=>{
+    const ia=PROD_LETTER_ORDER.indexOf(a),ib=PROD_LETTER_ORDER.indexOf(b);
+    if(ia>=0&&ib>=0)return ia-ib;if(ia>=0)return -1;if(ib>=0)return 1;return a.localeCompare(b);
+  });
+
+  return <div style={{minHeight:'100vh',background:'#f8f7f5'}}>
+    {/* TopBar */}
+    <div style={{background:'#fff',borderBottom:'1px solid #e2ddd6',padding:'12px 20px',display:'flex',alignItems:'center',gap:12}}>
+      <button onClick={onBack} style={{background:'none',border:'none',cursor:'pointer',fontSize:18,color:'#9e9890',padding:0,lineHeight:1}}>←</button>
+      <span style={{fontSize:16,fontWeight:700,color:'#1a1814'}}>📊 Base Sales v3</span>
+      {importedAt&&<span style={{fontSize:11,color:'#9e9890',marginLeft:4}}>
+        — mis à jour le {new Date(importedAt).toLocaleDateString('fr-FR')} à {new Date(importedAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}
+      </span>}
+    </div>
+
+    <div style={{maxWidth:1400,margin:'0 auto',padding:'20px 16px'}}>
+      {/* Main tabs */}
+      <div style={{display:'flex',gap:8,marginBottom:16,alignItems:'center',flexWrap:'wrap'}}>
+        {[{k:'ventes',l:'Analyse des ventes'},{k:'ecoulements',l:'Analyse des écoulements'}].map(t=>(
+          <button key={t.k} onClick={()=>setMainTab(t.k)}
+            style={{padding:'8px 18px',borderRadius:8,border:`1px solid ${mainTab===t.k?'#2d6a4f':'#e2ddd6'}`,
+              background:mainTab===t.k?'#2d6a4f':'#fff',color:mainTab===t.k?'#fff':'#6b6560',
+              fontSize:13,fontWeight:500,cursor:'pointer'}}>
+            {t.l}
+          </button>
+        ))}
+      </div>
+
+      {/* Sub-controls */}
+      {mainTab==='ventes'&&<div style={{display:'flex',alignItems:'center',gap:8,marginBottom:16,flexWrap:'wrap'}}>
+        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+          <span style={{fontSize:11,color:'#9e9890'}}>Ordre :</span>
+          {levels.map((level,i)=><DragPill key={level} level={level} index={i}
+            onDragStart={setDragFrom} onDragOver={setDragOver} onDrop={handleDrop}
+            isDragOver={dragOver===i&&dragFrom!==i}/>)}
+        </div>
+        <div style={{marginLeft:'auto',display:'flex',gap:0,background:'#fff',border:'1px solid #e2ddd6',borderRadius:8,padding:'4px'}}>
+          <button onClick={()=>setYtdMode(false)}
+            style={{padding:'5px 12px',borderRadius:6,border:'none',background:!ytdMode?'#2d6a4f':'transparent',color:!ytdMode?'#fff':'#6b6560',fontSize:12,fontWeight:500,cursor:'pointer'}}>
+            Toute l'année
+          </button>
+          <button onClick={()=>setYtdMode(true)}
+            style={{padding:'5px 12px',borderRadius:6,border:'none',background:ytdMode?'#2d6a4f':'transparent',color:ytdMode?'#fff':'#6b6560',fontSize:12,fontWeight:500,cursor:'pointer'}}>
+            YTD
+          </button>
+        </div>
+      </div>}
+
+      {mainTab==='ecoulements'&&<div style={{display:'flex',alignItems:'center',gap:6,marginBottom:16,flexWrap:'wrap'}}>
+        <span style={{fontSize:11,color:'#9e9890'}}>Filtrer :</span>
+        {allLetters.map(l=>{
+          const on=!activeLetters||activeLetters.has(l);
+          return <button key={l} onClick={()=>{
+            if(!activeLetters){setActiveLetters(new Set([l]));}
+            else{const next=new Set(activeLetters);if(next.has(l)){next.delete(l);}else{next.add(l);}
+              if(next.size===0||next.size===allLetters.length)setActiveLetters(null);else setActiveLetters(next);}
+          }} style={{padding:'2px 8px',borderRadius:5,border:`1px solid ${on?'#2d6a4f':'#e2ddd6'}`,
+            background:on?'#2d6a4f':'#fff',color:on?'#fff':'#9e9890',fontSize:11,fontWeight:600,cursor:'pointer'}}>
+            {l}
+          </button>;
+        })}
+        {activeLetters&&<button onClick={()=>setActiveLetters(null)}
+          style={{padding:'2px 7px',borderRadius:5,border:'1px solid #e2ddd6',background:'#fff',color:'#9e9890',fontSize:10,cursor:'pointer'}}>✕ Tout</button>}
+      </div>}
+
+      {/* Content */}
+      {loading?<div style={{textAlign:'center',padding:40,color:'#9e9890'}}>Chargement...</div>
+      :rows.length===0?<div style={{textAlign:'center',padding:40,color:'#9e9890'}}>Aucune donnée — importez un CSV dans les Paramètres.</div>
+      :mainTab==='ventes'?<Bsv3Table levels={levels} year={year} prevYear={prevYear}
+          validRows={displayRows} prevRows={prevRows} allYearRows={allYearRows}
+          ytdMode={ytdMode} maxYtdMonth={maxYtdMonth}/>
+      :<Bsv3CommandesTable rows={rows} importedAt={importedAt} activeLetters={activeLetters}/>}
+    </div>
+  </div>;
+}){
   const {rows,importedAt,loading}=useBsv3Data();
   const [levels,setLevels]=React.useState(['mois','canal','client','produit']);
   const [ytdMode,setYtdMode]=React.useState(false);
