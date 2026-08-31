@@ -4905,11 +4905,6 @@ function Bsv3Page({onBack,currentUser}){
     </div>
   </div>;
 }
-
-  const importDate=importedAt?new Date(importedAt):new Date();
-  const year=importDate.getMonth()===0?importDate.getFullYear()-1:importDate.getFullYear();
-  const prevYear=year-1;
-
 export default function App(){
   const [authUser,setAuthUser]=useState(null);
   const [authLoading,setAuthLoading]=useState(true);
