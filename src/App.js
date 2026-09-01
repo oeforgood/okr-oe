@@ -1335,16 +1335,14 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
               </div>
             </div>
             {/* Separator */}
-            <div style={{height:1,background:"#86efac",margin:"2px 0 4px 0"}}/>
-            {/* 13 smileys + label inline, last emoji big */}
-            <div style={{flex:1,display:"flex",alignItems:"flex-start",gap:6,minHeight:0}}>
-              <div style={{fontSize:9,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",fontWeight:500,whiteSpace:"nowrap",paddingTop:2,flexShrink:0}}>Mes 13<br/>dernières<br/>semaines</div>
-              <div style={{flex:1,display:"flex",alignItems:"flex-start",flexWrap:"nowrap",gap:0,overflow:"hidden"}}>
-                <My13Smileys/>
-              </div>
+            <div style={{height:1,background:"#86efac",margin:"4px 0"}}/>
+            {/* 13 smileys */}
+            <div style={{paddingTop:4,paddingBottom:4,flex:1}}>
+              <div style={{fontSize:9,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",fontWeight:500,marginBottom:3}}>Mes 13 dernières semaines</div>
+              <My13Smileys/>
             </div>
             {/* Separator */}
-            <div style={{height:1,background:"#86efac",margin:"4px 0 6px 0"}}/>
+            <div style={{height:1,background:"#86efac",margin:"4px 0"}}/>
             {/* Bottom: button */}
             <div>
               <button onClick={onGoUpdate}
@@ -1358,3 +1356,4046 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
               {todayUpdate&&<div style={{fontSize:10,color:"#166534",textAlign:"center",marginTop:2}}>✓ Update enregistré</div>}
             </div>
           </div>
+          </div>
+        </>;
+      })()}
+
+      {/* ── SECTION REPORTING ── pleine largeur */}
+      {(()=>{
+        const reportingData=window._reportingCache||null;
+        // Load from Firebase if not cached
+        return <><ReportingBanner onGoReporting={onGoReporting}/><div style={{marginTop:12}}><Bsv3Banner onGoBsv3={onGoBsv3}/></div></>;
+      })()}
+
+
+
+    </div>
+
+  </div>;
+}
+
+function UpdateCalendar({myUpdates,onView}){
+  const now=new Date();
+  const yr=now.getFullYear(),mo=now.getMonth();
+  const days=getDaysInMonth(yr,mo),firstDay=getFirstDayOfMonth(yr,mo);
+  const cells=Array(firstDay).fill(null).concat(Array.from({length:days},(_,i)=>i+1));
+  return <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4}}>
+    {["L","M","M","J","V","S","D"].map((d,i)=><div key={i} style={{textAlign:"center",fontSize:10,fontWeight:600,color:"#9e9890",padding:"4px 0"}}>{d}</div>)}
+    {cells.map((day,i)=>{
+      if(!day)return <div key={i}/>;
+      const date=new Date(yr,mo,day);
+      const wk=getWeekKey(date);
+      const update=myUpdates.find(u=>u.weekKey===wk);
+      const isMon=date.getDay()===1;
+      return <div key={i} onClick={()=>update&&isMon&&onView(update)}
+        style={{aspectRatio:"1",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:"50%",fontSize:12,fontWeight:500,cursor:update&&isMon?"pointer":"default",background:update&&isMon?"#2d6a4f":"transparent",color:update&&isMon?"#fff":"#1a1814",border:isMon&&!update?"1px dashed #e2ddd6":"none"}}>
+        {day}
+        {update&&!isMon&&<div style={{width:5,height:5,borderRadius:"50%",background:"#2d6a4f",position:"absolute",marginTop:14}}/>}
+      </div>;
+    })}
+  </div>;
+}
+
+function UpdateViewModal({notif,onClose,onRead,teamMembers=[],readOnly=false}){
+  const u=notif.updateData||notif;
+  const weekLabel=notif.weekKey?fmtWeekLabel(notif.weekKey):"";
+  const answers=u.answers||u.updateData?.answers||{};
+  const moodVal=answers.q7||"";
+  // Show questions in DEFAULT_QUESTIONS order, skip q7 (shown in title)
+  // q6 visible only if own update or viewer is the manager
+  const isOwn=notif.isOwn!==false;
+  const viewerEmail=notif.teamMember?.email;
+  const authorEmail=notif.authorEmail||notif.fromEmail||notif.email;
+  // viewer is manager if the author's manager field = viewerEmail
+  const isManager=!!(viewerEmail&&authorEmail&&teamMembers&&
+    teamMembers.find(m=>m.email===authorEmail&&m.managerEmail===viewerEmail));
+  const canSeeQ6=isOwn||isManager;
+  const [replyText,setReplyText]=useState('');
+  const [replySent,setReplySent]=useState(false);
+  async function sendReply(){
+    if(!replyText.trim())return;
+    const managerPrenom=teamMembers.find(m=>m.email===viewerEmail)?.prenom||'Ton référent';
+    const toEmail=authorEmail;
+    const toPrenom=teamMembers.find(m=>m.email===authorEmail)?.prenom||'';
+    const notifId=`reply_${viewerEmail}_${authorEmail}_${Date.now()}`;
+    await setDoc(doc(db,'teammate_notifications',notifId),{
+      toEmail,
+      fromPrenom:managerPrenom,
+      title:`${managerPrenom} a répondu à ton update`,
+      message:replyText.trim(),
+      createdAt:Date.now(),
+      read:false,
+      isReply:true,
+    });
+    sendNotifEmail(toEmail, toPrenom, `${managerPrenom} a répondu à ton update`);
+    setReplySent(true);
+    setTimeout(()=>{setReplyText('');setReplySent(false);},2000);
+  }
+  const weekQs=notif?.updateData?.weekQuestions||notif?.weekQuestions||DEFAULT_QUESTIONS;
+  const visibleQs=weekQs.filter(q=>q.id!=="q7"&&answers[q.id]&&(q.id!=="q6"||canSeeQ6));
+  return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div style={{background:"#fff",borderRadius:12,padding:28,width:"95%",maxWidth:900,maxHeight:"85vh",overflowY:"auto"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
+        <div style={{fontSize:16,fontWeight:600}}>Update de {notif.fromPrenom}</div>
+        {moodVal&&<span style={{fontSize:26,lineHeight:1}}>{moodVal}</span>}
+      </div>
+      <div style={{fontSize:12,color:"#9e9890",marginBottom:20}}>Semaine du {weekLabel}</div>
+      {visibleQs.map(q=>{
+        const val=answers[q.id];
+        if(!val)return null;
+        if(q.type==="presence")return <div key={q.id} style={{marginBottom:14}}>
+          <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text.replace(" *","")}</div>
+          <div style={{fontSize:13,background:"#f5f3ef",borderRadius:6,padding:"6px 10px"}}>{typeof val==="object"?(val?.krIds||[]).join(', '):val}</div>
+        </div>;
+      if(q.type==="okr"&&val?.krIds){
+        const krIds=val.krIds||[];
+        const seasonKRs=(window._okrSeasons&&val.seasonKey?window._okrSeasons[val.seasonKey]?.keyresults:null)||[];
+        return <div key={q.id} style={{marginBottom:10,background:"#fff",borderRadius:6,border:"1px solid #e2ddd6",padding:"8px 10px"}}>
+          <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text.replace(" *","")}</div>
+          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(()=>{const avs=(kr?.contributors||[]).filter(c=>c!==kr?.owner);return avs.length>0?<span style={{display:"inline-flex",marginLeft:4,border:"2px solid #fff"}}>{avs.map((c,i)=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:20,height:20,borderRadius:"50%",background:pBg(c,teamMembers?.map?.(m=>m.prenom)),color:"#6b6560",fontSize:9,fontWeight:600,marginLeft:i===0?0:-6,border:"2px solid #fff"}}>{ini(c)}</span>)}</span>:null;})()}</div>;})}
+        </div>;
+      }
+        return <div key={q.id} style={{marginBottom:14,background:q.confidentiel?"#fdf4ff":"transparent",padding:q.confidentiel?"8px 10px":"0",borderRadius:q.confidentiel?6:0,border:q.confidentiel?"1px solid #e9d5ff":"none"}}>
+          <div style={{fontSize:11,fontWeight:600,color:q.confidentiel?"#a21caf":"#9e9890",marginBottom:4}}>
+            {q.confidentiel?"🔒 ":""}{q.text.replace(" *","").replace(" ?","").trim()+" ?"}
+          </div>
+          <div style={{fontSize:13,whiteSpace:"pre-wrap",color:"#1a1814"}}>{typeof val==="object"?(val?.krIds||[]).join(', '):val}</div>
+        </div>;
+      })}
+      <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginTop:20,borderTop:"1px solid #e2ddd6",paddingTop:16}}>
+        {isManager&&!readOnly&&<div style={{marginBottom:16,borderTop:"1px solid #e2ddd6",paddingTop:16}}>
+          <div style={{fontSize:12,fontWeight:600,color:"#6b6560",marginBottom:8}}>💬 Répondre à l'update</div>
+          <textarea value={replyText} onChange={e=>setReplyText(e.target.value)}
+            rows={3} style={{width:"100%",border:"1px solid #e2ddd6",borderRadius:6,padding:"8px 10px",fontSize:13,boxSizing:"border-box",resize:"vertical",fontFamily:"inherit"}}
+            placeholder="Écris ta réponse…"/>
+          <div style={{display:"flex",justifyContent:"flex-end",marginTop:8}}>
+            <button onClick={sendReply} disabled={!replyText.trim()||replySent}
+              style={{fontSize:13,fontWeight:500,background:"#2d6a4f",color:"#fff",padding:"7px 18px",borderRadius:6,cursor:"pointer",border:"none",opacity:!replyText.trim()||replySent?0.6:1}}>
+              {replySent?"✓ Envoyé !":"Envoyer"}
+            </button>
+          </div>
+        </div>}
+        {!readOnly&&<button onClick={onClose} style={{fontSize:13,color:"#6b6560",border:"1px solid #e2ddd6",padding:"7px 14px",borderRadius:6,cursor:"pointer",background:"none"}}>Fermer</button>}
+        {readOnly&&<button onClick={onClose} style={{fontSize:13,color:"#6b6560",border:"1px solid #e2ddd6",padding:"7px 14px",borderRadius:6,cursor:"pointer",background:"none"}}>✕ Fermer</button>}
+        {!readOnly&&!notif.isOwn&&!notif.read&&<button onClick={onRead} style={{fontSize:13,fontWeight:500,background:"#2d6a4f",color:"#fff",padding:"7px 18px",borderRadius:6,cursor:"pointer",border:"none"}}>✓ Marquer comme lu</button>}
+      </div>
+    </div>
+  </div>;
+}
+
+// ─── UPDATE QUESTIONNAIRE ─────────────────────────────────────────────────────
+const MOODS=["😩","😕","😐","🙂","😊"];
+const PRESENCES=["Au boulot au moins deux jours","En congés","À l'école"];
+
+function TeamUpdatesSection({allUpdates, teamMembers=[], teamMember, onSelectWeek}) {
+  const WEEKS = 13;
+  const now = new Date();
+
+  // Build 13-week keys
+  const weekKeys = Array.from({length:WEEKS},(_,i)=>{
+    const d=new Date(now); d.setDate(now.getDate()-(WEEKS-1-i)*7);
+    return getWeekKey(d);
+  });
+
+  // Sort teammates: self first, then direct reports, then others
+  const myEmail = teamMember?.email;
+  const teammates = teamMembers.filter(m=>m.role!=="inactive"&&m.email&&m.email!==myEmail);
+  const myReports = teammates.filter(m=>m.managerEmail===myEmail);
+  const others = teammates.filter(m=>m.managerEmail!==myEmail);
+  const ordered = [...myReports, ...others];
+
+  // Build update lookup: email+weekKey → update
+  const lookup = {};
+  allUpdates.forEach(u=>{ lookup[`${u.email}_${u.weekKey}`]=u; });
+
+  function getDotColor(update, weekKey) {
+    if (!update) return '#e2ddd6'; // grey = not done
+    const sub = new Date(update.submittedAt);
+    const {fri} = getWeekBounds(weekKey);
+    const fridayEvening = new Date(fri); fridayEvening.setHours(15,0,0,0);
+    if (sub <= fridayEvening) return '#2d6a4f'; // green = on time
+    return '#f59e0b'; // orange = late (submitted after friday 15h)
+  }
+
+  return (
+    <div style={{marginTop:16,background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"16px 20px"}}>
+      <div style={{fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",marginBottom:14}}>
+        Updates de l'équipe — 13 dernières semaines
+      </div>
+      {/* Header: week labels */}
+      <div style={{display:"flex",alignItems:"center",gap:0,marginBottom:8}}>
+        <div style={{width:120,flexShrink:0}}/>
+        {weekKeys.map((wk,i)=>{
+          const {mon}=getWeekBounds(wk);
+          const isLast=i===WEEKS-1;
+          return <div key={wk} style={{flex:1,textAlign:"center",fontSize:isLast?9:8,
+            color:isLast?"#2d6a4f":"#c5c0b8",fontWeight:isLast?600:400}}>
+            {mon.getDate()}/{mon.getMonth()+1}
+          </div>;
+        })}
+      </div>
+      {/* Each teammate row */}
+      {ordered.map((m,rowIdx)=>{
+        const isReport=m.managerEmail===myEmail;
+        return (
+          <div key={m.email} style={{display:"flex",alignItems:"center",gap:0,
+            padding:"5px 0",borderTop:rowIdx===myReports.length&&rowIdx>0?"2px dashed #e2ddd6":
+            rowIdx>0?"1px solid #f5f3ef":"none"}}>
+            {/* Name */}
+            <div style={{width:120,flexShrink:0,display:"flex",alignItems:"center",gap:6}}>
+              <span style={{fontSize:11,fontWeight:isReport?600:400,color:isReport?"#1a1814":"#6b6560",
+                overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.prenom}</span>
+              {isReport&&<span style={{fontSize:9,color:"#9e9890"}}>↳</span>}
+            </div>
+            {/* Dots */}
+            {weekKeys.map((wk,i)=>{
+              const update=lookup[`${m.email}_${wk}`];
+              const col=getDotColor(update,wk);
+              const isLast=i===WEEKS-1;
+              return <div key={wk} style={{flex:1,display:"flex",justifyContent:"center",alignItems:"center"}}>
+                <div onClick={update?()=>onSelectWeek(wk,update,m.prenom,false):undefined}
+                  style={{width:isLast?14:10,height:isLast?14:10,borderRadius:"50%",
+                    background:col,cursor:update?"pointer":"default",
+                    boxShadow:isLast?"0 0 0 2px #fff, 0 0 0 3px "+col:"none",
+                    transition:"transform .1s"}}
+                  onMouseEnter={e=>{if(update)e.currentTarget.style.transform="scale(1.3)";}}
+                  onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}
+                  title={update?`${m.prenom} — ${fmtWeekLabel(wk)}`:`Pas d'update`}
+                />
+              </div>;
+            })}
+          </div>
+        );
+      })}
+      {/* Legend */}
+      <div style={{display:"flex",gap:16,marginTop:12,fontSize:11,color:"#9e9890"}}>
+        <span><span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#2d6a4f",marginRight:4}}/> Dans les temps</span>
+        <span><span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#f59e0b",marginRight:4}}/> En retard</span>
+        <span><span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#e2ddd6",marginRight:4}}/> Non complété</span>
+      </div>
+    </div>
+  );
+}
+
+function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,allUpdates=[],teamMembers=[],okrData}){
+  const _rawWeekKey=getUpdateWeekKey();
+  // On Tuesday weekKey is null - use last week for display purposes (read-only)
+  const weekKey=_rawWeekKey||(()=>{const d=new Date();d.setDate(d.getDate()-8);return getWeekKey(d);})();
+  const isTuesdayReadOnly=!_rawWeekKey;
+  const existing=weekKey?myUpdates.find(u=>u.weekKey===weekKey):null;
+  const [answers,setAnswers]=useState(existing?.answers||{});
+  const [showTeam,setShowTeam]=useState(false);
+  // Show as submitted only if existing update exists (regardless of lock)
+  // User can still submit even after 15h if they haven't submitted yet
+  const [submitted,setSubmitted]=useState(!!existing);
+  const [viewUpdate,setViewUpdate]=useState(null);
+  const [selectedWeek,setSelectedWeek]=useState(null);
+
+
+
+  const{mon,fri}=getWeekBounds(weekKey);
+  const fmtD=d=>`${d.getDate()} ${d.toLocaleString("fr-FR",{month:"long"})}`;
+  const weekLabel=`lundi ${fmtD(mon)} au vendredi ${fmtD(fri)}`;
+
+  function upd(qid,val){setAnswers(p=>({...p,[qid]:val}));}
+  async function handleSubmit(){
+    const now=new Date(),dow=now.getDay(),h=now.getHours();
+    // Notify immediately: Monday, or Fri after 15h, Sat, Sun
+    // Pending (wait for Fri 15h): Wed, Thu, Fri before 15h
+    const notifyNow=dow===1||(dow===5&&h>=15)||dow===6||dow===0;
+    await onSubmit({weekKey,answers,prenom:teamMember.prenom,email:teamMember.email,managerEmail:teamMember.managerEmail,submittedAt:Date.now(),notifyManager:notifyNow});
+    setSubmitted(true);
+  }
+
+  // Monthly calendar
+  const now=new Date();
+
+  return <div style={{minHeight:"100vh",background:"#f5f3ef",fontFamily:"system-ui,sans-serif"}}>
+    <TopBar onBack={onBack} title="Mes Updates" left={<span style={{fontSize:16,fontWeight:700,color:"#2d6a4f",cursor:"pointer"}} onClick={onBack}>🌼 Calendula</span>}/>
+    {isTuesdayReadOnly&&<div style={{background:"#fef3c7",borderBottom:"1px solid #f59e0b",padding:"8px 20px",fontSize:12,color:"#92400e",textAlign:"center"}}>
+      📅 Mardi : pas de saisie d'update aujourd'hui — consultation uniquement.
+    </div>}
+    <div style={{maxWidth:1000,margin:"0 auto",padding:"24px 16px 60px"}}>
+
+      {/* 26-week dots - integrated team view */}
+      <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"16px 20px",marginBottom:20,boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
+        {/* Header row: title + button */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+          <div style={{fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em"}}>Mes updates ces 6 derniers mois</div>
+          <button onClick={()=>setShowTeam(p=>!p)}
+            style={{fontSize:11,fontWeight:500,padding:"4px 12px",borderRadius:7,cursor:"pointer",
+              background:showTeam?"#2d6a4f":"#fff",color:showTeam?"#fff":"#6b6560",
+              border:`1px solid ${showTeam?"#2d6a4f":"#e2ddd6"}`,transition:"all .15s",
+              display:"flex",alignItems:"center",gap:5}}>
+            {showTeam?"✕ Masquer":"👥 Voir l'équipe"}
+          </button>
+        </div>
+        {/* My dots row */}
+        <div style={{display:"flex",alignItems:"center",gap:0,marginBottom:1}}>
+          <div style={{width:90,flexShrink:0,fontSize:11,fontWeight:600,color:"#1a1814",paddingRight:8}}>
+            {teamMember?.prenom||"Moi"}
+          </div>
+          {(()=>{const now=new Date();const dow=now.getDay();const hide=!(dow===6||dow===0||dow===1||(dow===5&&now.getHours()>=15));return <WeekDots myUpdates={myUpdates} clickable={true} onClickUpdate={w=>setSelectedWeek(w)} dotSize={14} gap={0} email={teamMember?.email} hideCurrentWeek={hide}/>;})()}
+        </div>
+        {/* Team rows */}
+        {showTeam&&<>
+          {(()=>{
+            const myEmail=teamMember?.email;
+            const active=teamMembers.filter(m=>m.role!=="inactive"&&m.email&&m.email!==myEmail);
+            const reports=active.filter(m=>m.managerEmail===myEmail);
+            const others=active.filter(m=>m.managerEmail!==myEmail);
+            const ordered=[...reports,...others];
+            const now2=new Date();const dow2=now2.getDay();const hideCur=!(dow2===6||dow2===0||dow2===1||(dow2===5&&now2.getHours()>=15));
+            const allWeeks=get26Weeks([]);const weeks=hideCur?allWeeks.slice(0,-1):allWeeks;
+            const lookup={};
+            allUpdates.forEach(u=>{lookup[`${u.email}_${u.weekKey}`]=u;});
+            return ordered.map((m,rowIdx)=>{
+              const isReport=m.managerEmail===myEmail;
+               return <div key={m.email} style={{display:"flex",alignItems:"center",gap:0,
+                 marginTop:1,padding:"0"}}>
+                 <div style={{width:90,flexShrink:0,paddingRight:8,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                   {isReport
+                     ?<span style={{display:"inline-block",background:"#2d6a4f",color:"#fff",
+                         fontSize:11,fontWeight:600,borderRadius:20,padding:"2px 9px",
+                         whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:86}}>{m.prenom}</span>
+                     :<span style={{fontSize:11,color:"#6b6560"}}>{m.prenom}</span>}
+                 </div>
+                <div style={{display:"flex",gap:0,flexWrap:"nowrap",alignItems:"center"}}>
+                  {weeks.map((w,wi)=>{
+                    const update=lookup[`${m.email}_${w.wk}`];
+                    const declaredAbsW=(window._absences||[]).find(a=>
+                      a.email===m.email&&toDateStr(w.mon)>=a.dateFrom&&toDateStr(w.mon)<=a.dateTo
+                    );
+                     let emoji=null;
+                     // Read q8 from WN-2 to detect WN-1 absence
+                     const prevWkDate_=new Date(w.mon);prevWkDate_.setDate(w.mon.getDate()-7);
+                     const prevWk2_=getWeekKey(prevWkDate_);
+                     const prevU2_=allUpdates.find(u=>u.email===m.email&&u.weekKey===prevWk2_);
+                     const q8_=prevU2_?.answers?.q8||'';
+                     if(declaredAbsW){emoji=declaredAbsW.type;}
+                     else if(q8_.includes('école')||q8_.includes('École')){emoji='🎓';}
+                     else if(q8_.includes('congés')){const mo=w.mon.getMonth()+1;emoji=((mo>=12&&w.mon.getDate()>=15)||mo<=4)?'🎿':'🌴';}
+                     else if(update){emoji=(hideCur&&wi===weeks.length-1)?'🫥':(update.answers?.q7||'😐');}
+                     else{emoji='🫥';}
+                    return <div key={wi} onClick={update?()=>setSelectedWeek({wk:w.wk,update,prenom:m.prenom,isOwn:false,authorEmail:m.email}):undefined}
+                      style={{width:31,height:31,flexShrink:0,display:"flex",alignItems:"center",
+                        justifyContent:"center",cursor:update?"pointer":"default",fontSize:22,lineHeight:1,
+                        opacity:(!update&&emoji==='🫥')?0.35:1}}>
+                      {emoji}
+                    </div>;
+                  })}
+                </div>
+              </div>;
+            });
+          })()}
+        </>}
+
+      </div>
+
+
+      <div style={{fontSize:13,color:"#6b6560",marginBottom:16}}>Semaine du {weekLabel}</div>
+
+      {submitted?<div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:20}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+          <span style={{fontSize:24}}>✅</span>
+          <div>
+            <div style={{fontSize:14,fontWeight:600,color:"#166534"}}>Update enregistré !</div>
+            <div style={{fontSize:12,color:"#6b6560"}}>{isUpdateLocked()?"Non modifiable (délai vendredi 15h dépassé).":"Modifiable jusqu'au vendredi 15h."}</div>
+          </div>
+          {!isUpdateLocked()&&<button onClick={()=>setSubmitted(false)} style={{marginLeft:"auto",fontSize:12,color:"#1d4ed8",background:"none",border:"1px solid #1d4ed8",borderRadius:6,padding:"5px 12px",cursor:"pointer"}}>Modifier</button>}
+        </div>
+        {/* Show answers read-only */}
+        <div style={{display:"flex",flexDirection:"column",gap:10,opacity:0.85}}>
+          {(questions||DEFAULT_QUESTIONS).filter(q=>answers[q.id]).map(q=>{
+            const val=answers[q.id];
+            if(q.type==="mood")return <div key={q.id} style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:11,color:"#9e9890",flex:1}}>{q.text.replace(" *","")}</span><span style={{fontSize:22}}>{val}</span></div>;
+            if(q.type==="presence")return <div key={q.id}><span style={{fontSize:11,color:"#9e9890"}}>{q.text.replace(" *","")}</span><div style={{fontSize:12,background:"#fff",borderRadius:6,padding:"4px 8px",marginTop:3}}>{val}</div></div>;
+      if(q.type==="okr"&&val?.krIds){
+        const krIds=val.krIds||[];
+        const seasonKRs=(window._okrSeasons&&val.seasonKey?window._okrSeasons[val.seasonKey]?.keyresults:null)||[];
+        return <div key={q.id} style={{marginBottom:10,background:"#fff",borderRadius:6,border:"1px solid #e2ddd6",padding:"8px 10px"}}>
+          <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text.replace(" *","")}</div>
+          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(()=>{const avs=(kr?.contributors||[]).filter(c=>c!==kr?.owner);return avs.length>0?<span style={{display:"inline-flex",marginLeft:4,border:"2px solid #fff"}}>{avs.map((c,i)=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:20,height:20,borderRadius:"50%",background:pBg(c,teamMembers?.map?.(m=>m.prenom)),color:"#6b6560",fontSize:9,fontWeight:600,marginLeft:i===0?0:-6,border:"2px solid #fff"}}>{ini(c)}</span>)}</span>:null;})()}</div>;})}
+        </div>;
+      }
+            return <div key={q.id} style={{background:q.confidentiel?"#fdf4ff":"#fff",borderRadius:6,padding:"8px 10px",border:"1px solid #e2ddd6"}}>
+              <div style={{fontSize:10,fontWeight:600,color:q.confidentiel?"#a21caf":"#9e9890",marginBottom:3}}>{q.confidentiel?"🔒 ":""}{q.text.replace(" *","")}</div>
+              <div style={{fontSize:12,whiteSpace:"pre-wrap",color:"#1a1814"}}>{typeof val==="object"?(val?.krIds||[]).join(', '):val}</div>
+            </div>;
+          })}
+        </div>
+      </div>:!weekKey?<div style={{textAlign:"center",padding:32,color:"#9e9890"}}>Pas d'update possible aujourd'hui.</div>:<>
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
+          {(questions||DEFAULT_QUESTIONS).map(q=>{
+            if(q.type==="mood")return <div key={q.id} style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"16px 20px"}}>
+              <div style={{fontSize:13,fontWeight:500,marginBottom:12,color:"#1a1814"}}>{q.text}</div>
+              <div style={{display:"flex",gap:12}}>
+                {MOODS.map(m=><button key={m} onClick={()=>upd(q.id,m)} style={{fontSize:28,background:answers[q.id]===m?"#f0fdf4":"none",border:answers[q.id]===m?"2px solid #2d6a4f":"2px solid transparent",borderRadius:10,padding:"6px 10px",cursor:"pointer",transition:"all .15s"}}>{m}</button>)}
+              </div>
+            </div>;
+            if(q.type==="presence")return <div key={q.id} style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"16px 20px"}}>
+              <div style={{fontSize:13,fontWeight:500,marginBottom:12,color:"#1a1814"}}>{q.text}</div>
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {PRESENCES.map(p=><label key={p} style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"8px 12px",borderRadius:8,border:`1px solid ${answers[q.id]===p?"#2d6a4f":"#e2ddd6"}`,background:answers[q.id]===p?"#f0fdf4":"#fff"}}>
+                  <input type="radio" checked={answers[q.id]===p} onChange={()=>upd(q.id,p)} style={{accentColor:"#2d6a4f"}}/><span style={{fontSize:13}}>{p}</span>
+                </label>)}
+              </div>
+            </div>;
+            if(q.type==="okr"){
+              const myKRs=(okrData?.keyresults||[]).filter(k=>
+                k.owner===teamMember?.prenom&&
+                !k.stop&&
+                calcTaux(k.val_depart,k.val_actuel,k.val_cible,k.unite)<100
+              );
+              const seasonKey=okrData?.seasonKey||'';
+              const checkedIds=answers[q.id]?.krIds||[];
+              function toggleKR(id){
+                const next=checkedIds.includes(id)?checkedIds.filter(x=>x!==id):[...checkedIds,id];
+                upd(q.id,{seasonKey,krIds:next});
+              }
+              return <div key={q.id} style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"14px 16px"}}>
+                <div style={{fontSize:13,fontWeight:500,color:"#1a1814",marginBottom:12}}>{q.text}</div>
+                {myKRs.length===0?<div style={{fontSize:12,color:"#9e9890"}}>Aucun KR assigné cette saison.</div>
+                :<div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  {myKRs.sort((a,b)=>a.id.localeCompare(b.id,undefined,{numeric:true})).map(kr=>{
+                    const checked=checkedIds.includes(kr.id);
+                    const contribs=(kr.contributors||[]).filter(c=>c!==kr.owner);
+                    return <label key={kr.id} style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",padding:"6px 8px",borderRadius:6,background:checked?"#f0fdf4":"#f8f7f5",border:`1px solid ${checked?"#86efac":"#e2ddd6"}`}}>
+                      <input type="checkbox" checked={checked} onChange={()=>toggleKR(kr.id)} style={{accentColor:"#2d6a4f",marginTop:2,flexShrink:0}}/>
+                      <div style={{flex:1}}>
+                        <span style={{fontSize:11,fontFamily:"monospace",color:"#9e9890",marginRight:6}}>{kr.id}</span>
+                        <span style={{fontSize:12,color:"#1a1814"}}>{kr.title}</span>
+                        {contribs.length>0&&<span style={{marginLeft:8}}>
+                          {contribs.map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:20,height:20,borderRadius:"50%",background:pBg(c,teamMembers?.map(m=>m.prenom)),color:"#6b6560",fontSize:9,fontWeight:600,marginLeft:2}}>{ini(c)}</span>)}
+                        </span>}
+                      </div>
+                    </label>;
+                  })}
+                </div>}
+              </div>;
+            }
+            return <div key={q.id} style={{background:q.confidentiel?"#fdf4ff":"#fff",borderRadius:10,border:`1px solid ${q.confidentiel?"#d946ef":"#e2ddd6"}`,padding:"14px 18px"}}>
+              <div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:q.confidentiel&&q.note?6:10}}>
+                <div style={{fontSize:13,fontWeight:500,color:"#1a1814",flex:1}}>{q.text}</div>
+                {q.confidentiel&&<span style={{fontSize:10,background:"#fdf4ff",color:"#a21caf",border:"1px solid #d946ef",borderRadius:10,padding:"2px 7px",flexShrink:0}}>🔒 Confidentiel</span>}
+              </div>
+              {q.confidentiel&&q.note&&<div style={{fontSize:11,color:"#9e9890",marginBottom:10,fontStyle:"italic"}}>{q.note}</div>}
+              <textarea value={answers[q.id]||""} onChange={e=>upd(q.id,e.target.value)} rows={3}
+                style={{...INP,resize:"vertical",fontFamily:"inherit",fontSize:13}}
+                placeholder={q.confidentiel?"Ta réponse restera confidentielle…":"Ta réponse…"}/>
+            </div>;
+          })}
+        </div>
+        {(()=>{
+          const requiredQs=(questions||DEFAULT_QUESTIONS).filter(q=>(q.type==="textarea"||q.type==="okr")&&!q.confidentiel||(q.type==="mood"||q.type==="presence"));
+          const allFilled=requiredQs.every(q=>{if(q.type==="okr")return answers[q.id]?.krIds?.length>0;return answers[q.id]&&String(answers[q.id]).trim().length>0;});
+          return <div style={{display:"flex",gap:10,marginTop:20}}>
+            <button onClick={async()=>{
+              if(!window.confirm("Supprimer définitivement cet update ?"))return;
+              await onDelete&&onDelete(weekKey);
+              setAnswers({});setSubmitted(false);
+            }} style={{padding:"10px 14px",background:"#fff",color:"#c0392b",border:"1px solid #fca5a5",borderRadius:8,cursor:"pointer",fontSize:13,fontWeight:500}}>
+              🗑️ Supprimer mon Update
+            </button>
+            <button onClick={allFilled?handleSubmit:undefined} style={{flex:1,padding:"10px 18px",background:allFilled?"#fff":"#f5f3ef",color:allFilled?"#2d6a4f":"#c5c0b8",border:`1px solid ${allFilled?"#2d6a4f":"#e2ddd6"}`,borderRadius:8,cursor:allFilled?"pointer":"not-allowed",fontSize:13,fontWeight:500,transition:"all .15s"}}>
+              🔐 Je bloque ces paroles.
+            </button>
+          </div>;
+        })()}
+      </>}
+    </div>
+    {selectedWeek&&<UpdateViewModal notif={{updateData:selectedWeek.update,fromPrenom:selectedWeek.prenom||teamMember?.prenom,weekKey:selectedWeek.wk,isOwn:selectedWeek.isOwn,teamMember:teamMember,authorEmail:selectedWeek.authorEmail}} onClose={()=>setSelectedWeek(null)} onRead={()=>setSelectedWeek(null)} teamMembers={teamMembers} readOnly/>}
+
+  {/* Team updates toggle */}
+
+  </div>;
+}
+
+function TopBar({onBack,title,extra,left}){
+  return <div style={{background:"rgba(245,243,239,.95)",borderBottom:"1px solid #e2ddd6",padding:"10px 20px",display:"flex",alignItems:"center",gap:12}}>
+    {left||<button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#6b6560",display:"flex",alignItems:"center",gap:4,padding:"2px 6px",borderRadius:6}}
+      onMouseEnter={e=>e.currentTarget.style.background="#e2ddd6"}
+      onMouseLeave={e=>e.currentTarget.style.background="none"}>
+      🌼 Calendula
+    </button>}
+    <div style={{flex:1,textAlign:"center"}}>
+      <span style={{fontSize:15,fontWeight:600,color:"#1a1814"}}>{title}</span>
+    </div>
+    {extra||<div style={{width:80}}/>}
+  </div>;
+}
+
+// ─── SETTINGS PAGE ────────────────────────────────────────────────────────────
+function UpdatesHistoryTab(){
+  const [allUpdates,setAllUpdates]=useState([]);
+  const [allNotifs,setAllNotifs]=useState([]);
+  const [allTmNotifs,setAllTmNotifs]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [filterPrenom,setFilterPrenom]=useState("");
+  const [filterWeek,setFilterWeek]=useState("");
+  const [expanded,setExpanded]=useState({});
+
+
+  useEffect(()=>{
+    let done=0;
+    const check=()=>{done++;if(done===3)setLoading(false);};
+    const u1=onSnapshot(collection(db,"updates"),(snap)=>{
+      setAllUpdates(snap.docs.map(d=>({id:d.id,...d.data()})));check();
+    });
+    const u2=onSnapshot(collection(db,"update_notifications"),(snap)=>{
+      setAllNotifs(snap.docs.map(d=>({id:d.id,...d.data()})));check();
+    });
+    const u3=onSnapshot(collection(db,"teammate_notifications"),(snap)=>{
+      setAllTmNotifs(snap.docs.map(d=>({id:d.id,...d.data()})));check();
+    });
+    return()=>{u1();u2();u3();u3b();};
+  },[]);
+
+  const prenoms=[...new Set(allUpdates.map(u=>u.prenom).filter(Boolean))].sort();
+  const weeks=[...new Set(allUpdates.map(u=>u.weekKey).filter(Boolean))].sort().reverse();
+
+  const filtered=allUpdates
+    .filter(u=>!filterPrenom||u.prenom===filterPrenom)
+    .filter(u=>!filterWeek||u.weekKey===filterWeek)
+    .sort((a,b)=>(b.weekKey||"").localeCompare(a.weekKey||""));
+
+  const fmtTs=ts=>ts?new Date(ts).toLocaleDateString("fr-FR",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}):"—";
+
+  return <div>
+    {/* Filters */}
+    <div style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+      <select value={filterPrenom} onChange={e=>setFilterPrenom(e.target.value)} style={{...INP,width:"auto",fontSize:12}}>
+        <option value="">Toute l'équipe</option>
+        {prenoms.map(p=><option key={p}>{p}</option>)}
+      </select>
+      <select value={filterWeek} onChange={e=>setFilterWeek(e.target.value)} style={{...INP,width:"auto",fontSize:12}}>
+        <option value="">Toutes les semaines</option>
+        {weeks.map(w=>{const{mon,fri}=getWeekBounds(w);const sameM=mon.getMonth()===fri.getMonth();const label=sameM?`${w} · lundi ${mon.getDate()} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`:`${w} · lundi ${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"short"})} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`;return <option key={w} value={w}>{label}</option>;})}
+      </select>
+      <span style={{fontSize:12,color:"#9e9890",alignSelf:"center"}}>{filtered.length} update{filtered.length>1?"s":""}</span>
+    </div>
+
+    {loading?<div style={{textAlign:"center",padding:32,color:"#9e9890"}}>Chargement…</div>
+    :<div style={{display:"flex",flexDirection:"column",gap:8}}>
+      {filtered.map(u=>{
+        const notif=allNotifs.find(n=>n.fromEmail===u.email&&n.weekKey===u.weekKey);
+        const tmNotif=allTmNotifs.find(n=>n.toEmail===u.email&&n.weekKey===u.weekKey);
+        const isOpen=expanded[u.id];
+        const{mon,fri}=getWeekBounds(u.weekKey||"2026-W01");
+        const sameM=mon.getMonth()===fri.getMonth();
+        const weekLabel=sameM?`lundi ${mon.getDate()} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`:`lundi ${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"short"})} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`;
+
+        return <div key={u.id} style={{border:"1px solid #e2ddd6",borderRadius:8,overflow:"hidden"}}>
+          {/* Header row */}
+          <div onClick={()=>setExpanded(p=>({...p,[u.id]:!p[u.id]}))}
+            style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",background:"#f8f7f5",cursor:"pointer"}}>
+            <div style={{width:28,height:28,borderRadius:"50%",background:pBg(u.prenom,prenoms),color:pTx(u.prenom,prenoms),display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:600,flexShrink:0}}>{ini(u.prenom)}</div>
+            <div style={{flex:1}}>
+              <span style={{fontSize:13,fontWeight:500,color:"#1a1814"}}>{u.prenom}</span>
+              <span style={{fontSize:11,color:"#9e9890",marginLeft:10}}>{weekLabel}</span>
+            </div>
+            <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
+              {u.answers?.q7&&<span style={{fontSize:16}}>{u.answers.q7}</span>}
+              <span style={{fontSize:11,color:"#9e9890"}}>{fmtTs(u.updatedAt||u.submittedAt)}</span>
+              {/* Notif status */}
+              {notif?<span style={{fontSize:10,background:notif.read?"#f0fdf4":"#fef3c7",color:notif.read?"#166534":"#92400e",border:`1px solid ${notif.read?"#86efac":"#fcd34d"}`,borderRadius:10,padding:"1px 7px"}}>
+                {notif.read?`Lu ${fmtTs(notif.readAt)}`:"Notif envoyée"}
+              </span>:<span style={{fontSize:10,color:"#c5c0b8",border:"1px solid #e2ddd6",borderRadius:10,padding:"1px 7px"}}>Pas de notif</span>}
+              <span style={{fontSize:11,color:"#9e9890",transform:isOpen?"rotate(180deg)":"none",transition:"transform .2s"}}>▾</span>
+            </div>
+          </div>
+          {/* Expanded content */}
+          {isOpen&&<div style={{padding:"14px 16px",borderTop:"1px solid #e2ddd6"}}>
+            {/* Notif details */}
+            <div style={{background:"#f8f7f5",borderRadius:6,padding:"8px 12px",marginBottom:12,fontSize:11,color:"#6b6560"}}>
+              <div style={{fontWeight:600,marginBottom:4,color:"#1a1814"}}>📬 Messages liés</div>
+              {notif
+                ?<div style={{display:"flex",flexDirection:"column",gap:3}}>
+                  <div>• Notif envoyée au référent : {fmtTs(notif.updatedAt||notif.submittedAt)} {notif.pending?"(en attente)":""}</div>
+                  <div>• Lue par le référent : {notif.read?fmtTs(notif.readAt):"Non encore lue"}</div>
+                  {tmNotif&&<div>• Confirmation envoyée à {u.prenom} : {fmtTs(tmNotif.createdAt)} {tmNotif.read?`· vue le ${fmtTs(tmNotif.readAt||tmNotif.createdAt)}`:"· pas encore vue"}</div>}
+                </div>
+                :<div>Aucune notification envoyée (pas de référent ou délai non dépassé)</div>
+              }
+              {notif?.confidentiel&&<div style={{marginTop:6,padding:"6px 8px",background:"#fdf4ff",borderRadius:4,border:"1px solid #e9d5ff"}}>
+                <span style={{fontSize:10,color:"#a21caf",fontWeight:600}}>🔒 Message confidentiel : </span>
+                <span style={{color:"#1a1814"}}>{notif.confidentiel}</span>
+              </div>}
+            </div>
+            {/* Answers */}
+            {DEFAULT_QUESTIONS.filter(q=>u.answers?.[q.id]).map(q=>{
+              const val=u.answers[q.id];
+              if(q.type==="mood")return <div key={q.id} style={{marginBottom:8,display:"flex",gap:8,alignItems:"center"}}><span style={{fontSize:10,color:"#9e9890",flex:1}}>{q.text.replace(" *","")}</span><span style={{fontSize:20}}>{val}</span></div>;
+              if(q.type==="presence")return <div key={q.id} style={{marginBottom:8}}><div style={{fontSize:10,color:"#9e9890",marginBottom:2}}>{q.text.replace(" *","")}</div><div style={{fontSize:12,background:"#f5f3ef",borderRadius:4,padding:"3px 8px"}}>{val}</div></div>;
+      if(q.type==="okr"&&val?.krIds){
+        const krIds=val.krIds||[];
+        const seasonKRs=(window._okrSeasons&&val.seasonKey?window._okrSeasons[val.seasonKey]?.keyresults:null)||[];
+        return <div key={q.id} style={{marginBottom:8,background:"#fff",borderRadius:6,border:"1px solid #e2ddd6",padding:"8px 10px"}}>
+          <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text.replace(" *","")}</div>
+          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(()=>{const avs=(kr?.contributors||[]).filter(c=>c!==kr?.owner);return avs.length>0?<span style={{display:"inline-flex",marginLeft:4,border:"2px solid #fff"}}>{avs.map((c,i)=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:20,height:20,borderRadius:"50%",background:pBg(c,teamMembers?.map?.(m=>m.prenom)),color:"#6b6560",fontSize:9,fontWeight:600,marginLeft:i===0?0:-6,border:"2px solid #fff"}}>{ini(c)}</span>)}</span>:null;})()}</div>;})}
+        </div>;
+      }
+              return <div key={q.id} style={{marginBottom:8,background:q.confidentiel?"#fdf4ff":"#f8f7f5",borderRadius:6,padding:"6px 10px",border:q.confidentiel?"1px solid #e9d5ff":"none"}}>
+                <div style={{fontSize:10,fontWeight:600,color:q.confidentiel?"#a21caf":"#9e9890",marginBottom:3}}>{q.confidentiel?"🔒 ":""}{q.text.replace(" *","")}</div>
+                <div style={{fontSize:12,whiteSpace:"pre-wrap",color:"#1a1814"}}>{typeof val==="object"?(val?.krIds||[]).join(', '):val}</div>
+              </div>;
+            })}
+          </div>}
+        </div>;
+      })}
+      {filtered.length===0&&<div style={{textAlign:"center",padding:32,color:"#9e9890",fontSize:13}}>Aucun update trouvé.</div>}
+    </div>}
+  </div>;
+}
+
+
+// ─── REPORTING TAB ────────────────────────────────────────────────────────────
+
+const DEFAULT_SUBCAT_LABELS = {
+  "A1-31": "Subvention",
+  "B1-09": "Charges de personnel",
+  "B1-23": "Outils",
+  "C1-15": "Frais de déplacement",
+  "C1-18": "Honoraires",
+  "F1-07": "Autres achats et charges externes",
+  "F1-09": "Charges de personnel",
+  "F1-10": "Commissions sur ventes",
+  "F1-14": "Frais bancaires",
+  "F1-15": "Frais de déplacement",
+  "F1-18": "Honoraires",
+  "F1-23": "Outils",
+  "F1-31": "Subvention",
+  "F1-36": "Formations",
+  "G1-04": "Achats non stockés de matière et fournitures",
+  "G1-06": "Assurance",
+  "G1-09": "Charges de personnel",
+  "G1-12": "Entretiens et réparations",
+  "G1-17": "Frais postaux et de télécommunications",
+  "G1-18": "Honoraires",
+  "G1-20": "Impôts, taxes et versements assimilés",
+  "G1-22": "Locations immobilières",
+  "G1-23": "Outils",
+  "G1-30": "Sous-traitance",
+  "I1-11": "Dotation aux amortissements",
+  "J1-18": "Honoraires",
+  "L1-01": "Achat d'emballages",
+  "L1-04": "Achats non stockés de matière et fournitures",
+  "L1-09": "Charges de personnel",
+  "L1-12": "Entretiens et réparations",
+  "L1-15": "Frais de déplacement",
+  "L1-23": "Outils",
+  "L1-26": "Prestations de services",
+  "L1-31": "Subvention",
+  "M1-01": "Branding · Achat d'emballages",
+  "M1-04": "Branding · Achats non stockés",
+  "M1-15": "Branding · Frais de déplacement",
+  "M1-21": "Branding · Impressions de supports",
+  "M1-24": "Branding · PLV",
+  "M1-26": "Branding · Prestations de services",
+  "M1-AU": "Branding · Autre",
+  "M2-04": "Collab · Achats non stockés",
+  "M2-AU": "Collab · Autre",
+  "M3-27": "Partenariat/Visibilité · Publicité",
+  "M3-AU": "Partenariat/Visibilité · Autre",
+  "M4-23": "Outils web · Outils",
+  "M4-AU": "Outils web · Autre",
+  "M6-05": "Impact · Adhésions et concours",
+  "M6-26": "Impact · Prestations de services",
+  "M6-AU": "Impact · Autre",
+  "M7-05": "B2B · Adhésions et concours",
+  "M7-26": "B2B · Prestations de services",
+  "M7-29": "B2B · Salons",
+  "M7-AU": "B2B · Autre",
+  "M8-09": "Salaires et déplacements · Charges de personnel",
+  "M8-15": "Salaires et déplacements · Frais de déplacement",
+  "M8-31": "Salaires et déplacements · Subvention",
+  "M8-AU": "Salaires et déplacements · Autre",
+  "O1-09": "Charges de personnel",
+  "O1-13": "Etudes et recherches",
+  "O1-15": "Frais de déplacement",
+  "O1-31": "Subvention",
+  "R1-16": "Frais de recrutement",
+  "R1-23": "Outils",
+  "R1-36": "Formations",
+  "S1-03": "Retail · Achats de vin en vrac",
+  "S1-05": "Retail · Adhésions et concours",
+  "S1-09": "Retail · Charges de personnel",
+  "S1-10": "Retail · Commissions sur ventes",
+  "S1-15": "Retail · Frais de déplacement",
+  "S1-18": "Retail · Honoraires",
+  "S1-26": "Retail · Prestations de services",
+  "S1-30": "Retail · Sous-traitance",
+  "S1-31": "Retail · Subvention",
+  "S1-35": "Retail · Ventes de marchandises",
+  "S1-36": "Retail · Formations",
+  "S1-AU": "Retail · Autre",
+  "S2-04": "CHR · Achats non stockés",
+  "S2-05": "CHR · Adhésions et concours",
+  "S2-07": "CHR · Autres achats et charges",
+  "S2-09": "CHR · Charges de personnel",
+  "S2-10": "CHR · Commissions sur ventes",
+  "S2-15": "CHR · Frais de déplacement",
+  "S2-18": "CHR · Honoraires",
+  "S2-27": "CHR · Publicité",
+  "S2-31": "CHR · Subvention",
+  "S2-35": "CHR · Ventes de marchandises",
+  "S2-36": "CHR · Formations",
+  "S2-AU": "CHR · Autre",
+  "S3-05": "Export · Adhésions et concours",
+  "S3-09": "Export · Charges de personnel",
+  "S3-10": "Export · Commissions sur ventes",
+  "S3-15": "Export · Frais de déplacement",
+  "S3-18": "Export · Honoraires",
+  "S3-26": "Export · Prestations de services",
+  "S3-31": "Export · Subvention",
+  "S3-32": "Export · Transport",
+  "S3-36": "Export · Formations",
+  "S3-AU": "Export · Autre",
+  "S4-18": "X canal · Honoraires",
+  "S4-23": "X canal · Outils",
+  "S4-26": "X canal · Prestations de services",
+  "S4-27": "X canal · Publicité",
+  "S4-30": "X canal · Sous-traitance",
+  "S4-AU": "X canal · Autre",
+  "S5-05": "E-commerce · Adhésions et concours",
+  "S5-09": "E-commerce · Charges de personnel",
+  "S5-10": "E-commerce · Commissions sur ventes",
+  "S5-23": "E-commerce · Outils",
+  "S5-27": "E-commerce · Publicité",
+  "S5-AU": "E-commerce · Autre",
+  "S6-05": "Grands Comptes · Adhésions et concours",
+  "S6-09": "Grands Comptes · Charges de personnel",
+  "S6-15": "Grands Comptes · Frais de déplacement",
+  "S6-18": "Grands Comptes · Honoraires",
+  "S6-21": "Grands Comptes · Impressions de supports",
+  "S6-26": "Grands Comptes · Prestations de services",
+  "S6-27": "Grands Comptes · Publicité",
+  "S6-35": "Grands Comptes · Ventes de marchandises",
+  "S6-AU": "Grands Comptes · Autre",
+  "T1-06": "Assurance",
+  "T1-07": "Autres achats et charges externes",
+  "T1-14": "Frais bancaires",
+  "T1-28": "Remboursement de prêt et OS",
+  "Z1-34": "Vente de prestation de services",
+  "Z1-35": "Ventes de marchandises",
+  "Z2-01": "Achat d'emballages",
+  "Z2-02": "Achats de matières premières",
+  "Z2-03": "Achats de vin en vrac",
+  "Z2-25": "Prestation d'embouteillage",
+  "Z2-32": "Transport",
+  "Z2-33": "Variation des stocks"
+};
+
+const REPORTING_CANALS = ['E-commerce B2C','CHR','Grands Comptes','Retail','Export','Autres B2B','Régénération'];
+const CANAL_CSV_MAP = {'E-commerce B2C':'B2C','CHR':'CHR','Grands Comptes':'Grands Comptes','Retail':'Retail','Export':'Export','Autres B2B':'Autres B2B','Régénération':'Régénération'};
+const CANAL_MARGIN = {
+  'E-commerce B2C': 0.270,
+  'CHR': 0.293,
+  'Grands Comptes': 0.266,
+  'Retail': 0.292,
+  'Export': 0.231,
+  'Autres B2B': 0.225,
+  'Régénération': 1.0,
+};
+const DEFAULT_CANAL_MARGIN = 0.263;
+const MONTHS_FR = ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'];
+
+const DEFAULT_CODE_TO_CAT = {
+  A1:'Autres produits et charges',B1:'Bar',C1:'Culture et bien-être',
+  F1:'Comptabilité',G1:'Frais généraux',I1:'Immobilisations corporelles et incorporelles',
+  J1:'Juridique',L1:'Logistique',M1:'Marketing',M2:'Marketing',M3:'Marketing',
+  M4:'Marketing',M6:'Marketing',M7:'Marketing',M8:'Marketing',
+  O1:'Programme Oé pour la régénération',R1:'Ressources humaines',
+  S1:'Sales',S2:'Sales',S3:'Sales',S4:'Sales',S5:'Sales',S6:'Sales',
+  T1:'Frais financiers',Z1:'Ventes',Z2:'COGS',
+};
+const CODE_TO_CATEGORY = DEFAULT_CODE_TO_CAT;
+
+const DEFAULT_CAT_TYPE = {
+  'Marketing':'charges_expl','Sales':'charges_expl','Ressources humaines':'charges_expl',
+  'Juridique':'charges_expl','Comptabilité':'charges_expl','Logistique':'charges_expl',
+  'Culture et bien-être':'charges_expl','Programme Oé pour la régénération':'charges_expl',
+  'Bar':'charges_expl','Frais généraux':'charges_expl','Autres produits et charges':'charges_expl',
+  'Frais financiers':'autres_charges','Immobilisations corporelles et incorporelles':'autres_charges',
+  'COGS':'cogs','Ventes':'ventes',
+};
+
+const CATEGORIES_ORDER = [
+  'Marketing','Sales','Ressources humaines','Juridique','Comptabilité','Logistique',
+  'Culture et bien-être','Programme Oé pour la régénération','Bar','Frais généraux',
+  'Autres produits et charges','Frais financiers','Immobilisations corporelles et incorporelles',
+  'COGS','Ventes',
+];
+
+function fmtAmount(v, inKeur) {
+  if (v === 0 || v === null || v === undefined) return '—';
+  if (inKeur) return new Intl.NumberFormat('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:1}).format(v/1000);
+  return new Intl.NumberFormat('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:0}).format(v);
+}
+function fmtDetail(v) {
+  if (!v && v!==0) return '—';
+  return new Intl.NumberFormat('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}).format(v);
+}
+function fmtPct(v) {
+  return new Intl.NumberFormat('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:1}).format(v*100)+'%';
+}
+
+function ReportingRow({label, months, lastMonth, bold=false, highlight=false, isTotal=false,
+  indent=0, onClick, isOpen, inKeur, children, dotActive, onToggleDot}) {
+  const ytd = months.slice(0,lastMonth).reduce((a,b)=>a+b,0);
+  const total = months.reduce((a,b)=>a+b,0);
+  const col = total < 0 ? '#c0392b' : total > 0 ? '#166534' : '#9e9890';
+  const bg = isTotal ? '#f0fdf4' : highlight ? '#f8f7f5' : indent===2 ? '#f5f3ef' : indent===3 ? '#efecea' : 'transparent';
+  const cell = {padding:'5px 4px',fontSize:11,textAlign:'right',fontFamily:'system-ui,sans-serif',fontVariantNumeric:'tabular-nums',width:44,minWidth:44,maxWidth:44,
+    borderBottom:'1px solid #f0ede8',whiteSpace:'nowrap'};
+  return <>
+    <tr onClick={onClick} style={{cursor:onClick?'pointer':'default',background:bg,
+      borderTop:isTotal?'2px solid #e2ddd6':'none'}}>
+      <td style={{padding:`5px 6px 5px ${6+indent*12}px`,fontSize:11,fontWeight:bold?600:400,
+        position:'sticky',left:0,background:bg||'#fff',zIndex:1,
+        borderBottom:'1px solid #f0ede8',minWidth:220,maxWidth:220,width:220,
+        overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+        <div style={{display:'flex',alignItems:'center',gap:4}}>
+          {onClick&&<span style={{fontSize:9,color:'#9e9890',flexShrink:0,
+            transform:isOpen?'rotate(90deg)':'none',transition:'transform .15s',display:'inline-block'}}>▶</span>}
+          <span>{label}</span>
+        </div>
+      </td>
+      {months.map((v,i)=>{
+        const isEmpty = i >= lastMonth;
+        const c = v<0?'#c0392b':v>0?'#1a1814':'#c5c0b8';
+        return <>
+          {i===lastMonth&&<td key="ytd" style={{...cell,borderLeft:'2px solid #2d6a4f',borderRight:'2px solid #2d6a4f',
+            color:ytd<0?'#c0392b':'#166534',fontWeight:600,background:'#f0fdf4'}}>
+            {fmtAmount(ytd,inKeur)}
+          </td>}
+          <td key={i} style={{...cell,color:isEmpty?'#c5c0b8':c,
+            background:isEmpty?'#fafafa':'transparent'}}>
+            {isEmpty ? '—' : fmtAmount(v,inKeur)}
+          </td>
+        </>;
+      })}
+      {lastMonth===12&&<td key="ytd" style={{...cell,borderLeft:'2px solid #2d6a4f',
+        color:ytd<0?'#c0392b':'#166534',fontWeight:600,background:'#f0fdf4'}}>
+        {fmtAmount(ytd,inKeur)}
+      </td>}
+      <td style={{...cell,borderLeft:'1px solid #e2ddd6',fontWeight:bold?600:400,color:col}}>
+        {fmtAmount(total,inKeur)}
+      </td>
+    </tr>
+    {isOpen&&children}
+  </>;
+}
+
+function DetailEcritures({rows, lastMonth, monthActive, isAU=false}) {
+  // For AU buckets, sort by subcat code (stored in row.subcat if set), then month, then compte
+  const sorted = [...rows].filter(r=>r.month<=lastMonth&&monthActive[r.month-1])
+    .sort((a,b)=>{
+      if(isAU){const sc=(a.subcat||'').localeCompare(b.subcat||'');if(sc!==0)return sc;}
+      return a.month-b.month||a.compte.localeCompare(b.compte);
+    });
+  return <>
+    {sorted.map((r,i)=>{
+      const label=`${isAU&&r.subcat?r.subcat+' · ':''}${r.date||''} · ${r.libPiece||r.libLigne||r.tiers||'—'}`;
+      return <tr key={i} style={{background:'#fafaf8'}}>
+      <td style={{padding:'3px 4px 3px 40px',fontSize:10,color:'#6b6560',
+        position:'sticky',left:0,background:'#fafaf8',zIndex:1,
+        borderBottom:'1px solid #f5f5f3',width:220,minWidth:220,maxWidth:220,
+        overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
+        cursor:'default'}}
+        onMouseEnter={e=>{
+          const el=document.createElement('div');
+          el.id='rtip';
+          el.style.cssText='position:fixed;background:#1a1814;color:#fff;font-size:11px;padding:4px 10px;border-radius:5px;z-index:9999;pointer-events:none;max-width:600px;white-space:normal;line-height:1.4;box-shadow:0 2px 8px rgba(0,0,0,.3)';
+          el.textContent=label;
+          document.body.appendChild(el);
+          const rect=e.currentTarget.getBoundingClientRect();
+          el.style.left=Math.min(rect.left,window.innerWidth-620)+'px';
+          el.style.top=(rect.top-el.offsetHeight-4)+'px';
+        }}
+        onMouseLeave={()=>{const el=document.getElementById('rtip');if(el)el.remove();}}>
+        {label}
+      </td>
+      {Array(12).fill(0).map((_,i)=>{
+        const isThisMonth = i===r.month-1;
+        return <>
+          {i===lastMonth&&<td key="ytd" style={{borderBottom:'1px solid #f5f5f3',borderLeft:'2px solid #2d6a4f',borderRight:'2px solid #2d6a4f',background:'#f0fdf4'}}/>}
+          <td key={i} style={{padding:'3px 10px',fontSize:10,textAlign:'right',
+            fontFamily:'system-ui,sans-serif',borderBottom:'1px solid #f5f5f3',
+            color:r.amount<0?'#c0392b':'#1a1814',background:i>=lastMonth?'#fafafa':'transparent'}}>
+            {isThisMonth && i<lastMonth ? fmtDetail(r.amount) : ''}
+          </td>
+        </>;
+      })}
+      {lastMonth===12&&<td style={{borderBottom:'1px solid #f5f5f3',borderLeft:'2px solid #2d6a4f',background:'#f0fdf4'}}/>}
+      <td style={{borderBottom:'1px solid #f5f5f3',borderLeft:'1px solid #e2ddd6'}}/>
+    </tr>;
+    })}
+  </>;
+}
+
+function SubcatsDnD({codeMap, setCodeMap, onSaveCodeMap, subcatLabels, knownSubcats=new Set(), customLabels={}, setCustomLabels, catTypes, onSaveCatTypes, activeSubcats={}, onToggleSubcat, chargeData={}, lastMonth=5}) {
+  const [editingKey, setEditingKey] = useState(null);
+  const [editVal, setEditVal] = useState('');
+
+  // Group full subcategory codes (e.g. M1-04) by category code prefix (e.g. M1 -> Marketing)
+  const byCategory = {};
+  const uncat = [];
+  // Collect all known subcats from DEFAULT_SUBCAT_LABELS + knownSubcats from data
+  const allSubcatCodes = new Set([...Object.keys(DEFAULT_SUBCAT_LABELS), ...(knownSubcats||new Set())]);
+  
+  [...allSubcatCodes].sort().forEach(subcat => {
+    const prefix = subcat.slice(0,2);
+    const cat = codeMap[prefix];
+    if (cat) { if (!byCategory[cat]) byCategory[cat] = []; byCategory[cat].push(subcat); }
+    else uncat.push(subcat);
+  });
+
+  function saveLabel(key, val) {
+    const n = {...customLabels, [key]: val};
+    setCustomLabels(n);
+    setEditingKey(null);
+  }
+  function resetLabel(key) {
+    const n = {...customLabels};
+    delete n[key];
+    setCustomLabels(n);
+  }
+
+  const [collapsedCats, setCollapsedCats] = useState({});
+  const toggleCat = cat => setCollapsedCats(p=>({...p,[cat]:!p[cat]}));
+
+  return (
+    <div>
+      {uncat.filter((v,i,a)=>a.indexOf(v)===i).length > 0 && <div style={{background:'#fdecea',border:'1px solid #fca5a5',borderRadius:8,padding:'8px 14px',marginBottom:16,fontSize:12,color:'#c0392b'}}>
+        ⚠️ Codes non affectés : <strong>{[...new Set(uncat.map(s=>s.slice(0,2)))].join(', ')}</strong>
+      </div>}
+
+      <div style={{ display: 'flex', flexDirection:'column', gap: 8 }}>
+        {CATEGORIES_ORDER.map(cat => {
+          const subcats = [...new Set(byCategory[cat]||[])].filter(s=>knownSubcats?.has(s));
+          const isCollapsed = collapsedCats[cat];
+          const typeLabel = catTypes[cat]==='charges_expl'?"Charges d'exploitation":catTypes[cat]==='autres_charges'?"Autres charges":catTypes[cat]==='cogs'?"COGS":"Ventes";
+          // Compute monthly avg for display
+          return <div key={cat} style={{borderRadius:10,border:'1px solid #e2ddd6',background:'#fafaf8',overflow:'hidden'}}>
+            {/* Category header - clickable */}
+            <div onClick={()=>toggleCat(cat)} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 16px',cursor:'pointer',background:'#f5f3ef',userSelect:'none'}}
+              onMouseEnter={e=>e.currentTarget.style.background='#ede9e3'}
+              onMouseLeave={e=>e.currentTarget.style.background='#f5f3ef'}>
+              <span style={{fontSize:12,transform:isCollapsed?'rotate(-90deg)':'rotate(0deg)',transition:'transform .2s',color:'#9e9890',display:'inline-block'}}>▾</span>
+              <span style={{fontSize:13,fontWeight:600,color:'#1a1814',flex:1}}>{cat}</span>
+              <span style={{fontSize:11,color:'#9e9890'}}>{subcats.length} sous-cat{subcats.length>1?'s':''}</span>
+              <span style={{fontSize:11,color:'#6b6560',background:'#fff',border:'1px solid #e2ddd6',padding:'2px 10px',borderRadius:10}}>{typeLabel}</span>
+            </div>
+            {/* Subcategories grid - 3 columns */}
+            {!isCollapsed&&<div style={{padding:'12px 16px'}}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gridAutoFlow: 'column', gridTemplateRows: `repeat(${Math.ceil((subcats.filter(s=>knownSubcats?.has(s)).length)/3)}, auto)`, gap: 6 }}>
+              {subcats.map(subcat => {
+                const hasData = knownSubcats?.has(subcat);
+                if (!hasData) return null; // Hide subcats with no transactions
+                
+                // Compute monthly average
+                const subcatMonths = chargeData?.[subcat]?.months || {};
+                const subcatTotal = Object.values(subcatMonths).reduce((a,b)=>a+b,0);
+                const subcatCount = Object.keys(subcatMonths).filter(k=>parseInt(k.split('-')[1])<=lastMonth).length||1;
+                const monthlyAvg = subcatTotal / subcatCount;
+                
+                const defaultLbl = DEFAULT_SUBCAT_LABELS[subcat];
+                const currentLbl = subcatLabels[subcat] || (defaultLbl ? '' : '— À nommer —');
+                const isCustom = !!customLabels[subcat];
+                const isNew = !defaultLbl && hasData;
+                const isActive = activeSubcats[subcat] !== false;
+                
+                return <div key={subcat} style={{
+                  background:'#fff',borderRadius:6,border:'1px solid #e2ddd6',
+                  padding:'5px 8px',
+                  display:'flex',alignItems:'center',gap:6,
+                  opacity:isActive?1:0.6,
+                }}>
+                  <span style={{fontSize:10,fontWeight:600,color:'#2d6a4f',fontFamily:'monospace',flexShrink:0,minWidth:40}}>{subcat}</span>
+                  {editingKey===subcat
+                    ?<input autoFocus value={editVal}
+                        onChange={e=>setEditVal(e.target.value)}
+                        onBlur={()=>saveLabel(subcat,editVal)}
+                        onKeyDown={e=>{if(e.key==='Enter')saveLabel(subcat,editVal);if(e.key==='Escape')setEditingKey(null);}}
+                        style={{flex:1,fontSize:10,border:'1px solid #2d6a4f',borderRadius:4,padding:'2px 4px',outline:'none'}}/>
+                    :<span onClick={()=>{setEditingKey(subcat);setEditVal(currentLbl||defaultLbl||'');}}
+                        style={{flex:1,fontSize:10,color:isNew?'#c0392b':'#6b6560',cursor:'pointer'}}
+                        title="Cliquer pour modifier le libellé">
+                        {currentLbl||defaultLbl||'— À nommer —'}
+                      </span>}
+                  {isCustom&&<span title="Libellé modifié — cliquer pour restaurer l'original" onClick={()=>resetLabel(subcat)}
+                    style={{fontSize:9,color:'#f59e0b',cursor:'pointer',flexShrink:0}}>↩</span>}
+                  {isNew&&<span style={{fontSize:9,color:'#c0392b',flexShrink:0}}>NEW</span>}
+                  <span style={{fontSize:9,color:'#9e9890',flexShrink:0}}>
+                    {new Intl.NumberFormat('fr-FR',{maximumFractionDigits:0}).format(Math.abs(monthlyAvg)/1000)}k/m
+                  </span>
+                  {/* Active/inactive toggle dot */}
+                  <span title={isActive?"Désactiver (sera regroupé dans XX-AU)":"Activer"}
+                    onClick={()=>onToggleSubcat&&onToggleSubcat(subcat)}
+                    style={{width:8,height:8,borderRadius:'50%',
+                      background:isActive?'#2d6a4f':'#c5c0b8',flexShrink:0,cursor:'pointer',
+                      border:`1px solid ${isActive?'#2d6a4f':'#e2ddd6'}`,display:'inline-block'}}/>
+                </div>;
+              })}
+              {subcats.length===0&&<span style={{fontSize:11,color:'#c5c0b8',fontStyle:'italic'}}>Aucune sous-catégorie</span>}
+              </div>
+            </div>}
+          </div>;
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMap, savedCustomLabels={}, onSaveCustomLabels, savedCanalMargin, readOnly=false}) {
+  const [caData, setCaData] = useState(null);
+
+  const [chargeData, setChargeData] = useState(null);
+  const [bfrData, setBfrData] = useState(null);
+  const [bilEntries, setBilEntries] = useState({});
+  const [chargeEntries, setChargeEntries] = useState({});
+  const [canalMargin, setCanalMargin] = useState(()=>{
+    const src=savedCanalMargin||CANAL_MARGIN;
+    const result={};
+    REPORTING_CANALS.forEach(c=>{
+      if(src[c]&&typeof src[c]==='object'){result[c]=src[c];}
+      else{const r=src[c]??CANAL_MARGIN[c]??DEFAULT_CANAL_MARGIN;result[c]={};for(let m=1;m<=12;m++)result[c][m]=r;}
+    });
+    return result;
+  });
+  const [subcatLabels, setSubcatLabels] = useState({});
+  const [importedAt, setImportedAt] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [catTypes, setCatTypes] = useState(savedCatTypes || DEFAULT_CAT_TYPE);
+  const [codeMap, setCodeMap] = useState(savedCodeMap || DEFAULT_CODE_TO_CAT);
+  const [customLabels, setCustomLabels] = useState(savedCustomLabels||{});  // user-edited labels
+  const [activeSubcats, setActiveSubcats] = useState({});  // false = inactive (merged into XX-AU)
+  
+  // Merge: customLabels override DEFAULT_SUBCAT_LABELS
+  const effectiveLabels = useMemo(()=>({...DEFAULT_SUBCAT_LABELS, ...customLabels}),[customLabels]);
+  
+  // All known subcats from data
+  const knownSubcats = useMemo(()=>{
+    if(!chargeData) return new Set();
+    return new Set(Object.keys(chargeData));
+  },[chargeData]);
+  const [activeTab, setActiveTab] = useState('report');
+  const [expanded, setExpanded] = useState({});
+  const [monthActive, setMonthActive] = useState(Array(12).fill(true));
+  const [inKeur, setInKeur] = useState(true);
+
+  useEffect(()=>{
+    const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists()){setCaData(snap.data().caData);}});
+    const u2=onSnapshot(doc(db,'reporting','charges'),(snap)=>{if(snap.exists())setChargeData(snap.data().chargeData);});
+    const u4=onSnapshot(doc(db,'reporting','bfr'),(snap)=>{if(snap.exists())setBfrData(snap.data().bilData);});
+    const u3=onSnapshot(doc(db,'reporting','meta'),(snap)=>{
+      if(snap.exists()){
+        setSubcatLabels(snap.data().subcatLabels||{});
+        setImportedAt(snap.data().importedAt);
+        if(snap.data().activeSubcats) setActiveSubcats(snap.data().activeSubcats);
+        if(snap.data().canalMargin) setCanalMargin(snap.data().canalMargin);
+      }
+      setLoading(false);
+    });
+    return()=>{u1();u2();u3();u4();};
+  },[]);
+  
+  async function saveActiveSubcats(a){
+    await updateDoc(doc(db,'reporting','meta'),{activeSubcats:a}).catch(()=>{});
+    setActiveSubcats(a);
+  }
+
+  // Detect last month with data
+  const lastMonth = useMemo(()=>{
+    if (!caData && !chargeData) return 5;
+    const months = new Set();
+    if (caData) Object.values(caData).forEach(cm=>Object.keys(cm).forEach(k=>{const m=parseInt(k.split('-')[1]);if(m)months.add(m);}));
+    if (chargeData) Object.values(chargeData).forEach(d=>Object.keys(d.months||{}).forEach(k=>{const m=parseInt(k.split('-')[1]);if(m)months.add(m);}));
+    return months.size ? Math.max(...months) : 5;
+  },[caData,chargeData]);
+
+  // Build month arrays (12 months + 1 YTD slot = 13 cols)
+  function getMonthArray(dataByKey) {
+    const arr = Array(12).fill(0);
+    if (!dataByKey) return arr;
+    Object.entries(dataByKey).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]+=v;});
+    return arr;
+  }
+
+  // CA
+  const caByCanal = useMemo(()=>{
+    const res={};
+    REPORTING_CANALS.forEach(c=>{
+      const csvKey=CANAL_CSV_MAP[c]||c;
+      res[c]=getMonthArray(caData?.[csvKey]);
+    });
+    return res;
+  },[caData]);
+  const caTotal = useMemo(()=>Array(12).fill(0).map((_,i)=>REPORTING_CANALS.reduce((s,c)=>s+(caByCanal[c]?.[i]||0),0)),[caByCanal]);
+
+  // Marge brute - use actual canal rates
+  const mbByCanal = useMemo(()=>{
+    const res={};
+    REPORTING_CANALS.forEach(c=>{
+      const defaultRate=CANAL_MARGIN[c]??DEFAULT_CANAL_MARGIN;
+      res[c]=(caByCanal[c]||[]).map((v,i)=>{
+        // month i+1, get rate for that month or fall back to canal default
+        const rate=canalMargin[c]?.[i+1]??canalMargin[c]??defaultRate;
+        return v*rate;
+      });
+    });
+    return res;
+  },[caByCanal,canalMargin]);
+  // MB total = sum of (CA per canal * rate per canal)
+  const mbTotal = useMemo(()=>Array(12).fill(0).map((_,i)=>REPORTING_CANALS.reduce((s,c)=>s+(mbByCanal[c]?.[i]||0),0)),[mbByCanal]);
+
+  // Unassigned codes
+  const unassigned = useMemo(()=>{
+    if(!chargeData) return [];
+    const ua=new Set();
+    Object.keys(chargeData).forEach(subcat=>{
+      const code=subcat.slice(0,2);
+      const cat=codeMap[code];
+      if(!cat||!catTypes[cat]) ua.add(code);
+    });
+    return [...ua];
+  },[chargeData,codeMap,catTypes]);
+
+  // Charge data by type > category > subcat
+  const chargeByType = useMemo(()=>{
+    if(!chargeData) return {};
+    const res={};
+    Object.entries(chargeData).forEach(([subcat,data])=>{
+      const code=subcat.slice(0,2);
+      const cat=codeMap[code]||'Non affecté';
+      const type=catTypes[cat]||'charges_expl';
+      if(!res[type]) res[type]={};
+      if(!res[type][cat]) res[type][cat]={};
+      
+      // If subcat is inactive, merge into XX-AU bucket
+      const isActive = activeSubcats[subcat] !== false; // default true
+      const targetSubcat = isActive ? subcat : `${code}-AU`;
+      
+      if(!res[type][cat][targetSubcat]) res[type][cat][targetSubcat]={months:Array(12).fill(0),rows:[],comptes:{},isAU:!isActive};
+      const months=getMonthArray(data.months);
+      months.forEach((v,i)=>res[type][cat][targetSubcat].months[i]+=v);
+      // Store rows with subcat code for AU buckets sorting
+      const rowsWithSubcat=(data.rows||[]).map(r=>({...r,subcat:isActive?undefined:subcat}));
+      res[type][cat][targetSubcat].rows=(res[type][cat][targetSubcat].rows||[]).concat(rowsWithSubcat);
+      // Store comptes (entries loaded on demand)
+      (data.comptes||[]).forEach(cp=>{
+        const ck=cp.compte;
+        if(!res[type][cat][targetSubcat].comptes[ck]) res[type][cat][targetSubcat].comptes[ck]={libCompte:cp.libCompte,months:Array(12).fill(0)};
+        const cpMonths=getMonthArray(cp.months);
+        cpMonths.forEach((v,i)=>res[type][cat][targetSubcat].comptes[ck].months[i]+=v);
+      });
+    });
+    return res;
+  },[chargeData,codeMap,catTypes,activeSubcats]);
+
+  function getGroupTotal(type) {
+    const cats=chargeByType[type]||{};
+    return Array(12).fill(0).map((_,i)=>Object.values(cats).reduce((s,subcats)=>s+Object.values(subcats).reduce((s2,d)=>s2+(d.months[i]||0),0),0));
+  }
+
+  const chargesExpl = useMemo(()=>getGroupTotal('charges_expl'),[chargeByType]);
+  const autresCharges = useMemo(()=>getGroupTotal('autres_charges'),[chargeByType]);
+  const ebitda = useMemo(()=>mbTotal.map((v,i)=>v+chargesExpl[i]),[mbTotal,chargesExpl]);
+  const resultat = useMemo(()=>ebitda.map((v,i)=>v+autresCharges[i]),[ebitda,autresCharges]);
+
+  const toggle = k => setExpanded(p=>({...p,[k]:!p[k]}));
+  const loadBilEntriesRef = React.useRef(null);
+  const loadBilEntries=async(section,key)=>{
+    const docKey=`${section}_${key}`;
+    if(bilEntries[docKey]!==undefined)return;
+    setBilEntries(p=>({...p,[docKey]:[]}));
+    try{
+      const snaps=await Promise.all([
+        getDoc(doc(db,'bfr_entries',docKey)),
+        getDoc(doc(db,'bfr_entries',`${docKey}_p0`)),
+        getDoc(doc(db,'bfr_entries',`${docKey}_p1`)),
+      ]);
+      let entries=[];
+      snaps.forEach(s=>{if(s.exists())entries=entries.concat(s.data().entries||[]);});
+      setBilEntries(p=>({...p,[docKey]:entries}));
+    }catch(e){console.warn('loadBilEntries',e);}
+  };
+  const loadChargeEntries=async(subcat)=>{
+    if(chargeEntries[subcat]!==undefined)return;
+    setChargeEntries(p=>({...p,[subcat]:[]}));
+    try{
+      const s=await getDoc(doc(db,'charge_entries',subcat));
+      if(s.exists()) setChargeEntries(p=>({...p,[subcat]:s.data().entries||[]}));
+    }catch(e){console.warn('loadChargeEntries',e);}
+  };
+  const loadChargeEntriesRef=React.useRef(null);
+  loadBilEntriesRef.current=loadBilEntries;
+  loadChargeEntriesRef.current=loadChargeEntries;
+
+  // 13 col header: 12 months + YTD slot inserted after lastMonth
+  const headerCols = [...Array(12).keys()].map(i=>i).reduce((acc,i)=>{
+    acc.push(i);
+    if(i===lastMonth-1) acc.push('ytd');
+    return acc;
+  },[]);
+  if(lastMonth===0) headerCols.unshift('ytd');
+
+  function renderGroup(type, label) {
+    const cats=chargeByType[type]||{};
+    const groupMonths=getGroupTotal(type);
+    const ordCats=CATEGORIES_ORDER.filter(c=>cats[c]&&catTypes[c]===type);
+    return <ReportingRow key={type} label={label} months={groupMonths} lastMonth={lastMonth}
+      bold bg='#f0fdf4' inKeur={inKeur} onClick={()=>toggle(type)} isOpen={expanded[type]}>
+      {ordCats.map(cat=>{
+        const catMonths=Array(12).fill(0).map((_,i)=>Object.values(cats[cat]||{}).reduce((s,d)=>s+(d.months[i]||0),0));
+        const catKey=type+'-'+cat;
+        return <ReportingRow key={cat} label={cat} months={catMonths} lastMonth={lastMonth}
+          indent={1} inKeur={inKeur} onClick={()=>toggle(catKey)} isOpen={expanded[catKey]}>
+          {Object.entries(cats[cat]||{}).sort(([a],[b])=>a.localeCompare(b)).map(([subcat,d])=>{
+            const label2=`${subcat} · ${effectiveLabels[subcat]||subcatLabels[subcat]||''}`;
+            const compteEntries=Object.entries(d.comptes||{}).sort(([a],[b])=>a.localeCompare(b));
+            const subcatKey=catKey+'-'+subcat;
+            return <ReportingRow key={subcat} label={label2} months={d.months} lastMonth={lastMonth}
+              indent={2} inKeur={inKeur} onClick={()=>{toggle(subcatKey);loadChargeEntriesRef.current&&loadChargeEntriesRef.current(subcat);}} isOpen={expanded[subcatKey]}>
+              {compteEntries.length>0
+                ? compteEntries.map(([compte,cpd])=>{
+                    const cpKey=subcatKey+'-'+compte;
+                    const loadedEntries=(chargeEntries[subcat]||[]).find(e=>e.compte===compte)?.entries||[];
+                    const hasEntries=chargeEntries[subcat]!==undefined?loadedEntries.length>0:cpd.months.slice(0,lastMonth).some(v=>v!==0);
+                    return <ReportingRow key={compte} label={`${compte} · ${cpd.libCompte||''}`}
+                      months={cpd.months} lastMonth={lastMonth} indent={3} inKeur={inKeur}
+                      onClick={hasEntries?()=>{toggle(cpKey);loadChargeEntriesRef.current&&loadChargeEntriesRef.current(subcat);}:undefined}
+                      isOpen={expanded[cpKey]}>
+                      {loadedEntries.length>0&&<DetailEcritures rows={loadedEntries.filter(e=>e.month<=lastMonth)} lastMonth={lastMonth} monthActive={monthActive} isAU={d.isAU}/>}
+                    </ReportingRow>;
+                  })
+                : <DetailEcritures rows={d.rows} lastMonth={lastMonth} monthActive={monthActive} isAU={d.isAU}/>
+              }
+            </ReportingRow>;
+          })}
+        </ReportingRow>;
+      })}
+    </ReportingRow>;
+  }
+
+  return <div>
+    {/* Tabs */}
+    <div style={{display:'flex',gap:8,marginBottom:16}}>
+      {(readOnly?[{k:'report',l:'📊 Tableau'}]:[{k:'report',l:'📊 Tableau'},{k:'subcats',l:'⚙️'}]).map(t=>
+        <button key={t.k} onClick={()=>setActiveTab(t.k)} title={t.k==='subcats'?'Paramétrage':undefined}
+          style={{padding:'5px 12px',borderRadius:6,border:`1px solid ${activeTab===t.k?'#2d6a4f':'#e2ddd6'}`,
+            background:activeTab===t.k?'#2d6a4f':'#fff',color:activeTab===t.k?'#fff':'#6b6560',
+            cursor:'pointer',fontSize:12,fontWeight:500}}>
+          {t.l}
+        </button>
+      )}
+    </div>
+
+
+
+    {/* Subcats tab - drag and drop */}
+    {activeTab==='subcats'&&<SubcatsDnD codeMap={codeMap} setCodeMap={setCodeMap} onSaveCodeMap={onSaveCodeMap} subcatLabels={effectiveLabels} knownSubcats={knownSubcats} customLabels={customLabels} setCustomLabels={(cl)=>{setCustomLabels(cl);onSaveCustomLabels&&onSaveCustomLabels(cl);}} catTypes={catTypes} onSaveCatTypes={onSaveCatTypes} activeSubcats={activeSubcats} onToggleSubcat={(k)=>{const n={...activeSubcats,[k]:activeSubcats[k]===false};saveActiveSubcats(n);}} chargeData={chargeData} lastMonth={lastMonth}/>}
+
+    {/* Report tab */}
+    {activeTab==='report'&&<>
+      {/* Header bar */}
+      <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:12,flexWrap:'wrap'}}>
+        {importedAt&&<span style={{fontSize:11,color:'#9e9890'}}>
+          Données au {new Date(importedAt).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})} à {new Date(importedAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}
+        </span>}
+        <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:8}}>
+          <span style={{fontSize:11,color:'#9e9890'}}>Affichage :</span>
+          <button onClick={()=>setInKeur(false)} style={{padding:'3px 10px',borderRadius:10,border:`1px solid ${!inKeur?'#2d6a4f':'#e2ddd6'}`,background:!inKeur?'#2d6a4f':'#fff',color:!inKeur?'#fff':'#6b6560',cursor:'pointer',fontSize:11}}>€</button>
+          <button onClick={()=>setInKeur(true)} style={{padding:'3px 10px',borderRadius:10,border:`1px solid ${inKeur?'#2d6a4f':'#e2ddd6'}`,background:inKeur?'#2d6a4f':'#fff',color:inKeur?'#fff':'#6b6560',cursor:'pointer',fontSize:11}}>k€</button>
+        </div>
+      </div>
+
+      {/* Unassigned alert */}
+      {unassigned.length>0&&<div style={{background:'#fef3c7',border:'1px solid #fcd34d',borderRadius:8,padding:'8px 14px',marginBottom:12,fontSize:12,color:'#92400e'}}>
+        ⚠️ Codes non affectés : <strong>{unassigned.join(', ')}</strong> — Allez dans l'onglet "Sous-catégories".
+      </div>}
+
+      {loading?<div style={{textAlign:'center',padding:40,color:'#9e9890',fontSize:13}}>
+        Chargement des données…
+      </div>:!caData&&!chargeData?<div style={{textAlign:'center',padding:40}}>
+        <div style={{fontSize:32,marginBottom:8}}>📂</div>
+        <div style={{fontSize:14,fontWeight:500,color:'#1a1814',marginBottom:8}}>Aucune donnée importée</div>
+        <div style={{fontSize:12,color:'#9e9890'}}>Lancez <code style={{background:'#f5f3ef',padding:'2px 6px',borderRadius:4}}>node import_reporting.js</code> dans le dossier Calendula.</div>
+      </div>:<div style={{overflowX:'auto',borderRadius:10,border:'1px solid #e2ddd6',boxShadow:'0 1px 3px rgba(0,0,0,.06)'}}>
+        <table style={{width:'100%',borderCollapse:'collapse',minWidth:900}}>
+          <thead>
+            <tr style={{background:'#f5f3ef'}}>
+              <th style={{padding:'8px 6px',textAlign:'left',fontSize:11,fontWeight:600,color:'#6b6560',
+                position:'sticky',left:0,background:'#f5f3ef',zIndex:2,
+                width:220,minWidth:220,maxWidth:220,borderBottom:'1px solid #e2ddd6'}}>
+                
+              </th>
+              {MONTHS_FR.map((m,i)=><>
+                {i===lastMonth&&<th key="ytd" style={{padding:'8px 8px',textAlign:'right',fontSize:11,fontWeight:700,
+                  color:'#2d6a4f',borderLeft:'2px solid #2d6a4f',borderRight:'2px solid #2d6a4f',
+                  background:'#f0fdf4',borderBottom:'1px solid #e2ddd6',whiteSpace:'nowrap',width:44}}>YTD</th>}
+                <th key={i} style={{padding:'8px 8px',textAlign:'right',fontSize:11,fontWeight:600,
+                  color:i<lastMonth?'#1a1814':'#c5c0b8',borderBottom:'1px solid #e2ddd6',
+                  background:i<lastMonth?'transparent':'#fafafa',whiteSpace:'nowrap',width:44}}>
+                  {m}
+                  {i<lastMonth&&<span style={{display:'inline-block',width:6,height:6,borderRadius:'50%',
+                    background:monthActive[i]?'#2d6a4f':'#c5c0b8',marginLeft:6,cursor:'pointer',verticalAlign:'middle'}}
+                    onClick={()=>setMonthActive(p=>p.map((v,j)=>j===i?!v:v))}/>}
+                </th>
+              </>)}
+              {lastMonth===12&&<th key="ytd" style={{padding:'8px 8px',textAlign:'right',fontSize:11,fontWeight:700,
+                color:'#2d6a4f',borderLeft:'2px solid #2d6a4f',background:'#f0fdf4',
+                borderBottom:'1px solid #e2ddd6',whiteSpace:'nowrap',width:44}}>YTD</th>}
+              <th style={{padding:'8px 8px',textAlign:'right',fontSize:11,fontWeight:600,
+                color:'#6b6560',borderLeft:'1px solid #e2ddd6',borderBottom:'1px solid #e2ddd6',width:44}}>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colSpan={lastMonth+4} style={{padding:'20px 6px 4px',fontSize:11,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.06em',background:'#fafaf8',borderTop:'2px solid #e2ddd6'}}>Exploitation</td></tr>
+            <ReportingRow label="Chiffre d'Affaires" months={caTotal} lastMonth={lastMonth} bold inKeur={inKeur} onClick={()=>toggle('ca')} isOpen={expanded['ca']}>
+              {REPORTING_CANALS.map(c=><ReportingRow key={c} label={c} months={caByCanal[c]||Array(12).fill(0)} lastMonth={lastMonth} indent={1} inKeur={inKeur}/>)}
+            </ReportingRow>
+
+                        <ReportingRow label="Marge Brute" months={mbTotal} lastMonth={lastMonth} bold inKeur={inKeur} highlight onClick={()=>toggle('mb')} isOpen={expanded['mb']}>
+              {REPORTING_CANALS.map(c=>{
+                return <tr key={c} style={{background:'#f8fffd'}}>
+                  <td style={{padding:'5px 8px 5px 22px',fontSize:11,fontWeight:400,
+                    position:'sticky',left:0,background:'#f8fffd',zIndex:1,
+                    borderBottom:'1px solid #f0ede8',minWidth:280}}>
+                    <span style={{color:'#9e9890',marginRight:4}}>▸</span>{c}
+                  </td>
+                  {Array(12).fill(0).map((_,i)=>{
+                    const isEmpty=i>=lastMonth;
+                    const defaultRate=CANAL_MARGIN[c]??DEFAULT_CANAL_MARGIN;
+                    const rate=canalMargin[c]?.[i+1]??canalMargin[c]??defaultRate;
+                    return <React.Fragment key={i}>
+                      {i===lastMonth&&<td style={{padding:'5px 8px',fontSize:11,textAlign:'right',
+                        fontFamily:'system-ui,sans-serif',borderBottom:'1px solid #f0ede8',width:44,
+                        borderLeft:'2px solid #2d6a4f',borderRight:'2px solid #2d6a4f',background:'#f0fdf4',
+                        fontWeight:600,color:'#166534'}}>{fmtPct(rate)}</td>}
+                      <td style={{padding:'5px 8px',fontSize:11,textAlign:'right',
+                        fontFamily:'system-ui,sans-serif',borderBottom:'1px solid #f0ede8',width:44,
+                        color:isEmpty?'#c5c0b8':'#166534',background:isEmpty?'#fafafa':'transparent'}}>
+                        {isEmpty?'—':fmtPct(rate)}
+                      </td>
+                    </React.Fragment>;
+                  })}
+                  {lastMonth===12&&<td style={{padding:'5px 8px',fontSize:11,textAlign:'right',width:44,
+                    borderLeft:'2px solid #2d6a4f',background:'#f0fdf4',borderBottom:'1px solid #f0ede8',
+                    fontWeight:600,color:'#166534'}}>{fmtPct((()=>{const dr=CANAL_MARGIN[c]??DEFAULT_CANAL_MARGIN;let s=0;for(let m=1;m<=12;m++)s+=canalMargin[c]?.[m]??canalMargin[c]??dr;return s/12;})())}</td>}
+                  <td style={{padding:'5px 8px',fontSize:11,textAlign:'right',width:44,
+                    borderLeft:'1px solid #e2ddd6',borderBottom:'1px solid #f0ede8',color:'#166534'}}>
+                    {fmtPct((()=>{const dr=CANAL_MARGIN[c]??DEFAULT_CANAL_MARGIN;let s=0;for(let m=1;m<=12;m++)s+=canalMargin[c]?.[m]??canalMargin[c]??dr;return s/12;})())}
+                  </td>
+                </tr>;
+              })}
+            </ReportingRow>
+            {renderGroup('charges_expl',"Charges d'exploitation")}
+            <ReportingRow label="EBITDA" months={ebitda} lastMonth={lastMonth} bold isTotal inKeur={inKeur}/>
+            {renderGroup('autres_charges',"Autres charges")}
+            <ReportingRow label="Résultat net" months={resultat} lastMonth={lastMonth} bold isTotal inKeur={inKeur}/>
+            {/* ── SUIVI DE TRÉSORERIE ── */}
+            {bfrData&&(()=>{
+              // Helper: get monthly array from section/key
+              const getM=(section,key)=>{
+                const d=bfrData?.[section]?.[key]?.months||{};
+                const arr=Array(12).fill(0);
+                Object.entries(d).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]+=v;});
+                return arr;
+              };
+              const sumM=(...arrays)=>Array(12).fill(0).map((_,i)=>arrays.reduce((s,a)=>s+(a[i]||0),0));
+              // Group by compte for sub-detail
+              const byCompte=(section,key)=>{
+                const rows=bfrData?.[section]?.[key]?.rows||[];
+                const docKey=`${section}_${key}`;
+                const loadedEntries=bilEntries[docKey]||[];
+                return rows.map(r=>{
+                  const months=Array(12).fill(0);
+                  if(r.months&&typeof r.months==='object'){
+                    Object.entries(r.months).forEach(([k,v])=>{
+                      const m=parseInt(k.split('-')[1])-1;
+                      if(m>=0&&m<12)months[m]+=v;
+                    });
+                  }
+                  // Find entries for this compte from loaded entries
+                  const entries=loadedEntries.filter(e=>e.compte===r.compte).flatMap(e=>e.entries||[]);
+                  return [r.compte,{libCompte:r.libCompte,months,entries}];
+                });
+              };
+              const EntryRows=({entries,lastMonth,inKeur,monthActive})=>{
+                const sorted=[...entries].filter(e=>e.month<=lastMonth&&(!monthActive||monthActive[e.month-1])).sort((a,b)=>a.month-b.month||(a.date||'').localeCompare(b.date||''));
+                return sorted.map((e,i)=>{
+                  const mArr=Array(12).fill(null);
+                  mArr[e.month-1]=e.amount;
+                  const fmtEntry=v=>v==null?'':v.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});
+                  return <tr key={i} style={{background:'#efecea'}}>
+                    <td style={{padding:'3px 4px 3px 40px',fontSize:10,color:'#6b6560',
+                      position:'sticky',left:0,background:'#f5f5f2',zIndex:1,
+                      borderBottom:'1px solid #f0ede8',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:220}}>
+                      {e.date} · {e.libPiece||e.libLigne||e.tiers||'—'}
+                    </td>
+                    {mArr.map((v,mi)=>{
+                      const isEmpty=mi>=lastMonth;
+                      return <React.Fragment key={mi}>
+                        {mi===lastMonth&&<td style={{borderLeft:'2px solid #2d6a4f',borderRight:'2px solid #2d6a4f',background:'#f0fdf4',borderBottom:'1px solid #f0ede8'}}></td>}
+                        <td style={{padding:'3px 10px',fontSize:10,textAlign:'right',fontFamily:'system-ui,sans-serif',
+                          color:v===null?(isEmpty?'#e8e4de':'transparent'):v<0?'#c0392b':'#1a1814',
+                          borderBottom:'1px solid #f0ede8',background:isEmpty?'#fafafa':'transparent'}}>
+                          {v===null?(isEmpty?'—':''):fmtEntry(v)}
+                        </td>
+                      </React.Fragment>;
+                    })}
+                    <td style={{borderLeft:'1px solid #e2ddd6',borderBottom:'1px solid #f0ede8'}}></td>
+                  </tr>;
+                });
+              };
+              const detailRows=(section,key)=>byCompte(section,key)
+                .filter(([,d])=>d.months.slice(0,lastMonth).some(v=>v!==0))
+                .map(([c,d])=>(
+                <ReportingRow key={c}
+                  label={`${c} · ${d.libCompte||'—'}`}
+                  months={d.months} lastMonth={lastMonth} indent={2} inKeur={inKeur}
+                  onClick={()=>{toggle(`bil_${section}_${key}_${c}`);loadBilEntriesRef.current&&loadBilEntriesRef.current(section,key);}}
+                  isOpen={expanded[`bil_${section}_${key}_${c}`]}>
+                  {expanded[`bil_${section}_${key}_${c}`]&&d.entries?.length>0?<EntryRows entries={d.entries} lastMonth={lastMonth} inKeur={inKeur}/>:(expanded[`bil_${section}_${key}_${c}`]&&bilEntries[`${section}_${key}`]===undefined?<tr><td colSpan={20} style={{padding:'4px 40px',fontSize:11,color:'#9e9890'}}>Chargement...</td></tr>:null)}
+                </ReportingRow>
+              ));
+              const SectionHeader=({label})=><tr><td colSpan={lastMonth+4} style={{height:16,padding:'20px 6px 4px',fontSize:11,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.06em',background:'#fafaf8',borderTop:'2px solid #e2ddd6'}}>{label}</td></tr>;
+              // Solde comptes 51 = cumulative sum per month (not variation)
+              const banquesMonths=(()=>{
+                const d=bfrData?.banques?.banques?.months||{};
+                const rows=bfrData?.banques?.banques?.rows||[];
+                // Starting balance from AN entries
+                let startBal=0;
+                rows.forEach(r=>{Object.values(r.an||{}).forEach(v=>startBal-=v);}); // invert: debit account
+                const arr=Array(12).fill(0);
+                Object.entries(d).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]-=v;}); // invert: debit account
+                // Cumulative from starting balance
+                let cum=startBal;
+                return arr.map(v=>{cum+=v;return cum;});
+              })();
+
+              const bfrKeys=[
+                {key:'clients',label:'Clients et comptes rattachés (41x, 49x)'},
+                {key:'fournisseurs',label:'Fournisseurs et comptes rattachés (40x)'},
+                {key:'stocks',label:'Stocks (3x)'},
+              ];
+              const bfrTotal=sumM(...bfrKeys.map(({key})=>getM('bfr',key)));
+
+              const autresKeys=[
+                {key:'capitaux',label:'Capitaux propres (10-13)'},
+                {key:'provisions',label:'Provisions (14-15)'},
+                {key:'emprunts',label:'Emprunts et dettes assimilées (16)'},
+                {key:'participations',label:'Participations (17-19)'},
+                {key:'immobilisations',label:'Immobilisations (2x)'},
+                {key:'dette_sociale',label:'Dette sociale et salariale (42-43)'},
+                {key:'dette_etat',label:"Dettes envers l'État (44)"},
+                {key:'comptes_courants',label:'Comptes courants (45)'},
+                {key:'autre',label:'Autre (46-48, 5x sauf 51)'},
+              ];
+              const autresTotal=sumM(...autresKeys.map(({key})=>getM('autres',key)));
+              const banquesTotal=getM('banques','banques').map(v=>-v); // invert for display: positive=inflow
+
+              return <>
+                <SectionHeader label="Trésorerie"/>
+                <ReportingRow label="Variation de BFR" months={bfrTotal} lastMonth={lastMonth} bold inKeur={inKeur}
+                  onClick={()=>{toggle('bfr');loadBilEntriesRef.current&&loadBilEntriesRef.current('bfr','clients');loadBilEntriesRef.current&&loadBilEntriesRef.current('bfr','fournisseurs');loadBilEntriesRef.current&&loadBilEntriesRef.current('bfr','stocks');}} isOpen={expanded['bfr']}>
+                  {bfrKeys.map(({key,label})=>(
+                    <ReportingRow key={key} label={label} months={getM('bfr',key)} lastMonth={lastMonth} indent={1} inKeur={inKeur}
+                      onClick={()=>{toggle('bfr_'+key);loadBilEntriesRef.current&&loadBilEntriesRef.current('bfr',key);}} isOpen={expanded['bfr_'+key]}>
+                      {detailRows('bfr',key)}
+                    </ReportingRow>
+                  ))}
+                </ReportingRow>
+
+                
+                <ReportingRow label="Variations d'autres comptes de bilan" months={autresTotal} lastMonth={lastMonth} bold inKeur={inKeur}
+                  onClick={()=>{toggle('autres');['capitaux','provisions','emprunts','participations','immobilisations','dette_sociale','dette_etat','comptes_courants','autre'].forEach(k=>loadBilEntriesRef.current&&loadBilEntriesRef.current('autres',k));}} isOpen={expanded['autres']}>
+                  {autresKeys.map(({key,label})=>(
+                    <ReportingRow key={key} label={label} months={getM('autres',key)} lastMonth={lastMonth} indent={1} inKeur={inKeur}
+                      onClick={()=>{toggle('autres_'+key);loadBilEntriesRef.current&&loadBilEntriesRef.current('autres',key);}} isOpen={expanded['autres_'+key]}>
+                      {detailRows('autres',key)}
+                    </ReportingRow>
+                  ))}
+                </ReportingRow>
+
+                
+                <ReportingRow label="Variation de Trésorerie" months={banquesTotal} lastMonth={lastMonth} bold inKeur={inKeur}
+                  onClick={()=>{toggle('banques');loadBilEntriesRef.current&&loadBilEntriesRef.current('banques','banques');}} isOpen={expanded['banques']}>
+                  {detailRows('banques','banques').length>0&&(
+                    <ReportingRow label="Banques (51x)" months={banquesTotal} lastMonth={lastMonth} indent={1} inKeur={inKeur}
+                      onClick={()=>{toggle('banques_detail');loadBilEntriesRef.current&&loadBilEntriesRef.current('banques','banques');}} isOpen={expanded['banques_detail']}>
+                      {detailRows('banques','banques')}
+                    </ReportingRow>
+                  )}
+                </ReportingRow>
+                <ReportingRow label="Trésorerie (solde)" months={banquesMonths} lastMonth={lastMonth} bold isTotal inKeur={inKeur} useLastForYTD
+                  onClick={()=>toggle('treso_solde')} isOpen={expanded['treso_solde']}>
+                  {(()=>{
+                    // Per-account cumulative balance at end of each month
+                    const rows=bfrData?.banques?.banques?.rows||[];
+                    return rows.map(r=>{
+                      // Cumulative sum per month
+                      // Starting balance from AN entries
+                      const anBal=-Object.values(r.an||{}).reduce((s,v)=>s+v,0); // invert: debit account
+                      const cumMonths=Array(12).fill(0);
+                      let cum=anBal;
+                      for(let m=0;m<12;m++){
+                        const variation=r.months&&typeof r.months==='object'&&!Array.isArray(r.months)
+                          ? -(Object.entries(r.months).filter(([k])=>parseInt(k.split('-')[1])-1===m).reduce((s,[,v])=>s+v,0))
+                          : 0; // invert: debit account
+                        cum+=variation;
+                        cumMonths[m]=cum;
+                      }
+                      const isEmpty=m=>m>=lastMonth;
+                      return <tr key={r.compte} style={{background:'#fafaf8'}}>
+                        <td style={{padding:'3px 4px 3px 40px',fontSize:10,color:'#6b6560',
+                          position:'sticky',left:0,background:'#fafaf8',zIndex:1,
+                          borderBottom:'1px solid #f0ede8',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:220}}>
+                          {r.compte} · {r.libCompte||'—'}
+                        </td>
+                        {cumMonths.map((v,i)=>{
+                          const empty=i>=lastMonth;
+                          return <React.Fragment key={i}>
+                            {i===lastMonth&&<td style={{padding:'3px 6px',fontSize:10,textAlign:'right',fontFamily:'monospace',
+                              borderLeft:'2px solid #2d6a4f',borderRight:'2px solid #2d6a4f',background:'#f0fdf4',
+                              borderBottom:'1px solid #f0ede8',fontWeight:600,
+                              color:cumMonths[lastMonth-1]<0?'#c0392b':'#166534'}}>
+                              {fmtAmount(cumMonths[lastMonth-1],inKeur)}
+                            </td>}
+                            <td style={{padding:'3px 6px',fontSize:10,textAlign:'right',fontFamily:'monospace',
+                              color:empty?'#c5c0b8':v<0?'#c0392b':'#1a1814',borderBottom:'1px solid #f0ede8',
+                              background:empty?'#fafafa':'transparent'}}>
+                              {empty?'—':fmtAmount(v,inKeur)}
+                            </td>
+                          </React.Fragment>;
+                        })}
+                        <td style={{padding:'3px 6px',fontSize:10,textAlign:'right',fontFamily:'monospace',
+                          borderLeft:'1px solid #e2ddd6',borderBottom:'1px solid #f0ede8',
+                          color:cumMonths[11]<0?'#c0392b':'#1a1814'}}>
+                          {fmtAmount(cumMonths[11],inKeur)}
+                        </td>
+                      </tr>;
+                    });
+                  })()}
+                </ReportingRow>
+              </>;
+            })()}
+            {/* ── STOCKS ── */}
+            {chargeData&&bfrData&&(()=>{
+              const COGS_KEYS=['Z2-01','Z2-02','Z2-03','Z2-25','Z2-32','Z2-33','Z2-AU'];
+              const getSubcatMonths=k=>{
+                const d=chargeData[k];
+                if(!d)return Array(12).fill(0);
+                return getMonthArray(d.months);
+              };
+              const cogsMonths=Array(12).fill(0).map((_,i)=>
+                COGS_KEYS.reduce((s,k)=>s+getSubcatMonths(k)[i],0)
+              );
+              // Variation de stocks (from bfr.stocks)
+              // Variation de stocks (from bfr.stocks)
+              const stocksVariation=(()=>{
+                const d=bfrData?.bfr?.stocks?.months||{};
+                const arr=Array(12).fill(0);
+                Object.entries(d).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]+=v;});
+                return arr;
+              })();
+              // Solde stocks = AN + cumul variations (stocks are assets: positive = value)
+              const stocksRows=bfrData?.bfr?.stocks?.rows||[];
+              let stocksAN=0;
+              stocksRows.forEach(r=>Object.values(r.an||{}).forEach(v=>stocksAN+=v));
+              // Stocks are assets (like banques): negate AN (stored as credit=negative)
+              stocksAN=-stocksAN;
+              const stocksSolde=(()=>{
+                const arr=Array(12).fill(0);
+                Object.entries(bfrData?.bfr?.stocks?.months||{}).forEach(([k,v])=>{
+                  const m=parseInt(k.split('-')[1])-1;
+                  if(m>=0&&m<12)arr[m]+=v;
+                });
+                let cum=stocksAN;
+                return arr.map(v=>{cum+=v;return cum;});
+              })();
+              return <>
+                <tr><td colSpan={lastMonth+4} style={{padding:'20px 6px 4px',fontSize:11,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.06em',background:'#fafaf8',borderTop:'2px solid #e2ddd6'}}>Stocks</td></tr>
+                <ReportingRow label="CoGS" months={cogsMonths} lastMonth={lastMonth} bold inKeur={inKeur}
+                  onClick={()=>toggle('cogs')} isOpen={expanded['cogs']}>
+                  {COGS_KEYS.map(k=>{
+                    const label=effectiveLabels[k]||subcatLabels[k]||k;
+                    const months=getSubcatMonths(k);
+                    return <ReportingRow key={k} label={label} months={months} lastMonth={lastMonth} indent={1} inKeur={inKeur}/>;
+                  })}
+                </ReportingRow>
+                <ReportingRow label="Variation de stocks (3x)" months={stocksVariation} lastMonth={lastMonth} inKeur={inKeur}/>
+                <ReportingRow label="Stocks (solde)" months={stocksSolde} lastMonth={lastMonth} bold isTotal inKeur={inKeur} useLastForYTD/>
+              </>;
+            })()}
+
+          </tbody>
+        </table>
+      </div>}
+    </>}
+  </div>;
+}
+
+
+function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSaveCustomSubcatLabels, catTypes, onSaveCatTypes, savedCanalMargin, onSaveCanalMargin, onUploadReporting}) {
+  // Load BSv3 data for canal margin auto-fill
+  const [bsv3Rows,setBsv3Rows]=useState([]);
+  const [bsv3AutoMargin,setBsv3AutoMargin]=useState({}); // {canal_month: rate} applied
+  const [bsv3Year,setBsv3Year]=useState(new Date().getFullYear());
+  useEffect(()=>{
+    getDocs(collection(db,'bsv3_data')).then(snap=>{
+      if(!snap.empty){
+        let all=[];let at=null;
+        snap.docs.sort((a,b)=>a.id.localeCompare(b.id)).forEach(d=>{const data=d.data();all=all.concat(data.rows||[]);if(!at)at=data.importedAt;});
+        if(at){const d=new Date(at);setBsv3Year(d.getMonth()===0?d.getFullYear()-1:d.getFullYear());}
+        setBsv3Rows(all);
+      }
+    }).catch(()=>{});
+  },[]);
+
+  function getBsv3Rate(canal, month){
+    // Map reporting canal names to BSv3 canal names
+    const canalMap={'CHR':'CHR','Retail':'Retail','GMS':'Retail','Export':'Export','RHF':'Grands Comptes','Grands Comptes':'Grands Comptes','B2C':'E-commerce B2C','E-commerce B2C':'B2C','Autres':'Autres B2B'};
+    const bsv3Canal=canalMap[canal]||canal;
+    const rows=bsv3Rows.filter(r=>r['Canal']===bsv3Canal&&parseInt(r['Mois Emission'])===month&&r['Année Emission']===String(bsv3Year)&&!['CASIER-OE','COIFFE-OE','CONTENANT BOUTEILLE'].includes(r['Contenant+Appelation/Robe']));
+    if(!rows.length)return null;
+    const ca=rows.reduce((s,r)=>s+parseBsv3Amt(r['Montant HT']),0);
+    const marge=rows.reduce((s,r)=>s+parseBsv3Amt(r['Marge brute']),0);
+    return ca?marge/ca:null;
+  }
+  const [uploadMsg, setUploadMsg] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [chargeData, setChargeData] = useState(null);
+  const [localMargin, setLocalMargin] = useState(()=>{
+    const src=savedCanalMargin||CANAL_MARGIN;
+    // Convert old format {canal:rate} to new {canal:{1:rate,...,12:rate}} if needed
+    const result={};
+    REPORTING_CANALS.forEach(c=>{
+      if(src[c]&&typeof src[c]==='object'){result[c]=src[c];}
+      else{const r=src[c]??CANAL_MARGIN[c]??DEFAULT_CANAL_MARGIN;result[c]={};for(let m=1;m<=12;m++)result[c][m]=r;}
+    });
+    return result;
+  });
+  const [activeSubcats, setActiveSubcats] = useState({});
+  const [localCodeMap, setLocalCodeMap] = useState(codeMap || DEFAULT_CODE_TO_CAT);
+  const [localCustomLabels, setLocalCustomLabels] = useState(customSubcatLabels || {});
+
+  useEffect(()=>{
+    const u1 = onSnapshot(doc(db,'reporting','charges'),(snap)=>{if(snap.exists())setChargeData(snap.data().chargeData);});
+    const u2 = onSnapshot(doc(db,'reporting','meta'),(snap)=>{if(snap.exists()&&snap.data().activeSubcats)setActiveSubcats(snap.data().activeSubcats);});
+    return()=>{u1();u2();};
+  },[]);
+
+  const knownSubcats = useMemo(()=>new Set(chargeData?Object.keys(chargeData):Object.keys(DEFAULT_SUBCAT_LABELS)),[chargeData]);
+  const effectiveLabels = useMemo(()=>({...DEFAULT_SUBCAT_LABELS,...localCustomLabels}),[localCustomLabels]);
+
+  async function saveActiveSubcats(a) {
+    await updateDoc(doc(db,'reporting','meta'),{activeSubcats:a}).catch(()=>{});
+    setActiveSubcats(a);
+  }
+
+  return <>
+    {/* Upload CSV button */}
+    <div style={{marginBottom:16,padding:'14px 16px',background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:8,display:'flex',alignItems:'center',gap:12}}>
+      <div style={{flex:1}}>
+        <div style={{fontSize:13,fontWeight:600,color:'#166534',marginBottom:4}}>📂 Mettre à jour le fichier Reporting</div>
+        <div style={{fontSize:12,color:'#6b6560'}}>Importez un nouveau fichier CSV pour mettre à jour les données de reporting.</div>
+        {uploadMsg&&<div style={{fontSize:12,marginTop:4,color:uploadMsg.startsWith('❌')?'#c0392b':'#166534'}}>{uploadMsg}</div>}
+      </div>
+      <label style={{display:'inline-block',padding:'8px 16px',background:'#2d6a4f',color:'#fff',borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:500,flexShrink:0}}>
+        {uploading?'En cours...':'Choisir un CSV'}
+        <input type="file" accept=".csv" style={{display:'none'}} disabled={uploading}
+          onChange={async e=>{
+            const f=e.target.files[0];if(!f||!onUploadReporting)return;
+            setUploading(true);setUploadMsg('');
+            try{const r=await onUploadReporting(f);setUploadMsg(r||'✅ Importé');}
+            catch(err){setUploadMsg('❌ '+err.message);}
+            setUploading(false);e.target.value='';
+          }}/>
+      </label>
+    </div>
+    <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'16px 20px',marginBottom:20,overflowX:'auto'}}>
+      <div style={{fontSize:12,fontWeight:600,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:12}}>Taux de marge brute par canal (%)</div>
+      <table style={{borderCollapse:'collapse',fontSize:11,width:'100%'}}>
+        <thead>
+          <tr>
+            <th style={{padding:'4px 8px',textAlign:'left',color:'#9e9890',fontWeight:500,borderBottom:'1px solid #e2ddd6'}}>Canal</th>
+            {['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'].map((m,i)=>(
+              <th key={i} style={{padding:'4px 6px',textAlign:'center',color:'#9e9890',fontWeight:500,borderBottom:'1px solid #e2ddd6',minWidth:48}}>{m}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {REPORTING_CANALS.map(c=>{
+            const defaultRate=CANAL_MARGIN[c]??DEFAULT_CANAL_MARGIN;
+            return <tr key={c}>
+              <td style={{padding:'4px 8px',color:'#1a1814',fontWeight:500,whiteSpace:'nowrap',borderBottom:'1px solid #f0ede8'}}>{c}</td>
+              {Array(12).fill(0).map((_,i)=>{
+                const m=i+1;
+                const val=localMargin[c]?.[m]??defaultRate;
+                const bsv3Rate=getBsv3Rate(c,m);
+                const autoKey=c+'_'+m;
+                const isAuto=bsv3Rate!==null&&Math.abs(val-bsv3Rate)<0.0005;
+                const puceColor=bsv3Rate===null?'#c5c0b8':isAuto?'#2d6a4f':'#f59e0b';
+                const bgColor=isAuto?'#f0fdf4':'#fafaf8';
+                return <td key={m} style={{padding:'2px 3px',borderBottom:'1px solid #f0ede8'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:2}}>
+                    <input type="number" min="0" max="100" step="0.1"
+                      value={Math.round(val*1000)/10}
+                      onChange={e=>{
+                        const v=parseFloat(e.target.value)/100;
+                        const nm={...localMargin,[c]:{...(localMargin[c]||{}), [m]:isNaN(v)?val:v}};
+                        setLocalMargin(nm);
+                        onSaveCanalMargin&&onSaveCanalMargin(nm);
+                      }}
+                      style={{width:44,fontSize:11,border:'1px solid #e2ddd6',borderRadius:4,
+                        padding:'2px 4px',textAlign:'right',background:bgColor}}
+                    />
+                    <span title={bsv3Rate===null?'BSv3 non disponible pour ce mois':isAuto?'Cliquer pour annuler (revenir à '+Math.round((bsv3AutoMargin[autoKey+'_prev']||0)*1000)/10+'%)':'Cliquer pour appliquer le taux BSv3 ('+Math.round((bsv3Rate||0)*1000)/10+'%)'}
+                      onClick={()=>{
+                        if(bsv3Rate===null)return;
+                        if(isAuto){
+                          // Undo: restore previous value
+                          const prev=bsv3AutoMargin[autoKey+'_prev'];
+                          if(prev!==undefined){
+                            const nm={...localMargin,[c]:{...(localMargin[c]||{}), [m]:prev}};
+                            setLocalMargin(nm);
+                            onSaveCanalMargin&&onSaveCanalMargin(nm);
+                          }
+                          setBsv3AutoMargin(p=>{const n={...p};delete n[autoKey];delete n[autoKey+'_prev'];return n;});
+                        } else {
+                          // Apply BSv3 rate, save previous
+                          const prev=localMargin[c]?.[m]??defaultRate;
+                          const nm={...localMargin,[c]:{...(localMargin[c]||{}), [m]:bsv3Rate}};
+                          setLocalMargin(nm);
+                          onSaveCanalMargin&&onSaveCanalMargin(nm);
+                          setBsv3AutoMargin(p=>({...p,[autoKey]:true,[autoKey+'_prev']:prev}));
+                        }
+                      }}
+                      style={{cursor:bsv3Rate!==null?'pointer':'default',fontSize:8,color:puceColor,lineHeight:1,userSelect:'none',transition:'color .2s'}}>●</span>
+                  </div>
+                </td>;
+              })}
+            </tr>;
+          })}
+        </tbody>
+      </table>
+    </div>
+    <SubcatsDnD
+    codeMap={localCodeMap}
+    setCodeMap={cm=>{setLocalCodeMap(cm);onSaveCodeMap&&onSaveCodeMap(cm);}}
+    onSaveCodeMap={onSaveCodeMap}
+    subcatLabels={effectiveLabels}
+    knownSubcats={knownSubcats}
+    customLabels={localCustomLabels}
+    setCustomLabels={cl=>{setLocalCustomLabels(cl);onSaveCustomSubcatLabels&&onSaveCustomSubcatLabels(cl);}}
+    catTypes={catTypes}
+    onSaveCatTypes={onSaveCatTypes}
+    activeSubcats={activeSubcats}
+    onToggleSubcat={k=>{const n={...activeSubcats,[k]:activeSubcats[k]===false};saveActiveSubcats(n);}}
+    chargeData={chargeData}
+    lastMonth={5}/>
+  </>;
+}
+
+function FeedbackAdminTab() {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(()=>{
+    const unsub = onSnapshot(collection(db,'feedback'),(snap)=>{
+      setItems(snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>b.createdAt-a.createdAt));
+      setLoading(false);
+    });
+    return()=>unsub();
+  },[]);
+
+  async function markRead(id) {
+    await updateDoc(doc(db,'feedback',id),{read:true});
+  }
+  async function deleteItem(id) {
+    if(!window.confirm('Supprimer ce feedback ?'))return;
+    await deleteDoc(doc(db,'feedback',id));
+  }
+
+  const unread = items.filter(i=>!i.read).length;
+
+  return <div>
+    <div style={{fontSize:13,fontWeight:600,color:"#1a1814",marginBottom:14}}>
+      Feedbacks & idées d'amélioration
+      {unread>0&&<span style={{marginLeft:10,background:"#2d6a4f",color:"#fff",fontSize:11,
+        borderRadius:10,padding:"2px 8px"}}>{unread} nouveau{unread>1?"x":""}</span>}
+    </div>
+    {loading?<div style={{color:"#9e9890",fontSize:13}}>Chargement…</div>
+    :items.length===0?<div style={{color:"#9e9890",fontSize:13}}>Aucun feedback pour l'instant.</div>
+    :<div style={{display:"flex",flexDirection:"column",gap:8}}>
+      {items.map(item=><div key={item.id} style={{background:item.read?"#f8f7f5":"#fff",
+        border:`1px solid ${item.read?"#e2ddd6":"#2d6a4f"}`,borderRadius:8,padding:"12px 16px",
+        opacity:item.read?0.7:1}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
+          <span style={{fontSize:12,fontWeight:600,color:"#1a1814"}}>{item.from}</span>
+          <span style={{fontSize:11,color:"#9e9890"}}>{new Date(item.createdAt).toLocaleDateString("fr-FR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</span>
+          <div style={{marginLeft:"auto",display:"flex",gap:6}}>
+            {!item.read&&<button onClick={()=>markRead(item.id)}
+              style={{fontSize:11,color:"#2d6a4f",background:"none",
+                border:"1px solid #2d6a4f",borderRadius:4,padding:"2px 8px",cursor:"pointer"}}>
+              ✓ Lu
+            </button>}
+            <button onClick={()=>deleteItem(item.id)}
+              style={{fontSize:11,color:"#c0392b",background:"none",
+                border:"1px solid #fca5a5",borderRadius:4,padding:"2px 8px",cursor:"pointer"}}>
+              🗑️
+            </button>
+          </div>
+        </div>
+        <div style={{fontSize:13,color:"#1a1814",whiteSpace:"pre-wrap"}}>{item.message}</div>
+      </div>)}
+    </div>}
+  </div>;
+}
+
+function AbsencesTab({teamMembers=[]}) {
+  const [absences, setAbsences] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({email:'', type:'vacances', dateFrom:'', dateTo:''});
+
+  // Derive vacation emoji from end date: 🌴 if Apr 15 – Nov 30, 🎿 otherwise
+  function vacEmoji(dateTo) {
+    if (!dateTo) return '🌴';
+    const d = new Date(dateTo);
+    const mo = d.getMonth() + 1, day = d.getDate();
+    if ((mo > 4 || (mo === 4 && day >= 15)) && mo < 12) return '🌴';
+    if (mo <= 4 || mo === 12) return '🎿';
+    return '🌴';
+  }
+
+  function getEmoji() {
+    if (form.type === 'vacances') return vacEmoji(form.dateTo);
+    if (form.type === 'école') return '🎓';
+    if (form.type === 'maternité') return '🤰';
+    return '🌴';
+  }
+
+  const ABSENCE_LABELS = {vacances:'Congés / Vacances', école:'École / Formation', maternité:'Congé maternité'};
+
+  useEffect(()=>{
+    const unsub = onSnapshot(doc(db,'app_config','absences'),(snap)=>{
+      if(snap.exists()) setAbsences(snap.data().list||[]);
+      else setAbsences([]);
+      setLoading(false);
+    });
+    return()=>unsub();
+  },[]);
+
+  async function saveAbsences(list) {
+    await setDoc(doc(db,'app_config','absences'),{list});
+    window._absences = list;
+    setAbsences(list);
+  }
+
+  async function addAbsence() {
+    if(!form.email||!form.dateFrom||!form.dateTo) return;
+    const emoji = getEmoji();
+    const entry = {id:Date.now().toString(), email:form.email, type:emoji, label:ABSENCE_LABELS[form.type], dateFrom:form.dateFrom, dateTo:form.dateTo};
+    await saveAbsences([...absences, entry]);
+    setForm({email:'', type:'vacances', dateFrom:'', dateTo:''});
+  }
+
+  async function removeAbsence(id) {
+    await saveAbsences(absences.filter(a=>a.id!==id));
+  }
+
+  const activeMembers = teamMembers.filter(m=>m.role!=='inactive'&&m.email);
+  const inp = {fontSize:11,border:'1px solid #e2ddd6',borderRadius:6,padding:'4px 8px',fontFamily:'inherit',outline:'none',background:'#fff',width:'100%',boxSizing:'border-box'};
+  const sorted = [...absences].sort((a,b)=>b.dateTo.localeCompare(a.dateTo));
+  const canAdd = form.email && form.dateFrom && form.dateTo;
+
+  return <div>
+    {/* New absence form at top */}
+    <div style={{background:'#f8f7f5',borderRadius:8,border:'1px solid #e2ddd6',padding:'14px',marginBottom:16}}>
+      <div style={{fontSize:11,fontWeight:600,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:10}}>Nouvelle absence</div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:8}}>
+        <div style={{display:'flex',flexDirection:'column',gap:3}}>
+          <label style={{fontSize:10,color:'#9e9890'}}>Teammate</label>
+          <select value={form.email} onChange={e=>setForm(p=>({...p,email:e.target.value}))} style={inp}>
+            <option value="">— Choisir —</option>
+            {activeMembers.map(m=><option key={m.email} value={m.email}>{m.prenom}</option>)}
+          </select>
+        </div>
+        <div style={{display:'flex',flexDirection:'column',gap:3}}>
+          <label style={{fontSize:10,color:'#9e9890'}}>Type</label>
+          <select value={form.type} onChange={e=>setForm(p=>({...p,type:e.target.value}))} style={inp}>
+            <option value="vacances">🌴/🎿 Congés / Vacances</option>
+            <option value="école">🎓 École / Formation</option>
+            <option value="maternité">🤰 Congé maternité</option>
+          </select>
+        </div>
+        <div style={{display:'flex',flexDirection:'column',gap:3}}>
+          <label style={{fontSize:10,color:'#9e9890'}}>Du</label>
+          <input type="date" value={form.dateFrom} onChange={e=>setForm(p=>({...p,dateFrom:e.target.value}))} style={inp}/>
+        </div>
+        <div style={{display:'flex',flexDirection:'column',gap:3}}>
+          <label style={{fontSize:10,color:'#9e9890'}}>Au</label>
+          <input type="date" value={form.dateTo} onChange={e=>setForm(p=>({...p,dateTo:e.target.value}))} style={inp}/>
+        </div>
+      </div>
+      <div style={{display:'flex',alignItems:'center',gap:8}}>
+        {form.dateTo&&form.type==='vacances'&&<span style={{fontSize:18}}>{vacEmoji(form.dateTo)}</span>}
+        <button onClick={addAbsence} disabled={!canAdd}
+          style={{flex:1,padding:'7px',background:canAdd?'#2d6a4f':'#e2ddd6',color:canAdd?'#fff':'#9e9890',
+            border:'none',borderRadius:6,cursor:canAdd?'pointer':'not-allowed',fontSize:12,fontWeight:500}}>
+          ✓ Valider
+        </button>
+      </div>
+    </div>
+
+    {/* List sorted by dateTo desc */}
+    {loading?<div style={{color:'#9e9890',fontSize:12}}>Chargement…</div>
+    :sorted.length===0?<div style={{color:'#c5c0b8',fontSize:12,fontStyle:'italic'}}>Aucune absence déclarée.</div>
+    :<div style={{display:'flex',flexDirection:'column',gap:5}}>
+      {sorted.map(a=>{
+        const mem=activeMembers.find(x=>x.email===a.email);
+        const dFrom=new Date(a.dateFrom).toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+        const dTo=new Date(a.dateTo).toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'});
+        return <div key={a.id} style={{display:'flex',alignItems:'center',gap:8,
+          background:'#fff',border:'1px solid #e2ddd6',borderRadius:7,padding:'8px 12px'}}>
+          <span style={{fontSize:18,flexShrink:0}}>{a.type}</span>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:12,fontWeight:600,color:'#1a1814'}}>{mem?.prenom||a.email}</div>
+            <div style={{fontSize:10,color:'#9e9890'}}>{a.label||''} · {dFrom} → {dTo}</div>
+          </div>
+          <button onClick={()=>removeAbsence(a.id)}
+            style={{fontSize:10,color:'#c0392b',background:'none',border:'1px solid #fca5a5',
+              borderRadius:5,padding:'2px 8px',cursor:'pointer',flexShrink:0}}>🗑️</button>
+        </div>;
+      })}
+    </div>}
+  </div>;
+}
+
+function QuestionsEditor({qs,onSave}){
+  const [dragFrom,setDragFrom]=useState(null);
+  const [dragOver,setDragOver]=useState(null);
+  const INP2={border:'1px solid #e2ddd6',borderRadius:6,padding:'6px 10px',fontSize:13,width:'100%',boxSizing:'border-box'};
+
+  function save(newQs){onSave(newQs);}
+  function addQ(){save([...qs,{id:'q'+Date.now(),text:'Nouvelle question',type:'textarea',confidentiel:false}]);}
+  function delQ(i){save(qs.filter((_,j)=>j!==i));}
+  function dropQ(toIdx){
+    if(dragFrom===null||dragFrom===toIdx){setDragFrom(null);setDragOver(null);return;}
+    const next=[...qs];const [moved]=next.splice(dragFrom,1);next.splice(toIdx,0,moved);
+    save(next);setDragFrom(null);setDragOver(null);
+  }
+  return <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'18px 20px'}}>
+    <div style={{fontSize:13,fontWeight:600,marginBottom:14}}>Questions de l'Update hebdomadaire</div>
+    {qs.map((q,i)=>(
+      <div key={q.id} draggable
+        onDragStart={()=>setDragFrom(i)}
+        onDragOver={e=>{e.preventDefault();setDragOver(i);}}
+        onDragLeave={()=>setDragOver(null)}
+        onDrop={e=>{e.preventDefault();dropQ(i);}}
+        style={{marginBottom:10,padding:'12px',background:'#f8f7f5',borderRadius:8,
+          border:`1px solid ${dragOver===i&&dragFrom!==i?'#2d6a4f':'#e2ddd6'}`,
+          cursor:'grab',opacity:dragFrom===i?0.5:1}}>
+        <div style={{display:'flex',gap:10,alignItems:'flex-start'}}>
+          <span style={{fontSize:11,color:'#c5c0b8',marginTop:4}}>⠿</span>
+          <span style={{fontSize:11,fontFamily:'monospace',color:'#9e9890',marginTop:3,minWidth:20}}>{i+1}.</span>
+          <div style={{flex:1}}>
+            <input style={{...INP2,marginBottom:8}} value={q.text}
+              onChange={e=>save(qs.map((x,j)=>j===i?{...x,text:e.target.value}:x))}/>
+            <div style={{display:'flex',gap:16,alignItems:'center',flexWrap:'wrap'}}>
+              <label style={{fontSize:12,color:'#6b6560'}}>Type :
+                <select value={q.type} onChange={e=>save(qs.map((x,j)=>j===i?{...x,type:e.target.value}:x))}
+                  style={{fontSize:12,border:'1px solid #e2ddd6',borderRadius:4,padding:'2px 6px',marginLeft:4}}>
+                  <option value="textarea">Texte libre</option>
+                  <option value="mood">Humeur (smileys)</option>
+                  <option value="presence">Présence</option>
+                  <option value="okr">OKR</option>
+                </select>
+              </label>
+              {q.type!=='okr'&&<label style={{fontSize:12,color:'#6b6560',display:'flex',alignItems:'center',gap:4}}>
+                <input type="checkbox" checked={!!q.confidentiel}
+                  onChange={e=>save(qs.map((x,j)=>j===i?{...x,confidentiel:e.target.checked}:x))}
+                  style={{accentColor:'#a21caf'}}/>
+                Confidentiel
+              </label>}
+            </div>
+          </div>
+          <button onClick={()=>delQ(i)} style={{background:'none',border:'none',cursor:'pointer',fontSize:16,color:'#c0392b',padding:'0 4px',flexShrink:0}}>❌</button>
+        </div>
+      </div>
+    ))}
+    <button onClick={addQ} style={{marginTop:8,padding:'8px 16px',background:'#f0fdf4',border:'1px dashed #2d6a4f',borderRadius:8,color:'#2d6a4f',fontSize:13,fontWeight:500,cursor:'pointer',width:'100%'}}>
+      + Ajouter une question
+    </button>
+  </div>;
+}
+
+
+function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions,catTypes,onSaveCatTypes,codeMap,onSaveCodeMap,customSubcatLabels,onSaveCustomSubcatLabels,savedCanalMargin,onSaveCanalMargin,onSendMessage,onSaveBsv3,onUploadReporting}){
+  const [members,setMembers]=useState(teamMembers.map(m=>({...m})));
+  const [msgModal,setMsgModal]=useState(null); // {email, prenom}
+  const [msgTitle,setMsgTitle]=useState('');
+  const [msgBody,setMsgBody]=useState('');
+  const [msgSent,setMsgSent]=useState(false);
+
+  async function sendMessage(){
+    if(!msgTitle.trim()||!onSendMessage)return;
+    if(msgModal.email==='__ALL__'){
+      // Send to all active teammates
+      const targets=members.filter(m=>m.role!=='inactive'&&m.email);
+      for(const m of targets){
+        await onSendMessage(m.email, m.prenom, msgTitle.trim(), msgBody.trim());
+        sendNotifEmail(m.email, m.prenom, msgTitle.trim());
+      }
+    } else {
+      await onSendMessage(msgModal.email, msgModal.prenom, msgTitle.trim(), msgBody.trim());
+      sendNotifEmail(msgModal.email, msgModal.prenom, msgTitle.trim());
+    }
+    setMsgSent(true);
+    setTimeout(()=>{setMsgModal(null);setMsgTitle('');setMsgBody('');setMsgSent(false);},1200);
+  }
+  const [newPrenom,setNewPrenom]=useState("");
+  const [newManager,setNewManager]=useState("");
+  const [tab,setTab]=useState("members");
+  const [bsv3Uploading,setBsv3Uploading]=useState(false);
+  const [bsv3Msg,setBsv3Msg]=useState('');
+
+  async function handleBsv3Upload(file){
+    if(!file||!onSaveBsv3)return;
+    setBsv3Uploading(true);
+    setBsv3Msg('Lecture du fichier...');
+    try{
+      const text=await file.text();
+      const lines=text.split('\n');
+      const headers=lines[1]?.split(',').map(h=>h.trim().replace(/^"|"$/g,''))||[];
+      const rows=lines.slice(2).filter(l=>l.trim()).map(l=>{
+        const fields=[];let cur='',inQ=false;
+        for(const ch of l){if(ch==='"'){inQ=!inQ;}else if(ch===','&&!inQ){fields.push(cur.trim());cur='';}else cur+=ch;}
+        fields.push(cur.trim());
+        return Object.fromEntries(headers.map((h,i)=>[h,(fields[i]||'').replace(/^"|"$/g,'')]));
+      });
+      setBsv3Msg(`Envoi de ${rows.length.toLocaleString('fr-FR')} lignes...`);
+      const result=await onSaveBsv3(rows);
+      setBsv3Msg(result||`✅ ${rows.length.toLocaleString('fr-FR')} lignes importées`);
+    }catch(e){setBsv3Msg('❌ Erreur: '+e.message);}
+    setBsv3Uploading(false);
+  }
+  const [qs,setQs]=useState(questions||DEFAULT_QUESTIONS);
+  const [saved,setSaved]=useState(false);
+
+  function addMember(){
+    if(!newPrenom.trim())return;
+    const email=`${newPrenom.toLowerCase().trim()}@oeforgood.com`;
+    if(members.find(m=>m.email===email))return;
+    const newMember={prenom:newPrenom.trim(),email,managerEmail:newManager||"",role:"teammate"};
+    const updated=[...members,newMember];
+    setMembers(updated);
+    onSaveMembers&&onSaveMembers(updated);
+    setNewPrenom("");setNewManager("");
+  }
+  function removeMember(email){
+    if(email===OWNER_EMAIL)return;
+    if(!window.confirm("Supprimer ce membre ?"))return;
+    const updated=members.filter(m=>m.email!==email);
+    setMembers(updated);
+    onSaveMembers&&onSaveMembers(updated);
+  }
+  function setRole(email,role){
+    if(email===OWNER_EMAIL)return;
+    const updated=members.map(m=>m.email===email?{...m,role}:m);
+    setMembers(updated);
+    onSaveMembers&&onSaveMembers(updated);
+  }
+  function toggleForce(email,field){
+    const updated=members.map(m=>m.email===email?{...m,[field]:!m[field]}:m);
+    setMembers(updated);
+    onSaveMembers&&onSaveMembers(updated);
+  }
+  function setManager(email,managerEmail){
+    const updated=members.map(m=>m.email===email?{...m,managerEmail}:m);
+    setMembers(updated);
+    onSaveMembers&&onSaveMembers(updated);
+  }
+  function save(){
+    onSaveMembers(members);
+    onSaveQuestions&&onSaveQuestions(qs);
+    setSaved(true);setTimeout(()=>setSaved(false),1800);
+  }
+
+  return <div style={{minHeight:"100vh",background:"#f5f3ef",fontFamily:"system-ui,sans-serif"}}>
+    <TopBar onBack={onBack} title="⚙️ Paramètres"/>
+    <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
+      <div style={{display:"flex",gap:10,marginBottom:20}}>
+        {([{k:"members",l:"👥 Membres & rôles"},...(currentUser?.email===OWNER_EMAIL?[{k:"questions",l:"❓ Questions Update"},{k:"history",l:"📋 Historique Updates"},{k:"feedback",l:"💡 Feedback"},{k:"reporting_params",l:"⚙️ Reporting"},{k:"bsv3",l:"📊 Base Sales v3"}]:[])]).map(t=><button key={t.k} onClick={()=>setTab(t.k)}
+          style={{padding:"8px 16px",borderRadius:8,border:`1px solid ${tab===t.k?"#2d6a4f":"#e2ddd6"}`,background:tab===t.k?"#2d6a4f":"#fff",color:tab===t.k?"#fff":"#6b6560",cursor:"pointer",fontSize:13,fontWeight:500}}>
+          {t.l}
+        </button>)}
+      </div>
+
+      {tab==="members"&&<div style={{display:"grid",gridTemplateColumns:"3fr 2fr",gap:16,alignItems:"start"}}>
+        <div>{/* LEFT COL */}
+        <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"18px 20px",marginBottom:16}}>
+          <div style={{fontSize:13,fontWeight:600,marginBottom:14}}>Ajouter un membre</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr auto",gap:10,alignItems:"end"}}>
+            <div><label style={LBL}>Prénom</label><input style={INP} value={newPrenom} onChange={e=>setNewPrenom(e.target.value)} placeholder="ex: Marie" onKeyDown={e=>e.key==="Enter"&&addMember()}/></div>
+            <div><label style={LBL}>Manager</label><select style={INP} value={newManager} onChange={e=>setNewManager(e.target.value)}>
+              <option value="">— Aucun —</option>
+              {members.map(m=><option key={m.email} value={m.email}>{m.prenom}</option>)}
+            </select></div>
+            <button onClick={addMember} style={{padding:"7px 16px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:6,cursor:"pointer",fontSize:13,fontWeight:500,marginBottom:1}}>Ajouter</button>
+          </div>
+        </div>
+        <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",overflow:"hidden"}}>
+          <table style={{width:"100%",borderCollapse:"collapse"}}>
+            <thead><tr style={{background:"#f5f3ef"}}>
+              {["Prénom","Email","Manager","Rôle",""].map(h=><th key={h} style={{fontSize:11,fontWeight:600,color:"#9e9890",textTransform:"uppercase",letterSpacing:".05em",padding:"10px 14px",textAlign:"left",borderBottom:"1px solid #e2ddd6"}}>{h}</th>)}
+              <th style={{padding:"10px 14px",borderBottom:"1px solid #e2ddd6",textAlign:"center"}}>
+                <button onClick={()=>{setMsgModal({email:'__ALL__',prenom:'tous les teammates'});setMsgTitle('');setMsgBody('');}} style={{fontSize:16,background:"none",border:"none",cursor:"pointer",padding:"0 4px"}} title="Envoyer à tous">✉️</button>
+              </th>
+            </tr></thead>
+            <tbody>
+              {members.map(m=><tr key={m.email} style={{borderBottom:"1px solid #f0ede8"}}>
+                <td style={{padding:"10px 14px",fontSize:13,fontWeight:500}}><div style={{display:"flex",alignItems:"center",gap:8}}><Avatar name={m.prenom} people={members.map(x=>x.prenom)} size={26}/>{m.prenom}{m.email===OWNER_EMAIL&&<span style={{fontSize:10,background:"#fef3c7",color:"#92400e",borderRadius:10,padding:"1px 6px"}}>Propriétaire</span>}</div></td>
+                <td style={{padding:"10px 14px",fontSize:12,color:"#6b6560"}}>{m.email}</td>
+                <td style={{padding:"10px 14px"}}>
+                  {m.email!==OWNER_EMAIL?<select value={m.managerEmail||""} onChange={e=>setManager(m.email,e.target.value)} style={{...INP,fontSize:12}}>
+                    <option value="">— Aucun —</option>
+                    {members.filter(x=>x.email!==m.email).map(x=><option key={x.email} value={x.email}>{x.prenom}</option>)}
+                  </select>:<span style={{fontSize:12,color:"#9e9890"}}>—</span>}
+                </td>
+                <td style={{padding:"10px 14px"}}>
+                  {m.email===OWNER_EMAIL
+                    ?<span style={{fontSize:12,color:"#9e9890"}}>Propriétaire</span>
+                    :<select value={m.role||"teammate"} onChange={e=>setRole(m.email,e.target.value)} style={{...INP,fontSize:12}}>
+                      <option value="admin">Admin</option><option value="teammate">Teammate actif</option><option value="inactive">Teammate inactif</option>
+                    </select>}
+                </td>
+                <td style={{padding:"10px 14px"}}>
+                  <button onClick={()=>{setMsgModal({email:m.email,prenom:m.prenom});setMsgTitle('');setMsgBody('');}} style={{fontSize:14,background:"none",border:"none",cursor:"pointer",padding:"0 4px",marginRight:4}} title="Envoyer un message">✉️</button>
+                  {m.email!==OWNER_EMAIL&&<button onClick={()=>removeMember(m.email)} style={{fontSize:14,color:"#c0392b",background:"none",border:"none",cursor:"pointer",fontWeight:700,lineHeight:1,padding:"0 4px"}}>×</button>}
+                </td>
+              </tr>)}
+            </tbody>
+          </table>
+        </div>
+
+        </div>{/* end left col */}
+
+        {/* RIGHT COL: Absences */}
+        <div>
+          <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"16px 20px"}}>
+            <div style={{fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",marginBottom:14}}>🌴 Absences déclarées</div>
+            <AbsencesTab teamMembers={members}/>
+          </div>
+        </div>
+      </div>}
+
+      {tab==="questions"&&<QuestionsEditor qs={qs} onSave={newQs=>{setQs(newQs);onSaveQuestions&&onSaveQuestions(newQs);}}/> }
+
+      {tab==="history"&&<UpdatesHistoryTab/>}
+      {tab==="feedback"&&<FeedbackAdminTab/>}
+      {tab==="reporting_params"&&<ReportingParamsTab
+          onUploadReporting={onUploadReporting}
+          codeMap={codeMap} onSaveCodeMap={onSaveCodeMap}
+          customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={onSaveCustomSubcatLabels}
+          catTypes={catTypes} onSaveCatTypes={onSaveCatTypes}
+          savedCanalMargin={savedCanalMargin} onSaveCanalMargin={onSaveCanalMargin}/>}
+
+
+      {msgModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&setMsgModal(null)}>
+        <div style={{background:"#fff",borderRadius:12,padding:24,width:"90%",maxWidth:480,boxSizing:"border-box"}}>
+          <div style={{fontSize:15,fontWeight:600,marginBottom:16}}>✉️ Message à {msgModal.prenom}</div>
+          <div style={{marginBottom:12}}>
+            <label style={{fontSize:12,color:"#6b6560",display:"block",marginBottom:4}}>Titre</label>
+            <input value={msgTitle} onChange={e=>setMsgTitle(e.target.value)}
+              style={{width:"100%",border:"1px solid #e2ddd6",borderRadius:6,padding:"8px 10px",fontSize:13,boxSizing:"border-box"}}
+              placeholder="Titre du message" autoFocus/>
+          </div>
+          <div style={{marginBottom:16}}>
+            <label style={{fontSize:12,color:"#6b6560",display:"block",marginBottom:4}}>Message (optionnel)</label>
+            <textarea value={msgBody} onChange={e=>setMsgBody(e.target.value)}
+              rows={4} style={{width:"100%",border:"1px solid #e2ddd6",borderRadius:6,padding:"8px 10px",fontSize:13,boxSizing:"border-box",resize:"vertical"}}
+              placeholder="Contenu du message..."/>
+          </div>
+          <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
+            <button onClick={()=>setMsgModal(null)} style={{fontSize:13,color:"#6b6560",border:"1px solid #e2ddd6",padding:"7px 14px",borderRadius:6,cursor:"pointer",background:"none"}}>Annuler</button>
+            <button onClick={sendMessage} disabled={msgSent||!msgTitle.trim()}
+              style={{fontSize:13,fontWeight:500,background:msgSent?"#2d6a4f":"#2d6a4f",color:"#fff",padding:"7px 18px",borderRadius:6,cursor:"pointer",border:"none",opacity:msgSent||!msgTitle.trim()?0.6:1}}>
+              {msgSent?"✓ Envoyé !":"Envoyer"}
+            </button>
+          </div>
+        </div>
+      </div>}
+      {tab==="bsv3"&&<div style={{padding:"16px 0"}}>
+        <div style={{fontSize:15,fontWeight:600,marginBottom:8}}>📊 Base Sales v3</div>
+        <p style={{fontSize:13,color:"#6b6560",marginBottom:16}}>Importez le fichier CSV mensuel pour mettre à jour les données de marge nette commerciale.</p>
+        <label style={{display:"inline-block",padding:"10px 20px",background:"#2d6a4f",color:"#fff",borderRadius:8,cursor:"pointer",fontSize:13,fontWeight:500}}>
+          {bsv3Uploading?"Importation en cours...":"📂 Choisir un fichier CSV"}
+          <input type="file" accept=".csv" style={{display:"none"}} disabled={bsv3Uploading}
+            onChange={e=>e.target.files[0]&&handleBsv3Upload(e.target.files[0])}/>
+        </label>
+        {bsv3Msg&&<div style={{marginTop:12,fontSize:13,color:bsv3Msg.startsWith('❌')?'#c0392b':'#2d6a4f'}}>{bsv3Msg}</div>}
+      </div>}
+      {tab!=="history"&&tab!=="reporting"&&tab!=="reporting_params"&&tab!=="members"&&tab!=="bsv3"&&<><button onClick={save} style={{marginTop:20,padding:"12px 28px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600}}>
+        💾 Enregistrer
+      </button>
+      {saved&&<span style={{marginLeft:12,fontSize:13,color:"#2d6a4f"}}>✓ Sauvegardé !</span>}</>}
+    </div>
+  </div>;
+}
+
+// ─── OKR MODALS (unchanged) ───────────────────────────────────────────────────
+function ObjModal({obj,isNew,people,isAdmin,onClose,onSave,onDelete,onLock,onUnlock,onUnlockRequest}){
+  const locked=obj?.locked||false;
+  const [f,setF]=useState(obj?{...obj}:{title:"",owner:"",etp:0.1,priorite:"P1",contributors:[]});
+  function upd(k,v){setF(p=>({...p,[k]:v}))}
+  function save(){if(!f.title.trim())return;onSave({...f,etp:+f.etp});}
+  return <Modal title={isNew?"Nouvel objectif":locked?"Objectif verrouillé 🔒":"Modifier l'objectif"} onClose={onClose} onSave={!locked?save:onClose} onDelete={!isNew&&!locked?onDelete:null} saveLabel={locked?"Fermer":"Enregistrer"}>
+    <Field label="Titre"><input style={INP} value={f.title} onChange={e=>upd("title",e.target.value)} disabled={locked}/></Field>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
+      <Field label="Propriétaire"><select style={INP} value={f.owner} onChange={e=>upd("owner",e.target.value)} disabled={locked}>
+        <option value="">—</option>{people.map(p=><option key={p}>{p}</option>)}
+      </select></Field>
+      <Field label="ETP"><input style={INP} type="number" step="0.05" min="0" value={f.etp} onChange={e=>upd("etp",e.target.value)} disabled={locked}/></Field>
+      <Field label="Priorité"><select style={INP} value={f.priorite} onChange={e=>upd("priorite",e.target.value)} disabled={locked}>
+        {["P1","P2","P3"].map(p=><option key={p}>{p}</option>)}
+      </select></Field>
+    </div>
+    {!isNew&&<div style={{marginTop:8,paddingTop:16,borderTop:"1px solid #e2ddd6",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+      <span style={{fontSize:12,color:"#6b6560"}}>{locked?"Cet objectif est verrouillé.":"Verrouiller empêche toute modification."}</span>
+      {locked
+        ?<button onClick={isAdmin?onUnlock:undefined} style={{fontSize:12,fontWeight:500,background:isAdmin?"#fef3c7":"#f5f3ef",color:isAdmin?"#92400e":"#c5c0b8",border:`1px solid ${isAdmin?"#f59e0b":"#e2ddd6"}`,padding:"5px 12px",borderRadius:6,cursor:isAdmin?"pointer":"not-allowed",opacity:isAdmin?1:0.6}}>🔓 Déverrouiller</button>
+        :<button onClick={onLock} style={{fontSize:12,fontWeight:500,background:"#f5f3ef",color:"#6b6560",border:"1px solid #e2ddd6",padding:"5px 12px",borderRadius:6,cursor:"pointer"}}>🔒 Verrouiller</button>}
+    </div>}
+  </Modal>;
+}
+function SobjModal({sobj,isNew,parentObjId,people,subobjectives,onClose,onSave,onDelete}){
+  const [f,setF]=useState(sobj?{...sobj}:{title:"",owner:"",poids:0,priorite:"P1"});
+  function upd(k,v){setF(p=>({...p,[k]:v}))}
+  function save(){
+    if(!f.title.trim())return;
+    if(isNew){const siblings=subobjectives.filter(s=>s.parent===parentObjId);const totalW=siblings.reduce((s,x)=>s+x.poids,0);if(totalW>=100){alert(`La somme des poids atteint déjà ${Math.round(totalW)}%.`);return;}}
+    onSave({...f,poids:+f.poids});
+  }
+  return <Modal title={isNew?"Nouveau sous-objectif":"Modifier le sous-objectif"} onClose={onClose} onSave={save} onDelete={!isNew?onDelete:null}>
+    <Field label="Titre"><input style={INP} value={f.title} onChange={e=>upd("title",e.target.value)}/></Field>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+      <Field label="Propriétaire"><select style={INP} value={f.owner} onChange={e=>upd("owner",e.target.value)}>
+        <option value="">—</option>{people.map(p=><option key={p}>{p}</option>)}
+      </select></Field>
+      <Field label="Poids (%)"><input style={INP} type="number" step="5" min="0" max="100" value={f.poids} onChange={e=>upd("poids",e.target.value)}/></Field>
+    </div>
+  </Modal>;
+}
+function KRModal({kr,sobjId,people,keyresults,onClose,onSave,onDelete,locked}){
+  const isNew=!kr;
+  const [f,setF]=useState(kr?{...kr,_actuel:toEditVal(kr.val_actuel,kr.unite),_revise:kr.val_revise!==kr.val_cible?toEditVal(kr.val_revise,kr.unite):""}:{title:"",owner:"",contributors:[],poids:0,unite:"%",val_depart:0,_actuel:0,_revise:"",val_cible:1,stop:false,priorite:""});
+  function upd(k,v){setF(p=>({...p,[k]:v}))}
+  function togC(p){setF(prev=>{const has=prev.contributors.includes(p);return{...prev,contributors:has?prev.contributors.filter(c=>c!==p):[...prev.contributors,p]}});}
+  function save(){
+    if(!f.title.trim())return;
+    if(isNew){const sib=keyresults.filter(k=>k.parent===sobjId);const tw=sib.reduce((s,x)=>s+x.poids,0)+(+f.poids);if(tw>100){alert(`Somme des poids dépasserait 100%.`);return;}}
+    const dep=fromEditVal(f.val_depart,f.unite),act=fromEditVal(f._actuel,f.unite),cib=fromEditVal(f.val_cible,f.unite),rev=f._revise===""?cib:fromEditVal(f._revise,f.unite);
+    onSave({...f,val_depart:dep,val_actuel:act,val_cible:cib,val_revise:rev,poids:+f.poids,taux:rnd(calcTaux(dep,act,cib,f.unite)),taux_land:rnd(calcTaux(dep,rev,cib,f.unite))});
+  }
+  const readonlyStruct=locked&&!isNew;
+  const uniteSuffix=f.unite==="%"?" (en %)":f.unite==="€"?" (€)":f.unite==="nb"?" (nb)":"";
+  function handleDuplicate(){
+    const dupKR={
+      ...f,
+      title:`Copie de ${f.title}`,
+      sobjId,
+      // Reset to start values
+      val_actuel:f.val_depart,
+      val_revise:f.val_cible,
+      // Keep owner/contributors from form (current members only shown in dropdown)
+    };
+    onSave(dupKR,true); // true = is duplicate → _id will be undefined → new KR with correct numbering
+    onClose();
+  }
+  return <Modal title={isNew?"Nouveau KR":"Mettre à jour le KR"} onClose={onClose} onSave={save} onDelete={!isNew&&!locked?onDelete:null} onDuplicate={!isNew&&!locked?handleDuplicate:null}>
+    <Field label="Titre"><input style={INP} value={f.title} onChange={e=>upd("title",e.target.value)} disabled={readonlyStruct}/></Field>
+    {!readonlyStruct&&<>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <Field label="Propriétaire"><select style={INP} value={f.owner} onChange={e=>upd("owner",e.target.value)}>
+          <option value="">—</option>{people.map(p=><option key={p}>{p}</option>)}
+        </select></Field>
+        <Field label="Poids (%)"><input style={INP} type="number" step="5" min="0" max="100" value={f.poids} onChange={e=>upd("poids",e.target.value)}/></Field>
+      </div>
+      <Field label="Contributeurs"><div style={{display:"flex",flexWrap:"wrap",gap:6}}>{people.map(p=><label key={p} style={{display:"flex",alignItems:"center",gap:4,fontSize:12,cursor:"pointer"}}>
+        <input type="checkbox" checked={f.contributors.includes(p)||p===f.owner} onChange={()=>p!==f.owner&&togC(p)} style={{accentColor:"#2d6a4f"}}/>{p}
+      </label>)}</div></Field>
+      <Field label="Unité"><select style={INP} value={f.unite} onChange={e=>upd("unite",e.target.value)}>
+        {["%","nb","€","oui/non"].map(u=><option key={u}>{u}</option>)}
+      </select></Field>
+    </>}
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:14}}>
+      <div><label style={LBL}>Départ{uniteSuffix}</label><input style={INP} type="number" step="any" value={toEditVal(f.val_depart,f.unite)} onChange={e=>upd("val_depart",e.target.value)} disabled={readonlyStruct}/></div>
+      <div><label style={LBL}>Actuelle{uniteSuffix}</label><input style={INP} type="number" step="any" value={f._actuel} onChange={e=>upd("_actuel",e.target.value)}/></div>
+      <div><label style={LBL}>Cible initiale{uniteSuffix}</label><input style={INP} type="number" step="any" value={toEditVal(f.val_cible,f.unite)} onChange={e=>upd("val_cible",e.target.value)} disabled={readonlyStruct}/></div>
+      <div><label style={LBL}>Cible révisée{uniteSuffix}</label><input style={INP} type="number" step="any" value={f._revise} onChange={e=>upd("_revise",e.target.value)} placeholder="—"/></div>
+    </div>
+    <label style={{display:"flex",alignItems:"center",gap:8,fontSize:12,cursor:"pointer"}}>
+      <input type="checkbox" checked={!!f.stop} onChange={e=>upd("stop",e.target.checked)} style={{accentColor:"#c0392b"}}/>Marquer STOP
+    </label>
+    {readonlyStruct&&<p style={{fontSize:11,color:"#b5680f",marginTop:8}}>⚠️ Objectif verrouillé — seules valeur actuelle, cible révisée et STOP sont modifiables.</p>}
+  </Modal>;
+}
+function UnlockModal({objTitle,onClose,onUnlock}){
+  const [pwd,setPwd]=useState(""),err=useRef(false);
+  const [e,setE]=useState(false);
+  function check(){if(pwd===ADMIN_PWD){onUnlock()}else{setE(true);setPwd("");}}
+  return <Modal title="Déverrouiller l'objectif" onClose={onClose} onSave={check} saveLabel="Déverrouiller">
+    <p style={{fontSize:13,color:"#6b6560",marginBottom:16}}>Objectif : <strong>{objTitle}</strong><br/>Saisissez le mot de passe administrateur.</p>
+    <Field label="Mot de passe"><input style={INP} type="password" value={pwd} onChange={e=>{setPwd(e.target.value);setE(false);}} onKeyDown={e=>e.key==="Enter"&&check()} autoFocus/></Field>
+    {e&&<p style={{fontSize:12,color:"#c0392b",marginTop:-8}}>Mot de passe incorrect.</p>}
+  </Modal>;
+}
+
+// ─── OKR SUB-COMPONENTS ───────────────────────────────────────────────────────
+function SobjSection({sobj,krs,people,objLocked,onEditKR,onAddKR,onEditSobj,collapsed,toggle,onReorderKRs,filterP}){
+  const open=!collapsed[sobj.id];
+  const prog=calcSobj(sobj.id,krs);
+  const myKRs=krs.filter(k=>k.parent===sobj.id&&k.title&&(!filterP||k.owner===filterP));
+  const [dragOverKR,setDragOverKR]=useState(null); // {id, before}
+  function handleDragStart(e,krId){e.dataTransfer.setData('krId',krId);}
+  function handleDrop(e,targetId){
+    e.preventDefault();
+    const dragId=e.dataTransfer.getData('krId');
+    setDragOverKR(null);
+    if(!dragId||dragId===targetId)return;
+    const dragKR=myKRs.find(k=>k.id===dragId);
+    const targetKR=myKRs.find(k=>k.id===targetId);
+    if(!dragKR||!targetKR)return;
+    const rect=e.currentTarget.getBoundingClientRect();
+    const insertBefore=dragOverKR?.id===targetId?(dragOverKR?.before??true):e.clientY<e.currentTarget.getBoundingClientRect().top+e.currentTarget.getBoundingClientRect().height/2;
+    const without=myKRs.filter(k=>k.id!==dragId);
+    const targetIdx=without.indexOf(targetKR);
+    const insertAt=insertBefore?targetIdx:targetIdx+1;
+    without.splice(insertAt,0,dragKR);
+    const newKRs=without.map((kr,idx)=>({...kr,id:`${sobj.id}.${idx+1}`,parent:sobj.id}));
+    const otherKRs=krs.filter(k=>k.parent!==sobj.id||!k.title);
+    onReorderKRs([...otherKRs,...newKRs]);
+  }
+  function handleDragOverKR(e,targetId){
+    e.preventDefault();
+    const rect=e.currentTarget.getBoundingClientRect();
+    const before=e.clientY<rect.top+rect.height/2;
+    setDragOverKR(p=>p?.id===targetId&&p?.before===before?p:{id:targetId,before});
+  }
+  const sobjKRtotalW=myKRs.reduce((s,k)=>s+k.poids,0);
+  const warnW=myKRs.length>0&&Math.round(sobjKRtotalW)!==100;
+  const cell={padding:"7px 8px",borderBottom:"1px solid #eae7e1",verticalAlign:"middle",fontSize:12};
+  const mono={fontFamily:"monospace",fontSize:11};
+  return <div style={{borderBottom:"1px solid #e2ddd6"}}>
+    <div style={{display:"flex",alignItems:"center",gap:8,padding:"9px 16px 9px 28px"}}>
+      <div onClick={()=>toggle(sobj.id)} style={{display:"flex",alignItems:"center",gap:8,flex:1,cursor:"pointer",userSelect:"none"}}>
+        <div style={{flex:1,fontSize:13,fontWeight:500,color:"#1a1814"}}>
+          <span style={{fontFamily:"monospace",fontSize:11,color:"#9e9890",marginRight:6}}>{sobj.id}</span>{sobj.title}
+        </div>
+      </div>
+      <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+        <span style={{fontSize:10,color:"#9e9890",border:"1px solid #e2ddd6",padding:"1px 7px",borderRadius:20,fontFamily:"monospace"}}>{sobj.poids}%</span>
+        {sobj.owner&&<div style={{display:"flex",alignItems:"center",gap:3}}><Avatar name={sobj.owner} people={people} size={18}/><span style={{fontSize:11,color:"#6b6560"}}>{sobj.owner}</span></div>}
+        <SmallBar v={prog}/>
+        {warnW&&<span style={{fontSize:10,color:"#b5680f",background:"#fef3c7",border:"1px solid #f59e0b",borderRadius:4,padding:"1px 5px"}}>⚠ {Math.round(sobjKRtotalW)}%</span>}
+        {!objLocked&&<button onClick={()=>onEditSobj(sobj)} style={{width:22,height:22,borderRadius:5,border:"none",background:"none",cursor:"pointer",color:"#9e9890"}}>
+          <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>}
+        <span onClick={()=>toggle(sobj.id)} style={{fontSize:11,color:"#9e9890",cursor:"pointer",display:"inline-block",transform:open?"rotate(180deg)":"none",transition:"transform .2s"}}>▾</span>
+      </div>
+    </div>
+    {open&&<div style={{background:"#f8f7f5",overflowX:"auto"}}>
+      <table style={{width:"100%",borderCollapse:"collapse",minWidth:700}}>
+        <thead><tr style={{background:"#eae7e1"}}>
+          {["Key Result","Propriétaire / Contributeurs","Poids","Départ","Actuel","Cible","Avancement",""].map(h=>
+            <th key={h} style={{fontSize:10,fontWeight:500,color:"#9e9890",textTransform:"uppercase",letterSpacing:".06em",padding:"6px 8px",textAlign:"left",borderBottom:"1px solid #e2ddd6",whiteSpace:"nowrap"}}>{h}</th>)}
+        </tr></thead>
+        <tbody>
+          {myKRs.map(kr=>{
+            const p=calcTaux(kr.val_depart,kr.val_actuel,kr.val_cible,kr.unite),col=progColor(p),hasRevise=kr.val_revise!==kr.val_cible;
+            return <React.Fragment key={kr.id}>
+              {dragOverKR?.id===kr.id&&dragOverKR?.before&&<tr><td colSpan={20} style={{height:2,background:'#2d6a4f',padding:0}}/></tr>}
+              <tr
+              draggable={!objLocked}
+              onDragStart={e=>{e.dataTransfer.setData('krId',kr.id);e.dataTransfer.effectAllowed='move';}}
+              onDragOver={e=>handleDragOverKR(e,kr.id)}
+              onDragOver={e=>{e.preventDefault();e.stopPropagation();handleDragOverKR(e,kr.id);}}
+              onDragLeave={()=>setDragOverKR(null)}
+              onDrop={e=>handleDrop(e,kr.id)}
+              onDragEnd={()=>setDragOverKR(null)}
+              onMouseEnter={e=>{for(const td of e.currentTarget.cells)td.style.background="#f0ede8"}}
+              onMouseLeave={e=>{for(const td of e.currentTarget.cells)td.style.background=""}}>
+              <td style={{...cell,maxWidth:200}}>
+                <div style={{fontSize:10,color:"#9e9890",fontFamily:"monospace"}}>{kr.id}</div>
+                <div style={{fontSize:12,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>{kr.title}</div>
+                {kr.stop&&<span style={{display:"inline-block",fontSize:9,fontWeight:600,background:"#fdecea",color:"#c0392b",padding:"1px 5px",borderRadius:3,marginTop:2}}>STOP</span>}
+              </td>
+              <td style={cell}><AvatarRow owner={kr.owner} contribs={kr.contributors} people={people}/></td>
+              <td style={{...cell,...mono}}>{kr.poids}%</td>
+              <td style={{...cell,...mono,color:"#9e9890"}}>{fmtV(kr.val_depart,kr.unite)}<span style={{fontSize:9,background:"#e8e4de",padding:"1px 4px",borderRadius:3,marginLeft:3}}>{kr.unite}</span></td>
+              <td style={{...cell,...mono,fontWeight:600}}>{fmtV(kr.val_actuel,kr.unite)}</td>
+              <td style={{...cell,...mono}}>
+                {hasRevise?<><span style={{textDecoration:"line-through",color:"#9e9890",marginRight:5}}>{fmtV(kr.val_cible,kr.unite)}</span><span style={{color:kr.val_revise<kr.val_cible?"#b5680f":"#2d6a4f",fontWeight:600}}>{fmtV(kr.val_revise,kr.unite)}</span></>
+                :<span style={{color:"#9e9890"}}>{fmtV(kr.val_cible,kr.unite)}</span>}
+              </td>
+              <td style={cell}><div style={{display:"flex",alignItems:"center",gap:5}}>
+                <div style={{width:48,height:4,background:"#e2ddd6",borderRadius:2,overflow:"hidden"}}><div style={{width:`${Math.min(p,100)}%`,height:"100%",background:col,borderRadius:2}}/></div>
+                <span style={{fontSize:11,fontWeight:600,color:col,fontFamily:"monospace",minWidth:26}}>{Math.round(p)}%</span>
+              </div></td>
+              <td style={cell}><button onClick={()=>onEditKR(kr)} style={{width:22,height:22,borderRadius:5,border:"none",background:"none",cursor:"pointer",color:"#9e9890"}}>
+                <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </button></td>
+            </tr>
+            {dragOverKR?.id===kr.id&&!dragOverKR?.before&&<tr><td colSpan={20} style={{height:2,background:'#2d6a4f',padding:0}}/></tr>}
+          </React.Fragment>;
+          })}
+          {!objLocked&&<tr><td colSpan={8} style={{padding:"5px 8px",borderBottom:"none"}}>
+            <button onClick={()=>onAddKR(sobj.id)} style={{fontSize:11,color:"#9e9890",background:"none",border:"none",cursor:"pointer",padding:"4px 6px",borderRadius:4}}
+              onMouseEnter={e=>{e.currentTarget.style.color="#2d6a4f";e.currentTarget.style.background="#f0fdf4"}}
+              onMouseLeave={e=>{e.currentTarget.style.color="#9e9890";e.currentTarget.style.background="none"}}>+ Ajouter un KR</button>
+          </td></tr>}
+        </tbody>
+      </table>
+    </div>}
+  </div>;
+}
+
+function SeasonBanner({seasonKey,avgProg,totalKR,doneKR,onChangeSeason,isOwner}){
+  const info=getSeasonInfo(seasonKey),timeProg=getSeasonProgress(seasonKey);
+  const start=new Date(info.start),end=new Date(info.end);
+  const fmt=d=>d.toLocaleDateString("fr-FR",{day:"numeric",month:"short"});
+  const col=progColor(avgProg),krCol=progColor(doneKR/Math.max(totalKR,1)*100);
+  return <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"14px 20px",marginBottom:14,display:"flex",alignItems:"center",gap:20,flexWrap:"nowrap",overflow:"hidden"}}>
+    <div style={{flexShrink:0,textAlign:"center",width:100}}>
+      <div style={{fontSize:52,fontWeight:700,fontFamily:"monospace",color:col,lineHeight:1}}>{Math.round(avgProg)}%</div>
+      <div style={{fontSize:10,color:"#9e9890",marginTop:3,textTransform:"uppercase",letterSpacing:".06em"}}>Avancement global</div>
+    </div>
+    <div style={{width:1,background:"#e2ddd6",alignSelf:"stretch",flexShrink:0}}/>
+    <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",gap:10}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{display:'flex',alignItems:'center',gap:6}}>
+          {isOwner&&(()=>{
+            const allKeys=["printemps_2026","ete_2026","automne_2026","hiver_2027","printemps_2027","ete_2027","automne_2027"];
+            const idx=allKeys.indexOf(seasonKey);
+            return <><button onClick={idx>0?()=>onChangeSeason&&onChangeSeason(allKeys[idx-1]):undefined}
+              style={{background:'none',border:'none',cursor:idx>0?'pointer':'default',fontSize:14,color:idx>0?'#2d6a4f':'#c5c0b8',padding:'0 2px',lineHeight:1}}>←</button></>;
+          })()}
+          <span style={{fontSize:12,fontWeight:500,color:"#1a1814"}}>{info.label}</span>
+          {isOwner&&(()=>{
+            const allKeys=["printemps_2026","ete_2026","automne_2026","hiver_2027","printemps_2027","ete_2027","automne_2027"];
+            const idx=allKeys.indexOf(seasonKey);
+            return <><button onClick={idx<allKeys.length-1?()=>onChangeSeason&&onChangeSeason(allKeys[idx+1]):undefined}
+              style={{background:'none',border:'none',cursor:idx<allKeys.length-1?'pointer':'default',fontSize:14,color:idx<allKeys.length-1?'#2d6a4f':'#c5c0b8',padding:'0 2px',lineHeight:1}}>→</button></>;
+          })()}
+        </div>
+        <span style={{fontSize:11,color:"#9e9890"}}>{fmt(start)} → {fmt(end)}</span>
+      </div>
+      <Bar v={avgProg} label="Avancement total des OKR" w={0}/>
+      <Bar v={timeProg} label="Avancement de la saison" w={0}/>
+    </div>
+    <div style={{width:1,background:"#e2ddd6",alignSelf:"stretch",flexShrink:0}}/>
+    <div style={{flexShrink:0,textAlign:"center",width:90}}>
+      <div style={{fontSize:22,fontWeight:600,fontFamily:"monospace",color:krCol}}>{doneKR}/{totalKR}</div>
+      <div style={{fontSize:10,color:"#9e9890",marginTop:2}}>KR complétés</div>
+    </div>
+  </div>;
+}
+
+function PersonalBanner({prog,doneKR,totalKR,label,marginBottom=8,avgProg=0}){
+  const col=progColorRel(prog,avgProg),krCol=progColorRel(doneKR/Math.max(totalKR,1)*100,avgProg);
+  return <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"14px 20px",marginBottom,display:"flex",alignItems:"center",gap:20,flexWrap:"nowrap",overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+    <div style={{flexShrink:0,textAlign:"center",width:100}}>
+      <div style={{fontSize:52,fontWeight:700,fontFamily:"monospace",color:col,lineHeight:1}}>{Math.round(prog)}%</div>
+      <div style={{fontSize:10,color:"#6b6560",marginTop:3,textTransform:"uppercase",letterSpacing:".06em"}}>{label}</div>
+    </div>
+    <div style={{width:1,background:"#86efac",alignSelf:"stretch",flexShrink:0}}/>
+    <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",gap:10}}>
+      <Bar v={prog} label="Mon avancement" w={0}/>
+    </div>
+    <div style={{width:1,background:"#86efac",alignSelf:"stretch",flexShrink:0}}/>
+    <div style={{flexShrink:0,textAlign:"center",width:90}}>
+      <div style={{fontSize:22,fontWeight:600,fontFamily:"monospace",color:krCol}}>{doneKR}/{totalKR}</div>
+      <div style={{fontSize:10,color:"#6b6560",marginTop:2}}>KR complétés</div>
+    </div>
+  </div>;
+}
+
+function detectSalves(logs){
+  if(!logs.length)return[];
+  const sorted=[...logs].sort((a,b)=>a.timestamp-b.timestamp);
+  const salves=[];
+  let cur=[sorted[0]];
+  for(let i=1;i<sorted.length;i++){
+    const sameUser=sorted[i].owner===sorted[i-1].owner;
+    const withinGap=sorted[i].timestamp-sorted[i-1].timestamp<=SALVE_GAP_MS;
+    if(sameUser&&withinGap){cur.push(sorted[i]);}
+    else{salves.push(cur);cur=[sorted[i]];}
+  }
+  salves.push(cur);
+  return salves.map(mods=>({
+    mods,
+    owner:mods[0].owner||"?",
+    start:mods[0].timestamp,
+    end:mods[mods.length-1].timestamp,
+    count:mods.length,
+  })).reverse();
+}
+function JournalModal({seasonKey,onClose,isAdmin,currentPrenom}){
+  const [logs,setLogs]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [expanded,setExpanded]=useState({});
+
+  useEffect(()=>{
+    const unsub=onSnapshot(collection(db,"okr_log"),(snap)=>{
+      const all=snap.docs.map(d=>({id:d.id,...d.data()}));
+      setLogs(all.filter(l=>l.seasonKey===seasonKey));
+      setLoading(false);
+    },(e)=>{console.error(e);setLoading(false);});
+    return()=>unsub();
+  },[seasonKey]);
+  const allSalves=detectSalves(logs);
+  const salves=isAdmin?allSalves:allSalves.filter(s=>s.owner===currentPrenom);
+  return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div style={{background:"#fff",borderRadius:12,padding:24,width:"90%",maxWidth:900,maxHeight:"85vh",overflowY:"auto"}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
+        <div style={{fontSize:16,fontWeight:600}}>Historique des modifications</div>
+        <button onClick={onClose} style={{border:"none",background:"none",cursor:"pointer",fontSize:20,color:"#9e9890"}}>×</button>
+      </div>
+      {loading?<p style={{color:"#9e9890",fontSize:13}}>Chargement...</p>
+      :salves.length===0?<p style={{color:"#9e9890",fontSize:13}}>Aucune modification enregistrée.</p>
+      :<div style={{display:"flex",flexDirection:"column",gap:6}}>
+        {salves.map((salve,si)=>{
+          const isOpen=expanded[si];
+          return <div key={si} style={{border:"1px solid #e2ddd6",borderRadius:8,overflow:"hidden"}}>
+            <div onClick={()=>setExpanded(p=>({...p,[si]:!p[si]}))} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"#f8f7f5",cursor:"pointer"}}>
+              <span style={{fontSize:12,color:"#9e9890",minWidth:120}}>{formatDate(salve.end)}</span>
+              <span style={{fontSize:13,fontWeight:500,color:"#2d6a4f",flex:1}}>{salve.owner}</span>
+              <span style={{fontSize:12,color:"#9e9890"}}>{salve.count} modif{salve.count>1?"s":""}</span>
+              <span style={{fontSize:11,color:"#9e9890",transform:isOpen?"rotate(180deg)":"none",transition:"transform .2s"}}>▾</span>
+            </div>
+            {isOpen&&<div style={{padding:"10px 14px",borderTop:"1px solid #e2ddd6"}}>
+              {salve.mods.map((m,mi)=><div key={mi} style={{fontSize:12,color:"#6b6560",marginBottom:6,display:"flex",gap:8,alignItems:"flex-start"}}>
+                <span style={{fontFamily:"monospace",fontSize:11,color:"#9e9890",flexShrink:0,minWidth:50}}>{m.itemId}</span>
+                <div>
+                  <span style={{fontWeight:500,color:"#1a1814"}}>{m.itemTitle||m.itemId}</span>
+                  {m.changes&&m.changes.map((c,ci)=><span key={ci} style={{marginLeft:8,color:"#9e9890"}}>
+                    {c.field}: <span style={{textDecoration:"line-through"}}>{String(c.before).slice(0,20)}</span> → <span style={{color:"#2d6a4f"}}>{String(c.after).slice(0,20)}</span>
+                  </span>)}
+                </div>
+              </div>)}
+            </div>}
+          </div>;
+        })}
+      </div>}
+    </div>
+  </div>;
+}
+function ImportObjModal({allSeasons,currentSeasonKey,people,onClose,onImport}){
+  const otherSeasons=Object.entries(allSeasons).filter(([k,v])=>k!==currentSeasonKey&&v.objectives&&v.objectives.length>0);
+  const [fromKey,setFromKey]=useState(otherSeasons[0]?.[0]||"");
+  const [objId,setObjId]=useState(""),mode=useState("obj");
+  const [_mode,setMode]=mode;
+  const fromSeason=useMemo(()=>allSeasons[fromKey]||{},[fromKey,allSeasons]);
+  const fromObjs=useMemo(()=>fromSeason.objectives||[],[fromSeason]);
+  const fromSobjs=useMemo(()=>fromSeason.subobjectives||[],[fromSeason]);
+  const fromKRs=useMemo(()=>fromSeason.keyresults||[],[fromSeason]);
+  useEffect(()=>{if(fromObjs.length>0)setObjId(fromObjs[0].id);else setObjId("");},[fromKey,fromObjs]);
+  function doImport(){
+    if(!objId)return;const obj=fromObjs.find(o=>o.id===objId);if(!obj)return;
+    onImport({obj,sobjs:fromSobjs.filter(s=>s.parent===objId),krs:fromKRs.filter(k=>k.parent.startsWith(objId+'.')),mode:_mode});
+  }
+  if(otherSeasons.length===0)return <Modal title="Importer un objectif" onClose={onClose} onSave={onClose} saveLabel="Fermer"><p style={{fontSize:13,color:"#6b6560"}}>Aucune autre saison disponible.</p></Modal>;
+  return <Modal title="Importer un objectif" onClose={onClose} onSave={doImport} saveLabel="Importer">
+    <Field label="Depuis quelle saison ?"><select style={INP} value={fromKey} onChange={e=>setFromKey(e.target.value)}>{otherSeasons.map(([k])=><option key={k} value={k}>{SEASONS.find(s=>s.key===k)?.label||k}</option>)}</select></Field>
+    <Field label="Quel objectif ?"><select style={INP} value={objId} onChange={e=>setObjId(e.target.value)}>{fromObjs.map(o=><option key={o.id} value={o.id}>{o.id} — {o.title}</option>)}</select></Field>
+    <Field label="Que souhaitez-vous importer ?">
+      <div style={{display:"flex",flexDirection:"column",gap:10,marginTop:4}}>
+        {[{v:"obj",l:"L'objectif uniquement"},{v:"sobjs",l:"L'objectif et ses sous-objectifs"},{v:"all",l:"L'objectif, sous-objectifs et KR (valeurs remises à zéro)"}].map(opt=><label key={opt.v} style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"8px 12px",borderRadius:8,border:`1px solid ${_mode===opt.v?"#2d6a4f":"#e2ddd6"}`,background:_mode===opt.v?"#f0fdf4":"#fff"}}>
+          <input type="radio" name="mode" value={opt.v} checked={_mode===opt.v} onChange={()=>setMode(opt.v)} style={{accentColor:"#2d6a4f"}}/><span style={{fontSize:13}}>{opt.l}</span>
+        </label>)}
+      </div>
+    </Field>
+  </Modal>;
+}
+
+// ─── OKR PAGE ─────────────────────────────────────────────────────────────────
+function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
+  const [seasonKey,setSeasonKey]=useState("printemps_2026");
+  const [dragOverSobj,setDragOverSobj]=useState(null);
+  const [dragOverObj,setDragOverObj]=useState(null); // {id, before}
+  function handleSobjDrop(e,targetSobj,allSobjs,objId){
+    e.preventDefault();
+    const dragId=e.dataTransfer.getData('sobjId');
+    if(!dragId||dragId===targetSobj.id)return;
+    const mySobjs=allSobjs.filter(s=>s.parent===objId);
+    const dragS=mySobjs.find(s=>s.id===dragId);
+    if(!dragS)return;
+    const rect=e.currentTarget.getBoundingClientRect();
+    const insertBefore=dragOverSobj?.before??e.clientY<rect.top+rect.height/2;
+    const without=mySobjs.filter(s=>s.id!==dragId);
+    const targetIdx=without.findIndex(s=>s.id===targetSobj.id);
+    const insertAt=insertBefore?targetIdx:targetIdx+1;
+    without.splice(insertAt,0,dragS);
+    const otherSobjs=allSobjs.filter(s=>s.parent!==objId);
+    const idMap={};
+    const newSobjs=without.map((s,i)=>{
+      const newId=`${objId}.${i+1}`;
+      idMap[s.id]=newId;
+      return {...s,id:newId};
+    });
+    // Renumber KRs: keep them attached to their sobj, renumber with new sobj id
+    const newKRs=keyresults.map(kr=>{
+      const newParent=idMap[kr.parent];
+      if(!newParent)return kr;
+      // Find position of this KR within its sobj to rebuild id
+      const sobjKRs=keyresults.filter(k=>k.parent===kr.parent);
+      const krIdx=sobjKRs.findIndex(k=>k.id===kr.id);
+      return {...kr,parent:newParent,id:`${newParent}.${krIdx+1}`};
+    });
+    updateSeason({subobjectives:[...otherSobjs,...newSobjs],keyresults:newKRs});
+    setDragOverSobj(null);
+  }
+  const [showJournal,setShowJournal]=useState(false);
+  const [allSeasons,setAllSeasons]=useState({"printemps_2026":{...JSON.parse(JSON.stringify(SPRING26))}});
+  const [collObj,setCollObj]=useState({});
+  const [collSobj,setCollSobj]=useState({});
+  function handleObjDrop(e, targetObj){
+    e.preventDefault();
+    const dragId=e.dataTransfer.getData('objId');
+    if(!dragId||dragId===targetObj.id)return;
+    const allObjs=objectives;
+    const dragO=allObjs.find(o=>o.id===dragId);
+    if(!dragO)return;
+    const rect=e.currentTarget.getBoundingClientRect();
+    const insertBefore=dragOverObj?.before??e.clientY<rect.top+rect.height/2;
+    const without=allObjs.filter(o=>o.id!==dragId);
+    const targetIdx=without.findIndex(o=>o.id===targetObj.id);
+    const insertAt=insertBefore?targetIdx:targetIdx+1;
+    without.splice(insertAt,0,dragO);
+    // Renumber objectives and cascade to sobjs and KRs
+    const idMap={};
+    const newObjs=without.map((o,i)=>{
+      const newId=String(i+1);
+      idMap[o.id]=newId;
+      return {...o,id:newId};
+    });
+    const newSobjs=subobjectives.map(s=>{
+      const newParent=idMap[s.parent];
+      if(!newParent)return s;
+      const sobjSuffix=s.id.slice(s.parent.length); // e.g. ".1"
+      return {...s,parent:newParent,id:newParent+sobjSuffix};
+    });
+    const newKRs=keyresults.map(k=>{
+      // Find the sobj this KR belongs to
+      const sobj=subobjectives.find(s=>s.id===k.parent);
+      if(!sobj)return k;
+      const newSobjParent=idMap[sobj.parent];
+      if(!newSobjParent)return k;
+      const sobjSuffix=sobj.id.slice(sobj.parent.length);
+      const newSobjId=newSobjParent+sobjSuffix;
+      const krSuffix=k.id.slice(k.parent.length);
+      return {...k,parent:newSobjId,id:newSobjId+krSuffix};
+    });
+    updateSeason({objectives:newObjs,subobjectives:newSobjs,keyresults:newKRs});
+    setDragOverObj(null);
+  }
+  const [filterP,setFilterP]=useState("");
+
+  // Auto-expand all objectives and sobjs when filter changes
+  useEffect(()=>{
+    const season=allSeasons[seasonKey];
+    if(!season)return;
+    const {objectives=[],subobjectives=[],keyresults=[]}=season;
+    if(!filterP){
+      // "Toute l'équipe" : expand all objectives, collapse all sobjs
+      const newCollObj={};
+      objectives.forEach(o=>newCollObj[o.id]=false);
+      setCollObj(p=>({...p,...newCollObj}));
+      const newCollSobj={};
+      subobjectives.forEach(s=>newCollSobj[s.id]=true);
+      setCollSobj(p=>({...p,...newCollSobj}));
+      return;
+    }
+    // Teammate selected: expand objs and sobjs with owned KRs
+    const newCollObj={};
+    objectives.forEach(o=>{
+      const hasMine=subobjectives.filter(s=>s.parent===o.id).some(s=>
+        keyresults.filter(k=>k.parent===s.id).some(k=>k.owner===filterP)
+      );
+      if(hasMine) newCollObj[o.id]=false;
+    });
+    setCollObj(p=>({...p,...newCollObj}));
+    const newCollSobj={};
+    subobjectives.forEach(s=>{
+      const hasMine=keyresults.filter(k=>k.parent===s.id).some(k=>k.owner===filterP);
+      if(hasMine) newCollSobj[s.id]=false;
+    });
+    setCollSobj(p=>({...p,...newCollSobj}));
+  },[filterP,seasonKey]);
+  const [modal,setModal]=useState(null);
+  const [saved,setSaved]=useState(false);
+  const [loaded,setLoaded]=useState(false);
+
+  const season=allSeasons[seasonKey]||allSeasons["printemps_2026"];
+  const{objectives,subobjectives,keyresults}=season;
+  // Use active team members from Firebase instead of static season people
+  const people=teamMembers.length>0
+    ? teamMembers.filter(m=>m.role!=="inactive").map(m=>m.prenom).sort()
+    : (season.people||[]);
+
+  useEffect(()=>{
+    const ref=doc(db,"okr","data");
+    const unsub=onSnapshot(ref,(snap)=>{
+      if(snap.exists()){const d=snap.data();if(d.allSeasons)setAllSeasons(d.allSeasons);if(d.seasonKey)setSeasonKey(d.seasonKey);if(d.collObj)setCollObj(d.collObj||{});if(d.collSobj)setCollSobj(d.collSobj||{});}
+      setLoaded(true);
+    },(e)=>{console.error(e);setLoaded(true);});
+    return()=>unsub();
+  },[]);
+
+  const allSeasonsRef=useRef(allSeasons);useEffect(()=>{allSeasonsRef.current=allSeasons;},[allSeasons]);
+  const seasonKeyRef=useRef(seasonKey);useEffect(()=>{seasonKeyRef.current=seasonKey;},[seasonKey]);
+
+  function persist(aS){
+    setDoc(doc(db,"okr","data"),{allSeasons:aS,seasonKey:seasonKeyRef.current,collObj,collSobj})
+      .then(()=>{setSaved(true);setTimeout(()=>setSaved(false),1800);}).catch(e=>console.error(e));
+  }
+  async function logChange(type,itemId,itemTitle,owner,changes){
+    // owner here = connected user's prenom
+    try{await addDoc(collection(db,"okr_log"),{type,itemId,itemTitle,owner:teamMember?.prenom||owner,changes,seasonKey:seasonKeyRef.current,timestamp:Date.now()});}catch(e){console.error(e);}
+  }
+  function updateSeason(patch){
+    const cur=allSeasonsRef.current[seasonKeyRef.current]||{};
+    const next={...allSeasonsRef.current,[seasonKeyRef.current]:{...cur,...patch}};
+    allSeasonsRef.current=next;setAllSeasons(next);persist(next);
+  }
+  function switchSeason(key){
+    let next=allSeasonsRef.current;
+    if(!next[key]){next={...next,[key]:makeFreshSeason(people)};allSeasonsRef.current=next;setAllSeasons(next);}
+    seasonKeyRef.current=key;
+    setSeasonKey(key);setFilterP("");
+    setDoc(doc(db,"okr","data"),{allSeasons:next,seasonKey:key,collObj,collSobj}).catch(e=>console.error(e));
+  }
+  function toggleObj(id){setCollObj(c=>{const n={...c,[id]:!c[id]};setDoc(doc(db,"okr","data"),{allSeasons:allSeasonsRef.current,seasonKey:seasonKeyRef.current,collObj:n,collSobj:collSobj}).catch(e=>console.error(e));return n;});}
+  function toggleSobj(id){setCollSobj(c=>{const n={...c,[id]:!c[id]};setDoc(doc(db,"okr","data"),{allSeasons:allSeasonsRef.current,seasonKey:seasonKeyRef.current,collObj,collSobj:n}).catch(e=>console.error(e));return n;});}
+  function lockObj(id){updateSeason({objectives:objectives.map(o=>o.id===id?{...o,locked:true}:o)});setModal(null);}
+  function unlockObj(id){updateSeason({objectives:objectives.map(o=>o.id===id?{...o,locked:false}:o)});setModal(null);}
+  function handleObjSave(data){
+    const{_id,_isNew,...obj}=data;
+    const objs=allSeasonsRef.current[seasonKeyRef.current]?.objectives||[];
+    let next;
+    if(_isNew){const newId=String(objs.length+1);next=[...objs,{id:newId,...obj,contributors:[],locked:false}];}
+    else{const prev=objs.find(o=>o.id===_id);next=objs.map(o=>o.id===_id?{...o,...obj}:o);if(prev){const ch=[];if(prev.title!==obj.title)ch.push({field:"Titre",before:prev.title,after:obj.title});if(prev.etp!==obj.etp)ch.push({field:"ETP",before:prev.etp,after:obj.etp});if(ch.length)logChange("Objectif",_id,obj.title,obj.owner,ch);}}
+    updateSeason({objectives:next});setModal(null);
+  }
+  function handleObjDel(id){
+    if(!window.confirm("Supprimer cet objectif ?"))return;
+    const sobjIds=subobjectives.filter(s=>s.parent===id).map(s=>s.id);
+    updateSeason({objectives:objectives.filter(o=>o.id!==id),subobjectives:subobjectives.filter(s=>s.parent!==id),keyresults:keyresults.filter(k=>!sobjIds.includes(k.parent))});setModal(null);
+  }
+  function handleSobjSave(data){
+    const{_id,_isNew,_parentObjId,...sobj}=data;
+    let next;
+    if(_isNew){const sib=subobjectives.filter(s=>s.parent===_parentObjId);next=[...subobjectives,{id:`${_parentObjId}.${sib.length+1}`,parent:_parentObjId,...sobj,contributors:[]}];}
+    else next=subobjectives.map(s=>s.id===_id?{...s,...sobj}:s);
+    updateSeason({subobjectives:next});setModal(null);
+  }
+  function handleSobjDel(id){if(!window.confirm("Supprimer ce sous-objectif ?"))return;updateSeason({subobjectives:subobjectives.filter(s=>s.id!==id),keyresults:keyresults.filter(k=>k.parent!==id)});setModal(null);}
+  function handleKRSave(data,isDuplicate=false){
+    const{_id,_sobjId,...kr}=data;
+    const krs=allSeasonsRef.current[seasonKeyRef.current]?.keyresults||[];
+    let nextKRs;
+    if(_id){const prev=krs.find(k=>k.id===_id);nextKRs=krs.map(k=>k.id===_id?{...k,...kr}:k);if(prev){
+      // Only log when parent objective is locked
+      const _sobj=allSeasonsRef.current[seasonKeyRef.current]?.subobjectives?.find(s=>s.id===kr.parent);
+      const _obj=allSeasonsRef.current[seasonKeyRef.current]?.objectives?.find(o=>o.id===_sobj?.parent);
+      if(_obj?.locked){const ch=[];if(prev.val_actuel!==kr.val_actuel)ch.push({field:"Valeur actuelle",before:prev.val_actuel,after:kr.val_actuel});if(prev.val_revise!==kr.val_revise)ch.push({field:"Cible réévaluée",before:prev.val_revise,after:kr.val_revise});if(prev.stop!==kr.stop)ch.push({field:"STOP",before:prev.stop?"Oui":"Non",after:kr.stop?"Oui":"Non"});if(ch.length)logChange("KR",_id,kr.title,kr.owner,ch);}
+    }}
+    else{const sib=krs.filter(k=>k.parent===_sobjId);const newKR={id:`${_sobjId}.${sib.length+1}`,parent:_sobjId,priorite:"",...kr};nextKRs=[...krs,newKR];
+      updateSeason({keyresults:nextKRs});
+      const renumbered=renumberKRs(nextKRs,_sobjId);
+      if(isDuplicate){
+        const finalKR=renumbered.find(k=>k.parent===_sobjId&&k.title===newKR.title&&!keyresults.find(x=>x.id===k.id));
+        updateSeason({keyresults:renumbered});
+        setModal({type:"kr",item:finalKR||{...newKR,id:`${_sobjId}.${renumbered.filter(k=>k.parent===_sobjId).length}`},sobjId:_sobjId,locked:false});
+      }else{setModal(null);}
+      return;}
+    updateSeason({keyresults:nextKRs});setModal(null);
+  }
+    function renumberKRs(krs, sobjId) {
+    let idx = 0;
+    return krs.map(kr => {
+      if (kr.parent === sobjId) {
+        idx++;
+        return {...kr, id: `${sobjId}.${idx}`};
+      }
+      return kr;
+    });
+  }
+  function handleKRDel(id){
+    if(!window.confirm("Supprimer ce KR ?"))return;
+    const kr=keyresults.find(k=>k.id===id);
+    const filtered=keyresults.filter(k=>k.id!==id);
+    const renumbered=kr?renumberKRs(filtered,kr.parent):filtered;
+    updateSeason({keyresults:renumbered});setModal(null);
+  }
+  function handleImport({obj,sobjs,krs,mode}){
+    const curObjs=allSeasonsRef.current[seasonKeyRef.current]?.objectives||[];
+    const curSobjs=allSeasonsRef.current[seasonKeyRef.current]?.subobjectives||[];
+    const curKRs=allSeasonsRef.current[seasonKeyRef.current]?.keyresults||[];
+    const newObjId=String(curObjs.length+1);
+    const newObj={...obj,id:newObjId,locked:false,taux:0,taux_land:0};
+    let newSobjs=[],newKRs=[];
+    if(mode==="sobjs"||mode==="all")newSobjs=sobjs.map(s=>({...s,id:`${newObjId}.${s.id.split('.')[1]}`,parent:newObjId,taux:0,taux_land:0}));
+    if(mode==="all")newKRs=krs.map(k=>{const parts=k.id.split('.');return{...k,id:`${newObjId}.${parts[1]}.${parts[2]}`,parent:`${newObjId}.${parts[1]}`,val_actuel:0,val_revise:k.val_cible,taux:0,taux_land:0};});
+    updateSeason({objectives:[...curObjs,newObj],subobjectives:[...curSobjs,...newSobjs],keyresults:[...curKRs,...newKRs]});setModal(null);
+  }
+
+  const allLocked=objectives.length>0&&objectives.every(o=>!!o.locked);
+  const visObjs=filterP?objectives.filter(o=>subobjectives.filter(s=>s.parent===o.id).some(s=>keyresults.filter(k=>k.parent===s.id).some(k=>k.owner===filterP))):objectives;
+  const totalKR=keyresults.length,doneKR=keyresults.filter(k=>calcTaux(k.val_depart,k.val_actuel,k.val_cible,k.unite)>=100).length,avgProg=calcWeightedAvg(objectives,subobjectives,keyresults);
+
+  if(!loaded)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:200,color:"#9e9890",fontSize:13}}>Chargement…</div>;
+
+  return <div style={{fontFamily:"system-ui,sans-serif",background:"#f5f3ef",minHeight:"100vh",color:"#1a1814"}}>
+    <div style={{background:"rgba(245,243,239,.95)",borderBottom:"1px solid #e2ddd6",padding:"10px 20px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",position:"relative"}}>
+      <span style={{fontSize:16,fontWeight:700,color:"#2d6a4f",letterSpacing:"-.2px",cursor:"pointer"}} onClick={onBack}>🌼 Calendula</span>
+      <div style={{position:"absolute",left:0,right:0,textAlign:"center",pointerEvents:"none"}}>
+        <span style={{fontSize:16,fontWeight:600,color:"#1a1814",letterSpacing:"-.2px"}}>OKR Oé</span>
+      </div>
+      <div style={{flex:1}}/>
+      <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+        <select value={seasonKey} onChange={e=>switchSeason(e.target.value)} style={{fontFamily:"inherit",fontSize:13,fontWeight:500,border:"1px solid #e2ddd6",background:"#fff",borderRadius:20,padding:"4px 14px",outline:"none",cursor:"pointer",color:"#1b4332"}}>
+          {SEASONS.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
+        </select>
+        {allLocked&&<span style={{fontSize:16}}>🔒</span>}
+        <button onClick={()=>setShowJournal(true)} title="Historique des modifications" style={{width:28,height:28,border:"1px solid #e2ddd6",borderRadius:6,background:"none",cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",color:"#6b6560"}}
+          onMouseEnter={e=>e.currentTarget.style.background="#f5f3ef"} onMouseLeave={e=>e.currentTarget.style.background="none"}>🕐</button>
+        <select value={filterP} onChange={e=>setFilterP(e.target.value)} style={{fontFamily:"inherit",fontSize:12,border:"1px solid #e2ddd6",background:"#fff",borderRadius:6,padding:"5px 10px",outline:"none",cursor:"pointer"}}>
+          <option value="">Toute l'équipe</option>{people.map(p=><option key={p}>{p}</option>)}
+        </select>
+      </div>
+    </div>
+
+    <div style={{maxWidth:1100,margin:"0 auto",padding:"0 16px 60px"}}>
+      <div style={{padding:"16px 0 0"}}>
+        <SeasonBanner seasonKey={seasonKey} avgProg={avgProg} totalKR={totalKR} doneKR={doneKR}/>
+        {filterP&&(()=>{
+          // Owner-only for personal progress
+          const fKRsOwned=keyresults.filter(k=>k.owner===filterP);
+          const fDone=fKRsOwned.filter(k=>k.taux>=100).length;
+          let totalW=0,weightedSum=0;
+          fKRsOwned.filter(k=>k.poids>0).forEach(kr=>{
+            const sobj=subobjectives.find(s=>s.id===kr.parent);
+            const obj=objectives.find(o=>o.id===sobj?.parent);
+            const sobjPoids=sobj?sobj.poids:100;
+            const objEtp=obj?Math.max(obj.etp||0,0.01):1;
+            const w=kr.poids*(sobjPoids/100)*objEtp;
+            const taux=calcTaux(kr.val_depart,kr.val_actuel,kr.val_cible,kr.unite)||0;
+            totalW+=w;weightedSum+=taux*w;
+          });
+          const fProg=totalW>0?Math.round(weightedSum/totalW*10)/10:0;
+          return <PersonalBanner prog={fProg} doneKR={fDone} totalKR={fKRsOwned.length} label={filterP} marginBottom={0} avgProg={avgProg}/>;
+        })()}
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:10,marginTop:20}}>
+        {visObjs.length===0&&<div style={{textAlign:"center",padding:32,color:"#9e9890",fontSize:13}}>Aucun objectif.</div>}
+        {(()=>{
+          const allCollapsed=objectives.length>0&&objectives.every(o=>collObj[o.id]);
+          return visObjs.map((obj,idx)=>{
+          const prog=calcObj(obj.id,subobjectives,keyresults);
+          const open=!collObj[obj.id],objLocked=!!obj.locked;
+          const sobjs=subobjectives.filter(s=>s.parent===obj.id);
+  const visSobjs=filterP?sobjs.filter(s=>keyresults.filter(k=>k.parent===s.id).some(k=>k.owner===filterP)):sobjs;
+          const sobjTotalW=sobjs.reduce((s,o)=>s+o.poids,0),warnSobj=sobjs.length>0&&Math.round(sobjTotalW)!==100;
+          const isDragTarget=dragOverObj?.id===obj.id;
+          return <React.Fragment key={obj.id}>
+            {isDragTarget&&dragOverObj?.before&&<div style={{height:3,background:'#2d6a4f',borderRadius:2,margin:'0 4px'}}/>}
+            <div
+              draggable={allCollapsed&&!filterP}
+              onDragStart={e=>{e.dataTransfer.setData('objId',obj.id);e.dataTransfer.effectAllowed='move';}}
+              onDragOver={e=>{if(!allCollapsed||filterP)return;e.preventDefault();const r=e.currentTarget.getBoundingClientRect();setDragOverObj({id:obj.id,before:e.clientY<r.top+r.height/2});}}
+              onDragLeave={()=>setDragOverObj(null)}
+              onDragEnd={()=>setDragOverObj(null)}
+              onDrop={e=>{if(!allCollapsed||filterP)return;handleObjDrop(e,obj);}}
+              style={{background:"#fff",border:`1px solid ${objLocked?"#f59e0b":"#e2ddd6"}`,borderRadius:10,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,.07)"}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,padding:"13px 16px",cursor:"pointer",userSelect:"none"}}
+              onClick={()=>toggleObj(obj.id)} onMouseEnter={e=>e.currentTarget.style.background="#f5f3ef"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+              <div style={{width:28,height:28,borderRadius:8,background:OBJ_BG[idx%11],color:OBJ_TX[idx%11],display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:600,flexShrink:0}}>{obj.id}</div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:14,fontWeight:500}}>{obj.title}</div>
+                {obj.owner&&<div style={{fontSize:11,color:"#6b6560",marginTop:2}}>Propriétaire : {obj.owner}</div>}
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+                {obj.etp>0&&<span style={{fontSize:11,background:"#f5f3ef",border:"1px solid #e2ddd6",padding:"2px 8px",borderRadius:20,color:"#6b6560"}}>{obj.etp} ETP</span>}
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  <div style={{width:80,height:5,background:"#e2ddd6",borderRadius:3,overflow:"hidden"}}><div style={{width:`${Math.min(prog,100)}%`,height:"100%",background:progColor(prog),borderRadius:3}}/></div>
+                  <span style={{fontSize:12,fontWeight:600,color:progColor(prog),minWidth:32,textAlign:"right",fontFamily:"monospace"}}>{Math.round(prog)}%</span>
+                </div>
+                {warnSobj&&<span style={{fontSize:10,color:"#b5680f",background:"#fef3c7",border:"1px solid #f59e0b",borderRadius:4,padding:"1px 5px"}}>⚠ {Math.round(sobjTotalW)}%</span>}
+                <button onClick={e=>{e.stopPropagation();setModal({type:"obj",item:obj,isNew:false});}}
+                  style={{width:24,height:24,borderRadius:5,border:"none",background:"none",cursor:"pointer",color:objLocked?"#f59e0b":"#9e9890"}}>
+                  {objLocked?<span style={{fontSize:16}}>🔒</span>:<svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>}
+                </button>
+                <span style={{fontSize:11,color:"#9e9890",display:"inline-block",transform:open?"rotate(180deg)":"none",transition:"transform .2s"}}>▾</span>
+              </div>
+            </div>
+            {open&&<div style={{borderTop:"1px solid #e2ddd6"}}>
+              {visSobjs.map(sobj=>{
+                const isDragTarget=dragOverSobj===sobj.id;
+                return <div key={sobj.id}
+                  draggable={!objLocked&&sobjs.every(s=>collSobj[s.id])}
+                  onDragStart={e=>e.dataTransfer.setData('sobjId',sobj.id)}
+                  onDragOver={e=>{e.preventDefault();const r=e.currentTarget.getBoundingClientRect();setDragOverSobj({id:sobj.id,before:e.clientY<r.top+r.height/2});}}
+                  onDragLeave={()=>setDragOverSobj(null)}
+                  onDragEnd={()=>setDragOverSobj(null)}
+                  onDrop={e=>handleSobjDrop(e,sobj,subobjectives,obj.id)}
+                  style={{}}>
+                  {dragOverSobj?.id===sobj.id&&dragOverSobj?.before&&<div style={{height:3,background:'#2d6a4f',margin:'0 16px',borderRadius:2}}/>}
+                  <SobjSection sobj={sobj} krs={keyresults} people={people} objLocked={objLocked} filterP={filterP}
+                    onEditKR={kr=>setModal({type:"kr",item:kr,sobjId:kr.parent,locked:objLocked})}
+                    onAddKR={sid=>setModal({type:"kr",item:null,sobjId:sid,locked:objLocked})}
+                    onEditSobj={s=>setModal({type:"sobj",item:s,isNew:false,parentObjId:obj.id})}
+                    collapsed={collSobj} toggle={toggleSobj} onReorderKRs={newKRs=>updateSeason({keyresults:newKRs})}/>
+                </div>;
+              })}
+              {!objLocked&&<button onClick={()=>setModal({type:"sobj",item:null,isNew:true,parentObjId:obj.id})}
+                style={{fontSize:11,color:"#9e9890",background:"none",border:"none",borderTop:"1px dashed #e2ddd6",width:"100%",padding:"8px 28px",textAlign:"left",cursor:"pointer"}}>
+                + Ajouter un sous-objectif
+              </button>}
+            </div>}
+          </div>
+            {isDragTarget&&!dragOverObj?.before&&<div style={{height:3,background:'#2d6a4f',borderRadius:2,margin:'0 4px'}}/>}
+          </React.Fragment>;
+        });})()}
+        {!allLocked&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <button onClick={()=>setModal({type:"obj",item:null,isNew:true})} style={{fontSize:13,color:"#2d6a4f",background:"#d8f3dc",border:"1px dashed #2d6a4f",borderRadius:10,padding:"12px",textAlign:"center",cursor:"pointer"}}>+ Ajouter un objectif</button>
+          <button onClick={()=>setModal({type:"import"})} style={{fontSize:13,color:"#1d4ed8",background:"#eff6ff",border:"1px dashed #1d4ed8",borderRadius:10,padding:"12px",textAlign:"center",cursor:"pointer"}}>↓ Importer d'une saison</button>
+        </div>}
+      </div>
+    </div>
+
+    {modal?.type==="obj"&&<ObjModal obj={modal.item} isNew={modal.isNew} people={people} isAdmin={isAdmin} onClose={()=>setModal(null)} onSave={d=>handleObjSave({...d,_id:modal.item?.id,_isNew:modal.isNew})} onDelete={()=>handleObjDel(modal.item.id)} onLock={()=>lockObj(modal.item.id)} onUnlock={()=>{unlockObj(modal.item.id);}} onUnlockRequest={()=>setModal({type:"unlock",item:modal.item})}/>}
+    {modal?.type==="sobj"&&<SobjModal sobj={modal.item} isNew={modal.isNew} parentObjId={modal.parentObjId} people={people} subobjectives={subobjectives} onClose={()=>setModal(null)} onSave={d=>handleSobjSave({...d,_id:modal.item?.id,_isNew:modal.isNew,_parentObjId:modal.parentObjId})} onDelete={()=>handleSobjDel(modal.item.id)}/>}
+    {modal?.type==="kr"&&<KRModal kr={modal.item} sobjId={modal.sobjId} people={people} keyresults={keyresults} locked={modal.locked} onClose={()=>setModal(null)} onSave={(d,isDuplicate)=>handleKRSave({...d,_id:isDuplicate?undefined:modal.item?.id,_sobjId:modal.sobjId},isDuplicate)} onDelete={()=>handleKRDel(modal.item.id)}/>}
+    {modal?.type==="import"&&<ImportObjModal allSeasons={allSeasons} currentSeasonKey={seasonKey} people={people} onClose={()=>setModal(null)} onImport={handleImport}/>}
+    {showJournal&&<JournalModal seasonKey={seasonKey} onClose={()=>setShowJournal(false)} isAdmin={isAdmin} currentPrenom={teamMember?.prenom}/>}
+    {modal?.type==="unlock"&&<UnlockModal objTitle={modal.item?.title} onClose={()=>setModal(null)} onUnlock={()=>unlockObj(modal.item.id)}/>}
+    {saved&&<div style={{position:"fixed",bottom:20,right:20,background:"#2d6a4f",color:"#fff",fontSize:12,fontWeight:500,padding:"8px 16px",borderRadius:20,boxShadow:"0 2px 8px rgba(0,0,0,.2)",zIndex:200,pointerEvents:"none"}}>✓ Sauvegardé</div>}
+  </div>;
+}
+
+// ─── APP ROOT ─────────────────────────────────────────────────────────────────
+function ReportingPagePublic({onBack, catTypes, codeMap, customSubcatLabels={}, savedCanalMargin}) {
+  return <div style={{minHeight:"100vh",background:"#f5f3ef",fontFamily:"system-ui,sans-serif"}}>
+    <TopBar onBack={onBack} title="Reporting financier"/>
+    <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
+      <ReportingTab onSaveCatTypes={null} savedCatTypes={catTypes} savedCodeMap={codeMap}
+        onSaveCodeMap={null} savedCustomLabels={customSubcatLabels} onSaveCustomLabels={null} savedCanalMargin={savedCanalMargin} readOnly={true}/>
+    </div>
+  </div>;
+}
+
+const BSV3_EXCLUDE_PRODUITS=new Set(['CASIER-OE','COIFFE-OE','CONTENANT BOUTEILLE']);
+const MOIS_LABELS=['','Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+
+function parseBsv3Amt(s){
+  if(!s||s==='MARGE NON CALCULABLE')return 0;
+  try{
+    const clean=String(s).replace(/€/g,'').replace(/[\s\u00a0\u202f\u2009]/g,'').replace(',','.').trim();
+    const v=parseFloat(clean);
+    return isNaN(v)?0:v;
+  }catch(e){return 0;}
+}
+
+function useBsv3Data(){
+  const [rows,setRows]=React.useState([]);
+  const [importedAt,setImportedAt]=React.useState(null);
+  const [loading,setLoading]=React.useState(true);
+  React.useEffect(()=>{
+    (async()=>{
+      try{
+        const snap=await getDocs(collection(db,'bsv3_data'));
+        if(!snap.empty){
+          let all=[];let at=null;
+          snap.docs.sort((a,b)=>a.id.localeCompare(b.id)).forEach(d=>{
+            const data=d.data();
+            all=all.concat(data.rows||[]);
+            if(!at)at=data.importedAt;
+          });
+          setRows(all);setImportedAt(at);
+        }
+      }catch(e){console.warn('bsv3',e);}
+      setLoading(false);
+    })();
+  },[]);
+  return {rows,importedAt,loading};
+}
+
+function aggBsv3(rows){
+  let ca=0,marge=0,qty=0;
+  rows.forEach(r=>{
+    ca+=parseBsv3Amt(r['Montant HT']);
+    marge+=parseBsv3Amt(r['Marge brute']);
+    const qStr=String(r['Quantité équivalent unité']||'0').replace(/[\s  ]/g,'').replace(',','.');
+    qty+=parseFloat(qStr)||0;
+  });
+  return {ca,marge,qty,taux:ca?marge/ca:null};
+}
+
+function fmtBEur(v){if(v==null||isNaN(v))return '—';return Math.round(v).toLocaleString('fr-FR')+'€';}
+function fmtBPct(v){if(v==null||isNaN(v))return '—';return (v*100).toFixed(1)+'%';}
+
+function Bsv3ClientRow({client,clRows,clPrev}){
+  const [exp,setExp]=React.useState(false);
+  const clA=aggBsv3(clRows);const clPA=aggBsv3(clPrev);
+  const produits=[...new Set(clRows.map(r=>r['Contenant+Appelation/Robe']))].sort((a,b)=>a.localeCompare(b));
+  const cellC={padding:'5px 10px',fontSize:11,textAlign:'right',borderBottom:'1px solid #f0ede8',fontFamily:'monospace',background:'#f0fdf4'};
+  const lblC={padding:'5px 10px 5px 36px',fontSize:11,borderBottom:'1px solid #f0ede8',cursor:'pointer',background:'#f0fdf4',display:'flex',alignItems:'center',gap:6};
+  return <React.Fragment>
+    <tr onClick={()=>setExp(p=>!p)}>
+      <td style={lblC}><span style={{fontSize:10,color:'#9e9890'}}>{exp?'▼':'▶'}</span>{client}</td>
+      <td style={{...cellC,textAlign:'center'}}>—</td>
+      <td style={cellC}>{fmtBEur(clA.ca)}</td><td style={cellC}>{fmtBEur(clA.marge)}</td>
+      <td style={{...cellC,color:clA.taux!=null&&clA.taux<0?'#c0392b':'#1a1814'}}>{fmtBPct(clA.taux)}</td>
+      <td style={cellC}>—</td>
+      <td style={{...cellC,color:'#9e9890'}}>{fmtBEur(clPA.ca)}</td><td style={{...cellC,color:'#9e9890'}}>{fmtBEur(clPA.marge)}</td>
+      <td style={{...cellC,color:'#9e9890'}}>{fmtBPct(clPA.taux)}</td>
+    </tr>
+    {exp&&produits.map(prod=>{
+      const pR=clRows.filter(r=>r['Contenant+Appelation/Robe']===prod);
+      const pP=clPrev.filter(r=>r['Contenant+Appelation/Robe']===prod);
+      const pA=aggBsv3(pR);const pPA=aggBsv3(pP);
+      const cellP={padding:'4px 10px',fontSize:10,textAlign:'right',borderBottom:'1px solid #eae7e1',fontFamily:'monospace',background:'#efecea'};
+      return <tr key={prod}>
+        <td style={{...cellP,textAlign:'left',paddingLeft:48}}>{prod}</td>
+        <td style={{...cellP,textAlign:'center'}}>{Math.round(pA.qty).toLocaleString('fr-FR')}</td>
+        <td style={cellP}>{fmtBEur(pA.ca)}</td><td style={cellP}>{fmtBEur(pA.marge)}</td>
+        <td style={{...cellP,color:pA.taux!=null&&pA.taux<0?'#c0392b':'#1a1814'}}>{fmtBPct(pA.taux)}</td>
+        <td style={cellP}>—</td>
+        <td style={{...cellP,color:'#9e9890'}}>{fmtBEur(pPA.ca)}</td><td style={{...cellP,color:'#9e9890'}}>{fmtBEur(pPA.marge)}</td>
+        <td style={{...cellP,color:'#9e9890'}}>{fmtBPct(pPA.taux)}</td>
+      </tr>;
+    })}
+  </React.Fragment>;
+}
+
+function Bsv3CanalRow({canal,cRows,cPrev}){
+  const [exp,setExp]=React.useState(false);
+  const cA=aggBsv3(cRows);const cPA=aggBsv3(cPrev);
+  const clientCa={};
+  [...new Set(cRows.map(r=>r['Client PL']))].forEach(cl=>{
+    clientCa[cl]=cRows.filter(r=>r['Client PL']===cl).reduce((s,r)=>s+parseBsv3Amt(r['Montant HT']),0);
+  });
+  const clients=Object.keys(clientCa).sort((a,b)=>clientCa[b]-clientCa[a]);
+  const cell={padding:'6px 10px',fontSize:11,textAlign:'right',borderBottom:'1px solid #f5f5f5',fontFamily:'monospace',background:'#f8f7f5'};
+  const lbl={padding:'6px 10px 6px 24px',fontSize:11,borderBottom:'1px solid #f5f5f5',cursor:'pointer',background:'#f8f7f5',display:'flex',alignItems:'center',gap:6};
+  return <React.Fragment>
+    <tr onClick={()=>setExp(p=>!p)}>
+      <td style={lbl}><span style={{fontSize:10,color:'#9e9890'}}>{exp?'▼':'▶'}</span>{canal}</td>
+      <td style={{...cell,textAlign:'center'}}>—</td>
+      <td style={cell}>{fmtBEur(cA.ca)}</td><td style={cell}>{fmtBEur(cA.marge)}</td>
+      <td style={{...cell,color:cA.taux!=null&&cA.taux<0?'#c0392b':'#1a1814'}}>{fmtBPct(cA.taux)}</td>
+      <td style={cell}>—</td>
+      <td style={{...cell,color:'#9e9890'}}>{fmtBEur(cPA.ca)}</td><td style={{...cell,color:'#9e9890'}}>{fmtBEur(cPA.marge)}</td>
+      <td style={{...cell,color:'#9e9890'}}>{fmtBPct(cPA.taux)}</td>
+    </tr>
+    {exp&&clients.map(cl=>{
+      const clR=cRows.filter(r=>r['Client PL']===cl);
+      const clP=cPrev.filter(r=>r['Client PL']===cl);
+      return <Bsv3ClientRow key={cl} client={cl} clRows={clR} clPrev={clP}/>;
+    })}
+  </React.Fragment>;
+}
+
+function Bsv3MonthRow({month,year,rows,rowsPrev,allRows,expanded,onToggle}){
+  const mRows=rows.filter(r=>r['Mois Emission']===String(month));
+  const mPrev=rowsPrev.filter(r=>r['Mois Emission']===String(month));
+  const agg=aggBsv3(mRows);const aggPrev=aggBsv3(mPrev);
+  let roll6=[];
+  for(let dm=0;dm<6;dm++){
+    let m=month-dm,y=year;if(m<=0){m+=12;y--;}
+    roll6=roll6.concat(allRows.filter(r=>r['Mois Emission']===String(m)&&r['Année Emission']===String(y)));
+  }
+  const r6=aggBsv3(roll6);
+  const canals=[...new Set(mRows.map(r=>r['Canal']))].sort();
+  const cell={padding:'7px 10px',fontSize:12,textAlign:'right',borderBottom:'1px solid #eee',fontFamily:'monospace'};
+  const lbl={padding:'7px 10px',fontSize:12,borderBottom:'1px solid #eee',cursor:'pointer',display:'flex',alignItems:'center',gap:6,fontWeight:500};
+  return <React.Fragment>
+    <tr style={{background:'#fff'}} onClick={onToggle}>
+      <td style={lbl}><span style={{fontSize:10,color:'#9e9890'}}>{expanded?'▼':'▶'}</span>{MOIS_LABELS[month]}</td>
+      <td style={{...cell,textAlign:'center'}}>—</td>
+      <td style={cell}>{fmtBEur(agg.ca)}</td><td style={cell}>{fmtBEur(agg.marge)}</td>
+      <td style={{...cell,color:agg.taux!=null&&agg.taux<0?'#c0392b':'#1a1814'}}>{fmtBPct(agg.taux)}</td>
+      <td style={{...cell,color:'#6b6560'}}>{fmtBPct(r6.taux)}</td>
+      <td style={{...cell,color:'#9e9890'}}>{fmtBEur(aggPrev.ca)}</td><td style={{...cell,color:'#9e9890'}}>{fmtBEur(aggPrev.marge)}</td>
+      <td style={{...cell,color:'#9e9890'}}>{fmtBPct(aggPrev.taux)}</td>
+    </tr>
+    {expanded&&canals.map(c=>{
+      const cR=mRows.filter(r=>r['Canal']===c);
+      const cP=mPrev.filter(r=>r['Canal']===c);
+      return <Bsv3CanalRow key={c} canal={c} cRows={cR} cPrev={cP}/>;
+    })}
+  </React.Fragment>;
+}
+
+const CANAL_ORDER=['#N/A','Tiers absent de Hubspot','B2C','CHR','Grands Comptes','Retail','Export'];
+const CANAL_LAST=['Régénération'];
+function sortCanaux(vals){
+  return [...vals].sort((a,b)=>{
+    const ia=CANAL_ORDER.indexOf(a),ib=CANAL_ORDER.indexOf(b);
+    const la=CANAL_LAST.indexOf(a),lb=CANAL_LAST.indexOf(b);
+    if(ia>=0&&ib>=0)return ia-ib;
+    if(ia>=0)return -1;if(ib>=0)return 1;
+    if(la>=0&&lb>=0)return la-lb;
+    if(la>=0)return 1;if(lb>=0)return -1;
+    return a.localeCompare(b);
+  });
+}
+function sortProduits(vals){
+  const prefix=(s)=>{
+    if(s.startsWith('E'))return 0;
+    if(s.startsWith('P'))return 1;
+    if(s.startsWith('M'))return 2;
+    if(s.startsWith('C'))return 3;
+    return 4;
+  };
+  return [...vals].sort((a,b)=>{
+    const pa=prefix(a),pb=prefix(b);
+    if(pa!==pb)return pa-pb;
+    return a.localeCompare(b);
+  });
+}
+// Generic BSv3 table with configurable drill-down order
+function getField(level){
+  return level==='mois'?'Mois Emission':level==='canal'?'Canal':level==='client'?'Client PL':'Contenant+Appelation/Robe';
+}
+
+function sortByLevel(level, vals, currentRows, prevRows){
+  if(level==='mois') return [1,2,3,4,5,6,7,8,9,10,11,12].map(String);
+  if(level==='client'){
+    const caMap={};const caPrevMap={};
+    vals.forEach(v=>{
+      caMap[v]=currentRows.filter(r=>r['Client PL']===v).reduce((s,r)=>s+parseBsv3Amt(r['Montant HT']),0);
+      caPrevMap[v]=prevRows.filter(r=>r['Client PL']===v).reduce((s,r)=>s+parseBsv3Amt(r['Montant HT']),0);
+    });
+    return [...vals].sort((a,b)=>{
+      const diff=caMap[b]-caMap[a];
+      if(Math.abs(diff)>0.01)return diff;
+      return caPrevMap[b]-caPrevMap[a];
+    });
+  }
+  if(level==='canal') return sortCanaux(vals);
+  if(level==='produit') return sortProduits(vals);
+  return [...vals].sort((a,b)=>a.localeCompare(b));
+}
+
+function calc6M(contextRows, month, year){
+  let roll=[];
+  for(let dm=0;dm<6;dm++){
+    let m=month-dm,y=year;
+    if(m<=0){m+=12;y--;}
+    roll=roll.concat(contextRows.filter(r=>r['Mois Emission']===String(m)&&r['Année Emission']===String(y)));
+  }
+  return aggBsv3(roll).taux;
+}
+
+function produitIsAtOrBefore(levels, levelIdx){
+  for(let i=0;i<=levelIdx;i++) if(levels[i]==='produit') return true;
+  return false;
+}
+
+function fmtEvo(n, p){
+  // evolution between N and N-1
+  if(!p||Math.abs(p)<0.01)return null;
+  const pct=(n-p)/Math.abs(p)*100;
+  const sign=pct>=0?'+':'';
+  return `${sign}${pct.toFixed(0)}%`;
+}
+
+function EvoSpan({n, p}){
+  const evo=fmtEvo(n,p);
+  if(!evo)return null;
+  const pos=(n-p)>=0;
+  return <span style={{fontSize:9,color:pos?'#2d6a4f':'#c0392b',marginLeft:4,fontWeight:400}}>({evo})</span>;
+}
+
+function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,depth,ytdMode,maxYtdMonth,allRows}){
+  const [exp,setExp]=React.useState(false);
+  const currentLevel=levels[levelIdx];
+  const nextLevel=levels[levelIdx+1];
+  const isLeaf=levelIdx>=levels.length-1;
+  const isMoisLevel=currentLevel==='mois';
+  const monthNum=isMoisLevel?parseInt(label):0;
+  const isFutureMonth=isMoisLevel&&monthNum>maxYtdMonth;
+
+  // Always filter prevRows to YTD when ytdMode
+  const filteredPrev=ytdMode?prevRows.filter(r=>parseInt(r['Mois Emission'])<=maxYtdMonth):prevRows;
+
+  const agg=aggBsv3(rows);
+  const aggP=aggBsv3(filteredPrev);
+  const showQty=produitIsAtOrBefore(levels,levelIdx);
+
+  // 6M rolling — contextual, only for past months
+  let roll6Taux=null;
+  if(isMoisLevel&&!isFutureMonth){
+    roll6Taux=calc6M(contextRows,monthNum,year);
+  }
+
+  const bg=depth===0?'#fff':depth===1?'#f8f7f5':depth===2?'#f0fdf4':'#efecea';
+  const fs=depth===0?12:depth===1?11:10;
+  const pl=10+depth*14;
+  const pd=depth===0?7:depth===1?6:5;
+  const cell={padding:`${pd}px 10px`,fontSize:fs,textAlign:'right',borderBottom:'1px solid #eee',fontFamily:'monospace',background:bg};
+  const cellPrev={...cell,borderLeft:'2px solid #ece8e0'};
+  const lbl={padding:`${pd}px 10px`,paddingLeft:pl,fontSize:fs,borderBottom:'1px solid #eee',cursor:isLeaf?'default':'pointer',background:bg,display:'flex',alignItems:'center',gap:6,fontWeight:depth===0?500:400};
+
+  const displayLabel=isMoisLevel?MOIS_LABELS[parseInt(label)]||label:label;
+
+  // Children: union current + prev year values
+  let children=[];
+  if(!isLeaf&&nextLevel){
+    const field=getField(nextLevel);
+    if(nextLevel==='mois'){
+      children=ytdMode?[1,2,3,4,5,6,7,8,9,10,11,12].filter(m=>m<=maxYtdMonth).map(String):[1,2,3,4,5,6,7,8,9,10,11,12].map(String);
+    } else {
+      const currentVals=new Set(rows.map(r=>r[field]));
+      const prevVals=new Set(filteredPrev.map(r=>r[field]));
+      const allVals=[...new Set([...currentVals,...prevVals])];
+      children=sortByLevel(nextLevel,allVals,rows,filteredPrev);
+    }
+  }
+
+  return <React.Fragment>
+    <tr style={{background:bg}} onClick={isLeaf?undefined:()=>setExp(p=>!p)}>
+      <td style={lbl}>{!isLeaf&&<span style={{fontSize:10,color:'#9e9890'}}>{exp?'▼':'▶'}</span>}
+        {currentLevel==='produit'?<><span style={{fontFamily:'monospace'}}>{displayLabel}</span>{(()=>{const lb=getBsv3ProdLabel(allRows||rows,label);return lb?<span style={{color:'#6b6560',fontWeight:400,marginLeft:6,fontSize:fs-1}}>— {lb}</span>:null;})()}</>:displayLabel}
+      </td>
+      <td style={{...cell,textAlign:'center'}}>{showQty?Math.round(agg.qty).toLocaleString('fr-FR'):'—'}</td>
+      <td style={cell}>{fmtBEur(agg.ca)}</td>
+      <td style={cell}>{fmtBEur(agg.marge)}</td>
+      <td style={{...cell,color:agg.taux!=null&&agg.taux<0?'#c0392b':'#1a1814'}}>{fmtBPct(agg.taux)}</td>
+      <td style={{...cell,color:'#6b6560'}}>{roll6Taux!==null?fmtBPct(roll6Taux):'—'}</td>
+      <td style={{...cellPrev,textAlign:'center'}}>{showQty?Math.round(aggP.qty).toLocaleString('fr-FR'):'—'}</td>
+      <td style={cell}>{aggP.ca?fmtBEur(aggP.ca):'—'}<EvoSpan n={agg.ca} p={aggP.ca}/></td>
+      <td style={cell}>{aggP.marge?fmtBEur(aggP.marge):'—'}<EvoSpan n={agg.marge} p={aggP.marge}/></td>
+      <td style={{...cell,color:aggP.taux!=null&&aggP.taux<0?'#c0392b':'#9e9890'}}>{fmtBPct(aggP.taux)}</td>
+    </tr>
+    {exp&&children.map(child=>{
+      const field=getField(nextLevel);
+      const childRows=rows.filter(r=>r[field]===child);
+      const childPrev=filteredPrev.filter(r=>r[field]===child);
+      return <Bsv3DrillRow key={child} label={child} rows={childRows} prevRows={childPrev}
+        contextRows={nextLevel==='mois'?contextRows:childRows}
+        year={year} levels={levels} levelIdx={levelIdx+1} depth={depth+1}
+        ytdMode={ytdMode} maxYtdMonth={maxYtdMonth} allRows={allRows}/>;
+    })}
+  </React.Fragment>;
+}
+
+function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,maxYtdMonth}){
+  const topLevel=levels[0];
+  const topField=getField(topLevel);
+  // Always filter prevRows to YTD when ytdMode
+  const filteredPrev=ytdMode?prevRows.filter(r=>parseInt(r['Mois Emission'])<=maxYtdMonth):prevRows;
+
+  const currentTopVals=new Set(validRows.map(r=>r[topField]));
+  const prevTopVals=new Set(filteredPrev.map(r=>r[topField]));
+  const allTopVals=[...new Set([...currentTopVals,...prevTopVals])];
+  const topSorted=topLevel==='mois'
+    ?(ytdMode?[1,2,3,4,5,6,7,8,9,10,11,12].filter(m=>m<=maxYtdMonth).map(String):[1,2,3,4,5,6,7,8,9,10,11,12].map(String))
+    :sortByLevel(topLevel,allTopVals,validRows,filteredPrev);
+
+  const firstLabel=topLevel==='mois'?`Mois ${year}`:topLevel==='canal'?'Canal':topLevel==='client'?'Client':'Produit';
+  const showQtyTop=produitIsAtOrBefore(levels,0);
+  const th={padding:'8px 10px',fontSize:11,fontWeight:600,color:'#6b6560',textAlign:'right',borderBottom:'2px solid #e2ddd6',background:'#f8f7f5',whiteSpace:'nowrap'};
+  const thPrev={...th,borderLeft:'2px solid #e2ddd6'};
+
+  const aggTotal=aggBsv3(validRows);
+  const aggTotalP=aggBsv3(filteredPrev);
+  const ytdPrevRows=prevRows.filter(r=>parseInt(r['Mois Emission'])<=maxYtdMonth);
+  const aggYTD=aggBsv3(ytdPrevRows);
+  const tf={padding:'8px 10px',fontSize:12,textAlign:'right',borderTop:'2px solid #e2ddd6',fontFamily:'monospace',fontWeight:600,background:'#f8f7f5'};
+  const tfPrev={...tf,borderLeft:'2px solid #ece8e0'};
+  const tfl={...tf,textAlign:'left'};
+
+  return <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',overflow:'hidden'}}>
+    <div style={{overflowX:'auto'}}>
+      <table style={{width:'100%',borderCollapse:'collapse'}}>
+        <thead><tr>
+          <th style={{...th,textAlign:'left',minWidth:150}}>{firstLabel}</th>
+          <th style={th}>Qté</th>
+          <th style={th}>CA</th><th style={th}>Marge</th><th style={th}>Taux</th>
+          <th style={th}>Moy.6M</th>
+          <th style={thPrev}>Qté {prevYear}</th>
+          <th style={th}>CA {prevYear}</th><th style={th}>Marge {prevYear}</th><th style={th}>Taux {prevYear}</th>
+        </tr></thead>
+        <tbody>
+          {topSorted.map(val=>{
+            const rows=topLevel==='mois'?validRows.filter(r=>r['Mois Emission']===val):validRows.filter(r=>r[topField]===val);
+            const prev=filteredPrev.filter(r=>r[topField]===val);
+            return <Bsv3DrillRow key={val} label={val} rows={rows} prevRows={prev}
+              contextRows={topLevel==='mois'?allYearRows:rows}
+              year={year} levels={levels} levelIdx={0} depth={0}
+              ytdMode={ytdMode} maxYtdMonth={maxYtdMonth} allRows={allYearRows}/>;
+          })}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td style={tfl}>{ytdMode?`YTD ${year} (jan-${MOIS_LABELS[maxYtdMonth]})`:`TOTAL ${year}`}</td>
+            <td style={{...tf,textAlign:'center'}}>{showQtyTop?Math.round(aggTotal.qty).toLocaleString('fr-FR'):'—'}</td>
+            <td style={tf}>{fmtBEur(aggTotal.ca)}</td>
+            <td style={tf}>{fmtBEur(aggTotal.marge)}</td>
+            <td style={{...tf,color:aggTotal.taux!=null&&aggTotal.taux<0?'#c0392b':'#2d6a4f'}}>{fmtBPct(aggTotal.taux)}</td>
+            <td style={tf}>—</td>
+            <td style={{...tfPrev,textAlign:'center'}}>{showQtyTop?Math.round(aggTotalP.qty).toLocaleString('fr-FR'):'—'}</td>
+            <td style={tf}>{fmtBEur(aggTotalP.ca)}<EvoSpan n={aggTotal.ca} p={aggTotalP.ca}/></td>
+            <td style={tf}>{fmtBEur(aggTotalP.marge)}<EvoSpan n={aggTotal.marge} p={aggTotalP.marge}/></td>
+            <td style={{...tf,color:aggTotalP.taux!=null&&aggTotalP.taux<0?'#c0392b':'#9e9890'}}>{fmtBPct(aggTotalP.taux)}</td>
+          </tr>
+          {!ytdMode&&<tr>
+            <td style={{...tfl,fontSize:11,fontWeight:400,color:'#6b6560'}}>YTD {prevYear} (jan-{MOIS_LABELS[maxYtdMonth]})</td>
+            <td style={{...tf,fontSize:11,fontWeight:400,textAlign:'center'}}>—</td>
+            <td style={{...tf,fontSize:11,fontWeight:400,color:'#9e9890'}}>{fmtBEur(aggYTD.ca)}</td>
+            <td style={{...tf,fontSize:11,fontWeight:400,color:'#9e9890'}}>{fmtBEur(aggYTD.marge)}</td>
+            <td style={{...tf,fontSize:11,fontWeight:400,color:'#9e9890'}}>{fmtBPct(aggYTD.taux)}</td>
+            <td style={{...tf,fontSize:11,fontWeight:400}}>—</td>
+            <td style={{...tfPrev,fontSize:11,fontWeight:400,textAlign:'center'}}>—</td>
+            <td style={{...tf,fontSize:11,fontWeight:400,color:'#c5c0b8'}}>—</td>
+            <td style={{...tf,fontSize:11,fontWeight:400,color:'#c5c0b8'}}>—</td>
+            <td style={{...tf,fontSize:11,fontWeight:400,color:'#c5c0b8'}}>—</td>
+          </tr>}
+        </tfoot>
+      </table>
+    </div>
+  </div>;
+}
+
+function DragPill({level,index,onDragStart,onDragOver,onDrop,isDragOver}){
+  const labels={mois:'Mois',canal:'Canal',client:'Client',produit:'Produit'};
+  return <div draggable
+    onDragStart={e=>{e.dataTransfer.setData('text/plain',String(index));onDragStart(index);}}
+    onDragOver={e=>{e.preventDefault();onDragOver(index);}}
+    onDrop={e=>{e.preventDefault();onDrop(index);}}
+    style={{padding:'6px 16px',borderRadius:20,border:`2px solid ${isDragOver?'#2d6a4f':'#e2ddd6'}`,
+      background:isDragOver?'#d8f3dc':'#fff',cursor:'grab',fontSize:13,fontWeight:500,
+      color:'#1a1814',userSelect:'none',display:'flex',alignItems:'center',gap:6,
+      boxShadow:'0 1px 3px rgba(0,0,0,.08)',transition:'all .15s'}}>
+    <span style={{fontSize:10,color:'#9e9890'}}>⠿</span>{labels[level]}
+  </div>;
+}
+
+const BSV3_COMMANDES_USERS = new Set(['fx@oeforgood.com','fiona@oeforgood.com']);
+const SPECIAL_SUFFIXES = ['FL','FE','EC']; // shown before numbers
+const PROD_LETTER_ORDER = ['E','P','M','C'];
+
+function sortProduitsSuffix(vals){
+  function getSfxOrder(code){
+    const sfx = code.slice(1,3).toUpperCase();
+    if(SPECIAL_SUFFIXES.includes(sfx)) return {pri:0, sfx, let: code[0]};
+    const num = parseInt(sfx);
+    if(!isNaN(num)) return {pri:1, sfx: num, let: code[0]};
+    return {pri:2, sfx, let: code[0]};
+  }
+  function letterOrder(l){
+    const i = PROD_LETTER_ORDER.indexOf(l);
+    return i >= 0 ? i : PROD_LETTER_ORDER.length + l.charCodeAt(0);
+  }
+  return [...vals].sort((a,b)=>{
+    const oa=getSfxOrder(a), ob=getSfxOrder(b);
+    if(oa.pri !== ob.pri) return oa.pri - ob.pri;
+    if(oa.pri===0){ // special: sort FL,FE,EC in SPECIAL_SUFFIXES order
+      const ia=SPECIAL_SUFFIXES.indexOf(oa.sfx), ib=SPECIAL_SUFFIXES.indexOf(ob.sfx);
+      if(ia!==ib) return ia-ib;
+    } else if(oa.pri===1){ // numeric
+      if(oa.sfx !== ob.sfx) return oa.sfx - ob.sfx;
+    } else { // alpha suffix
+      if(oa.sfx !== ob.sfx) return String(oa.sfx).localeCompare(String(ob.sfx));
+    }
+    return letterOrder(oa.let) - letterOrder(ob.let);
+  });
+}
+
+function getBsv3ProdLabel(rows, prod){
+  const row=rows.find(r=>r['Contenant+Appelation/Robe']===prod&&r['Libellé Contenant+Appelation/Robe']&&r['Libellé Contenant+Appelation/Robe'].trim()&&r['Libellé Contenant+Appelation/Robe']!=='PAS DE DETAIL DU PRODUIT');
+  return row?row['Libellé Contenant+Appelation/Robe'].trim():'';
+}
+
+function Bsv3CommandesTable({rows, importedAt, activeLetters}){
+  const [collapsedYears, setCollapsedYears] = React.useState({});
+  const [expandedProds, setExpandedProds] = React.useState({});
+
+  const importDate = importedAt ? new Date(importedAt) : new Date();
+  const importMonth = importDate.getMonth() + 1;
+  const importYear = importDate.getMonth() === 0 ? importDate.getFullYear()-1 : importDate.getFullYear();
+  const lastM = importMonth - 1 === 0 ? 12 : importMonth - 1;
+  const lastY = importMonth - 1 === 0 ? importYear - 1 : importYear;
+
+  const months = [];
+  let m = lastM, y = lastY;
+  for(let i=0;i<24;i++){
+    months.push({m,y});
+    m--;if(m===0){m=12;y--;}
+  }
+  const years = [...new Set(months.map(x=>x.y))];
+
+  const validRows = rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']));
+  const allProds = [...new Set(validRows.map(r=>r['Contenant+Appelation/Robe']))];
+  const sortedAllProds = sortProduitsSuffix(allProds);
+
+  // Letter filter buttons
+  const allLetters = [...new Set(sortedAllProds.map(p=>p[0]))].sort((a,b)=>{
+    const ia=PROD_LETTER_ORDER.indexOf(a),ib=PROD_LETTER_ORDER.indexOf(b);
+    if(ia>=0&&ib>=0)return ia-ib;
+    if(ia>=0)return -1;if(ib>=0)return 1;
+    return a.localeCompare(b);
+  });
+
+  const sortedProds = (activeLetters
+    ? sortedAllProds.filter(p=>activeLetters.has(p[0]))
+    : sortedAllProds).filter(p=>p.length===3);
+
+  function getQty(rows2,mth,yr){
+    return rows2.filter(r=>parseInt(r['Mois Emission'])===mth&&r['Année Emission']===String(yr))
+      .reduce((s,r)=>{
+        const q=String(r['Quantité équivalent unité']||'0').replace(/[\s\u00a0\u202f]/g,'').replace(',','.');
+        return s+(parseFloat(q)||0);
+      },0);
+  }
+  function get12M(rows2,fromM,fromY){
+    let total=0,mo=fromM,yr=fromY;
+    for(let i=0;i<12;i++){
+      total+=getQty(rows2,mo,yr);
+      mo--;if(mo===0){mo=12;yr--;}
+    }
+    return total;
+  }
+  function getPrev12M(rows2){
+    // 12 months before the gliding 12M window
+    let total=0,mo=lastM,yr=lastY;
+    // skip 12
+    for(let i=0;i<12;i++){mo--;if(mo===0){mo=12;yr--;}}
+    // then sum 12
+    for(let i=0;i<12;i++){
+      total+=getQty(rows2,mo,yr);
+      mo--;if(mo===0){mo=12;yr--;}
+    }
+    return total;
+  }
+  function getYTD(rows2,yr){
+    let total=0;
+    for(let mth=1;mth<=lastM;mth++) total+=getQty(rows2,mth,yr);
+    return total;
+  }
+  function fmtQ(v){return v?Math.round(v).toLocaleString('fr-FR'):'—';}
+
+  const th={padding:'5px 8px',fontSize:10,fontWeight:600,color:'#6b6560',textAlign:'right',borderBottom:'2px solid #e2ddd6',background:'#f8f7f5',whiteSpace:'nowrap'};
+  const thL={...th,textAlign:'left',minWidth:180};
+  const thG={...th,background:'#f0fdf4'};
+  const thTotal={...th,background:'#e8f4f0',color:'#2d6a4f',cursor:'pointer'};
+
+  function toggleYear(key){setCollapsedYears(p=>({...p,[key]:!p[key]}));}
+
+  function renderDataCells(rows2, fs=11){
+    const td={padding:'5px 6px',fontSize:fs,textAlign:'right',borderBottom:'1px solid #f0ede8',fontFamily:'monospace'};
+    return <>
+      <td style={{...td,background:'#f0fdf4',fontWeight:600}}>{fmtQ(get12M(rows2,lastM,lastY))}</td>
+      <td style={{...td,background:'#f0fdf4'}}>{fmtQ(getPrev12M(rows2))}</td>
+      <td style={{...td,background:'#e8f4f0',fontWeight:600,cursor:'pointer'}}>
+        {fmtQ(getYTD(rows2,lastY))}
+      </td>
+      {!collapsedYears['ytd']&&months.filter(x=>x.y===lastY).map(({m:mo,y:yr})=>(
+        <td key={`${mo}_${yr}`} style={td}>{fmtQ(getQty(rows2,mo,yr))}</td>
+      ))}
+      {years.filter(yr=>yr!==lastY).map(yr=>(
+        <React.Fragment key={yr}>
+          <td style={{...td,background:'#e8f4f0',fontWeight:600}}>{fmtQ(months.filter(x=>x.y===yr).reduce((s,{m:mo})=>s+getQty(rows2,mo,yr),0))}</td>
+          {!collapsedYears[yr]&&months.filter(x=>x.y===yr).map(({m:mo})=>(
+            <td key={`${mo}_${yr}`} style={td}>{fmtQ(getQty(rows2,mo,yr))}</td>
+          ))}
+        </React.Fragment>
+      ))}
+    </>;
+  }
+
+  return <div>
+    <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',overflow:'hidden'}}>
+      <div style={{overflowX:'auto'}}>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead><tr>
+            <th style={thL}>Produit</th>
+            <th style={thG}>12M glissants</th>
+            <th style={thG}>12M précédents</th>
+            <th style={thTotal} onClick={()=>toggleYear('ytd')}>YTD {lastY} {collapsedYears['ytd']?'▶':'▼'}</th>
+            {!collapsedYears['ytd']&&months.filter(x=>x.y===lastY).map(({m:mo})=>(
+              <th key={mo} style={th}>{MOIS_LABELS[mo]}</th>
+            ))}
+            {years.filter(yr=>yr!==lastY).map(yr=>(
+              <React.Fragment key={yr}>
+                <th style={thTotal} onClick={()=>toggleYear(yr)}>{yr} {collapsedYears[yr]?'▶':'▼'}</th>
+                {!collapsedYears[yr]&&months.filter(x=>x.y===yr).map(({m:mo})=>(
+                  <th key={mo} style={th}>{MOIS_LABELS[mo]}</th>
+                ))}
+              </React.Fragment>
+            ))}
+          </tr></thead>
+          <tbody>
+            {sortedProds.map(prod=>{
+              const prodRows=validRows.filter(r=>r['Contenant+Appelation/Robe']===prod);
+              const isExp=expandedProds[prod];
+              const clients=[...new Set(prodRows.map(r=>r['Client PL']))];
+              const c12m={};clients.forEach(cl=>{c12m[cl]=get12M(prodRows.filter(r=>r['Client PL']===cl),lastM,lastY);});
+              const sortedClients=clients.sort((a,b)=>c12m[b]-c12m[a]);
+              return <React.Fragment key={prod}>
+                <tr style={{background:'#fff',cursor:'pointer'}} onClick={()=>setExpandedProds(p=>({...p,[prod]:!p[prod]}))}>
+                  <td style={{padding:'5px 8px',fontSize:11,textAlign:'left',borderBottom:'1px solid #eee',fontWeight:500,whiteSpace:'nowrap'}}>
+                    <span style={{fontSize:9,color:'#9e9890',marginRight:4}}>{isExp?'▼':'▶'}</span><span style={{fontFamily:'monospace'}}>{prod}</span>{(()=>{const lb=getBsv3ProdLabel(validRows,prod);return lb?<span style={{color:'#6b6560',fontWeight:400,marginLeft:6}}>— {lb}</span>:null;})()}
+                  </td>
+                  {renderDataCells(prodRows)}
+                </tr>
+                {isExp&&(()=>{
+                  // Build SKU4 groups
+                  const VALID_SKU4=r=>r['SKU']&&r['SKU'].length>=4&&!/^[0-9]/.test(r['SKU'])&&!['PAS ','COFF','FRAI','PROD','CASE','TIRE','SUBV','HORS','OFBL','OEBL','VASC','PALOX','COIF','CONT','SCHRE','N/A'].some(x=>r['SKU'].startsWith(x));
+                  const sku4Set=new Set(prodRows.filter(VALID_SKU4).map(r=>r['SKU'].slice(0,4)));
+                  const hasOther=prodRows.some(r=>!VALID_SKU4(r));
+                  const sortedSku4=[...sku4Set].sort((a,b)=>a.localeCompare(b));
+                  if(hasOther) sortedSku4.push('__other__');
+                  return sortedSku4.map(sku4=>{
+                    const sku4Rows=sku4==='__other__'?prodRows.filter(r=>!VALID_SKU4(r)):prodRows.filter(r=>VALID_SKU4(r)&&r['SKU'].slice(0,4)===sku4);
+                    const sku4Label=sku4==='__other__'?'(autres)':sku4;
+                    const sku4Exp=expandedProds[prod+'_'+sku4];
+                    const clients2=[...new Set(sku4Rows.map(r=>r['Client PL']))];
+                    const c12m2={};clients2.forEach(cl=>{c12m2[cl]=get12M(sku4Rows.filter(r=>r['Client PL']===cl),lastM,lastY);});
+                    const sortedClients2=clients2.sort((a,b)=>c12m2[b]-c12m2[a]);
+                    return <React.Fragment key={sku4}>
+                      <tr style={{background:'#f0fdf4',cursor:'pointer'}} onClick={()=>setExpandedProds(p=>({...p,[prod+'_'+sku4]:!p[prod+'_'+sku4]}))}>
+                        <td style={{padding:'4px 8px 4px 20px',fontSize:10,textAlign:'left',borderBottom:'1px solid #e8f0e8',fontWeight:500,whiteSpace:'nowrap'}}>
+                          <span style={{fontSize:9,color:'#9e9890',marginRight:4}}>{sku4Exp?'▼':'▶'}</span>
+                          <span style={{fontFamily:'monospace'}}>{sku4Label}</span>
+
+                        </td>
+                        {renderDataCells(sku4Rows,10)}
+                      </tr>
+                      {sku4Exp&&sortedClients2.map(cl=>{
+                        const clRows=sku4Rows.filter(r=>r['Client PL']===cl);
+                        return <tr key={cl} style={{background:'#f8f7f5'}}>
+                          <td style={{padding:'3px 8px 3px 32px',fontSize:10,textAlign:'left',borderBottom:'1px solid #f0ede8',color:'#6b6560',whiteSpace:'nowrap'}}>{cl}</td>
+                          {renderDataCells(clRows,10)}
+                        </tr>;
+                      })}
+                    </React.Fragment>;
+                  });
+                })()}
+              </React.Fragment>;
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>;
+}
+
+function Bsv3Page({onBack,currentUser}){
+  const {rows,importedAt,loading}=useBsv3Data();
+  const [mainTab,setMainTab]=React.useState('ventes');
+  const [levels,setLevels]=React.useState(['mois','canal','client','produit']);
+  const [ytdMode,setYtdMode]=React.useState(false);
+  const [dragFrom,setDragFrom]=React.useState(null);
+  const [dragOver,setDragOver]=React.useState(null);
+  const [activeLetters,setActiveLetters]=React.useState(null);
+  const [showCommandes,setShowCommandes]=React.useState(false);
+
+  const importDate=importedAt?new Date(importedAt):new Date();
+  const year=importDate.getMonth()===0?importDate.getFullYear()-1:importDate.getFullYear();
+  const prevYear=year-1;
+
+  const validRows=rows.filter(r=>r['Année Emission']===String(year)&&!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']));
+  const prevRows=rows.filter(r=>r['Année Emission']===String(prevYear)&&!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']));
+  const allYearRows=rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']));
+  const maxYtdMonth=validRows.length?Math.max(...validRows.map(r=>parseInt(r['Mois Emission'])||0)):12;
+  const displayRows=ytdMode?validRows.filter(r=>parseInt(r['Mois Emission'])<=maxYtdMonth):validRows;
+
+  function handleDrop(toIdx){
+    if(dragFrom===null||dragFrom===toIdx){setDragFrom(null);setDragOver(null);return;}
+    const newLevels=[...levels];const [moved]=newLevels.splice(dragFrom,1);
+    newLevels.splice(toIdx,0,moved);setLevels(newLevels);
+    setDragFrom(null);setDragOver(null);
+  }
+
+  // Letter filter for écoulements
+  const allProdsForFilter=[...new Set(rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])).map(r=>r['Contenant+Appelation/Robe']))];
+  const allLetters=[...new Set(allProdsForFilter.map(p=>p[0]))].sort((a,b)=>{
+    const ia=PROD_LETTER_ORDER.indexOf(a),ib=PROD_LETTER_ORDER.indexOf(b);
+    if(ia>=0&&ib>=0)return ia-ib;if(ia>=0)return -1;if(ib>=0)return 1;return a.localeCompare(b);
+  });
+
+  return <div style={{minHeight:'100vh',background:'#f8f7f5'}}>
+    {/* TopBar */}
+    <div style={{background:'#fff',borderBottom:'1px solid #e2ddd6',padding:'12px 20px',display:'flex',alignItems:'center',gap:12}}>
+      <button onClick={onBack} style={{background:'none',border:'none',cursor:'pointer',fontSize:18,color:'#9e9890',padding:0,lineHeight:1}}>←</button>
+      <span style={{fontSize:16,fontWeight:700,color:'#1a1814'}}>📊 Base Sales v3</span>
+      {importedAt&&<span style={{fontSize:11,color:'#9e9890',marginLeft:4}}>
+        — mis à jour le {new Date(importedAt).toLocaleDateString('fr-FR')} à {new Date(importedAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}
+      </span>}
+    </div>
+
+    <div style={{maxWidth:1400,margin:'0 auto',padding:'20px 16px'}}>
+      {/* Main tabs */}
+      <div style={{display:'flex',gap:8,marginBottom:16,alignItems:'center',flexWrap:'wrap'}}>
+        {[{k:'ventes',l:'Analyse des ventes'},{k:'ecoulements',l:'Analyse des écoulements'}].map(t=>(
+          <button key={t.k} onClick={()=>setMainTab(t.k)}
+            style={{padding:'8px 18px',borderRadius:8,border:`1px solid ${mainTab===t.k?'#2d6a4f':'#e2ddd6'}`,
+              background:mainTab===t.k?'#2d6a4f':'#fff',color:mainTab===t.k?'#fff':'#6b6560',
+              fontSize:13,fontWeight:500,cursor:'pointer'}}>
+            {t.l}
+          </button>
+        ))}
+      </div>
+
+      {/* Sub-controls */}
+      {mainTab==='ventes'&&<div style={{display:'flex',alignItems:'center',gap:8,marginBottom:16,flexWrap:'wrap'}}>
+        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+          <span style={{fontSize:11,color:'#9e9890'}}>Ordre :</span>
+          {levels.map((level,i)=><DragPill key={level} level={level} index={i}
+            onDragStart={setDragFrom} onDragOver={setDragOver} onDrop={handleDrop}
+            isDragOver={dragOver===i&&dragFrom!==i}/>)}
+        </div>
+        <div style={{marginLeft:'auto',display:'flex',gap:0,background:'#fff',border:'1px solid #e2ddd6',borderRadius:8,padding:'4px'}}>
+          <button onClick={()=>setYtdMode(false)}
+            style={{padding:'5px 12px',borderRadius:6,border:'none',background:!ytdMode?'#2d6a4f':'transparent',color:!ytdMode?'#fff':'#6b6560',fontSize:12,fontWeight:500,cursor:'pointer'}}>
+            Toute l'année
+          </button>
+          <button onClick={()=>setYtdMode(true)}
+            style={{padding:'5px 12px',borderRadius:6,border:'none',background:ytdMode?'#2d6a4f':'transparent',color:ytdMode?'#fff':'#6b6560',fontSize:12,fontWeight:500,cursor:'pointer'}}>
+            YTD
+          </button>
+        </div>
+      </div>}
+
+      {mainTab==='ecoulements'&&<div style={{display:'flex',alignItems:'center',gap:6,marginBottom:16,flexWrap:'wrap'}}>
+        <span style={{fontSize:11,color:'#9e9890'}}>Filtrer :</span>
+        {[{label:'75cl',letters:new Set(['E'])},{label:'33cl',letters:new Set(['P'])},{label:'Mini',letters:new Set(['M'])},{label:'BIB 5l',letters:new Set(['C'])},{label:'Canette',letters:new Set(['S'])},{label:'Autres',letters:null}].map(({label:fl,letters:fset})=>{
+          // 'Autres' = all letters not in E,P,M,C,S
+          const MAIN=new Set(['E','P','M','C','S']);
+          const otherLetters=new Set(allLetters.filter(l=>!MAIN.has(l)));
+          const effectiveSet=fset||otherLetters;
+          const on=!activeLetters||[...effectiveSet].some(l=>activeLetters.has(l));
+          return <button key={fl} onClick={()=>{
+            if(!activeLetters){
+              // All on → turn off all except this group
+              setActiveLetters(new Set(effectiveSet));
+            } else {
+              const next=new Set(activeLetters);
+              const allOn=[...effectiveSet].every(l=>next.has(l));
+              if(allOn){[...effectiveSet].forEach(l=>next.delete(l));}
+              else{[...effectiveSet].forEach(l=>next.add(l));}
+              if(next.size===0||next.size===allLetters.length)setActiveLetters(null);
+              else setActiveLetters(next);
+            }
+          }} style={{padding:'3px 10px',borderRadius:6,border:`1px solid ${on?'#2d6a4f':'#e2ddd6'}`,
+            background:on?'#2d6a4f':'#fff',color:on?'#fff':'#9e9890',fontSize:11,fontWeight:500,cursor:'pointer'}}>
+            {fl}
+          </button>;
+        })}
+        {activeLetters&&<button onClick={()=>setActiveLetters(null)}
+          style={{padding:'2px 7px',borderRadius:5,border:'1px solid #e2ddd6',background:'#fff',color:'#9e9890',fontSize:10,cursor:'pointer'}}>✕ Tout</button>}
+      </div>}
+
+      {/* Content */}
+      {loading?<div style={{textAlign:'center',padding:40,color:'#9e9890'}}>Chargement...</div>
+      :rows.length===0?<div style={{textAlign:'center',padding:40,color:'#9e9890'}}>Aucune donnée — importez un CSV dans les Paramètres.</div>
+      :mainTab==='ventes'?<Bsv3Table levels={levels} year={year} prevYear={prevYear}
+          validRows={displayRows} prevRows={prevRows} allYearRows={allYearRows}
+          ytdMode={ytdMode} maxYtdMonth={maxYtdMonth}/>
+      :<Bsv3CommandesTable rows={rows} importedAt={importedAt} activeLetters={activeLetters}/>}
+    </div>
+  </div>;
+}
+export default function App(){
+  const [authUser,setAuthUser]=useState(null);
+  const [authLoading,setAuthLoading]=useState(true);
+  const [authError,setAuthError]=useState("");
+  const [page,setPage]=useState("dashboard"); // dashboard | okr | update | settings
+  const [teamMembers,setTeamMembers]=useState([]);
+  const [questions,setQuestions]=useState(DEFAULT_QUESTIONS);
+  const [catTypes,setCatTypes]=useState(DEFAULT_CAT_TYPE);
+  const [codeMap,setCodeMap]=useState(CODE_TO_CATEGORY);
+  const [savedCanalMargin,setSavedCanalMargin]=useState(CANAL_MARGIN);
+  const [myUpdates,setMyUpdates]=useState([]);
+  const [allUpdates,setAllUpdates]=useState([]);
+  const [managerNotifs,setManagerNotifs]=useState([]);
+  const [teammateNotifs,setTeammateNotifs]=useState([]);
+  const [appLoaded,setAppLoaded]=useState(false);
+  const [okrData,setOkrData]=useState({objectives:[],subobjectives:[],keyresults:[]});
+  // Expose allSeasons globally for OKR question rendering in updates
+  useEffect(()=>{if(okrData?.allSeasons)window._okrSeasons=okrData.allSeasons;},[okrData]);
+
+  // Firebase auth listener
+  useEffect(()=>{
+    const unsub=onAuthStateChanged(auth,(user)=>{setAuthUser(user);setAuthLoading(false);});
+    return()=>unsub();
+  },[]);
+
+  // Load declared absences globally
+  const [absencesList, setAbsencesList] = useState([]);
+  useEffect(()=>{
+    const unsubAbs = onSnapshot(doc(db,'app_config','absences'),(snap)=>{
+      const list = snap.exists() ? (snap.data().list||[]) : [];
+      window._absences = list;
+      setAbsencesList(list);
+    });
+    return()=>unsubAbs();
+  },[]);
+
+  // Load reporting meta (canalMargin) from Firebase
+  useEffect(()=>{
+    const unsubMeta=onSnapshot(doc(db,'reporting','meta'),(snap)=>{
+      if(snap.exists()&&snap.data().canalMargin)setSavedCanalMargin(snap.data().canalMargin);
+    });
+    return()=>unsubMeta();
+  },[]);
+
+
+  // Load app config from Firestore when logged in
+  useEffect(()=>{
+    if(!authUser)return;
+    const email=authUser.email;
+    if(!email.endsWith("@"+ALLOWED_DOMAIN)){setAuthError("Accès refusé. Seuls les membres Oé peuvent se connecter.");signOut(auth);return;}
+
+    // Load team members & questions
+    const unsub=onSnapshot(doc(db,"app_config","main"),(snap)=>{
+      if(snap.exists()){
+        const d=snap.data();
+        if(d.teamMembers)setTeamMembers(d.teamMembers);
+        if(d.questions)setQuestions(d.questions);
+        if(d.catTypes)setCatTypes(d.catTypes);
+        if(d.codeMap)setCodeMap(d.codeMap);
+        if(d.customSubcatLabels)setCustomSubcatLabels(d.customSubcatLabels);
+      } else {
+        // Init with defaults
+        const defaultMembers=[
+          {prenom:"Fx",email:"fx@oeforgood.com",managerEmail:"",role:"owner"},
+          {prenom:"Thomas",email:"thomas@oeforgood.com",managerEmail:"fx@oeforgood.com",role:"admin"},
+          {prenom:"Claire",email:"claire@oeforgood.com",managerEmail:"thomas@oeforgood.com",role:"teammate"},
+          {prenom:"Christelle",email:"christelle@oeforgood.com",managerEmail:"thomas@oeforgood.com",role:"teammate"},
+          {prenom:"Fiona",email:"fiona@oeforgood.com",managerEmail:"fx@oeforgood.com",role:"teammate"},
+          {prenom:"Julie",email:"julie@oeforgood.com",managerEmail:"fx@oeforgood.com",role:"teammate"},
+          {prenom:"Juliette",email:"juliette@oeforgood.com",managerEmail:"thomas@oeforgood.com",role:"teammate"},
+          {prenom:"Guillemette",email:"guillemette@oeforgood.com",managerEmail:"thomas@oeforgood.com",role:"teammate"},
+          {prenom:"Gareth",email:"gareth@oeforgood.com",managerEmail:"thomas@oeforgood.com",role:"teammate"},
+          {prenom:"Maxime",email:"maxime@oeforgood.com",managerEmail:"christelle@oeforgood.com",role:"teammate"},
+        ];
+        setTeamMembers(defaultMembers);
+        setDoc(doc(db,"app_config","main"),{teamMembers:defaultMembers,questions:DEFAULT_QUESTIONS});
+      }
+      setAppLoaded(true);
+    });
+
+    // Load OKR data for dashboard
+    const unsubOkr=onSnapshot(doc(db,"okr","data"),(snap)=>{
+      // Auto-backup on first load (runs once)
+      if(snap.exists()&&!window._okrBackupDone){
+        window._okrBackupDone=true;
+        (async()=>{
+          try{
+            const backupData=snap.data();
+            const timestamp=new Date().toISOString();
+            const backupId=`backup_${timestamp}`;
+            // Store backup with timestamp
+            await setDoc(doc(db,'okr_backups',backupId),{
+              ...backupData,
+              _backupAt:timestamp,
+              _backupId:backupId,
+            });
+            // Clean up: keep only last 20 backups
+            const {getDocs,collection:col,query:q,orderBy:ob,limit:lim,deleteDoc:delDoc}=
+              await import('firebase/firestore');
+            const all=await getDocs(q(col(db,'okr_backups'),ob('_backupAt','desc'),lim(100)));
+            const toDelete=all.docs.slice(20);
+            await Promise.all(toDelete.map(d=>delDoc(d.ref)));
+            console.log('✅ Auto-backup OKR créé:',backupId);
+          }catch(e){console.warn('Auto-backup failed:',e);}
+        })();
+      }if(snap.exists()&&snap.data().allSeasons){const d=snap.data();const curSk=(()=>{
+  const n=new Date();
+  // Find the season whose date range contains today
+  const idx=SEASONS.findIndex(s=>n>=new Date(s.start)&&n<=new Date(s.end));
+  if(idx<0)return "printemps_2026";
+  const s=SEASONS[idx];
+  const startDate=new Date(s.start);
+  // Don't switch to new season until the 15th of its first month
+  const switchDate=new Date(startDate.getFullYear(),startDate.getMonth(),15);
+  if(n<switchDate&&idx>0){
+    return SEASONS[idx-1].key; // use previous season
+  }
+  return s.key;
+})();
+        // Use stored seasonKey if set, otherwise use date-based
+        const activeSk=d.seasonKey||curSk;
+        const s=d.allSeasons[activeSk]||{};
+        setOkrData({objectives:s.objectives||[],subobjectives:s.subobjectives||[],keyresults:s.keyresults||[],seasonKey:activeSk,allSeasons:d.allSeasons});
+      }
+    });
+
+    return()=>{unsub();unsubOkr();};
+  },[authUser]);
+
+  // Load my updates & manager notifications
+  useEffect(()=>{
+    if(!authUser||!teamMembers.length)return;
+    const me=teamMembers.find(m=>m.email===authUser.email);
+    if(!me)return;
+
+    // My updates + all updates for mood curve
+    const unsubUpdates=onSnapshot(collection(db,"updates"),(snap)=>{
+      const all=snap.docs.map(d=>({id:d.id,...d.data()}));
+      setMyUpdates(all.filter(u=>u.email===authUser.email));
+      setAllUpdates(all);
+    });
+
+    // Flush pending notifications when manager opens app on Mon, Fri>=15h, Sat, Sun
+    const shouldFlush=(()=>{const now=new Date();const dow=now.getDay();return dow===1||dow===6||dow===0||(dow===5&&now.getHours()>=15);})();
+    if(shouldFlush){
+      const flushPending=async()=>{
+        try{
+          const snap=await getDocs(query(collection(db,"update_notifications"),where("pending","==",true)));
+          for(const d of snap.docs){
+            await updateDoc(doc(db,"update_notifications",d.id),{pending:false,updatedAt:d.data().updatedAt||d.data().submittedAt});
+          }
+        }catch(e){console.error("flush pending:",e);}
+      };
+      flushPending();
+    }
+
+    // Notifications for manager: updates from my direct reports
+    const myReports=teamMembers.filter(m=>m.managerEmail===authUser.email);
+    let unsubNotifs=()=>{};
+    if(myReports.length>0){
+      unsubNotifs=onSnapshot(collection(db,"update_notifications"),(snap)=>{
+        const all=snap.docs.map(d=>({id:d.id,...d.data()}));
+        setManagerNotifs(all.filter(n=>n.managerEmail===authUser.email).sort((a,b)=>b.submittedAt-a.submittedAt));
+      });
+    }
+
+    // Listen for teammate notifications (manager read your update)
+    const unsubTmNotifs=onSnapshot(collection(db,"teammate_notifications"),(snap)=>{
+      const all=snap.docs.map(d=>({id:d.id,...d.data()}));
+      setTeammateNotifs(all.filter(n=>n.toEmail===authUser.email).sort((a,b)=>b.createdAt-a.createdAt));
+    });
+
+    return()=>{unsubUpdates();unsubNotifs();unsubTmNotifs();};
+  },[authUser,teamMembers]);
+
+  const currentTeamMember=useMemo(()=>teamMembers.find(m=>m.email===authUser?.email),[teamMembers,authUser]);
+  const isAdmin=currentTeamMember?.role==="admin"||currentTeamMember?.role==="owner";
+
+  async function handleLogin(){
+    try{
+      setAuthError("");
+      const result=await signInWithPopup(auth,provider);
+      if(!result.user.email.endsWith("@"+ALLOWED_DOMAIN)){
+        await signOut(auth);
+        setAuthError("Accès refusé. Seuls les membres @oeforgood.com peuvent se connecter.");
+      }
+    }catch(e){setAuthError("Erreur de connexion. Réessayez.");}
+  }
+
+  async function handleUpdateSubmit(updateData){
+    const me=currentTeamMember;
+    // Save update with updatedAt timestamp
+    const weekDocId=`${authUser.email}_${updateData.weekKey}`;
+    const updateWithMeta={...updateData,email:authUser.email,prenom:me?.prenom,updatedAt:Date.now(),weekQuestions:questions||DEFAULT_QUESTIONS};
+    await setDoc(doc(db,"updates",weekDocId),updateWithMeta);
+
+    // Create/update notification for manager
+    if(me?.managerEmail){
+      const notifId=`${authUser.email}_${updateData.weekKey}_notif`;
+      const answersWithoutConfidential={...updateData.answers};
+      const confidentiel=updateData.answers?.q6||null;
+      delete answersWithoutConfidential.q6;
+      const notifData={
+        fromEmail:authUser.email,fromPrenom:me?.prenom,managerEmail:me?.managerEmail,
+        weekKey:updateData.weekKey,submittedAt:updateData.submittedAt,
+        updatedAt:Date.now(),
+        answers:answersWithoutConfidential,confidentiel,
+        read:false,readAt:null,
+        // Immediate delivery: Mon, or Fri>=15h, Sat, Sun
+        // Pending (flush at app open): Wed, Thu, Fri<15h
+        pending:(()=>{
+          const now=new Date();const dow=now.getDay();
+          if(dow===1||dow===6||dow===0)return false; // Mon/Sat/Sun → immediate
+          if(dow===5&&now.getHours()>=15)return false; // Fri>=15h → immediate
+          return true; // Wed/Thu/Fri<15h → pending
+        })(),
+      };
+      await setDoc(doc(db,"update_notifications",notifId),notifData);
+      // Send email to manager
+      {
+        const managerMember=(teamMembers||[]).find(m=>m.email===me?.managerEmail);
+        const title=`${me?.prenom} a soumis son Update`;
+        sendNotifEmail(me?.managerEmail, managerMember?.prenom||me?.managerEmail, title);
+      }
+
+      // Save "read" notification for the teammate (for when manager reads)
+      // This is stored as a separate collection for teammate notifications
+    }
+  }
+
+  async function handleDeleteUpdate(weekKey){
+    if(!authUser)return;
+    const docId=`${authUser.email}_${weekKey}`;
+    try{
+      await deleteDoc(doc(db,"updates",docId));
+      const notifId=`${authUser.email}_${weekKey}_notif`;
+      try{await deleteDoc(doc(db,"update_notifications",notifId));}catch(e){}
+    }catch(e){console.error(e);}
+  }
+
+  async function handleReadNotif(notif){
+    const now=Date.now();
+    // Mark as read
+    await updateDoc(doc(db,"update_notifications",notif.id),{read:true,readAt:now});
+    // Send notification to teammate that manager read their update
+    const{mon,fri}=getWeekBounds(notif.weekKey);
+    const fmtD=d=>`${d.getDate()} ${d.toLocaleString("fr-FR",{month:"long"})}`;
+    const sameM=mon.getMonth()===fri.getMonth();
+    const weekLabel=sameM?`semaine du lundi ${mon.getDate()} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`:`semaine du lundi ${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"long"})} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`;
+    const managerPrenom=currentTeamMember?.prenom;
+    // Store as a teammate_notification readable by the teammate
+    const tmNotifId=`${notif.fromEmail}_${notif.weekKey}_read`;
+    await setDoc(doc(db,"teammate_notifications",tmNotifId),{
+      toEmail:notif.fromEmail,
+      fromPrenom:managerPrenom,
+      weekKey:notif.weekKey,
+      title:`${managerPrenom} a vu ton Update`,
+      message:`${managerPrenom} a lu ton Update de la ${weekLabel}.`,
+      createdAt:now,
+      read:false,
+    });
+      // Send email to teammate
+      sendNotifEmail(notif.fromEmail, notif.fromPrenom||notif.fromEmail, `${managerPrenom} a vu ton Update`);
+  }
+
+  async function handleUploadReporting(file){
+    // Parse the reporting CSV and push to Firebase (same as push_reporting.js logic)
+    // For now, show a message directing to the Terminal workflow
+    // TODO: implement full client-side reporting import
+    // Full client-side reporting import
+    try{
+      const text=await file.text();
+      const lines=text.split('\n');
+      const headers=lines[0]?.split(',').map(h=>h.replace(/^"|"$/g,'').trim())||[];
+      let count=0;
+      // Simple validation: check this looks like a reporting CSV
+      if(!headers.some(h=>h.includes('Débit')||h.includes('Credit')||h.includes('famille'))){
+        return '❌ Ce fichier ne semble pas être un export comptable Reporting. Utilisez le script Terminal : node push_reporting.js';
+      }
+      return '⚠️ Import Reporting complexe — utilisez le script Terminal : mv ~/Downloads/reporting_data.json ~/Desktop/Calendula/reporting_data.json && node push_reporting.js';
+    }catch(e){return '❌ '+e.message;}
+  }
+  async function handleChangeSeasonKey(newKey){
+    const current=okrData?.allSeasons||{};
+    await setDoc(doc(db,"okr","data"),{allSeasons:current,seasonKey:newKey},{merge:true});
+  }
+  async function handleSaveBsv3(rows){
+    const CHUNK=2000;
+    const importedAt=new Date().toISOString();
+    // Delete old chunks
+    const oldSnap=await getDocs(collection(db,'bsv3_data'));
+    await Promise.all(oldSnap.docs.map(d=>deleteDoc(d.ref)));
+    // Store new chunks
+    for(let i=0;i<rows.length;i+=CHUNK){
+      const chunk=rows.slice(i,i+CHUNK);
+      await setDoc(doc(db,'bsv3_data',`chunk_${Math.floor(i/CHUNK)}`),{
+        rows:chunk,chunk:Math.floor(i/CHUNK),
+        total:Math.ceil(rows.length/CHUNK),
+        importedAt,totalRows:rows.length
+      });
+    }
+    return `✅ ${rows.length.toLocaleString('fr-FR')} lignes importées`;
+  }
+  async function handleSendMessage(toEmail, toPrenom, title, message){
+    const notifId=`msg_${Date.now()}_${toEmail.replace(/[@.]/g,'_')}`;
+    await setDoc(doc(db,'teammate_notifications',notifId),{
+      toEmail, fromPrenom:'Calendula',
+      title, message: message||'',
+      createdAt:Date.now(), read:false, isCalendula:true,
+    });
+  }
+  async function handleSaveMembers(members){
+    await setDoc(doc(db,"app_config","main"),{teamMembers:members},{merge:true});
+    setTeamMembers(members);
+  }
+  async function handleSaveQuestions(qs){
+    await setDoc(doc(db,"app_config","main"),{questions:qs},{merge:true});
+    setQuestions(qs);
+  }
+  async function handleSaveCatTypes(ct){
+    await setDoc(doc(db,"app_config","main"),{catTypes:ct},{merge:true});
+    setCatTypes(ct);
+  }
+  async function handleSaveCanalMargin(cm){
+    await setDoc(doc(db,"reporting","meta"),{canalMargin:cm},{merge:true});
+    setSavedCanalMargin(cm);
+  }
+  async function handleSaveCodeMap(cm){
+    await setDoc(doc(db,"app_config","main"),{codeMap:cm},{merge:true});
+    setCodeMap(cm);
+  }
+  const [customSubcatLabels,setCustomSubcatLabels]=useState({});
+  async function handleSaveCustomLabels(cl){
+    await setDoc(doc(db,"app_config","main"),{customSubcatLabels:cl},{merge:true});
+    setCustomSubcatLabels(cl);
+  }
+
+  if(authLoading)return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f5f3ef",fontFamily:"system-ui"}}>
+    <div style={{textAlign:"center"}}><div style={{fontSize:32,marginBottom:8}}>🍾</div><div style={{color:"#9e9890",fontSize:13}}>Chargement…</div></div>
+  </div>;
+
+  if(!authUser)return <LoginPage onLogin={handleLogin} error={authError}/>;
+
+  if(!appLoaded)return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f5f3ef",fontFamily:"system-ui"}}>
+    <div style={{textAlign:"center"}}><div style={{fontSize:32,marginBottom:8}}>🍾</div><div style={{color:"#9e9890",fontSize:13}}>Chargement de l'espace…</div></div>
+  </div>;
+
+  // Check if user is allowed
+  if(!currentTeamMember&&authUser){
+    return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f5f3ef",fontFamily:"system-ui"}}>
+      <div style={{textAlign:"center",background:"#fff",borderRadius:12,padding:32,maxWidth:400}}>
+        <div style={{fontSize:32,marginBottom:8}}>🚫</div>
+        <div style={{fontSize:16,fontWeight:600,marginBottom:8}}>Compte non autorisé</div>
+        <div style={{fontSize:13,color:"#6b6560",marginBottom:16}}>Votre compte ({authUser.email}) n'est pas encore autorisé. Contactez un administrateur Oé.</div>
+        <button onClick={()=>signOut(auth)} style={{fontSize:13,color:"#c0392b",background:"#fdecea",border:"1px solid #fca5a5",borderRadius:6,padding:"7px 14px",cursor:"pointer"}}>Se déconnecter</button>
+      </div>
+    </div>;
+  }
+
+  if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers}/>;
+  if(page==="update")return <UpdatePage teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} okrData={okrData} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers}/>;
+  if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels} savedCanalMargin={savedCanalMargin}/>;
+  if(page==="bsv3")return <Bsv3Page onBack={()=>setPage('dashboard')} currentUser={authUser}/>;
+  if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels} savedCanalMargin={savedCanalMargin} onSaveCanalMargin={handleSaveCanalMargin} onSendMessage={handleSendMessage} onSaveBsv3={handleSaveBsv3} onUploadReporting={handleUploadReporting}/>;
+
+  return <Dashboard
+    currentUser={authUser}
+    teamMember={currentTeamMember}
+    teamMembers={teamMembers}
+    onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} onChangeSeasonKey={handleChangeSeasonKey}
+    onGoOKR={()=>setPage("okr")}
+    onGoUpdate={()=>setPage("update")}
+    onGoSettings={()=>setPage("settings")}
+    myUpdates={myUpdates}
+    allUpdates={allUpdates}
+    absencesList={absencesList}
+    managerNotifs={managerNotifs}
+    teammateNotifs={teammateNotifs}
+    onReadNotif={handleReadNotif}
+    okrData={okrData}
+    isAdmin={isAdmin}
+    onOpenSettings={()=>setPage("settings")}
+    onSendMessage={handleSendMessage}
+  />;
+}
