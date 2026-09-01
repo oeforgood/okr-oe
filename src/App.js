@@ -1036,7 +1036,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
                 </div>
                 <span style={{fontSize:11,color:"#9e9890"}}>{fmt(start)} → {fmt(end)}</span>
               </div>
-              <div style={{display:'flex',flexDirection:'column',gap:13}}>
+              <div style={{display:'flex',flexDirection:'column',gap:10}}>
                 <Bar v={avgProg} label="Avancement total des OKR" w={0}/>
                 <Bar v={timeProg} label="Avancement de la saison" w={0}/>
                 {myKRsOwned.length>0&&<Bar v={myPersonalProg} label="Mon avancement" w={0}/>}
@@ -2917,6 +2917,29 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
 
 
 function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSaveCustomSubcatLabels, catTypes, onSaveCatTypes, savedCanalMargin, onSaveCanalMargin, onUploadReporting}) {
+  // Load BSv3 data for canal margin auto-fill
+  const [bsv3Rows,setBsv3Rows]=useState([]);
+  const [bsv3AutoMargin,setBsv3AutoMargin]=useState({}); // {canal_month: rate} applied
+  useEffect(()=>{
+    getDocs(collection(db,'bsv3_data')).then(snap=>{
+      if(!snap.empty){
+        let all=[];
+        snap.docs.sort((a,b)=>a.id.localeCompare(b.id)).forEach(d=>all=all.concat(d.data().rows||[]));
+        setBsv3Rows(all);
+      }
+    }).catch(()=>{});
+  },[]);
+
+  function getBsv3Rate(canal, month){
+    // Map reporting canal names to BSv3 canal names
+    const canalMap={'CHR':'CHR','Retail':'Retail','GMS':'Retail','Export':'Export','RHF':'Grands Comptes','Grands Comptes':'Grands Comptes','B2C':'B2C','Autres':'Autres B2B'};
+    const bsv3Canal=canalMap[canal]||canal;
+    const rows=bsv3Rows.filter(r=>r['Canal']===bsv3Canal&&parseInt(r['Mois Emission'])===month&&!['CASIER-OE','COIFFE-OE','CONTENANT BOUTEILLE'].includes(r['Contenant+Appelation/Robe']));
+    if(!rows.length)return null;
+    const ca=rows.reduce((s,r)=>s+parseBsv3Amt(r['Montant HT']),0);
+    const marge=rows.reduce((s,r)=>s+parseBsv3Amt(r['Marge brute']),0);
+    return ca?marge/ca:null;
+  }
   const [uploadMsg, setUploadMsg] = useState('');
   const [uploading, setUploading] = useState(false);
   const [chargeData, setChargeData] = useState(null);
@@ -2987,18 +3010,47 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
               {Array(12).fill(0).map((_,i)=>{
                 const m=i+1;
                 const val=localMargin[c]?.[m]??defaultRate;
+                const bsv3Rate=getBsv3Rate(c,m);
+                const autoKey=c+'_'+m;
+                const isAuto=!!bsv3AutoMargin[autoKey];
+                const puceColor=bsv3Rate===null?'#c5c0b8':isAuto?'#2d6a4f':'#f59e0b';
+                const bgColor=isAuto?'#f0fdf4':'#fafaf8';
                 return <td key={m} style={{padding:'2px 3px',borderBottom:'1px solid #f0ede8'}}>
-                  <input type="number" min="0" max="100" step="0.1"
-                    value={Math.round(val*1000)/10}
-                    onChange={e=>{
-                      const v=parseFloat(e.target.value)/100;
-                      const nm={...localMargin,[c]:{...(localMargin[c]||{}), [m]:isNaN(v)?val:v}};
-                      setLocalMargin(nm);
-                      onSaveCanalMargin&&onSaveCanalMargin(nm);
-                    }}
-                    style={{width:44,fontSize:11,border:'1px solid #e2ddd6',borderRadius:4,
-                      padding:'2px 4px',textAlign:'right',background:'#fafaf8'}}
-                  />
+                  <div style={{display:'flex',alignItems:'center',gap:2}}>
+                    <input type="number" min="0" max="100" step="0.1"
+                      value={Math.round(val*1000)/10}
+                      onChange={e=>{
+                        const v=parseFloat(e.target.value)/100;
+                        const nm={...localMargin,[c]:{...(localMargin[c]||{}), [m]:isNaN(v)?val:v}};
+                        setLocalMargin(nm);
+                        onSaveCanalMargin&&onSaveCanalMargin(nm);
+                      }}
+                      style={{width:44,fontSize:11,border:'1px solid #e2ddd6',borderRadius:4,
+                        padding:'2px 4px',textAlign:'right',background:bgColor}}
+                    />
+                    <span title={bsv3Rate===null?'BSv3 non disponible pour ce mois':isAuto?'Cliquer pour annuler (revenir à '+Math.round((bsv3AutoMargin[autoKey+'_prev']||0)*1000)/10+'%)':'Cliquer pour appliquer le taux BSv3 ('+Math.round((bsv3Rate||0)*1000)/10+'%)'}
+                      onClick={()=>{
+                        if(bsv3Rate===null)return;
+                        if(isAuto){
+                          // Undo: restore previous value
+                          const prev=bsv3AutoMargin[autoKey+'_prev'];
+                          if(prev!==undefined){
+                            const nm={...localMargin,[c]:{...(localMargin[c]||{}), [m]:prev}};
+                            setLocalMargin(nm);
+                            onSaveCanalMargin&&onSaveCanalMargin(nm);
+                          }
+                          setBsv3AutoMargin(p=>{const n={...p};delete n[autoKey];delete n[autoKey+'_prev'];return n;});
+                        } else {
+                          // Apply BSv3 rate, save previous
+                          const prev=localMargin[c]?.[m]??defaultRate;
+                          const nm={...localMargin,[c]:{...(localMargin[c]||{}), [m]:bsv3Rate}};
+                          setLocalMargin(nm);
+                          onSaveCanalMargin&&onSaveCanalMargin(nm);
+                          setBsv3AutoMargin(p=>({...p,[autoKey]:true,[autoKey+'_prev']:prev}));
+                        }
+                      }}
+                      style={{cursor:bsv3Rate!==null?'pointer':'default',fontSize:8,color:puceColor,lineHeight:1,userSelect:'none',transition:'color .2s'}}>●</span>
+                  </div>
                 </td>;
               })}
             </tr>;
