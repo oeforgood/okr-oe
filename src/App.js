@@ -1335,10 +1335,9 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
               </div>
             </div>
             {/* Separator */}
-            <div style={{height:1,background:"#86efac",margin:"2px 0"}}/>  
-            {/* 13 smileys + label inline */}
-            <div style={{flex:1,display:"flex",alignItems:"flex-start",gap:4,paddingTop:2,paddingBottom:2,minHeight:0,overflow:"hidden"}}>
-              <div style={{fontSize:9,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",fontWeight:500,whiteSpace:"nowrap",paddingTop:1,lineHeight:1.2,flexShrink:0}}>Mes 13<br/>dernières<br/>sem.</div>
+            <div style={{height:1,background:"#86efac",margin:"4px 0"}}/>
+            {/* 13 smileys */}
+            <div style={{flex:1,display:"flex",alignItems:"center",paddingTop:2,paddingBottom:2}}>
               <My13Smileys/>
             </div>
             {/* Separator */}
@@ -1355,6 +1354,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
               </button>
               {todayUpdate&&<div style={{fontSize:10,color:"#166534",textAlign:"center",marginTop:2}}>✓ Update enregistré</div>}
             </div>
+          </div>
           </div>
           </div>
         </>;
