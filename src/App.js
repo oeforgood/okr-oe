@@ -465,7 +465,7 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
       {/* Month labels overlaid at bottom of curve */}
       {monthLabels.map((m,i)=>{
         const short=m.label.slice(0,3).toUpperCase().replace('É','É').replace('Û','Û');
-        return <text key={i} x={m.x} y={curveY(1.2)} fontSize="10" fill="#b5b0a8" textAnchor="middle" fontWeight="500" style={{pointerEvents:"none"}}>{short}</text>;
+        return <text key={i} x={m.x} y={CURVE_TOP+CURVE_H-2} fontSize="9" fill="#b5b0a8" textAnchor="middle" fontWeight="500" dominantBaseline="auto" style={{pointerEvents:"none"}}>{short}</text>;
       })}
       {/* Dots row */}
       {showDots&&weeks.map((w,i)=>{
@@ -1125,7 +1125,13 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
           return !declaredAbs;
         });
         const myUpdateCount=my13Weeks.filter(w=>w.u).length;
-        const myCompletionRate=myActiveWeeks.length>0?Math.round(my12PastWeeks.filter(w=>w.u&&myActiveWeeks.includes(w)).length/myActiveWeeks.length*100):100;
+        // Absences count as completed
+        const isAbsenceWeek=(w)=>{
+          const declaredAbs=(window._absences||[]).find(a=>a.email===teamMember?.email&&toDateStr(w.mon)>=a.dateFrom&&toDateStr(w.mon)<=a.dateTo);
+          const member=(teamMembers||[]).find(m=>m.email===teamMember?.email);
+          return !!(declaredAbs||member?.forceAbsent||member?.forceMat||(teamMember?.email==='claire@oeforgood.com'));
+        };
+        const myCompletionRate=my12PastWeeks.length>0?Math.round(my12PastWeeks.filter(w=>w.u||isAbsenceWeek(w)).length/my12PastWeeks.length*100):100;
 
 
   // Get absence icon for a teammate based on forceAbsent/forceMat flags or previous week's q8 answer
@@ -1242,7 +1248,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
                 fontSize:isLast?44:22,
                 lineHeight:1,
                 cursor:"default",
-                opacity:(w.u||isLast)?1:0.45,
+                opacity:(w.u||isLast||(icon!=='🫥'))?1:0.45,
                 display:"inline-block",
                 verticalAlign:"bottom",
               }}
