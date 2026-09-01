@@ -419,7 +419,7 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
   const W=340,DOT_Y=4,CURVE_TOP=0,CURVE_H=Math.max(curveHeight-12,50),AXIS_H=0,pad=4;
   const dotSpacing=(W-2*pad)/(weeks.length-1);
   const dotX=i=>pad+i*dotSpacing;
-  const minV=1,maxV=5;
+  const minV=2,maxV=5.2;
   const curveY=v=>CURVE_TOP+CURVE_H-((v-minV)/(maxV-minV))*CURVE_H;
   const validPts=weeks.map((w,i)=>({...w,i})).filter(w=>w.avg!==null);
   const pathD=validPts.map((w,j)=>`${j===0?"M":"L"}${dotX(w.i).toFixed(1)},${curveY(w.avg).toFixed(1)}`).join(" ");
@@ -465,7 +465,7 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
       {/* Month labels overlaid at bottom of curve */}
       {monthLabels.map((m,i)=>{
         const short=m.label.slice(0,3).toUpperCase().replace('É','É').replace('Û','Û');
-        return <text key={i} x={m.x} y={curveY(1.2)} fontSize="10" fill="#b5b0a8" textAnchor="middle" fontWeight="500" style={{pointerEvents:"none"}}>{short}</text>;
+        return <text key={i} x={m.x} y={CURVE_TOP+CURVE_H-4} fontSize="9" fill="#b5b0a8" textAnchor="middle" fontWeight="500" dominantBaseline="auto" style={{pointerEvents:"none"}}>{short}</text>;
       })}
       {/* Dots row */}
       {showDots&&weeks.map((w,i)=>{
@@ -518,7 +518,7 @@ function NotifDetail({notif, teamMember, teamMembers=[], onSendMessage}) {
     setTimeout(()=>{setReplyText('');setReplySent(false);},2000);
   }
   return <div>
-    {moodVal&&<div style={{fontSize:28,marginBottom:12}}>{moodVal}</div>}
+    {moodVal&&<div style={{fontSize:28,marginBottom:8}}>{moodVal}</div>}
     {visibleQs.map(q=>{
       const val=answers[q.id];if(!val)return null;
       if(q.type==="mood")return null;
@@ -547,7 +547,7 @@ function NotifDetail({notif, teamMember, teamMembers=[], onSendMessage}) {
         const seasonKRs=(window._okrSeasons&&val.seasonKey?window._okrSeasons[val.seasonKey]?.keyresults:null)||[];
         return <div key={q.id} style={{background:"#fff",borderRadius:6,border:"1px solid #e2ddd6",padding:"8px 10px"}}>
           <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text.replace(" *","")}</div>
-          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(kr?.contributors||[]).map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",background:pBg(c),color:"#fff",fontSize:9,fontWeight:600,marginLeft:3}}>{ini(c)}</span>)}</div>;})}
+          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(()=>{const avs=(kr?.contributors||[]).filter(c=>c!==kr?.owner);return avs.length>0?<span style={{display:"inline-flex",marginLeft:4,border:"2px solid #fff"}}>{avs.map((c,i)=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:20,height:20,borderRadius:"50%",background:pBg(c,teamMembers?.map?.(m=>m.prenom)),color:"#6b6560",fontSize:9,fontWeight:600,marginLeft:i===0?0:-6,border:"2px solid #fff"}}>{ini(c)}</span>)}</span>:null;})()}</div>;})}
         </div>;
       }
       return <div key={q.id} style={{marginBottom:10,background:q.confidentiel?"#fdf4ff":"transparent",padding:q.confidentiel?"6px 10px":"0",borderRadius:q.confidentiel?6:0}}>
@@ -669,7 +669,7 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,t
        </div>)}
      </div>
     {selected&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&setSelected(null)}>
-      <div style={{background:"#fff",borderRadius:12,padding:24,width:"90%",maxWidth:520,maxHeight:"80vh",overflowY:"auto"}}>
+      <div style={{background:"#fff",borderRadius:12,padding:24,width:"95%",maxWidth:900,maxHeight:"85vh",overflowY:"auto"}}>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4,flexWrap:"wrap"}}>
           <span style={{fontSize:15,fontWeight:600}}>{selected.title}</span>
           {!selected.isSystem&&selected.notif&&<span style={{fontSize:11,color:"#c0392b",marginLeft:"auto",textAlign:"right"}}>{selected.notif.fromPrenom} a été informé(e) que tu as vu son Update.</span>}
@@ -796,17 +796,16 @@ function Bsv3Banner({onGoBsv3}) {
 
 function ReportingBanner({onGoReporting}) {
   const [caData, setCaData] = useState(null);
-
   const [chargeData, setChargeData] = useState(null);
   const [bfrBanner, setBfrBanner] = useState(null);
   const [importedAt, setImportedAt] = useState(null);
+  const [liveCanalMargin, setLiveCanalMargin] = useState(null);
 
   useEffect(()=>{
     const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists()){setCaData(snap.data().caData);}});
     const u2=onSnapshot(doc(db,'reporting','charges'),(snap)=>{if(snap.exists())setChargeData(snap.data().chargeData);});
     const u3b=onSnapshot(doc(db,'reporting','bfr'),(snap)=>{if(snap.exists())setBfrBanner(snap.data().bilData);});
-    const u3=onSnapshot(doc(db,'reporting','meta'),(snap)=>{if(snap.exists())setImportedAt(snap.data().importedAt);
-        if(snap.data().importedAt)setImportedAt(snap.data().importedAt);});
+    const u3=onSnapshot(doc(db,'reporting','meta'),(snap)=>{if(snap.exists()){if(snap.data().importedAt)setImportedAt(snap.data().importedAt);if(snap.data().canalMargin)setLiveCanalMargin(snap.data().canalMargin);}});
     return()=>{u1();u2();u3();};
 
   },[]);
@@ -823,12 +822,20 @@ function ReportingBanner({onGoReporting}) {
   }
 
   let caYTD = 0, mbYTD = 0;
+  const effectiveMargin = liveCanalMargin || {};
   REPORTING_CANALS_ALL.forEach(canal => {
     const csvKey = CANAL_CSV_MAP2[canal]||canal;
     const canalData = caData[csvKey]||{};
     const canalTotal = Object.values(canalData).reduce((a,b)=>a+b,0);
     caYTD += canalTotal;
-    mbYTD += canalTotal * (CANAL_MARGIN2[canal]||0.263);
+    const defaultRate = CANAL_MARGIN2[canal]??0.263;
+    const rates = effectiveMargin[canal];
+    // caData keys are "YYYY-MM" format
+    Object.entries(canalData).forEach(([key, caVal])=>{
+      const month = parseInt((key.split('-')[1]||key));
+      const rate = (rates && typeof rates[month]==='number') ? rates[month] : defaultRate;
+      mbYTD += caVal * rate;
+    });
   });
 
   let chargesExplYTD = 0, autresChargesYTD = 0;
@@ -957,6 +964,7 @@ function FeedbackBox({currentUser, teamMember}) {
 function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,okrData,isAdmin,onOpenSettings,onChangeSeasonKey,onSendMessage,absencesList=[]}){
   const {objectives=[],subobjectives=[],keyresults=[],seasonKey:_sk}=okrData||{};
   const seasonKey=okrData?.seasonKey||"printemps_2026";
+  const isOwner=currentUser?.email===OWNER_EMAIL;
   const avgProg=calcWeightedAvg(objectives,subobjectives,keyresults);
   const totalKR=keyresults.length,doneKR=keyresults.filter(k=>k.taux>=100).length;
   const myPrenom=teamMember?.prenom;
@@ -1007,40 +1015,51 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
 
       {/* ── SECTION OKR ── pleine largeur */}
       <div style={{display:"flex",flexDirection:"column",gap:2,marginBottom:16}}>
-        <SeasonBanner seasonKey={seasonKey||"printemps_2026"} avgProg={avgProg} totalKR={totalKR} doneKR={doneKR}
-          onChangeSeason={onChangeSeasonKey} isOwner={currentUser?.email===OWNER_EMAIL}/>
-        {/* Personal banner with OKR button inside */}
-        {myKRsOwned.length>0&&(()=>{
-          const col=progColorRel(myPersonalProg,avgProg);
-          const krCol=progColorRel(myKRDoneOwned/Math.max(myKRsOwned.length,1)*100,avgProg);
-          return <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"14px 20px",
+        {(()=>{
+          const col=progColor(avgProg);
+          const colPerso=progColorRel(myPersonalProg,avgProg);
+          const krCol=progColor(doneKR/Math.max(totalKR,1)*100);
+          const krColPerso=progColorRel(myKRDoneOwned/Math.max(myKRsOwned.length,1)*100,avgProg);
+          const info=getSeasonInfo(seasonKey||"printemps_2026");
+          const timeProg=getSeasonProgress(seasonKey||"printemps_2026");
+          const start=new Date(info.start),end=new Date(info.end);
+          const fmt=d=>d.toLocaleDateString("fr-FR",{day:"numeric",month:"short"});
+          return <div style={{background:"#fff",border:"1px solid #86efac",borderRadius:10,padding:"14px 20px",
             display:"flex",alignItems:"center",gap:20,boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
-            {/* Left: % */}
-            <div style={{flexShrink:0,textAlign:"center",width:100}}>
-              <div style={{fontSize:52,fontWeight:700,fontFamily:"monospace",color:col,lineHeight:1}}>{Math.round(myPersonalProg)}%</div>
-              <div style={{fontSize:10,color:"#6b6560",marginTop:3,textTransform:"uppercase",letterSpacing:".06em"}}>{myPrenom||"Moi"}</div>
+            {/* Left: % global + % perso */}
+            <div style={{flexShrink:0,textAlign:"center",width:80}}>
+              <div style={{fontSize:42,fontWeight:700,fontFamily:"monospace",color:col,lineHeight:1}}>{Math.round(avgProg)}%</div>
+              <div style={{fontSize:9,color:"#9e9890",marginTop:1,textTransform:"uppercase",letterSpacing:".05em"}}>Équipe</div>
+              {myKRsOwned.length>0&&<><div style={{fontSize:32,fontWeight:700,fontFamily:"monospace",color:colPerso,lineHeight:1,marginTop:4}}>{Math.round(myPersonalProg)}%</div>
+              <div style={{fontSize:9,color:"#9e9890",marginTop:1,textTransform:"uppercase",letterSpacing:".05em"}}>{myPrenom}</div></>}
             </div>
-            <div style={{width:1,background:"#86efac",alignSelf:"stretch",flexShrink:0}}/>
-            {/* Middle: bar + OKR button */}
-            <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",gap:8}}>
-              <Bar v={myPersonalProg} label="Mon avancement" w={0}/>
-              <div style={{display:"flex",justifyContent:"flex-end"}}>
-                <button onClick={onGoOKR} style={{
-                  display:"flex",alignItems:"center",gap:8,padding:"6px 16px",
-                  background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,
-                  cursor:"pointer",fontSize:12,fontWeight:500,
-                  transition:"opacity .15s"}}
-                  onMouseEnter={e=>e.currentTarget.style.opacity=".85"}
-                  onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
-                  <span>🎯</span> Aller aux OKR et mettre à jour
-                </button>
+            <div style={{width:1,background:"#e2ddd6",alignSelf:"stretch",flexShrink:0}}/>
+            {/* Center: season + bars */}
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  {isOwner&&(()=>{const allKeys=["printemps_2026","ete_2026","automne_2026","hiver_2027","printemps_2027","ete_2027","automne_2027"];const idx2=allKeys.indexOf(seasonKey||"printemps_2026");return <><button onClick={idx2>0?()=>onChangeSeasonKey&&onChangeSeasonKey(allKeys[idx2-1]):undefined} style={{background:"none",border:"none",cursor:idx2>0?"pointer":"default",fontSize:14,color:idx2>0?"#2d6a4f":"#c5c0b8",padding:"0 2px"}}>←</button></>;})()} 
+                  <span style={{fontSize:12,fontWeight:500,color:"#1a1814"}}>{info.label}</span>
+                  {isOwner&&(()=>{const allKeys=["printemps_2026","ete_2026","automne_2026","hiver_2027","printemps_2027","ete_2027","automne_2027"];const idx2=allKeys.indexOf(seasonKey||"printemps_2026");return <><button onClick={idx2<allKeys.length-1?()=>onChangeSeasonKey&&onChangeSeasonKey(allKeys[idx2+1]):undefined} style={{background:"none",border:"none",cursor:idx2<allKeys.length-1?"pointer":"default",fontSize:14,color:idx2<allKeys.length-1?"#2d6a4f":"#c5c0b8",padding:"0 2px"}}>→</button></>;})()} 
+                </div>
+                <span style={{fontSize:11,color:"#9e9890"}}>{fmt(start)} → {fmt(end)}</span>
+              </div>
+              <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                <Bar v={avgProg} label="Avancement total des OKR" w={0}/>
+                <Bar v={timeProg} label="Avancement de la saison" w={0}/>
+                {myKRsOwned.length>0&&<Bar v={myPersonalProg} label="Mon avancement" w={0}/>}
               </div>
             </div>
-            <div style={{width:1,background:"#86efac",alignSelf:"stretch",flexShrink:0}}/>
-            {/* Right: KR */}
-            <div style={{flexShrink:0,textAlign:"center",width:90}}>
-              <div style={{fontSize:22,fontWeight:600,fontFamily:"monospace",color:krCol}}>{myKRDoneOwned}/{myKRsOwned.length}</div>
-              <div style={{fontSize:10,color:"#6b6560",marginTop:2}}>KR complétés</div>
+            <div style={{width:1,background:"#e2ddd6",alignSelf:"stretch",flexShrink:0}}/>
+            {/* Right: KR counts + button */}
+            <div style={{flexShrink:0,textAlign:"center",minWidth:120}}>
+              <div style={{fontSize:22,fontWeight:700,color:krCol,fontFamily:"monospace"}}>{doneKR}/{totalKR}</div>
+              <div style={{fontSize:9,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",marginBottom:8}}>KR complétés</div>
+              <button onClick={onGoOKR} style={{display:"block",width:"100%",padding:"7px 12px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:11,fontWeight:500,marginBottom:6,transition:"opacity .15s"}}
+                onMouseEnter={e=>e.currentTarget.style.opacity=".85"} onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+                🎯 Aller aux OKR
+              </button>
+              {myKRsOwned.length>0&&<><div style={{fontSize:18,fontWeight:700,color:krColPerso,fontFamily:"monospace"}}>{myKRDoneOwned}/{myKRsOwned.length}</div><div style={{fontSize:9,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em"}}>mes KR</div></>}
             </div>
           </div>;
         })()}
@@ -1106,7 +1125,13 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
           return !declaredAbs;
         });
         const myUpdateCount=my13Weeks.filter(w=>w.u).length;
-        const myCompletionRate=myActiveWeeks.length>0?Math.round(my12PastWeeks.filter(w=>w.u&&myActiveWeeks.includes(w)).length/myActiveWeeks.length*100):100;
+        // Absences count as completed
+        const isAbsenceWeek=(w)=>{
+          const declaredAbs=(window._absences||[]).find(a=>a.email===teamMember?.email&&toDateStr(w.mon)>=a.dateFrom&&toDateStr(w.mon)<=a.dateTo);
+          const member=(teamMembers||[]).find(m=>m.email===teamMember?.email);
+          return !!(declaredAbs||member?.forceAbsent||member?.forceMat||(teamMember?.email==='claire@oeforgood.com'));
+        };
+        const myCompletionRate=my12PastWeeks.length>0?Math.round(my12PastWeeks.filter(w=>w.u||isAbsenceWeek(w)).length/my12PastWeeks.length*100):100;
 
 
   // Get absence icon for a teammate based on forceAbsent/forceMat flags or previous week's q8 answer
@@ -1209,6 +1234,14 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             if(teamMember?.email==='claire@oeforgood.com') return '🤰';
             if(member?.forceMat) return '🤰';
             if(member?.forceAbsent){const mo=w.mon.getMonth()+1;return((mo>=12&&w.mon.getDate()>=15)||mo<=4)?'🎿':'🌴';}
+            // Check ponctual absences from absencesList
+            const monStr=toDateStr(w.mon);
+            const abs=(window._absences||[]).find(a=>a.email===teamMember?.email&&monStr>=a.dateFrom&&monStr<=a.dateTo);
+            if(abs){
+              if(abs.type==='mat') return '🤰';
+              if(abs.type==='school') return '🎓';
+              return '🌴';
+            }
             return '🫥';
           };
           return <div style={{display:"flex",gap:2,flexWrap:"nowrap",alignItems:"flex-end"}}>
@@ -1223,7 +1256,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
                 fontSize:isLast?44:22,
                 lineHeight:1,
                 cursor:"default",
-                opacity:(w.u||isLast)?1:0.45,
+                opacity:(w.u||isLast||(icon!=='🫥'))?1:0.45,
                 display:"inline-block",
                 verticalAlign:"bottom",
               }}
@@ -1242,7 +1275,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
           {/* Team Updates banner */}
           <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"14px 20px",
             display:"flex",alignItems:"stretch",gap:12,
-            boxShadow:"0 1px 3px rgba(0,0,0,.04)",height:220,boxSizing:"border-box",overflow:"hidden"}}>
+            boxShadow:"0 1px 3px rgba(0,0,0,.04)",height:180,boxSizing:"border-box",overflow:"hidden"}}>
             {/* Left: team mood avg + ratio */}
             <div style={{flexShrink:0,textAlign:"center",width:90,display:"flex",flexDirection:"column",justifyContent:"center",gap:6}}>
               <div style={{fontSize:60,lineHeight:1}}>{teamMoodAvg?MOOD_FROM_SCORE(teamMoodAvg):"—"}</div>
@@ -1264,7 +1297,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             </div>
             <div style={{width:1,background:"#e2ddd6",flexShrink:0}}/>
             {/* Middle: smileys last week + this week */}
-            <div style={{flex:1,display:"flex",flexDirection:"column",gap:6,justifyContent:"center",minWidth:0}}>
+            <div style={{flex:1,display:"flex",flexDirection:"column",gap:4,justifyContent:"center",minWidth:0}}>
               <div>
                 <div style={{fontSize:9,color:"#9e9890",marginBottom:2,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>
                   Sem. passée {(()=>{const{mon,fri}=getWeekBounds(lastWkKey);const sameM=mon.getMonth()===fri.getMonth();return sameM?`${mon.getDate()}–${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`:`${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"short"})}–${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`;})()}
@@ -1272,26 +1305,26 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
                 <SmileysOrdered done={teamLastWkFiltered} absent={absentLastWk} size={22} refDate={_7daysAgo}/>
               </div>
               <div>
-                <div style={{fontSize:9,color:"#9e9890",marginBottom:4,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>
+                <div style={{fontSize:9,color:"#9e9890",marginBottom:2,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>
                   Sem. en cours {(()=>{const{mon,fri}=getWeekBounds(curWkKey);const sameM=mon.getMonth()===fri.getMonth();return sameM?`${mon.getDate()}–${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`:`${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"short"})}–${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`;})()}
                 </div>
                 <SmileysOrdered done={teamCurWkFiltered} absent={absentCurWk} size={22} hideMood={!curWkVisible} refDate={_thisMon}/>
               </div>
             </div>
             {/* Right: mood curve - tall */}
-            <div style={{flex:"0 0 340px",alignSelf:"stretch",overflow:"hidden"}}>
-              <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} showDots={false} nWeeks={26} curveHeight={192}/>
+            <div style={{flex:"0 0 340px",alignSelf:"stretch",overflow:"hidden",height:"100%"}}>
+              <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} showDots={false} nWeeks={26} curveHeight={152} stretchHeight={true}/>
             </div>
             {/* Old ratio removed - now in left panel */}
 
           </div>
           {/* Personal Updates banner - 320px */}
-          <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"14px 20px",
-            display:"flex",alignItems:"stretch",gap:12,flexDirection:"column",justifyContent:"space-between",
-            boxShadow:"0 1px 3px rgba(0,0,0,.04)",height:220,boxSizing:"border-box",overflow:"hidden"}}>
+          <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"10px 16px",
+            display:"flex",alignItems:"stretch",gap:4,flexDirection:"column",justifyContent:"space-between",
+            boxShadow:"0 1px 3px rgba(0,0,0,.04)",height:180,boxSizing:"border-box",overflow:"hidden"}}>
             {/* Perso: vertical layout for 320px height */}
             {/* Top: mood + name */}
-            <div style={{display:"flex",alignItems:"center",gap:12,paddingBottom:12,borderBottom:"1px solid #86efac"}}>
+            <div style={{display:"flex",alignItems:"center",gap:12,paddingBottom:4}}>
               <div style={{fontSize:60,lineHeight:1}}>{myMoodDisplay||"🫥"}</div>
               <div>
                 <div style={{fontSize:13,fontWeight:600,color:"#1a1814"}}>{myPrenom}</div>
@@ -1303,14 +1336,11 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
               </div>
             </div>
             {/* Middle: 13 smileys */}
-            <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",gap:6}}>
-              <div style={{display:"flex",flexDirection:"column",gap:0}}>
-                <div style={{fontSize:9,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",fontWeight:500,lineHeight:1,paddingBottom:2}}>Mes 13 dernières semaines</div>
-                <My13Smileys/>
-              </div>
+            <div style={{flex:1,display:"flex",alignItems:"center"}}>
+              <My13Smileys/>
             </div>
             {/* Bottom: button */}
-            <div style={{paddingTop:12,borderTop:"1px solid #86efac"}}>
+            <div style={{paddingTop:4}}>
               <button onClick={onGoUpdate}
                 style={{width:"100%",padding:"8px 14px",background:"#2d6a4f",color:"#fff",border:"none",
                   borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:500,
@@ -1319,7 +1349,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
                 onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
                 ✍️ Aller aux updates et compléter
               </button>
-              {todayUpdate&&<div style={{fontSize:10,color:"#166534",textAlign:"center",marginTop:4}}>✓ Update complété cette semaine</div>}
+              {todayUpdate&&<div style={{fontSize:10,color:"#166534",textAlign:"center",marginTop:4}}>✓ Update enregistré</div>}
             </div>
           </div>
           </div>{/* end updates 2/3+1/3 grid */}
@@ -1362,7 +1392,7 @@ function UpdateCalendar({myUpdates,onView}){
   </div>;
 }
 
-function UpdateViewModal({notif,onClose,onRead,teamMembers=[]}){
+function UpdateViewModal({notif,onClose,onRead,teamMembers=[],readOnly=false}){
   const u=notif.updateData||notif;
   const weekLabel=notif.weekKey?fmtWeekLabel(notif.weekKey):"";
   const answers=u.answers||u.updateData?.answers||{};
@@ -1400,7 +1430,7 @@ function UpdateViewModal({notif,onClose,onRead,teamMembers=[]}){
   const weekQs=notif?.updateData?.weekQuestions||notif?.weekQuestions||DEFAULT_QUESTIONS;
   const visibleQs=weekQs.filter(q=>q.id!=="q7"&&answers[q.id]&&(q.id!=="q6"||canSeeQ6));
   return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
-    <div style={{background:"#fff",borderRadius:12,padding:28,width:"90%",maxWidth:580,maxHeight:"85vh",overflowY:"auto"}}>
+    <div style={{background:"#fff",borderRadius:12,padding:28,width:"95%",maxWidth:900,maxHeight:"85vh",overflowY:"auto"}}>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
         <div style={{fontSize:16,fontWeight:600}}>Update de {notif.fromPrenom}</div>
         {moodVal&&<span style={{fontSize:26,lineHeight:1}}>{moodVal}</span>}
@@ -1418,7 +1448,7 @@ function UpdateViewModal({notif,onClose,onRead,teamMembers=[]}){
         const seasonKRs=(window._okrSeasons&&val.seasonKey?window._okrSeasons[val.seasonKey]?.keyresults:null)||[];
         return <div key={q.id} style={{marginBottom:10,background:"#fff",borderRadius:6,border:"1px solid #e2ddd6",padding:"8px 10px"}}>
           <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text.replace(" *","")}</div>
-          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(kr?.contributors||[]).map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",background:pBg(c),color:"#fff",fontSize:9,fontWeight:600,marginLeft:3}}>{ini(c)}</span>)}</div>;})}
+          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(()=>{const avs=(kr?.contributors||[]).filter(c=>c!==kr?.owner);return avs.length>0?<span style={{display:"inline-flex",marginLeft:4,border:"2px solid #fff"}}>{avs.map((c,i)=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:20,height:20,borderRadius:"50%",background:pBg(c,teamMembers?.map?.(m=>m.prenom)),color:"#6b6560",fontSize:9,fontWeight:600,marginLeft:i===0?0:-6,border:"2px solid #fff"}}>{ini(c)}</span>)}</span>:null;})()}</div>;})}
         </div>;
       }
         return <div key={q.id} style={{marginBottom:14,background:q.confidentiel?"#fdf4ff":"transparent",padding:q.confidentiel?"8px 10px":"0",borderRadius:q.confidentiel?6:0,border:q.confidentiel?"1px solid #e9d5ff":"none"}}>
@@ -1429,7 +1459,7 @@ function UpdateViewModal({notif,onClose,onRead,teamMembers=[]}){
         </div>;
       })}
       <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginTop:20,borderTop:"1px solid #e2ddd6",paddingTop:16}}>
-        {isManager&&<div style={{marginBottom:16,borderTop:"1px solid #e2ddd6",paddingTop:16}}>
+        {isManager&&!readOnly&&<div style={{marginBottom:16,borderTop:"1px solid #e2ddd6",paddingTop:16}}>
           <div style={{fontSize:12,fontWeight:600,color:"#6b6560",marginBottom:8}}>💬 Répondre à l'update</div>
           <textarea value={replyText} onChange={e=>setReplyText(e.target.value)}
             rows={3} style={{width:"100%",border:"1px solid #e2ddd6",borderRadius:6,padding:"8px 10px",fontSize:13,boxSizing:"border-box",resize:"vertical",fontFamily:"inherit"}}
@@ -1441,8 +1471,9 @@ function UpdateViewModal({notif,onClose,onRead,teamMembers=[]}){
             </button>
           </div>
         </div>}
-        <button onClick={onClose} style={{fontSize:13,color:"#6b6560",border:"1px solid #e2ddd6",padding:"7px 14px",borderRadius:6,cursor:"pointer",background:"none"}}>Fermer</button>
-        {!notif.isOwn&&!notif.read&&<button onClick={onRead} style={{fontSize:13,fontWeight:500,background:"#2d6a4f",color:"#fff",padding:"7px 18px",borderRadius:6,cursor:"pointer",border:"none"}}>✓ Marquer comme lu</button>}
+        {!readOnly&&<button onClick={onClose} style={{fontSize:13,color:"#6b6560",border:"1px solid #e2ddd6",padding:"7px 14px",borderRadius:6,cursor:"pointer",background:"none"}}>Fermer</button>}
+        {readOnly&&<button onClick={onClose} style={{fontSize:13,color:"#6b6560",border:"1px solid #e2ddd6",padding:"7px 14px",borderRadius:6,cursor:"pointer",background:"none"}}>✕ Fermer</button>}
+        {!readOnly&&!notif.isOwn&&!notif.read&&<button onClick={onRead} style={{fontSize:13,fontWeight:500,background:"#2d6a4f",color:"#fff",padding:"7px 18px",borderRadius:6,cursor:"pointer",border:"none"}}>✓ Marquer comme lu</button>}
       </div>
     </div>
   </div>;
@@ -1542,7 +1573,7 @@ function TeamUpdatesSection({allUpdates, teamMembers=[], teamMember, onSelectWee
   );
 }
 
-function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,allUpdates=[],teamMembers=[],okrData}){
+function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,myUpdates,allUpdates=[],teamMembers=[],okrData}){
   const _rawWeekKey=getUpdateWeekKey();
   // On Tuesday weekKey is null - use last week for display purposes (read-only)
   const weekKey=_rawWeekKey||(()=>{const d=new Date();d.setDate(d.getDate()-8);return getWeekKey(d);})();
@@ -1576,7 +1607,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
   const now=new Date();
 
   return <div style={{minHeight:"100vh",background:"#f5f3ef",fontFamily:"system-ui,sans-serif"}}>
-    <TopBar onBack={onBack} title="Mes Updates" left={<span style={{fontSize:16,fontWeight:700,color:"#2d6a4f",cursor:"pointer"}} onClick={onBack}>🌼 Calendula</span>}/>
+    <AppNav current="update" onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3}/>
     {isTuesdayReadOnly&&<div style={{background:"#fef3c7",borderBottom:"1px solid #f59e0b",padding:"8px 20px",fontSize:12,color:"#92400e",textAlign:"center"}}>
       📅 Mardi : pas de saisie d'update aujourd'hui — consultation uniquement.
     </div>}
@@ -1680,7 +1711,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
         const seasonKRs=(window._okrSeasons&&val.seasonKey?window._okrSeasons[val.seasonKey]?.keyresults:null)||[];
         return <div key={q.id} style={{marginBottom:10,background:"#fff",borderRadius:6,border:"1px solid #e2ddd6",padding:"8px 10px"}}>
           <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text.replace(" *","")}</div>
-          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(kr?.contributors||[]).map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",background:pBg(c),color:"#fff",fontSize:9,fontWeight:600,marginLeft:3}}>{ini(c)}</span>)}</div>;})}
+          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(()=>{const avs=(kr?.contributors||[]).filter(c=>c!==kr?.owner);return avs.length>0?<span style={{display:"inline-flex",marginLeft:4,border:"2px solid #fff"}}>{avs.map((c,i)=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:20,height:20,borderRadius:"50%",background:pBg(c,teamMembers?.map?.(m=>m.prenom)),color:"#6b6560",fontSize:9,fontWeight:600,marginLeft:i===0?0:-6,border:"2px solid #fff"}}>{ini(c)}</span>)}</span>:null;})()}</div>;})}
         </div>;
       }
             return <div key={q.id} style={{background:q.confidentiel?"#fdf4ff":"#fff",borderRadius:6,padding:"8px 10px",border:"1px solid #e2ddd6"}}>
@@ -1724,14 +1755,14 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
                 :<div style={{display:"flex",flexDirection:"column",gap:8}}>
                   {myKRs.sort((a,b)=>a.id.localeCompare(b.id,undefined,{numeric:true})).map(kr=>{
                     const checked=checkedIds.includes(kr.id);
-                    const contribs=kr.contributors||[];
+                    const contribs=(kr.contributors||[]).filter(c=>c!==kr.owner);
                     return <label key={kr.id} style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",padding:"6px 8px",borderRadius:6,background:checked?"#f0fdf4":"#f8f7f5",border:`1px solid ${checked?"#86efac":"#e2ddd6"}`}}>
                       <input type="checkbox" checked={checked} onChange={()=>toggleKR(kr.id)} style={{accentColor:"#2d6a4f",marginTop:2,flexShrink:0}}/>
                       <div style={{flex:1}}>
                         <span style={{fontSize:11,fontFamily:"monospace",color:"#9e9890",marginRight:6}}>{kr.id}</span>
                         <span style={{fontSize:12,color:"#1a1814"}}>{kr.title}</span>
                         {contribs.length>0&&<span style={{marginLeft:8}}>
-                          {contribs.map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:20,height:20,borderRadius:"50%",background:pBg(c),color:"#fff",fontSize:9,fontWeight:600,marginLeft:2}}>{ini(c)}</span>)}
+                          {contribs.map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:20,height:20,borderRadius:"50%",background:pBg(c,teamMembers?.map(m=>m.prenom)),color:"#6b6560",fontSize:9,fontWeight:600,marginLeft:2}}>{ini(c)}</span>)}
                         </span>}
                       </div>
                     </label>;
@@ -1769,7 +1800,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
         })()}
       </>}
     </div>
-    {selectedWeek&&<UpdateViewModal notif={{updateData:selectedWeek.update,fromPrenom:selectedWeek.prenom||teamMember?.prenom,weekKey:selectedWeek.wk,isOwn:selectedWeek.isOwn,teamMember:teamMember,authorEmail:selectedWeek.authorEmail}} onClose={()=>setSelectedWeek(null)} onRead={()=>setSelectedWeek(null)} teamMembers={teamMembers}/>}
+    {selectedWeek&&<UpdateViewModal notif={{updateData:selectedWeek.update,fromPrenom:selectedWeek.prenom||teamMember?.prenom,weekKey:selectedWeek.wk,isOwn:selectedWeek.isOwn,teamMember:teamMember,authorEmail:selectedWeek.authorEmail}} onClose={()=>setSelectedWeek(null)} onRead={()=>setSelectedWeek(null)} teamMembers={teamMembers} readOnly/>}
 
   {/* Team updates toggle */}
 
@@ -1897,7 +1928,7 @@ function UpdatesHistoryTab(){
         const seasonKRs=(window._okrSeasons&&val.seasonKey?window._okrSeasons[val.seasonKey]?.keyresults:null)||[];
         return <div key={q.id} style={{marginBottom:8,background:"#fff",borderRadius:6,border:"1px solid #e2ddd6",padding:"8px 10px"}}>
           <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text.replace(" *","")}</div>
-          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(kr?.contributors||[]).map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",background:pBg(c),color:"#fff",fontSize:9,fontWeight:600,marginLeft:3}}>{ini(c)}</span>)}</div>;})}
+          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(()=>{const avs=(kr?.contributors||[]).filter(c=>c!==kr?.owner);return avs.length>0?<span style={{display:"inline-flex",marginLeft:4,border:"2px solid #fff"}}>{avs.map((c,i)=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:20,height:20,borderRadius:"50%",background:pBg(c,teamMembers?.map?.(m=>m.prenom)),color:"#6b6560",fontSize:9,fontWeight:600,marginLeft:i===0?0:-6,border:"2px solid #fff"}}>{ini(c)}</span>)}</span>:null;})()}</div>;})}
         </div>;
       }
               return <div key={q.id} style={{marginBottom:8,background:q.confidentiel?"#fdf4ff":"#f8f7f5",borderRadius:6,padding:"6px 10px",border:q.confidentiel?"1px solid #e9d5ff":"none"}}>
@@ -2905,6 +2936,31 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
 
 
 function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSaveCustomSubcatLabels, catTypes, onSaveCatTypes, savedCanalMargin, onSaveCanalMargin, onUploadReporting}) {
+  // Load BSv3 data for canal margin auto-fill
+  const [bsv3Rows,setBsv3Rows]=useState([]);
+  const [bsv3AutoMargin,setBsv3AutoMargin]=useState({}); // {canal_month: rate} applied
+  const [bsv3Year,setBsv3Year]=useState(new Date().getFullYear());
+  useEffect(()=>{
+    getDocs(collection(db,'bsv3_data')).then(snap=>{
+      if(!snap.empty){
+        let all=[];let at=null;
+        snap.docs.sort((a,b)=>a.id.localeCompare(b.id)).forEach(d=>{const data=d.data();all=all.concat(data.rows||[]);if(!at)at=data.importedAt;});
+        if(at){const d=new Date(at);setBsv3Year(d.getMonth()===0?d.getFullYear()-1:d.getFullYear());}
+        setBsv3Rows(all);
+      }
+    }).catch(()=>{});
+  },[]);
+
+  function getBsv3Rate(canal, month){
+    // Map reporting canal names to BSv3 canal names
+    const canalMap={'CHR':'CHR','Retail':'Retail','GMS':'Retail','Export':'Export','RHF':'Grands Comptes','Grands Comptes':'Grands Comptes','B2C':'E-commerce B2C','E-commerce B2C':'B2C','Autres':'Autres B2B'};
+    const bsv3Canal=canalMap[canal]||canal;
+    const rows=bsv3Rows.filter(r=>r['Canal']===bsv3Canal&&parseInt(r['Mois Emission'])===month&&r['Année Emission']===String(bsv3Year)&&!['CASIER-OE','COIFFE-OE','CONTENANT BOUTEILLE'].includes(r['Contenant+Appelation/Robe']));
+    if(!rows.length)return null;
+    const ca=rows.reduce((s,r)=>s+parseBsv3Amt(r['Montant HT']),0);
+    const marge=rows.reduce((s,r)=>s+parseBsv3Amt(r['Marge brute']),0);
+    return ca?marge/ca:null;
+  }
   const [uploadMsg, setUploadMsg] = useState('');
   const [uploading, setUploading] = useState(false);
   const [chargeData, setChargeData] = useState(null);
@@ -2975,18 +3031,47 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
               {Array(12).fill(0).map((_,i)=>{
                 const m=i+1;
                 const val=localMargin[c]?.[m]??defaultRate;
+                const bsv3Rate=getBsv3Rate(c,m);
+                const autoKey=c+'_'+m;
+                const isAuto=bsv3Rate!==null&&Math.abs(val-bsv3Rate)<0.0005;
+                const puceColor=bsv3Rate===null?'#c5c0b8':isAuto?'#2d6a4f':'#f59e0b';
+                const bgColor=isAuto?'#f0fdf4':'#fafaf8';
                 return <td key={m} style={{padding:'2px 3px',borderBottom:'1px solid #f0ede8'}}>
-                  <input type="number" min="0" max="100" step="0.1"
-                    value={Math.round(val*1000)/10}
-                    onChange={e=>{
-                      const v=parseFloat(e.target.value)/100;
-                      const nm={...localMargin,[c]:{...(localMargin[c]||{}), [m]:isNaN(v)?val:v}};
-                      setLocalMargin(nm);
-                      onSaveCanalMargin&&onSaveCanalMargin(nm);
-                    }}
-                    style={{width:44,fontSize:11,border:'1px solid #e2ddd6',borderRadius:4,
-                      padding:'2px 4px',textAlign:'right',background:'#fafaf8'}}
-                  />
+                  <div style={{display:'flex',alignItems:'center',gap:2}}>
+                    <input type="number" min="0" max="100" step="0.1"
+                      value={Math.round(val*1000)/10}
+                      onChange={e=>{
+                        const v=parseFloat(e.target.value)/100;
+                        const nm={...localMargin,[c]:{...(localMargin[c]||{}), [m]:isNaN(v)?val:v}};
+                        setLocalMargin(nm);
+                        onSaveCanalMargin&&onSaveCanalMargin(nm);
+                      }}
+                      style={{width:44,fontSize:11,border:'1px solid #e2ddd6',borderRadius:4,
+                        padding:'2px 4px',textAlign:'right',background:bgColor}}
+                    />
+                    <span title={bsv3Rate===null?'BSv3 non disponible pour ce mois':isAuto?'Cliquer pour annuler (revenir à '+Math.round((bsv3AutoMargin[autoKey+'_prev']||0)*1000)/10+'%)':'Cliquer pour appliquer le taux BSv3 ('+Math.round((bsv3Rate||0)*1000)/10+'%)'}
+                      onClick={()=>{
+                        if(bsv3Rate===null)return;
+                        if(isAuto){
+                          // Undo: restore previous value
+                          const prev=bsv3AutoMargin[autoKey+'_prev'];
+                          if(prev!==undefined){
+                            const nm={...localMargin,[c]:{...(localMargin[c]||{}), [m]:prev}};
+                            setLocalMargin(nm);
+                            onSaveCanalMargin&&onSaveCanalMargin(nm);
+                          }
+                          setBsv3AutoMargin(p=>{const n={...p};delete n[autoKey];delete n[autoKey+'_prev'];return n;});
+                        } else {
+                          // Apply BSv3 rate, save previous
+                          const prev=localMargin[c]?.[m]??defaultRate;
+                          const nm={...localMargin,[c]:{...(localMargin[c]||{}), [m]:bsv3Rate}};
+                          setLocalMargin(nm);
+                          onSaveCanalMargin&&onSaveCanalMargin(nm);
+                          setBsv3AutoMargin(p=>({...p,[autoKey]:true,[autoKey+'_prev']:prev}));
+                        }
+                      }}
+                      style={{cursor:bsv3Rate!==null?'pointer':'default',fontSize:8,color:puceColor,lineHeight:1,userSelect:'none',transition:'color .2s'}}>●</span>
+                  </div>
                 </td>;
               })}
             </tr>;
@@ -3834,7 +3919,20 @@ function ImportObjModal({allSeasons,currentSeasonKey,people,onClose,onImport}){
 }
 
 // ─── OKR PAGE ─────────────────────────────────────────────────────────────────
-function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
+function AppNav({current,onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3}){
+  const tabs=[
+    {k:'okr',l:'🎯 OKR',fn:onGoOKR},
+    {k:'update',l:'✍️ Mes Updates',fn:onGoUpdate},
+    {k:'reporting',l:'📈 Reporting',fn:onGoReporting},
+    {k:'bsv3',l:'📊 Base Sales v3',fn:onGoBsv3},
+  ];
+  return <div style={{background:'#fff',borderBottom:'1px solid #e2ddd6',display:'flex',alignItems:'center',height:44,flexShrink:0,paddingLeft:12}}>
+    <span onClick={onBack} style={{fontSize:14,fontWeight:700,color:'#2d6a4f',cursor:'pointer',whiteSpace:'nowrap',paddingRight:16}}>🌼 Calendula</span>
+    {tabs.map(t=>{const active=current===t.k;return <button key={t.k} onClick={active?undefined:t.fn} style={{padding:'0 14px',height:44,border:'none',borderBottom:active?'2px solid #2d6a4f':'2px solid transparent',background:'none',cursor:active?'default':'pointer',fontSize:12,fontWeight:active?600:400,color:active?'#2d6a4f':'#6b6560',whiteSpace:'nowrap'}}>{t.l}</button>;})}
+  </div>;
+}
+
+function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,teamMember,isAdmin,teamMembers=[]}){
   const [seasonKey,setSeasonKey]=useState("printemps_2026");
   const [dragOverSobj,setDragOverSobj]=useState(null);
   const [dragOverObj,setDragOverObj]=useState(null); // {id, before}
@@ -4072,26 +4170,21 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
   if(!loaded)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:200,color:"#9e9890",fontSize:13}}>Chargement…</div>;
 
   return <div style={{fontFamily:"system-ui,sans-serif",background:"#f5f3ef",minHeight:"100vh",color:"#1a1814"}}>
-    <div style={{background:"rgba(245,243,239,.95)",borderBottom:"1px solid #e2ddd6",padding:"10px 20px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",position:"relative"}}>
-      <span style={{fontSize:16,fontWeight:700,color:"#2d6a4f",letterSpacing:"-.2px",cursor:"pointer"}} onClick={onBack}>🌼 Calendula</span>
-      <div style={{position:"absolute",left:0,right:0,textAlign:"center",pointerEvents:"none"}}>
-        <span style={{fontSize:16,fontWeight:600,color:"#1a1814",letterSpacing:"-.2px"}}>OKR Oé</span>
-      </div>
-      <div style={{flex:1}}/>
-      <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
-        <select value={seasonKey} onChange={e=>switchSeason(e.target.value)} style={{fontFamily:"inherit",fontSize:13,fontWeight:500,border:"1px solid #e2ddd6",background:"#fff",borderRadius:20,padding:"4px 14px",outline:"none",cursor:"pointer",color:"#1b4332"}}>
-          {SEASONS.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
-        </select>
-        {allLocked&&<span style={{fontSize:16}}>🔒</span>}
-        <button onClick={()=>setShowJournal(true)} title="Historique des modifications" style={{width:28,height:28,border:"1px solid #e2ddd6",borderRadius:6,background:"none",cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",color:"#6b6560"}}
-          onMouseEnter={e=>e.currentTarget.style.background="#f5f3ef"} onMouseLeave={e=>e.currentTarget.style.background="none"}>🕐</button>
-        <select value={filterP} onChange={e=>setFilterP(e.target.value)} style={{fontFamily:"inherit",fontSize:12,border:"1px solid #e2ddd6",background:"#fff",borderRadius:6,padding:"5px 10px",outline:"none",cursor:"pointer"}}>
-          <option value="">Toute l'équipe</option>{people.map(p=><option key={p}>{p}</option>)}
-        </select>
-      </div>
+    <AppNav current="okr" onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3}/>
+    <div style={{borderBottom:"1px solid #e2ddd6",padding:"4px 20px",display:"flex",justifyContent:"flex-end",alignItems:"center",gap:8,background:"rgba(245,243,239,.95)"}}>
+      {allLocked&&<span style={{fontSize:16}}>🔒</span>}
+      <button onClick={()=>setShowJournal(true)} style={{width:28,height:28,border:"1px solid #e2ddd6",borderRadius:6,background:"none",cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",color:"#6b6560"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f3ef"} onMouseLeave={e=>e.currentTarget.style.background="none"}>🕐</button>
     </div>
 
     <div style={{maxWidth:1100,margin:"0 auto",padding:"0 16px 60px"}}>
+      <div style={{display:"flex",justifyContent:"flex-end",alignItems:"center",gap:8,marginBottom:10,marginTop:8}}>
+        <select value={seasonKey} onChange={e=>switchSeason(e.target.value)} style={{fontFamily:"inherit",fontSize:12,border:"1px solid #e2ddd6",background:"#fff",borderRadius:20,padding:"4px 14px",outline:"none",cursor:"pointer",color:"#1b4332"}}>
+          {SEASONS.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
+        </select>
+        <select value={filterP} onChange={e=>setFilterP(e.target.value)} style={{fontFamily:"inherit",fontSize:12,border:"1px solid #e2ddd6",background:"#fff",borderRadius:20,padding:"4px 14px",outline:"none",cursor:"pointer"}}>
+          <option value="">Toute l'équipe</option>{people.map(p=><option key={p}>{p}</option>)}
+        </select>
+      </div>
       <div style={{padding:"16px 0 0"}}>
         <SeasonBanner seasonKey={seasonKey} avgProg={avgProg} totalKR={totalKR} doneKR={doneKR}/>
         {filterP&&(()=>{
@@ -4200,9 +4293,9 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
 }
 
 // ─── APP ROOT ─────────────────────────────────────────────────────────────────
-function ReportingPagePublic({onBack, catTypes, codeMap, customSubcatLabels={}, savedCanalMargin}) {
+function ReportingPagePublic({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3, catTypes, codeMap, customSubcatLabels={}, savedCanalMargin}) {
   return <div style={{minHeight:"100vh",background:"#f5f3ef",fontFamily:"system-ui,sans-serif"}}>
-    <TopBar onBack={onBack} title="Reporting financier"/>
+    <AppNav current="reporting" onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3}/>
     <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
       <ReportingTab onSaveCatTypes={null} savedCatTypes={catTypes} savedCodeMap={codeMap}
         onSaveCodeMap={null} savedCustomLabels={customSubcatLabels} onSaveCustomLabels={null} savedCanalMargin={savedCanalMargin} readOnly={true}/>
@@ -4434,7 +4527,7 @@ function EvoSpan({n, p}){
   return <span style={{fontSize:9,color:pos?'#2d6a4f':'#c0392b',marginLeft:4,fontWeight:400}}>({evo})</span>;
 }
 
-function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,depth,ytdMode,maxYtdMonth}){
+function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,depth,ytdMode,maxYtdMonth,allRows}){
   const [exp,setExp]=React.useState(false);
   const currentLevel=levels[levelIdx];
   const nextLevel=levels[levelIdx+1];
@@ -4482,7 +4575,9 @@ function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,dept
 
   return <React.Fragment>
     <tr style={{background:bg}} onClick={isLeaf?undefined:()=>setExp(p=>!p)}>
-      <td style={lbl}>{!isLeaf&&<span style={{fontSize:10,color:'#9e9890'}}>{exp?'▼':'▶'}</span>}{displayLabel}</td>
+      <td style={lbl}>{!isLeaf&&<span style={{fontSize:10,color:'#9e9890'}}>{exp?'▼':'▶'}</span>}
+        {currentLevel==='produit'?<><span style={{fontFamily:'monospace'}}>{displayLabel}</span>{(()=>{const lb=getBsv3ProdLabel(allRows||rows,label);return lb?<span style={{color:'#6b6560',fontWeight:400,marginLeft:6,fontSize:fs-1}}>— {lb}</span>:null;})()}</>:displayLabel}
+      </td>
       <td style={{...cell,textAlign:'center'}}>{showQty?Math.round(agg.qty).toLocaleString('fr-FR'):'—'}</td>
       <td style={cell}>{fmtBEur(agg.ca)}</td>
       <td style={cell}>{fmtBEur(agg.marge)}</td>
@@ -4500,7 +4595,7 @@ function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,dept
       return <Bsv3DrillRow key={child} label={child} rows={childRows} prevRows={childPrev}
         contextRows={nextLevel==='mois'?contextRows:childRows}
         year={year} levels={levels} levelIdx={levelIdx+1} depth={depth+1}
-        ytdMode={ytdMode} maxYtdMonth={maxYtdMonth}/>;
+        ytdMode={ytdMode} maxYtdMonth={maxYtdMonth} allRows={allRows}/>;
     })}
   </React.Fragment>;
 }
@@ -4549,7 +4644,7 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
             return <Bsv3DrillRow key={val} label={val} rows={rows} prevRows={prev}
               contextRows={topLevel==='mois'?allYearRows:rows}
               year={year} levels={levels} levelIdx={0} depth={0}
-              ytdMode={ytdMode} maxYtdMonth={maxYtdMonth}/>;
+              ytdMode={ytdMode} maxYtdMonth={maxYtdMonth} allRows={allYearRows}/>;
           })}
         </tbody>
         <tfoot>
@@ -4597,12 +4692,225 @@ function DragPill({level,index,onDragStart,onDragOver,onDrop,isDragOver}){
   </div>;
 }
 
-function Bsv3Page({onBack}){
+const BSV3_COMMANDES_USERS = new Set(['fx@oeforgood.com','fiona@oeforgood.com']);
+const SPECIAL_SUFFIXES = ['FL','FE','EC']; // shown before numbers
+const PROD_LETTER_ORDER = ['E','P','M','C'];
+
+function sortProduitsSuffix(vals){
+  function getSfxOrder(code){
+    const sfx = code.slice(1,3).toUpperCase();
+    if(SPECIAL_SUFFIXES.includes(sfx)) return {pri:0, sfx, let: code[0]};
+    const num = parseInt(sfx);
+    if(!isNaN(num)) return {pri:1, sfx: num, let: code[0]};
+    return {pri:2, sfx, let: code[0]};
+  }
+  function letterOrder(l){
+    const i = PROD_LETTER_ORDER.indexOf(l);
+    return i >= 0 ? i : PROD_LETTER_ORDER.length + l.charCodeAt(0);
+  }
+  return [...vals].sort((a,b)=>{
+    const oa=getSfxOrder(a), ob=getSfxOrder(b);
+    if(oa.pri !== ob.pri) return oa.pri - ob.pri;
+    if(oa.pri===0){ // special: sort FL,FE,EC in SPECIAL_SUFFIXES order
+      const ia=SPECIAL_SUFFIXES.indexOf(oa.sfx), ib=SPECIAL_SUFFIXES.indexOf(ob.sfx);
+      if(ia!==ib) return ia-ib;
+    } else if(oa.pri===1){ // numeric
+      if(oa.sfx !== ob.sfx) return oa.sfx - ob.sfx;
+    } else { // alpha suffix
+      if(oa.sfx !== ob.sfx) return String(oa.sfx).localeCompare(String(ob.sfx));
+    }
+    return letterOrder(oa.let) - letterOrder(ob.let);
+  });
+}
+
+function getBsv3ProdLabel(rows, prod){
+  const row=rows.find(r=>r['Contenant+Appelation/Robe']===prod&&r['Libellé Contenant+Appelation/Robe']&&r['Libellé Contenant+Appelation/Robe'].trim()&&r['Libellé Contenant+Appelation/Robe']!=='PAS DE DETAIL DU PRODUIT');
+  return row?row['Libellé Contenant+Appelation/Robe'].trim():'';
+}
+
+function Bsv3CommandesTable({rows, importedAt, activeLetters}){
+  const [collapsedYears, setCollapsedYears] = React.useState({});
+  const [expandedProds, setExpandedProds] = React.useState({});
+
+  const importDate = importedAt ? new Date(importedAt) : new Date();
+  const importMonth = importDate.getMonth() + 1;
+  const importYear = importDate.getMonth() === 0 ? importDate.getFullYear()-1 : importDate.getFullYear();
+  const lastM = importMonth - 1 === 0 ? 12 : importMonth - 1;
+  const lastY = importMonth - 1 === 0 ? importYear - 1 : importYear;
+
+  const months = [];
+  let m = lastM, y = lastY;
+  for(let i=0;i<24;i++){
+    months.push({m,y});
+    m--;if(m===0){m=12;y--;}
+  }
+  const years = [...new Set(months.map(x=>x.y))];
+
+  const validRows = rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']));
+  const allProds = [...new Set(validRows.map(r=>r['Contenant+Appelation/Robe']))];
+  const sortedAllProds = sortProduitsSuffix(allProds);
+
+  // Letter filter buttons
+  const allLetters = [...new Set(sortedAllProds.map(p=>p[0]))].sort((a,b)=>{
+    const ia=PROD_LETTER_ORDER.indexOf(a),ib=PROD_LETTER_ORDER.indexOf(b);
+    if(ia>=0&&ib>=0)return ia-ib;
+    if(ia>=0)return -1;if(ib>=0)return 1;
+    return a.localeCompare(b);
+  });
+
+  const sortedProds = (activeLetters
+    ? sortedAllProds.filter(p=>activeLetters.has(p[0]))
+    : sortedAllProds).filter(p=>p.length===3);
+
+  function getQty(rows2,mth,yr){
+    return rows2.filter(r=>parseInt(r['Mois Emission'])===mth&&r['Année Emission']===String(yr))
+      .reduce((s,r)=>{
+        const q=String(r['Quantité équivalent unité']||'0').replace(/[\s\u00a0\u202f]/g,'').replace(',','.');
+        return s+(parseFloat(q)||0);
+      },0);
+  }
+  function get12M(rows2,fromM,fromY){
+    let total=0,mo=fromM,yr=fromY;
+    for(let i=0;i<12;i++){
+      total+=getQty(rows2,mo,yr);
+      mo--;if(mo===0){mo=12;yr--;}
+    }
+    return total;
+  }
+  function getPrev12M(rows2){
+    // 12 months before the gliding 12M window
+    let total=0,mo=lastM,yr=lastY;
+    // skip 12
+    for(let i=0;i<12;i++){mo--;if(mo===0){mo=12;yr--;}}
+    // then sum 12
+    for(let i=0;i<12;i++){
+      total+=getQty(rows2,mo,yr);
+      mo--;if(mo===0){mo=12;yr--;}
+    }
+    return total;
+  }
+  function getYTD(rows2,yr){
+    let total=0;
+    for(let mth=1;mth<=lastM;mth++) total+=getQty(rows2,mth,yr);
+    return total;
+  }
+  function fmtQ(v){return v?Math.round(v).toLocaleString('fr-FR'):'—';}
+
+  const th={padding:'5px 8px',fontSize:10,fontWeight:600,color:'#6b6560',textAlign:'right',borderBottom:'2px solid #e2ddd6',background:'#f8f7f5',whiteSpace:'nowrap'};
+  const thL={...th,textAlign:'left',minWidth:180};
+  const thG={...th,background:'#f0fdf4'};
+  const thTotal={...th,background:'#e8f4f0',color:'#2d6a4f',cursor:'pointer'};
+
+  function toggleYear(key){setCollapsedYears(p=>({...p,[key]:!p[key]}));}
+
+  function renderDataCells(rows2, fs=11){
+    const td={padding:'5px 6px',fontSize:fs,textAlign:'right',borderBottom:'1px solid #f0ede8',fontFamily:'monospace'};
+    return <>
+      <td style={{...td,background:'#f0fdf4',fontWeight:600}}>{fmtQ(get12M(rows2,lastM,lastY))}</td>
+      <td style={{...td,background:'#f0fdf4'}}>{fmtQ(getPrev12M(rows2))}</td>
+      <td style={{...td,background:'#e8f4f0',fontWeight:600,cursor:'pointer'}}>
+        {fmtQ(getYTD(rows2,lastY))}
+      </td>
+      {!collapsedYears['ytd']&&months.filter(x=>x.y===lastY).map(({m:mo,y:yr})=>(
+        <td key={`${mo}_${yr}`} style={td}>{fmtQ(getQty(rows2,mo,yr))}</td>
+      ))}
+      {years.filter(yr=>yr!==lastY).map(yr=>(
+        <React.Fragment key={yr}>
+          <td style={{...td,background:'#e8f4f0',fontWeight:600}}>{fmtQ(months.filter(x=>x.y===yr).reduce((s,{m:mo})=>s+getQty(rows2,mo,yr),0))}</td>
+          {!collapsedYears[yr]&&months.filter(x=>x.y===yr).map(({m:mo})=>(
+            <td key={`${mo}_${yr}`} style={td}>{fmtQ(getQty(rows2,mo,yr))}</td>
+          ))}
+        </React.Fragment>
+      ))}
+    </>;
+  }
+
+  return <div>
+    <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',overflow:'hidden'}}>
+      <div style={{overflowX:'auto'}}>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead><tr>
+            <th style={thL}>Produit</th>
+            <th style={thG}>12M glissants</th>
+            <th style={thG}>12M précédents</th>
+            <th style={thTotal} onClick={()=>toggleYear('ytd')}>YTD {lastY} {collapsedYears['ytd']?'▶':'▼'}</th>
+            {!collapsedYears['ytd']&&months.filter(x=>x.y===lastY).map(({m:mo})=>(
+              <th key={mo} style={th}>{MOIS_LABELS[mo]}</th>
+            ))}
+            {years.filter(yr=>yr!==lastY).map(yr=>(
+              <React.Fragment key={yr}>
+                <th style={thTotal} onClick={()=>toggleYear(yr)}>{yr} {collapsedYears[yr]?'▶':'▼'}</th>
+                {!collapsedYears[yr]&&months.filter(x=>x.y===yr).map(({m:mo})=>(
+                  <th key={mo} style={th}>{MOIS_LABELS[mo]}</th>
+                ))}
+              </React.Fragment>
+            ))}
+          </tr></thead>
+          <tbody>
+            {sortedProds.map(prod=>{
+              const prodRows=validRows.filter(r=>r['Contenant+Appelation/Robe']===prod);
+              const isExp=expandedProds[prod];
+              const clients=[...new Set(prodRows.map(r=>r['Client PL']))];
+              const c12m={};clients.forEach(cl=>{c12m[cl]=get12M(prodRows.filter(r=>r['Client PL']===cl),lastM,lastY);});
+              const sortedClients=clients.sort((a,b)=>c12m[b]-c12m[a]);
+              return <React.Fragment key={prod}>
+                <tr style={{background:'#fff',cursor:'pointer'}} onClick={()=>setExpandedProds(p=>({...p,[prod]:!p[prod]}))}>
+                  <td style={{padding:'5px 8px',fontSize:11,textAlign:'left',borderBottom:'1px solid #eee',fontWeight:500,whiteSpace:'nowrap'}}>
+                    <span style={{fontSize:9,color:'#9e9890',marginRight:4}}>{isExp?'▼':'▶'}</span><span style={{fontFamily:'monospace'}}>{prod}</span>{(()=>{const lb=getBsv3ProdLabel(validRows,prod);return lb?<span style={{color:'#6b6560',fontWeight:400,marginLeft:6}}>— {lb}</span>:null;})()}
+                  </td>
+                  {renderDataCells(prodRows)}
+                </tr>
+                {isExp&&(()=>{
+                  // Build SKU4 groups
+                  const VALID_SKU4=r=>r['SKU']&&r['SKU'].length>=4&&!/^[0-9]/.test(r['SKU'])&&!['PAS ','COFF','FRAI','PROD','CASE','TIRE','SUBV','HORS','OFBL','OEBL','VASC','PALOX','COIF','CONT','SCHRE','N/A'].some(x=>r['SKU'].startsWith(x));
+                  const sku4Set=new Set(prodRows.filter(VALID_SKU4).map(r=>r['SKU'].slice(0,4)));
+                  const hasOther=prodRows.some(r=>!VALID_SKU4(r));
+                  const sortedSku4=[...sku4Set].sort((a,b)=>a.localeCompare(b));
+                  if(hasOther) sortedSku4.push('__other__');
+                  return sortedSku4.map(sku4=>{
+                    const sku4Rows=sku4==='__other__'?prodRows.filter(r=>!VALID_SKU4(r)):prodRows.filter(r=>VALID_SKU4(r)&&r['SKU'].slice(0,4)===sku4);
+                    const sku4Label=sku4==='__other__'?'(autres)':sku4;
+                    const sku4Exp=expandedProds[prod+'_'+sku4];
+                    const clients2=[...new Set(sku4Rows.map(r=>r['Client PL']))];
+                    const c12m2={};clients2.forEach(cl=>{c12m2[cl]=get12M(sku4Rows.filter(r=>r['Client PL']===cl),lastM,lastY);});
+                    const sortedClients2=clients2.sort((a,b)=>c12m2[b]-c12m2[a]);
+                    return <React.Fragment key={sku4}>
+                      <tr style={{background:'#f0fdf4',cursor:'pointer'}} onClick={()=>setExpandedProds(p=>({...p,[prod+'_'+sku4]:!p[prod+'_'+sku4]}))}>
+                        <td style={{padding:'4px 8px 4px 20px',fontSize:10,textAlign:'left',borderBottom:'1px solid #e8f0e8',fontWeight:500,whiteSpace:'nowrap'}}>
+                          <span style={{fontSize:9,color:'#9e9890',marginRight:4}}>{sku4Exp?'▼':'▶'}</span>
+                          <span style={{fontFamily:'monospace'}}>{sku4Label}</span>
+
+                        </td>
+                        {renderDataCells(sku4Rows,10)}
+                      </tr>
+                      {sku4Exp&&sortedClients2.map(cl=>{
+                        const clRows=sku4Rows.filter(r=>r['Client PL']===cl);
+                        return <tr key={cl} style={{background:'#f8f7f5'}}>
+                          <td style={{padding:'3px 8px 3px 32px',fontSize:10,textAlign:'left',borderBottom:'1px solid #f0ede8',color:'#6b6560',whiteSpace:'nowrap'}}>{cl}</td>
+                          {renderDataCells(clRows,10)}
+                        </tr>;
+                      })}
+                    </React.Fragment>;
+                  });
+                })()}
+              </React.Fragment>;
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>;
+}
+
+function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}){
   const {rows,importedAt,loading}=useBsv3Data();
+  const [mainTab,setMainTab]=React.useState('ventes');
   const [levels,setLevels]=React.useState(['mois','canal','client','produit']);
   const [ytdMode,setYtdMode]=React.useState(false);
   const [dragFrom,setDragFrom]=React.useState(null);
   const [dragOver,setDragOver]=React.useState(null);
+  const [activeLetters,setActiveLetters]=React.useState(null);
+  const [showCommandes,setShowCommandes]=React.useState(false);
 
   const importDate=importedAt?new Date(importedAt):new Date();
   const year=importDate.getMonth()===0?importDate.getFullYear()-1:importDate.getFullYear();
@@ -4611,7 +4919,6 @@ function Bsv3Page({onBack}){
   const validRows=rows.filter(r=>r['Année Emission']===String(year)&&!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']));
   const prevRows=rows.filter(r=>r['Année Emission']===String(prevYear)&&!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']));
   const allYearRows=rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']));
-
   const maxYtdMonth=validRows.length?Math.max(...validRows.map(r=>parseInt(r['Mois Emission'])||0)):12;
   const displayRows=ytdMode?validRows.filter(r=>parseInt(r['Mois Emission'])<=maxYtdMonth):validRows;
 
@@ -4622,20 +4929,33 @@ function Bsv3Page({onBack}){
     setDragFrom(null);setDragOver(null);
   }
 
+  // Letter filter for écoulements
+  const allProdsForFilter=[...new Set(rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])).map(r=>r['Contenant+Appelation/Robe']))];
+  const allLetters=[...new Set(allProdsForFilter.map(p=>p[0]))].sort((a,b)=>{
+    const ia=PROD_LETTER_ORDER.indexOf(a),ib=PROD_LETTER_ORDER.indexOf(b);
+    if(ia>=0&&ib>=0)return ia-ib;if(ia>=0)return -1;if(ib>=0)return 1;return a.localeCompare(b);
+  });
+
   return <div style={{minHeight:'100vh',background:'#f8f7f5'}}>
-    <div style={{maxWidth:1300,margin:'0 auto',padding:'24px 16px'}}>
-      <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:16}}>
-        <button onClick={onBack} style={{background:'none',border:'none',cursor:'pointer',fontSize:20,color:'#9e9890',padding:0}}>←</button>
-        <div>
-          <div style={{fontSize:20,fontWeight:700,color:'#1a1814'}}>📊 Base Sales v3</div>
-          {importedAt&&<div style={{fontSize:11,color:'#9e9890',marginTop:2}}>
-            Dernier chargement le {new Date(importedAt).toLocaleDateString('fr-FR')} à {new Date(importedAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}
-          </div>}
-        </div>
+    <AppNav current="bsv3" onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3}/>
+
+    <div style={{maxWidth:1400,margin:'0 auto',padding:'20px 16px'}}>
+      {/* Main tabs */}
+      <div style={{display:'flex',gap:8,marginBottom:16,alignItems:'center',flexWrap:'wrap'}}>
+        {[{k:'ventes',l:'Analyse des ventes'},{k:'ecoulements',l:'Analyse des écoulements'}].map(t=>(
+          <button key={t.k} onClick={()=>setMainTab(t.k)}
+            style={{padding:'8px 18px',borderRadius:8,border:`1px solid ${mainTab===t.k?'#2d6a4f':'#e2ddd6'}`,
+              background:mainTab===t.k?'#2d6a4f':'#fff',color:mainTab===t.k?'#fff':'#6b6560',
+              fontSize:13,fontWeight:500,cursor:'pointer'}}>
+            {t.l}
+          </button>
+        ))}
       </div>
-      <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20,flexWrap:'wrap'}}>
+
+      {/* Sub-controls */}
+      {mainTab==='ventes'&&<div style={{display:'flex',alignItems:'center',gap:8,marginBottom:16,flexWrap:'wrap'}}>
         <div style={{display:'flex',gap:8,alignItems:'center'}}>
-          <span style={{fontSize:11,color:'#9e9890',marginRight:4}}>Ordre :</span>
+          <span style={{fontSize:11,color:'#9e9890'}}>Ordre :</span>
           {levels.map((level,i)=><DragPill key={level} level={level} index={i}
             onDragStart={setDragFrom} onDragOver={setDragOver} onDrop={handleDrop}
             isDragOver={dragOver===i&&dragFrom!==i}/>)}
@@ -4650,17 +4970,47 @@ function Bsv3Page({onBack}){
             YTD
           </button>
         </div>
-      </div>
+      </div>}
+
+      {mainTab==='ecoulements'&&<div style={{display:'flex',alignItems:'center',gap:6,marginBottom:16,flexWrap:'wrap'}}>
+        <span style={{fontSize:11,color:'#9e9890'}}>Filtrer :</span>
+        {[{label:'75cl',letters:new Set(['E'])},{label:'33cl',letters:new Set(['P'])},{label:'Mini',letters:new Set(['M'])},{label:'BIB 5l',letters:new Set(['C'])},{label:'Canette',letters:new Set(['S'])},{label:'Autres',letters:null}].map(({label:fl,letters:fset})=>{
+          // 'Autres' = all letters not in E,P,M,C,S
+          const MAIN=new Set(['E','P','M','C','S']);
+          const otherLetters=new Set(allLetters.filter(l=>!MAIN.has(l)));
+          const effectiveSet=fset||otherLetters;
+          const on=!activeLetters||[...effectiveSet].some(l=>activeLetters.has(l));
+          return <button key={fl} onClick={()=>{
+            if(!activeLetters){
+              // All on → turn off all except this group
+              setActiveLetters(new Set(effectiveSet));
+            } else {
+              const next=new Set(activeLetters);
+              const allOn=[...effectiveSet].every(l=>next.has(l));
+              if(allOn){[...effectiveSet].forEach(l=>next.delete(l));}
+              else{[...effectiveSet].forEach(l=>next.add(l));}
+              if(next.size===0||next.size===allLetters.length)setActiveLetters(null);
+              else setActiveLetters(next);
+            }
+          }} style={{padding:'3px 10px',borderRadius:6,border:`1px solid ${on?'#2d6a4f':'#e2ddd6'}`,
+            background:on?'#2d6a4f':'#fff',color:on?'#fff':'#9e9890',fontSize:11,fontWeight:500,cursor:'pointer'}}>
+            {fl}
+          </button>;
+        })}
+        {activeLetters&&<button onClick={()=>setActiveLetters(null)}
+          style={{padding:'2px 7px',borderRadius:5,border:'1px solid #e2ddd6',background:'#fff',color:'#9e9890',fontSize:10,cursor:'pointer'}}>✕ Tout</button>}
+      </div>}
+
+      {/* Content */}
       {loading?<div style={{textAlign:'center',padding:40,color:'#9e9890'}}>Chargement...</div>
       :rows.length===0?<div style={{textAlign:'center',padding:40,color:'#9e9890'}}>Aucune donnée — importez un CSV dans les Paramètres.</div>
-      :<Bsv3Table levels={levels} year={year} prevYear={prevYear}
+      :mainTab==='ventes'?<Bsv3Table levels={levels} year={year} prevYear={prevYear}
           validRows={displayRows} prevRows={prevRows} allYearRows={allYearRows}
-          ytdMode={ytdMode} maxYtdMonth={maxYtdMonth}/>}
+          ytdMode={ytdMode} maxYtdMonth={maxYtdMonth}/>
+      :<Bsv3CommandesTable rows={rows} importedAt={importedAt} activeLetters={activeLetters}/>}
     </div>
   </div>;
 }
-
-
 export default function App(){
   const [authUser,setAuthUser]=useState(null);
   const [authLoading,setAuthLoading]=useState(true);
@@ -5017,13 +5367,13 @@ export default function App(){
         <div style={{fontSize:13,color:"#6b6560",marginBottom:16}}>Votre compte ({authUser.email}) n'est pas encore autorisé. Contactez un administrateur Oé.</div>
         <button onClick={()=>signOut(auth)} style={{fontSize:13,color:"#c0392b",background:"#fdecea",border:"1px solid #fca5a5",borderRadius:6,padding:"7px 14px",cursor:"pointer"}}>Se déconnecter</button>
       </div>
-    </div>;
+  </div>;
   }
 
-  if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers}/>;
-  if(page==="update")return <UpdatePage teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} okrData={okrData} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers}/>;
-  if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels} savedCanalMargin={savedCanalMargin}/>;
-  if(page==="bsv3")return <Bsv3Page onBack={()=>setPage('dashboard')}/>;
+  if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers}/>;
+  if(page==="update")return <UpdatePage onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} okrData={okrData} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers}/>;
+  if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels} savedCanalMargin={savedCanalMargin}/>;
+  if(page==="bsv3")return <Bsv3Page onBack={()=>setPage('dashboard')} onGoOKR={()=>setPage('okr')} onGoUpdate={()=>setPage('update')} onGoReporting={()=>setPage('reporting')} onGoBsv3={()=>setPage('bsv3')} currentUser={authUser}/>;
   if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels} savedCanalMargin={savedCanalMargin} onSaveCanalMargin={handleSaveCanalMargin} onSendMessage={handleSendMessage} onSaveBsv3={handleSaveBsv3} onUploadReporting={handleUploadReporting}/>;
 
   return <Dashboard
