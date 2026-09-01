@@ -4143,6 +4143,10 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,t
         idx++;
         return {...kr, id: `${sobjId}.${idx}`};
       }
+      return kr;
+    });
+  }
+
   return <div style={{fontFamily:"system-ui,sans-serif",background:"#f5f3ef",minHeight:"100vh",color:"#1a1814"}}>
     <AppNav current='okr' onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3} rightContent={<div style={{display:"flex",alignItems:"center",gap:8}}>
       <select value={seasonKey} onChange={e=>switchSeason(e.target.value)} style={{fontFamily:"inherit",fontSize:12,border:"1px solid #e2ddd6",borderRadius:6,padding:"3px 8px"}}>
