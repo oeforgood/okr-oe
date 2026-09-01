@@ -518,7 +518,7 @@ function NotifDetail({notif, teamMember, teamMembers=[], onSendMessage}) {
     setTimeout(()=>{setReplyText('');setReplySent(false);},2000);
   }
   return <div>
-    {moodVal&&<div style={{fontSize:28,marginBottom:12}}>{moodVal}</div>}
+    {moodVal&&<div style={{fontSize:28,marginBottom:8}}>{moodVal}</div>}
     {visibleQs.map(q=>{
       const val=answers[q.id];if(!val)return null;
       if(q.type==="mood")return null;
@@ -1305,7 +1305,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
 
           </div>
           {/* Personal Updates banner - 320px */}
-          <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"14px 20px",
+          <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"10px 16px",
             display:"flex",alignItems:"stretch",gap:12,flexDirection:"column",justifyContent:"space-between",
             boxShadow:"0 1px 3px rgba(0,0,0,.04)",height:220,boxSizing:"border-box",overflow:"hidden"}}>
             {/* Perso: vertical layout for 320px height */}
@@ -1325,11 +1325,12 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",gap:6}}>
               <div style={{display:"flex",flexDirection:"column",gap:0}}>
                 
+                <div style={{fontSize:9,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",fontWeight:500,lineHeight:1,paddingBottom:4}}>Mes 13 dernières semaines</div>
                 <My13Smileys/>
               </div>
             </div>
             {/* Bottom: button */}
-            <div style={{paddingTop:12,borderTop:"1px solid #86efac"}}>
+            <div style={{paddingTop:8,borderTop:"1px solid #86efac"}}>
               <button onClick={onGoUpdate}
                 style={{width:"100%",padding:"8px 14px",background:"#2d6a4f",color:"#fff",border:"none",
                   borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:500,
