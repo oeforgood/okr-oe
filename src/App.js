@@ -822,27 +822,19 @@ function ReportingBanner({onGoReporting}) {
   }
 
   let caYTD = 0, mbYTD = 0;
+  const effectiveMargin = liveCanalMargin || {};
   REPORTING_CANALS_ALL.forEach(canal => {
     const csvKey = CANAL_CSV_MAP2[canal]||canal;
     const canalData = caData[csvKey]||{};
-    const canalTotal = Object.values(canalData).reduce((a,b)=>a+b,0);
-    caYTD += canalTotal;
-    // Use live canal margin per month from Firebase
-    if(liveCanalMargin){
-      const canalKey=CANAL_CSV_MAP2[canal]||canal;
-      const liveCanalRates=liveCanalMargin[canalKey];
-      if(liveCanalRates){
-        Object.entries(canalData).forEach(([monthKey,caVal])=>{
-          const month=parseInt(monthKey);
-          const rate=liveCanalRates[month]??liveCanalRates??CANAL_MARGIN2[canal]??0.263;
-          mbYTD+=caVal*(typeof rate==='number'?rate:CANAL_MARGIN2[canal]??0.263);
-        });
-      } else {
-        mbYTD+=canalTotal*(CANAL_MARGIN2[canal]||0.263);
-      }
-    } else {
-      mbYTD+=canalTotal*(CANAL_MARGIN2[canal]||0.263);
-    }
+    caYTD += Object.values(canalData).reduce((a,b)=>a+b,0);
+    const defaultRate = CANAL_MARGIN2[canal]??0.263;
+    // Use same logic as ReportingTab: per-month rate, fallback to canal default, fallback to hardcoded
+    Array.from({length:12},(_,i)=>i+1).forEach(month=>{
+      const caVal = canalData[month]||canalData[String(month)]||0;
+      const rates = effectiveMargin[canal];
+      const rate = (rates && typeof rates[month]==='number') ? rates[month] : defaultRate;
+      mbYTD += caVal * rate;
+    });
   });
 
   let chargesExplYTD = 0, autresChargesYTD = 0;
