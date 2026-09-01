@@ -1337,7 +1337,8 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             {/* Separator */}
             <div style={{height:1,background:"#86efac",margin:"4px 0"}}/>
             {/* 13 smileys */}
-            <div style={{flex:1,display:"flex",alignItems:"center",paddingTop:2,paddingBottom:2}}>
+            <div style={{paddingTop:4,paddingBottom:4,flex:1}}>
+              <div style={{fontSize:9,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",fontWeight:500,marginBottom:3}}>Mes 13 dernières semaines</div>
               <My13Smileys/>
             </div>
             {/* Separator */}
