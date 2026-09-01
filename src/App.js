@@ -1356,6 +1356,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
               {todayUpdate&&<div style={{fontSize:10,color:"#166534",textAlign:"center",marginTop:2}}>✓ Update enregistré</div>}
             </div>
           </div>
+          </div>
         </>;
       })()}
 
