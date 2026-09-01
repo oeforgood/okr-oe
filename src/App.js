@@ -796,10 +796,10 @@ function Bsv3Banner({onGoBsv3}) {
 
 function ReportingBanner({onGoReporting}) {
   const [caData, setCaData] = useState(null);
-
   const [chargeData, setChargeData] = useState(null);
   const [bfrBanner, setBfrBanner] = useState(null);
   const [importedAt, setImportedAt] = useState(null);
+  const [liveCanalMargin, setLiveCanalMargin] = useState(null);
 
   useEffect(()=>{
     const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists()){setCaData(snap.data().caData);}});
