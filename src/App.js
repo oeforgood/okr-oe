@@ -805,8 +805,7 @@ function ReportingBanner({onGoReporting}) {
     const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists()){setCaData(snap.data().caData);}});
     const u2=onSnapshot(doc(db,'reporting','charges'),(snap)=>{if(snap.exists())setChargeData(snap.data().chargeData);});
     const u3b=onSnapshot(doc(db,'reporting','bfr'),(snap)=>{if(snap.exists())setBfrBanner(snap.data().bilData);});
-    const u3=onSnapshot(doc(db,'reporting','meta'),(snap)=>{if(snap.exists())setImportedAt(snap.data().importedAt);
-        if(snap.data().importedAt)setImportedAt(snap.data().importedAt);});
+    const u3=onSnapshot(doc(db,'reporting','meta'),(snap)=>{if(snap.exists()){if(snap.data().importedAt)setImportedAt(snap.data().importedAt);if(snap.data().canalMargin)setLiveCanalMargin(snap.data().canalMargin);}});
     return()=>{u1();u2();u3();};
 
   },[]);
@@ -828,7 +827,22 @@ function ReportingBanner({onGoReporting}) {
     const canalData = caData[csvKey]||{};
     const canalTotal = Object.values(canalData).reduce((a,b)=>a+b,0);
     caYTD += canalTotal;
-    mbYTD += canalTotal * (CANAL_MARGIN2[canal]||0.263);
+    // Use live canal margin per month from Firebase
+    if(liveCanalMargin){
+      const canalKey=CANAL_CSV_MAP2[canal]||canal;
+      const liveCanalRates=liveCanalMargin[canalKey];
+      if(liveCanalRates){
+        Object.entries(canalData).forEach(([monthKey,caVal])=>{
+          const month=parseInt(monthKey);
+          const rate=liveCanalRates[month]??liveCanalRates??CANAL_MARGIN2[canal]??0.263;
+          mbYTD+=caVal*(typeof rate==='number'?rate:CANAL_MARGIN2[canal]??0.263);
+        });
+      } else {
+        mbYTD+=canalTotal*(CANAL_MARGIN2[canal]||0.263);
+      }
+    } else {
+      mbYTD+=canalTotal*(CANAL_MARGIN2[canal]||0.263);
+    }
   });
 
   let chargesExplYTD = 0, autresChargesYTD = 0;
