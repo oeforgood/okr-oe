@@ -996,6 +996,15 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
   const unread=managerNotifs.filter(n=>!n.read);
 
   return <div style={{minHeight:"100vh",background:"#f5f3ef",fontFamily:"system-ui,sans-serif"}}>
+    <div style={{background:"rgba(245,243,239,.95)",borderBottom:"1px solid #e2ddd6",padding:"10px 20px",display:"flex",alignItems:"center",gap:12}}>
+      <span style={{fontSize:18,fontWeight:700,color:"#2d6a4f",letterSpacing:"-.3px"}}>🌼 Calendula</span>
+      <div style={{flex:1}}/>
+      <span style={{fontSize:13,color:"#6b6560"}}>{teamMember?.prenom}</span>
+      {isAdmin&&<button onClick={onOpenSettings} title="Paramètres" style={{width:32,height:32,borderRadius:8,border:"1px solid #e2ddd6",background:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#6b6560",fontSize:16}}
+        onMouseEnter={e=>e.currentTarget.style.background="#f5f3ef"} onMouseLeave={e=>e.currentTarget.style.background="none"}>⚙️</button>}
+      <button onClick={()=>signOut(auth)} style={{fontSize:12,color:"#9e9890",background:"none",border:"1px solid #e2ddd6",borderRadius:6,padding:"4px 10px",cursor:"pointer"}}>Déconnexion</button>
+    </div>
+
     <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
 
       {/* ── TOP: Notifications + Feedback ── */}
@@ -1564,7 +1573,7 @@ function TeamUpdatesSection({allUpdates, teamMembers=[], teamMember, onSelectWee
   );
 }
 
-function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,myUpdates,allUpdates=[],teamMembers=[],okrData}){
+function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,allUpdates=[],teamMembers=[],okrData}){
   const _rawWeekKey=getUpdateWeekKey();
   // On Tuesday weekKey is null - use last week for display purposes (read-only)
   const weekKey=_rawWeekKey||(()=>{const d=new Date();d.setDate(d.getDate()-8);return getWeekKey(d);})();
@@ -1598,7 +1607,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,onGoOKR,onGoU
   const now=new Date();
 
   return <div style={{minHeight:"100vh",background:"#f5f3ef",fontFamily:"system-ui,sans-serif"}}>
-    <AppNav current='update' onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3}/>
+    <TopBar onBack={onBack} title="Mes Updates" left={<span style={{fontSize:16,fontWeight:700,color:"#2d6a4f",cursor:"pointer"}} onClick={onBack}>🌼 Calendula</span>}/>
     {isTuesdayReadOnly&&<div style={{background:"#fef3c7",borderBottom:"1px solid #f59e0b",padding:"8px 20px",fontSize:12,color:"#92400e",textAlign:"center"}}>
       📅 Mardi : pas de saisie d'update aujourd'hui — consultation uniquement.
     </div>}
@@ -3910,31 +3919,7 @@ function ImportObjModal({allSeasons,currentSeasonKey,people,onClose,onImport}){
 }
 
 // ─── OKR PAGE ─────────────────────────────────────────────────────────────────
-function AppNav({current, onGoOKR, onGoUpdate, onGoReporting, onGoBsv3, onBack, rightContent}){
-  const tabs=[
-    {k:'okr',l:'🎯 OKR',fn:onGoOKR},
-    {k:'update',l:'✍️ Mes Updates',fn:onGoUpdate},
-    {k:'reporting',l:'📈 Reporting',fn:onGoReporting},
-    {k:'bsv3',l:'📊 Base Sales v3',fn:onGoBsv3},
-  ];
-  return <div style={{background:'#fff',borderBottom:'1px solid #e2ddd6',padding:'0 20px',display:'flex',alignItems:'center',gap:0,height:44,flexShrink:0}}>
-    <button onClick={onBack} style={{background:'none',border:'none',cursor:'pointer',fontSize:15,fontWeight:700,color:'#2d6a4f',padding:'0 16px 0 0',whiteSpace:'nowrap',flexShrink:0}}>🌼 Calendula</button>
-    <div style={{display:'flex',gap:2,flex:1}}>
-      {tabs.map(t=>{
-        const active=current===t.k;
-        return <button key={t.k} onClick={active?undefined:t.fn}
-          style={{padding:'0 14px',height:44,border:'none',borderBottom:active?'2px solid #2d6a4f':'2px solid transparent',
-            background:'none',cursor:active?'default':'pointer',fontSize:12,fontWeight:active?600:400,
-            color:active?'#2d6a4f':'#6b6560',transition:'color .15s',whiteSpace:'nowrap'}}>
-          {t.l}
-        </button>;
-      })}
-    </div>
-    {rightContent&&<div style={{flexShrink:0}}>{rightContent}</div>}
-  </div>;
-}
-
-function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,teamMember,isAdmin,teamMembers=[]}){
+function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
   const [seasonKey,setSeasonKey]=useState("printemps_2026");
   const [dragOverSobj,setDragOverSobj]=useState(null);
   const [dragOverObj,setDragOverObj]=useState(null); // {id, before}
@@ -4146,19 +4131,51 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,t
       return kr;
     });
   }
+  function handleKRDel(id){
+    if(!window.confirm("Supprimer ce KR ?"))return;
+    const kr=keyresults.find(k=>k.id===id);
+    const filtered=keyresults.filter(k=>k.id!==id);
+    const renumbered=kr?renumberKRs(filtered,kr.parent):filtered;
+    updateSeason({keyresults:renumbered});setModal(null);
+  }
+  function handleImport({obj,sobjs,krs,mode}){
+    const curObjs=allSeasonsRef.current[seasonKeyRef.current]?.objectives||[];
+    const curSobjs=allSeasonsRef.current[seasonKeyRef.current]?.subobjectives||[];
+    const curKRs=allSeasonsRef.current[seasonKeyRef.current]?.keyresults||[];
+    const newObjId=String(curObjs.length+1);
+    const newObj={...obj,id:newObjId,locked:false,taux:0,taux_land:0};
+    let newSobjs=[],newKRs=[];
+    if(mode==="sobjs"||mode==="all")newSobjs=sobjs.map(s=>({...s,id:`${newObjId}.${s.id.split('.')[1]}`,parent:newObjId,taux:0,taux_land:0}));
+    if(mode==="all")newKRs=krs.map(k=>{const parts=k.id.split('.');return{...k,id:`${newObjId}.${parts[1]}.${parts[2]}`,parent:`${newObjId}.${parts[1]}`,val_actuel:0,val_revise:k.val_cible,taux:0,taux_land:0};});
+    updateSeason({objectives:[...curObjs,newObj],subobjectives:[...curSobjs,...newSobjs],keyresults:[...curKRs,...newKRs]});setModal(null);
+  }
+
+  const allLocked=objectives.length>0&&objectives.every(o=>!!o.locked);
+  const visObjs=filterP?objectives.filter(o=>subobjectives.filter(s=>s.parent===o.id).some(s=>keyresults.filter(k=>k.parent===s.id).some(k=>k.owner===filterP))):objectives;
+  const totalKR=keyresults.length,doneKR=keyresults.filter(k=>calcTaux(k.val_depart,k.val_actuel,k.val_cible,k.unite)>=100).length,avgProg=calcWeightedAvg(objectives,subobjectives,keyresults);
+
+  if(!loaded)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:200,color:"#9e9890",fontSize:13}}>Chargement…</div>;
 
   return <div style={{fontFamily:"system-ui,sans-serif",background:"#f5f3ef",minHeight:"100vh",color:"#1a1814"}}>
-    <AppNav current='okr' onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3}/>
-    <div style={{background:'#fff',borderBottom:'1px solid #e2ddd6',padding:'6px 20px',display:'flex',alignItems:'center',gap:12}}>
-      <select value={seasonKey} onChange={e=>switchSeason(e.target.value)} style={{fontFamily:'inherit',fontSize:12,border:'1px solid #e2ddd6',borderRadius:6,padding:'3px 8px'}}>
-        {SEASONS.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
-      </select>
-      {objectives.length>0&&objectives.every(o=>o.locked)&&<span style={{fontSize:16}}>🔒</span>}
-      <button onClick={()=>setShowJournal(true)} style={{border:'1px solid #e2ddd6',borderRadius:6,background:'none',cursor:'pointer',fontSize:13,padding:'2px 8px',color:'#6b6560'}}>🕐</button>
-      <select value={filterP} onChange={e=>setFilterP(e.target.value)} style={{fontFamily:'inherit',fontSize:12,border:'1px solid #e2ddd6',borderRadius:6,padding:'3px 8px'}}>
-        <option value="">Toute l'équipe</option>{people.map(p=><option key={p}>{p}</option>)}
-      </select>
+    <div style={{background:"rgba(245,243,239,.95)",borderBottom:"1px solid #e2ddd6",padding:"10px 20px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",position:"relative"}}>
+      <span style={{fontSize:16,fontWeight:700,color:"#2d6a4f",letterSpacing:"-.2px",cursor:"pointer"}} onClick={onBack}>🌼 Calendula</span>
+      <div style={{position:"absolute",left:0,right:0,textAlign:"center",pointerEvents:"none"}}>
+        <span style={{fontSize:16,fontWeight:600,color:"#1a1814",letterSpacing:"-.2px"}}>OKR Oé</span>
+      </div>
+      <div style={{flex:1}}/>
+      <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+        <select value={seasonKey} onChange={e=>switchSeason(e.target.value)} style={{fontFamily:"inherit",fontSize:13,fontWeight:500,border:"1px solid #e2ddd6",background:"#fff",borderRadius:20,padding:"4px 14px",outline:"none",cursor:"pointer",color:"#1b4332"}}>
+          {SEASONS.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
+        </select>
+        {allLocked&&<span style={{fontSize:16}}>🔒</span>}
+        <button onClick={()=>setShowJournal(true)} title="Historique des modifications" style={{width:28,height:28,border:"1px solid #e2ddd6",borderRadius:6,background:"none",cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",color:"#6b6560"}}
+          onMouseEnter={e=>e.currentTarget.style.background="#f5f3ef"} onMouseLeave={e=>e.currentTarget.style.background="none"}>🕐</button>
+        <select value={filterP} onChange={e=>setFilterP(e.target.value)} style={{fontFamily:"inherit",fontSize:12,border:"1px solid #e2ddd6",background:"#fff",borderRadius:6,padding:"5px 10px",outline:"none",cursor:"pointer"}}>
+          <option value="">Toute l'équipe</option>{people.map(p=><option key={p}>{p}</option>)}
+        </select>
+      </div>
     </div>
+
     <div style={{maxWidth:1100,margin:"0 auto",padding:"0 16px 60px"}}>
       <div style={{padding:"16px 0 0"}}>
         <SeasonBanner seasonKey={seasonKey} avgProg={avgProg} totalKR={totalKR} doneKR={doneKR}/>
@@ -4250,7 +4267,7 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,t
             {isDragTarget&&!dragOverObj?.before&&<div style={{height:3,background:'#2d6a4f',borderRadius:2,margin:'0 4px'}}/>}
           </React.Fragment>;
         });})()}
-        {!(objectives.every&&objectives.every(o=>o.locked))&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        {!allLocked&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
           <button onClick={()=>setModal({type:"obj",item:null,isNew:true})} style={{fontSize:13,color:"#2d6a4f",background:"#d8f3dc",border:"1px dashed #2d6a4f",borderRadius:10,padding:"12px",textAlign:"center",cursor:"pointer"}}>+ Ajouter un objectif</button>
           <button onClick={()=>setModal({type:"import"})} style={{fontSize:13,color:"#1d4ed8",background:"#eff6ff",border:"1px dashed #1d4ed8",borderRadius:10,padding:"12px",textAlign:"center",cursor:"pointer"}}>↓ Importer d'une saison</button>
         </div>}
@@ -4266,9 +4283,11 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,t
     {saved&&<div style={{position:"fixed",bottom:20,right:20,background:"#2d6a4f",color:"#fff",fontSize:12,fontWeight:500,padding:"8px 16px",borderRadius:20,boxShadow:"0 2px 8px rgba(0,0,0,.2)",zIndex:200,pointerEvents:"none"}}>✓ Sauvegardé</div>}
   </div>;
 }
-function ReportingPagePublic({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3, catTypes, codeMap, customSubcatLabels={}, savedCanalMargin}) {
+
+// ─── APP ROOT ─────────────────────────────────────────────────────────────────
+function ReportingPagePublic({onBack, catTypes, codeMap, customSubcatLabels={}, savedCanalMargin}) {
   return <div style={{minHeight:"100vh",background:"#f5f3ef",fontFamily:"system-ui,sans-serif"}}>
-    <AppNav current='reporting' onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3}/>
+    <TopBar onBack={onBack} title="Reporting financier"/>
     <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
       <ReportingTab onSaveCatTypes={null} savedCatTypes={catTypes} savedCodeMap={codeMap}
         onSaveCodeMap={null} savedCustomLabels={customSubcatLabels} onSaveCustomLabels={null} savedCanalMargin={savedCanalMargin} readOnly={true}/>
@@ -4875,7 +4894,7 @@ function Bsv3CommandesTable({rows, importedAt, activeLetters}){
   </div>;
 }
 
-function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}){
+function Bsv3Page({onBack,currentUser}){
   const {rows,importedAt,loading}=useBsv3Data();
   const [mainTab,setMainTab]=React.useState('ventes');
   const [levels,setLevels]=React.useState(['mois','canal','client','produit']);
@@ -4910,8 +4929,14 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
   });
 
   return <div style={{minHeight:'100vh',background:'#f8f7f5'}}>
-    <AppNav current='bsv3' onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3}/>
-    {importedAt&&<div style={{fontSize:11,color:'#9e9890',padding:'4px 20px',background:'#fff',borderBottom:'1px solid #f0ede8'}}>mis à jour le {new Date(importedAt).toLocaleDateString('fr-FR')} à {new Date(importedAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</div>}
+    {/* TopBar */}
+    <div style={{background:'#fff',borderBottom:'1px solid #e2ddd6',padding:'12px 20px',display:'flex',alignItems:'center',gap:12}}>
+      <button onClick={onBack} style={{background:'none',border:'none',cursor:'pointer',fontSize:18,color:'#9e9890',padding:0,lineHeight:1}}>←</button>
+      <span style={{fontSize:16,fontWeight:700,color:'#1a1814'}}>📊 Base Sales v3</span>
+      {importedAt&&<span style={{fontSize:11,color:'#9e9890',marginLeft:4}}>
+        — mis à jour le {new Date(importedAt).toLocaleDateString('fr-FR')} à {new Date(importedAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}
+      </span>}
+    </div>
 
     <div style={{maxWidth:1400,margin:'0 auto',padding:'20px 16px'}}>
       {/* Main tabs */}
@@ -5344,10 +5369,10 @@ export default function App(){
     </div>;
   }
 
-  if(page==="okr")return <OKRPage onGoOKR={()=>setPage('okr')} onGoUpdate={()=>setPage('update')} onGoReporting={()=>setPage('reporting')} onGoBsv3={()=>setPage('bsv3')} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers}/>;
-  if(page==="update")return <UpdatePage onGoOKR={()=>setPage('okr')} onGoUpdate={()=>setPage('update')} onGoReporting={()=>setPage('reporting')} onGoBsv3={()=>setPage('bsv3')} onBack={()=>setPage('dashboard')} teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} okrData={okrData} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers}/>;
-  if(page==="reporting")return <ReportingPagePublic onGoOKR={()=>setPage('okr')} onGoUpdate={()=>setPage('update')} onGoReporting={()=>setPage('reporting')} onGoBsv3={()=>setPage('bsv3')} onBack={()=>setPage('dashboard')} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels} savedCanalMargin={savedCanalMargin}/>;
-  if(page==="bsv3")return <Bsv3Page onGoOKR={()=>setPage('okr')} onGoUpdate={()=>setPage('update')} onGoReporting={()=>setPage('reporting')} onGoBsv3={()=>setPage('bsv3')} currentUser={authUser}/>;
+  if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers}/>;
+  if(page==="update")return <UpdatePage teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} okrData={okrData} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers}/>;
+  if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels} savedCanalMargin={savedCanalMargin}/>;
+  if(page==="bsv3")return <Bsv3Page onBack={()=>setPage('dashboard')} currentUser={authUser}/>;
   if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels} savedCanalMargin={savedCanalMargin} onSaveCanalMargin={handleSaveCanalMargin} onSendMessage={handleSendMessage} onSaveBsv3={handleSaveBsv3} onUploadReporting={handleUploadReporting}/>;
 
   return <Dashboard
