@@ -465,7 +465,7 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
       {/* Month labels overlaid at bottom of curve */}
       {monthLabels.map((m,i)=>{
         const short=m.label.slice(0,3).toUpperCase().replace('É','É').replace('Û','Û');
-        return <text key={i} x={m.x} y={CURVE_TOP+CURVE_H-2} fontSize="9" fill="#b5b0a8" textAnchor="middle" fontWeight="500" dominantBaseline="auto" style={{pointerEvents:"none"}}>{short}</text>;
+        return <text key={i} x={m.x} y={Math.round(CURVE_H*0.88)} fontSize="9" fill="#b5b0a8" textAnchor="middle" fontWeight="500" dominantBaseline="auto" style={{pointerEvents:"none"}}>{short}</text>;
       })}
       {/* Dots row */}
       {showDots&&weeks.map((w,i)=>{
@@ -1234,6 +1234,14 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             if(teamMember?.email==='claire@oeforgood.com') return '🤰';
             if(member?.forceMat) return '🤰';
             if(member?.forceAbsent){const mo=w.mon.getMonth()+1;return((mo>=12&&w.mon.getDate()>=15)||mo<=4)?'🎿':'🌴';}
+            // Check ponctual absences from absencesList
+            const monStr=toDateStr(w.mon);
+            const abs=(window._absences||[]).find(a=>a.email===teamMember?.email&&monStr>=a.dateFrom&&monStr<=a.dateTo);
+            if(abs){
+              if(abs.type==='mat') return '🤰';
+              if(abs.type==='school') return '🎓';
+              return '🌴';
+            }
             return '🫥';
           };
           return <div style={{display:"flex",gap:2,flexWrap:"nowrap",alignItems:"flex-end"}}>
@@ -1289,7 +1297,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             </div>
             <div style={{width:1,background:"#e2ddd6",flexShrink:0}}/>
             {/* Middle: smileys last week + this week */}
-            <div style={{flex:1,display:"flex",flexDirection:"column",gap:6,justifyContent:"center",minWidth:0}}>
+            <div style={{flex:1,display:"flex",flexDirection:"column",gap:4,justifyContent:"center",minWidth:0}}>
               <div>
                 <div style={{fontSize:9,color:"#9e9890",marginBottom:2,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>
                   Sem. passée {(()=>{const{mon,fri}=getWeekBounds(lastWkKey);const sameM=mon.getMonth()===fri.getMonth();return sameM?`${mon.getDate()}–${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`:`${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"short"})}–${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`;})()}
@@ -1297,7 +1305,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
                 <SmileysOrdered done={teamLastWkFiltered} absent={absentLastWk} size={22} refDate={_7daysAgo}/>
               </div>
               <div>
-                <div style={{fontSize:9,color:"#9e9890",marginBottom:4,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>
+                <div style={{fontSize:9,color:"#9e9890",marginBottom:2,textTransform:"uppercase",letterSpacing:".05em",fontWeight:500}}>
                   Sem. en cours {(()=>{const{mon,fri}=getWeekBounds(curWkKey);const sameM=mon.getMonth()===fri.getMonth();return sameM?`${mon.getDate()}–${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`:`${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"short"})}–${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`;})()}
                 </div>
                 <SmileysOrdered done={teamCurWkFiltered} absent={absentCurWk} size={22} hideMood={!curWkVisible} refDate={_thisMon}/>
@@ -1305,7 +1313,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             </div>
             {/* Right: mood curve - tall */}
             <div style={{flex:"0 0 340px",alignSelf:"stretch",overflow:"hidden"}}>
-              <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} showDots={false} nWeeks={26} curveHeight={192}/>
+              <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} showDots={false} nWeeks={26} curveHeight={160}/>
             </div>
             {/* Old ratio removed - now in left panel */}
 
