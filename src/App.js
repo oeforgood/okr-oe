@@ -1320,42 +1320,40 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
           </div>
           {/* Personal Updates banner - 320px */}
           <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"10px 16px",
-            display:"flex",alignItems:"stretch",gap:12,flexDirection:"column",justifyContent:"space-between",
+            display:"flex",flexDirection:"column",gap:0,
             boxShadow:"0 1px 3px rgba(0,0,0,.04)",height:180,boxSizing:"border-box",overflow:"hidden"}}>
-            {/* Perso: vertical layout for 320px height */}
-            {/* Top: mood + name */}
-            <div style={{display:"flex",alignItems:"center",gap:12,paddingBottom:12,borderBottom:"1px solid #86efac"}}>
-              <div style={{fontSize:60,lineHeight:1}}>{myMoodDisplay||"🫥"}</div>
-              <div>
+            {/* Top: mood + name + completion */}
+            <div style={{display:"flex",alignItems:"center",gap:10,paddingBottom:6}}>
+              <div style={{fontSize:52,lineHeight:1,flexShrink:0}}>{myMoodDisplay||"🫥"}</div>
+              <div style={{flex:1}}>
                 <div style={{fontSize:13,fontWeight:600,color:"#1a1814"}}>{myPrenom}</div>
                 <div style={{fontSize:9,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em"}}>Semaine passée</div>
               </div>
-              <div style={{marginLeft:"auto",textAlign:"right"}}>
-                <div style={{fontSize:24,fontWeight:700,color:myCompletionRate>=80?"#2d6a4f":myCompletionRate>=50?"#b5680f":"#c0392b"}}>{myCompletionRate}%</div>
+              <div style={{textAlign:"right",flexShrink:0}}>
+                <div style={{fontSize:22,fontWeight:700,color:myCompletionRate>=80?"#2d6a4f":myCompletionRate>=50?"#b5680f":"#c0392b"}}>{myCompletionRate}%</div>
                 <div style={{fontSize:9,color:"#6b6560"}}>complétion 13 sem.</div>
               </div>
             </div>
-            {/* Middle: 13 smileys */}
-            <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",gap:6}}>
-              <div style={{display:"flex",flexDirection:"column",gap:0}}>
-                
-                <div style={{fontSize:9,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",fontWeight:500,lineHeight:1,paddingBottom:4}}>Mes 13 dernières semaines</div>
-                <My13Smileys/>
-              </div>
+            {/* Separator */}
+            <div style={{height:1,background:"#86efac",margin:"4px 0"}}/>
+            {/* 13 smileys */}
+            <div style={{paddingTop:4,paddingBottom:4,flex:1}}>
+              <div style={{fontSize:9,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",fontWeight:500,marginBottom:3}}>Mes 13 dernières semaines</div>
+              <My13Smileys/>
             </div>
+            {/* Separator */}
+            <div style={{height:1,background:"#86efac",margin:"4px 0"}}/>
             {/* Bottom: button */}
-            <div style={{paddingTop:8,borderTop:"1px solid #86efac"}}>
+            <div>
               <button onClick={onGoUpdate}
-                style={{width:"100%",padding:"8px 14px",background:"#2d6a4f",color:"#fff",border:"none",
+                style={{width:"100%",padding:"6px 14px",background:"#2d6a4f",color:"#fff",border:"none",
                   borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:500,
                   transition:"opacity .15s",textAlign:"center"}}
                 onMouseEnter={e=>e.currentTarget.style.opacity=".85"}
                 onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
                 ✍️ Aller aux updates et compléter
               </button>
-              {todayUpdate&&<div style={{fontSize:10,color:"#166534",textAlign:"center",marginTop:4}}>✓ Update complété cette semaine</div>}
-            </div>
-          </div>
+              {todayUpdate&&<div style={{fontSize:10,color:"#166534",textAlign:"center",marginTop:2}}>✓ Update          </div>
           </div>{/* end updates 2/3+1/3 grid */}
         </>;
       })()}
