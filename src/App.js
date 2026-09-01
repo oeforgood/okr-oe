@@ -1320,11 +1320,11 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
           </div>
           {/* Personal Updates banner - 320px */}
           <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"10px 16px",
-            display:"flex",alignItems:"stretch",gap:12,flexDirection:"column",justifyContent:"space-between",
+            display:"flex",alignItems:"stretch",gap:4,flexDirection:"column",justifyContent:"space-between",
             boxShadow:"0 1px 3px rgba(0,0,0,.04)",height:180,boxSizing:"border-box",overflow:"hidden"}}>
             {/* Perso: vertical layout for 320px height */}
             {/* Top: mood + name */}
-            <div style={{display:"flex",alignItems:"center",gap:12,paddingBottom:8,borderBottom:"1px solid #86efac"}}>
+            <div style={{display:"flex",alignItems:"center",gap:12,paddingBottom:4}}>
               <div style={{fontSize:60,lineHeight:1}}>{myMoodDisplay||"🫥"}</div>
               <div>
                 <div style={{fontSize:13,fontWeight:600,color:"#1a1814"}}>{myPrenom}</div>
@@ -1340,7 +1340,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
               <My13Smileys/>
             </div>
             {/* Bottom: button */}
-            <div style={{paddingTop:8,borderTop:"1px solid #86efac"}}>
+            <div style={{paddingTop:4}}>
               <button onClick={onGoUpdate}
                 style={{width:"100%",padding:"8px 14px",background:"#2d6a4f",color:"#fff",border:"none",
                   borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:500,
