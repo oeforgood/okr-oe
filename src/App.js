@@ -1353,8 +1353,9 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
                 onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
                 ✍️ Aller aux updates et compléter
               </button>
-              {todayUpdate&&<div style={{fontSize:10,color:"#166534",textAlign:"center",marginTop:2}}>✓ Update          </div>
-          </div>{/* end updates 2/3+1/3 grid */}
+              {todayUpdate&&<div style={{fontSize:10,color:"#166534",textAlign:"center",marginTop:2}}>✓ Update enregistré</div>}
+            </div>
+          </div>
         </>;
       })()}
 
