@@ -2934,11 +2934,13 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
   // Load BSv3 data for canal margin auto-fill
   const [bsv3Rows,setBsv3Rows]=useState([]);
   const [bsv3AutoMargin,setBsv3AutoMargin]=useState({}); // {canal_month: rate} applied
+  const [bsv3Year,setBsv3Year]=useState(new Date().getFullYear());
   useEffect(()=>{
     getDocs(collection(db,'bsv3_data')).then(snap=>{
       if(!snap.empty){
-        let all=[];
-        snap.docs.sort((a,b)=>a.id.localeCompare(b.id)).forEach(d=>all=all.concat(d.data().rows||[]));
+        let all=[];let at=null;
+        snap.docs.sort((a,b)=>a.id.localeCompare(b.id)).forEach(d=>{const data=d.data();all=all.concat(data.rows||[]);if(!at)at=data.importedAt;});
+        if(at){const d=new Date(at);setBsv3Year(d.getMonth()===0?d.getFullYear()-1:d.getFullYear());}
         setBsv3Rows(all);
       }
     }).catch(()=>{});
@@ -2948,7 +2950,7 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
     // Map reporting canal names to BSv3 canal names
     const canalMap={'CHR':'CHR','Retail':'Retail','GMS':'Retail','Export':'Export','RHF':'Grands Comptes','Grands Comptes':'Grands Comptes','B2C':'B2C','Autres':'Autres B2B'};
     const bsv3Canal=canalMap[canal]||canal;
-    const rows=bsv3Rows.filter(r=>r['Canal']===bsv3Canal&&parseInt(r['Mois Emission'])===month&&!['CASIER-OE','COIFFE-OE','CONTENANT BOUTEILLE'].includes(r['Contenant+Appelation/Robe']));
+    const rows=bsv3Rows.filter(r=>r['Canal']===bsv3Canal&&parseInt(r['Mois Emission'])===month&&r['Année Emission']===String(bsv3Year)&&!['CASIER-OE','COIFFE-OE','CONTENANT BOUTEILLE'].includes(r['Contenant+Appelation/Robe']));
     if(!rows.length)return null;
     const ca=rows.reduce((s,r)=>s+parseBsv3Amt(r['Montant HT']),0);
     const marge=rows.reduce((s,r)=>s+parseBsv3Amt(r['Marge brute']),0);
