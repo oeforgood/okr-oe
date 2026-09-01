@@ -996,17 +996,6 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
   const unread=managerNotifs.filter(n=>!n.read);
 
   return <div style={{minHeight:"100vh",background:"#f5f3ef",fontFamily:"system-ui,sans-serif"}}>
-    <AppNav current='okr' onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3} rightContent={<div style={{display:"flex",alignItems:"center",gap:8}}>
-          <select value={seasonKey} onChange={e=>switchSeason(e.target.value)} style={{fontFamily:"inherit",fontSize:12,border:"1px solid #e2ddd6",borderRadius:6,padding:"3px 8px"}}>
-            {SEASONS.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
-          </select>
-          {allLocked&&<span style={{fontSize:16}}>🔒</span>}
-          <select value={filterP} onChange={e=>setFilterP(e.target.value)} style={{fontFamily:"inherit",fontSize:12,border:"1px solid #e2ddd6",borderRadius:6,padding:"3px 8px"}}>
-            <option value="">Toute l'équipe</option>{people.map(p=><option key={p}>{p}</option>)}
-          </select>
-        </div>}/>
-
-
     <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
 
       {/* ── TOP: Notifications + Feedback ── */}
@@ -3945,7 +3934,7 @@ function AppNav({current, onGoOKR, onGoUpdate, onGoReporting, onGoBsv3, onBack, 
   </div>;
 }
 
-function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
+function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,teamMember,isAdmin,teamMembers=[]}){
   const [seasonKey,setSeasonKey]=useState("printemps_2026");
   const [dragOverSobj,setDragOverSobj]=useState(null);
   const [dragOverObj,setDragOverObj]=useState(null); // {id, before}
@@ -4154,35 +4143,16 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
         idx++;
         return {...kr, id: `${sobjId}.${idx}`};
       }
-      return kr;
-    });
-  }
-  function handleKRDel(id){
-    if(!window.confirm("Supprimer ce KR ?"))return;
-    const kr=keyresults.find(k=>k.id===id);
-    const filtered=keyresults.filter(k=>k.id!==id);
-    const renumbered=kr?renumberKRs(filtered,kr.parent):filtered;
-    updateSeason({keyresults:renumbered});setModal(null);
-  }
-  function handleImport({obj,sobjs,krs,mode}){
-    const curObjs=allSeasonsRef.current[seasonKeyRef.current]?.objectives||[];
-    const curSobjs=allSeasonsRef.current[seasonKeyRef.current]?.subobjectives||[];
-    const curKRs=allSeasonsRef.current[seasonKeyRef.current]?.keyresults||[];
-    const newObjId=String(curObjs.length+1);
-    const newObj={...obj,id:newObjId,locked:false,taux:0,taux_land:0};
-    let newSobjs=[],newKRs=[];
-    if(mode==="sobjs"||mode==="all")newSobjs=sobjs.map(s=>({...s,id:`${newObjId}.${s.id.split('.')[1]}`,parent:newObjId,taux:0,taux_land:0}));
-    if(mode==="all")newKRs=krs.map(k=>{const parts=k.id.split('.');return{...k,id:`${newObjId}.${parts[1]}.${parts[2]}`,parent:`${newObjId}.${parts[1]}`,val_actuel:0,val_revise:k.val_cible,taux:0,taux_land:0};});
-    updateSeason({objectives:[...curObjs,newObj],subobjectives:[...curSobjs,...newSobjs],keyresults:[...curKRs,...newKRs]});setModal(null);
-  }
-
-  const allLocked=objectives.length>0&&objectives.every(o=>!!o.locked);
-  const visObjs=filterP?objectives.filter(o=>subobjectives.filter(s=>s.parent===o.id).some(s=>keyresults.filter(k=>k.parent===s.id).some(k=>k.owner===filterP))):objectives;
-  const totalKR=keyresults.length,doneKR=keyresults.filter(k=>calcTaux(k.val_depart,k.val_actuel,k.val_cible,k.unite)>=100).length,avgProg=calcWeightedAvg(objectives,subobjectives,keyresults);
-
-  if(!loaded)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:200,color:"#9e9890",fontSize:13}}>Chargement…</div>;
-
-  return <div style={{fontFamily:"system-ui,sans-serif",background:"#f5f3ef",minHeight:"100vh",color:"#1a1814"}}>
+      return <div style={{fontFamily:"system-ui,sans-serif",background:"#f5f3ef",minHeight:"100vh",color:"#1a1814"}}>
+    <AppNav current='okr' onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3} rightContent={<div style={{display:"flex",alignItems:"center",gap:8}}>
+          <select value={seasonKey} onChange={e=>switchSeason(e.target.value)} style={{fontFamily:"inherit",fontSize:12,border:"1px solid #e2ddd6",borderRadius:6,padding:"3px 8px"}}>
+            {SEASONS.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
+          </select>
+          {allLocked&&<span style={{fontSize:16}}>🔒</span>}
+          <select value={filterP} onChange={e=>setFilterP(e.target.value)} style={{fontFamily:"inherit",fontSize:12,border:"1px solid #e2ddd6",borderRadius:6,padding:"3px 8px"}}>
+            <option value="">Toute l'équipe</option>{people.map(p=><option key={p}>{p}</option>)}
+          </select>
+        </div>}/>
     <div style={{background:"rgba(245,243,239,.95)",borderBottom:"1px solid #e2ddd6",padding:"10px 20px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",position:"relative"}}>
       <span style={{fontSize:16,fontWeight:700,color:"#2d6a4f",letterSpacing:"-.2px",cursor:"pointer"}} onClick={onBack}>🌼 Calendula</span>
       <div style={{position:"absolute",left:0,right:0,textAlign:"center",pointerEvents:"none"}}>
