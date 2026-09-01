@@ -1029,8 +1029,9 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             {/* Left: % global + % perso */}
             <div style={{flexShrink:0,textAlign:"center",width:80}}>
               <div style={{fontSize:42,fontWeight:700,fontFamily:"monospace",color:col,lineHeight:1}}>{Math.round(avgProg)}%</div>
-              {myKRsOwned.length>0&&<div style={{fontSize:32,fontWeight:700,fontFamily:"monospace",color:colPerso,lineHeight:1,marginTop:2}}>{Math.round(myPersonalProg)}%</div>}
-              <div style={{fontSize:9,color:"#9e9890",marginTop:2,textTransform:"uppercase",letterSpacing:".05em"}}>{myPrenom}</div>
+              <div style={{fontSize:9,color:"#9e9890",marginTop:1,textTransform:"uppercase",letterSpacing:".05em"}}>Équipe</div>
+              {myKRsOwned.length>0&&<><div style={{fontSize:32,fontWeight:700,fontFamily:"monospace",color:colPerso,lineHeight:1,marginTop:4}}>{Math.round(myPersonalProg)}%</div>
+              <div style={{fontSize:9,color:"#9e9890",marginTop:1,textTransform:"uppercase",letterSpacing:".05em"}}>{myPrenom}</div></>}
             </div>
             <div style={{width:1,background:"#e2ddd6",alignSelf:"stretch",flexShrink:0}}/>
             {/* Center: season + bars */}
