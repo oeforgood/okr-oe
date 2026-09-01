@@ -4169,24 +4169,11 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,t
 
   if(!loaded)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:200,color:"#9e9890",fontSize:13}}>Chargement…</div>;
 
-  return <div style={{fontFamily:"system-ui,sans-serif",background:"#f5f3ef",minHeight:"100vh",color:"#1a1814"}}>
+  return <>
     <AppNav current="okr" onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3}/>
     <div style={{borderBottom:"1px solid #e2ddd6",padding:"4px 20px",display:"flex",justifyContent:"flex-end",alignItems:"center",gap:8,background:"rgba(245,243,239,.95)"}}>
       {allLocked&&<span style={{fontSize:16}}>🔒</span>}
       <button onClick={()=>setShowJournal(true)} style={{width:28,height:28,border:"1px solid #e2ddd6",borderRadius:6,background:"none",cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",color:"#6b6560"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f3ef"} onMouseLeave={e=>e.currentTarget.style.background="none"}>🕐</button>
-    </div>
-      <div style={{flex:1}}/>
-      <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
-        <select value={seasonKey} onChange={e=>switchSeason(e.target.value)} style={{fontFamily:"inherit",fontSize:13,fontWeight:500,border:"1px solid #e2ddd6",background:"#fff",borderRadius:20,padding:"4px 14px",outline:"none",cursor:"pointer",color:"#1b4332"}}>
-          {SEASONS.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
-        </select>
-        {allLocked&&<span style={{fontSize:16}}>🔒</span>}
-        <button onClick={()=>setShowJournal(true)} title="Historique des modifications" style={{width:28,height:28,border:"1px solid #e2ddd6",borderRadius:6,background:"none",cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",color:"#6b6560"}}
-          onMouseEnter={e=>e.currentTarget.style.background="#f5f3ef"} onMouseLeave={e=>e.currentTarget.style.background="none"}>🕐</button>
-        <select value={filterP} onChange={e=>setFilterP(e.target.value)} style={{fontFamily:"inherit",fontSize:12,border:"1px solid #e2ddd6",background:"#fff",borderRadius:6,padding:"5px 10px",outline:"none",cursor:"pointer"}}>
-          <option value="">Toute l'équipe</option>{people.map(p=><option key={p}>{p}</option>)}
-        </select>
-      </div>
     </div>
 
     <div style={{maxWidth:1100,margin:"0 auto",padding:"0 16px 60px"}}>
@@ -5380,7 +5367,7 @@ export default function App(){
         <div style={{fontSize:13,color:"#6b6560",marginBottom:16}}>Votre compte ({authUser.email}) n'est pas encore autorisé. Contactez un administrateur Oé.</div>
         <button onClick={()=>signOut(auth)} style={{fontSize:13,color:"#c0392b",background:"#fdecea",border:"1px solid #fca5a5",borderRadius:6,padding:"7px 14px",cursor:"pointer"}}>Se déconnecter</button>
       </div>
-    </div>;
+  </>;
   }
 
   if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers}/>;
