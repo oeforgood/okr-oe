@@ -419,7 +419,7 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
   const W=340,DOT_Y=4,CURVE_TOP=0,CURVE_H=Math.max(curveHeight-12,50),AXIS_H=0,pad=4;
   const dotSpacing=(W-2*pad)/(weeks.length-1);
   const dotX=i=>pad+i*dotSpacing;
-  const minV=1,maxV=5;
+  const minV=2,maxV=5.2;
   const curveY=v=>CURVE_TOP+CURVE_H-((v-minV)/(maxV-minV))*CURVE_H;
   const validPts=weeks.map((w,i)=>({...w,i})).filter(w=>w.avg!==null);
   const pathD=validPts.map((w,j)=>`${j===0?"M":"L"}${dotX(w.i).toFixed(1)},${curveY(w.avg).toFixed(1)}`).join(" ");
@@ -465,7 +465,7 @@ function UpdateStreakWithCurve({myUpdates, allUpdates=[], clickable=false, onCli
       {/* Month labels overlaid at bottom of curve */}
       {monthLabels.map((m,i)=>{
         const short=m.label.slice(0,3).toUpperCase().replace('É','É').replace('Û','Û');
-        return <text key={i} x={m.x} y={Math.round(CURVE_H*0.88)} fontSize="9" fill="#b5b0a8" textAnchor="middle" fontWeight="500" dominantBaseline="auto" style={{pointerEvents:"none"}}>{short}</text>;
+        return <text key={i} x={m.x} y={CURVE_TOP+CURVE_H-4} fontSize="9" fill="#b5b0a8" textAnchor="middle" fontWeight="500" dominantBaseline="auto" style={{pointerEvents:"none"}}>{short}</text>;
       })}
       {/* Dots row */}
       {showDots&&weeks.map((w,i)=>{
