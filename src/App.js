@@ -996,14 +996,16 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
   const unread=managerNotifs.filter(n=>!n.read);
 
   return <div style={{minHeight:"100vh",background:"#f5f3ef",fontFamily:"system-ui,sans-serif"}}>
-    <div style={{background:"rgba(245,243,239,.95)",borderBottom:"1px solid #e2ddd6",padding:"10px 20px",display:"flex",alignItems:"center",gap:12}}>
-      <span style={{fontSize:18,fontWeight:700,color:"#2d6a4f",letterSpacing:"-.3px"}}>🌼 Calendula</span>
-      <div style={{flex:1}}/>
-      <span style={{fontSize:13,color:"#6b6560"}}>{teamMember?.prenom}</span>
-      {isAdmin&&<button onClick={onOpenSettings} title="Paramètres" style={{width:32,height:32,borderRadius:8,border:"1px solid #e2ddd6",background:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#6b6560",fontSize:16}}
-        onMouseEnter={e=>e.currentTarget.style.background="#f5f3ef"} onMouseLeave={e=>e.currentTarget.style.background="none"}>⚙️</button>}
-      <button onClick={()=>signOut(auth)} style={{fontSize:12,color:"#9e9890",background:"none",border:"1px solid #e2ddd6",borderRadius:6,padding:"4px 10px",cursor:"pointer"}}>Déconnexion</button>
-    </div>
+    <AppNav current='okr' onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3} rightContent={<div style={{display:"flex",alignItems:"center",gap:8}}>
+          <select value={seasonKey} onChange={e=>switchSeason(e.target.value)} style={{fontFamily:"inherit",fontSize:12,border:"1px solid #e2ddd6",borderRadius:6,padding:"3px 8px"}}>
+            {SEASONS.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
+          </select>
+          {allLocked&&<span style={{fontSize:16}}>🔒</span>}
+          <select value={filterP} onChange={e=>setFilterP(e.target.value)} style={{fontFamily:"inherit",fontSize:12,border:"1px solid #e2ddd6",borderRadius:6,padding:"3px 8px"}}>
+            <option value="">Toute l'équipe</option>{people.map(p=><option key={p}>{p}</option>)}
+          </select>
+        </div>}/>
+
 
     <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
 
@@ -1573,7 +1575,7 @@ function TeamUpdatesSection({allUpdates, teamMembers=[], teamMember, onSelectWee
   );
 }
 
-function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,allUpdates=[],teamMembers=[],okrData}){
+function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,myUpdates,allUpdates=[],teamMembers=[],okrData}){
   const _rawWeekKey=getUpdateWeekKey();
   // On Tuesday weekKey is null - use last week for display purposes (read-only)
   const weekKey=_rawWeekKey||(()=>{const d=new Date();d.setDate(d.getDate()-8);return getWeekKey(d);})();
@@ -1607,7 +1609,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,myUpdates,all
   const now=new Date();
 
   return <div style={{minHeight:"100vh",background:"#f5f3ef",fontFamily:"system-ui,sans-serif"}}>
-    <TopBar onBack={onBack} title="Mes Updates" left={<span style={{fontSize:16,fontWeight:700,color:"#2d6a4f",cursor:"pointer"}} onClick={onBack}>🌼 Calendula</span>}/>
+    <AppNav current='update' onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3}/>
     {isTuesdayReadOnly&&<div style={{background:"#fef3c7",borderBottom:"1px solid #f59e0b",padding:"8px 20px",fontSize:12,color:"#92400e",textAlign:"center"}}>
       📅 Mardi : pas de saisie d'update aujourd'hui — consultation uniquement.
     </div>}
@@ -3919,6 +3921,30 @@ function ImportObjModal({allSeasons,currentSeasonKey,people,onClose,onImport}){
 }
 
 // ─── OKR PAGE ─────────────────────────────────────────────────────────────────
+function AppNav({current, onGoOKR, onGoUpdate, onGoReporting, onGoBsv3, onBack, rightContent}){
+  const tabs=[
+    {k:'okr',l:'🎯 OKR',fn:onGoOKR},
+    {k:'update',l:'✍️ Mes Updates',fn:onGoUpdate},
+    {k:'reporting',l:'📈 Reporting',fn:onGoReporting},
+    {k:'bsv3',l:'📊 Base Sales v3',fn:onGoBsv3},
+  ];
+  return <div style={{background:'#fff',borderBottom:'1px solid #e2ddd6',padding:'0 20px',display:'flex',alignItems:'center',gap:0,height:44,flexShrink:0}}>
+    <button onClick={onBack} style={{background:'none',border:'none',cursor:'pointer',fontSize:15,fontWeight:700,color:'#2d6a4f',padding:'0 16px 0 0',whiteSpace:'nowrap',flexShrink:0}}>🌼 Calendula</button>
+    <div style={{display:'flex',gap:2,flex:1}}>
+      {tabs.map(t=>{
+        const active=current===t.k;
+        return <button key={t.k} onClick={active?undefined:t.fn}
+          style={{padding:'0 14px',height:44,border:'none',borderBottom:active?'2px solid #2d6a4f':'2px solid transparent',
+            background:'none',cursor:active?'default':'pointer',fontSize:12,fontWeight:active?600:400,
+            color:active?'#2d6a4f':'#6b6560',transition:'color .15s',whiteSpace:'nowrap'}}>
+          {t.l}
+        </button>;
+      })}
+    </div>
+    {rightContent&&<div style={{flexShrink:0}}>{rightContent}</div>}
+  </div>;
+}
+
 function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
   const [seasonKey,setSeasonKey]=useState("printemps_2026");
   const [dragOverSobj,setDragOverSobj]=useState(null);
@@ -4285,9 +4311,9 @@ function OKRPage({onBack,currentUser,teamMember,isAdmin,teamMembers=[]}){
 }
 
 // ─── APP ROOT ─────────────────────────────────────────────────────────────────
-function ReportingPagePublic({onBack, catTypes, codeMap, customSubcatLabels={}, savedCanalMargin}) {
+function ReportingPagePublic({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3, catTypes, codeMap, customSubcatLabels={}, savedCanalMargin}) {
   return <div style={{minHeight:"100vh",background:"#f5f3ef",fontFamily:"system-ui,sans-serif"}}>
-    <TopBar onBack={onBack} title="Reporting financier"/>
+    <AppNav current='reporting' onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3}/>
     <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
       <ReportingTab onSaveCatTypes={null} savedCatTypes={catTypes} savedCodeMap={codeMap}
         onSaveCodeMap={null} savedCustomLabels={customSubcatLabels} onSaveCustomLabels={null} savedCanalMargin={savedCanalMargin} readOnly={true}/>
@@ -4894,7 +4920,7 @@ function Bsv3CommandesTable({rows, importedAt, activeLetters}){
   </div>;
 }
 
-function Bsv3Page({onBack,currentUser}){
+function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}){
   const {rows,importedAt,loading}=useBsv3Data();
   const [mainTab,setMainTab]=React.useState('ventes');
   const [levels,setLevels]=React.useState(['mois','canal','client','produit']);
@@ -4929,14 +4955,8 @@ function Bsv3Page({onBack,currentUser}){
   });
 
   return <div style={{minHeight:'100vh',background:'#f8f7f5'}}>
-    {/* TopBar */}
-    <div style={{background:'#fff',borderBottom:'1px solid #e2ddd6',padding:'12px 20px',display:'flex',alignItems:'center',gap:12}}>
-      <button onClick={onBack} style={{background:'none',border:'none',cursor:'pointer',fontSize:18,color:'#9e9890',padding:0,lineHeight:1}}>←</button>
-      <span style={{fontSize:16,fontWeight:700,color:'#1a1814'}}>📊 Base Sales v3</span>
-      {importedAt&&<span style={{fontSize:11,color:'#9e9890',marginLeft:4}}>
-        — mis à jour le {new Date(importedAt).toLocaleDateString('fr-FR')} à {new Date(importedAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}
-      </span>}
-    </div>
+    <AppNav current='bsv3' onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3}/>
+    {importedAt&&<div style={{fontSize:11,color:'#9e9890',padding:'4px 20px',background:'#fff',borderBottom:'1px solid #f0ede8'}}>mis à jour le {new Date(importedAt).toLocaleDateString('fr-FR')} à {new Date(importedAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</div>}
 
     <div style={{maxWidth:1400,margin:'0 auto',padding:'20px 16px'}}>
       {/* Main tabs */}
@@ -5369,10 +5389,10 @@ export default function App(){
     </div>;
   }
 
-  if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers}/>;
-  if(page==="update")return <UpdatePage teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} okrData={okrData} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers}/>;
-  if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels} savedCanalMargin={savedCanalMargin}/>;
-  if(page==="bsv3")return <Bsv3Page onBack={()=>setPage('dashboard')} currentUser={authUser}/>;
+  if(page==="okr")return <OKRPage onGoOKR={()=>setPage('okr')} onGoUpdate={()=>setPage('update')} onGoReporting={()=>setPage('reporting')} onGoBsv3={()=>setPage('bsv3')} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers}/>;
+  if(page==="update")return <UpdatePage onGoOKR={()=>setPage('okr')} onGoUpdate={()=>setPage('update')} onGoReporting={()=>setPage('reporting')} onGoBsv3={()=>setPage('bsv3')} onBack={()=>setPage('dashboard')} teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} okrData={okrData} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers}/>;
+  if(page==="reporting")return <ReportingPagePublic onGoOKR={()=>setPage('okr')} onGoUpdate={()=>setPage('update')} onGoReporting={()=>setPage('reporting')} onGoBsv3={()=>setPage('bsv3')} onBack={()=>setPage('dashboard')} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels} savedCanalMargin={savedCanalMargin}/>;
+  if(page==="bsv3")return <Bsv3Page onGoOKR={()=>setPage('okr')} onGoUpdate={()=>setPage('update')} onGoReporting={()=>setPage('reporting')} onGoBsv3={()=>setPage('bsv3')} currentUser={authUser}/>;
   if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels} savedCanalMargin={savedCanalMargin} onSaveCanalMargin={handleSaveCanalMargin} onSendMessage={handleSendMessage} onSaveBsv3={handleSaveBsv3} onUploadReporting={handleUploadReporting}/>;
 
   return <Dashboard
