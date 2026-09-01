@@ -4143,7 +4143,7 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,t
         idx++;
         return {...kr, id: `${sobjId}.${idx}`};
       }
-      return <div style={{fontFamily:"system-ui,sans-serif",background:"#f5f3ef",minHeight:"100vh",color:"#1a1814"}}>
+  return <div style={{fontFamily:"system-ui,sans-serif",background:"#f5f3ef",minHeight:"100vh",color:"#1a1814"}}>
     <AppNav current='okr' onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3} rightContent={<div style={{display:"flex",alignItems:"center",gap:8}}>
           <select value={seasonKey} onChange={e=>switchSeason(e.target.value)} style={{fontFamily:"inherit",fontSize:12,border:"1px solid #e2ddd6",borderRadius:6,padding:"3px 8px"}}>
             {SEASONS.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
@@ -4153,25 +4153,6 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,t
             <option value="">Toute l'équipe</option>{people.map(p=><option key={p}>{p}</option>)}
           </select>
         </div>}/>
-    <div style={{background:"rgba(245,243,239,.95)",borderBottom:"1px solid #e2ddd6",padding:"10px 20px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",position:"relative"}}>
-      <span style={{fontSize:16,fontWeight:700,color:"#2d6a4f",letterSpacing:"-.2px",cursor:"pointer"}} onClick={onBack}>🌼 Calendula</span>
-      <div style={{position:"absolute",left:0,right:0,textAlign:"center",pointerEvents:"none"}}>
-        <span style={{fontSize:16,fontWeight:600,color:"#1a1814",letterSpacing:"-.2px"}}>OKR Oé</span>
-      </div>
-      <div style={{flex:1}}/>
-      <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
-        <select value={seasonKey} onChange={e=>switchSeason(e.target.value)} style={{fontFamily:"inherit",fontSize:13,fontWeight:500,border:"1px solid #e2ddd6",background:"#fff",borderRadius:20,padding:"4px 14px",outline:"none",cursor:"pointer",color:"#1b4332"}}>
-          {SEASONS.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
-        </select>
-        {allLocked&&<span style={{fontSize:16}}>🔒</span>}
-        <button onClick={()=>setShowJournal(true)} title="Historique des modifications" style={{width:28,height:28,border:"1px solid #e2ddd6",borderRadius:6,background:"none",cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",color:"#6b6560"}}
-          onMouseEnter={e=>e.currentTarget.style.background="#f5f3ef"} onMouseLeave={e=>e.currentTarget.style.background="none"}>🕐</button>
-        <select value={filterP} onChange={e=>setFilterP(e.target.value)} style={{fontFamily:"inherit",fontSize:12,border:"1px solid #e2ddd6",background:"#fff",borderRadius:6,padding:"5px 10px",outline:"none",cursor:"pointer"}}>
-          <option value="">Toute l'équipe</option>{people.map(p=><option key={p}>{p}</option>)}
-        </select>
-      </div>
-    </div>
-
     <div style={{maxWidth:1100,margin:"0 auto",padding:"0 16px 60px"}}>
       <div style={{padding:"16px 0 0"}}>
         <SeasonBanner seasonKey={seasonKey} avgProg={avgProg} totalKR={totalKR} doneKR={doneKR}/>
