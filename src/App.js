@@ -4169,7 +4169,7 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,t
 
   if(!loaded)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:200,color:"#9e9890",fontSize:13}}>Chargement…</div>;
 
-  return <>
+  return <div style={{fontFamily:"system-ui,sans-serif",background:"#f5f3ef",minHeight:"100vh",color:"#1a1814"}}>
     <AppNav current="okr" onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3}/>
     <div style={{borderBottom:"1px solid #e2ddd6",padding:"4px 20px",display:"flex",justifyContent:"flex-end",alignItems:"center",gap:8,background:"rgba(245,243,239,.95)"}}>
       {allLocked&&<span style={{fontSize:16}}>🔒</span>}
@@ -4289,7 +4289,7 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,t
     {showJournal&&<JournalModal seasonKey={seasonKey} onClose={()=>setShowJournal(false)} isAdmin={isAdmin} currentPrenom={teamMember?.prenom}/>}
     {modal?.type==="unlock"&&<UnlockModal objTitle={modal.item?.title} onClose={()=>setModal(null)} onUnlock={()=>unlockObj(modal.item.id)}/>}
     {saved&&<div style={{position:"fixed",bottom:20,right:20,background:"#2d6a4f",color:"#fff",fontSize:12,fontWeight:500,padding:"8px 16px",borderRadius:20,boxShadow:"0 2px 8px rgba(0,0,0,.2)",zIndex:200,pointerEvents:"none"}}>✓ Sauvegardé</div>}
-  </>;
+  </div>;
 }
 
 // ─── APP ROOT ─────────────────────────────────────────────────────────────────
@@ -5367,7 +5367,7 @@ export default function App(){
         <div style={{fontSize:13,color:"#6b6560",marginBottom:16}}>Votre compte ({authUser.email}) n'est pas encore autorisé. Contactez un administrateur Oé.</div>
         <button onClick={()=>signOut(auth)} style={{fontSize:13,color:"#c0392b",background:"#fdecea",border:"1px solid #fca5a5",borderRadius:6,padding:"7px 14px",cursor:"pointer"}}>Se déconnecter</button>
       </div>
-  </>;
+  </div>;
   }
 
   if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers}/>;
