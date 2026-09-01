@@ -3028,7 +3028,7 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
                 const val=localMargin[c]?.[m]??defaultRate;
                 const bsv3Rate=getBsv3Rate(c,m);
                 const autoKey=c+'_'+m;
-                const isAuto=!!bsv3AutoMargin[autoKey];
+                const isAuto=bsv3Rate!==null&&Math.abs(val-bsv3Rate)<0.0005;
                 const puceColor=bsv3Rate===null?'#c5c0b8':isAuto?'#2d6a4f':'#f59e0b';
                 const bgColor=isAuto?'#f0fdf4':'#fafaf8';
                 return <td key={m} style={{padding:'2px 3px',borderBottom:'1px solid #f0ede8'}}>
