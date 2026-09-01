@@ -4143,19 +4143,16 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,t
         idx++;
         return {...kr, id: `${sobjId}.${idx}`};
       }
-      return kr;
-    });
-  }
   return <div style={{fontFamily:"system-ui,sans-serif",background:"#f5f3ef",minHeight:"100vh",color:"#1a1814"}}>
     <AppNav current='okr' onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3} rightContent={<div style={{display:"flex",alignItems:"center",gap:8}}>
-          <select value={seasonKey} onChange={e=>switchSeason(e.target.value)} style={{fontFamily:"inherit",fontSize:12,border:"1px solid #e2ddd6",borderRadius:6,padding:"3px 8px"}}>
-            {SEASONS.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
-          </select>
-          {allLocked&&<span style={{fontSize:16}}>🔒</span>}
-          <select value={filterP} onChange={e=>setFilterP(e.target.value)} style={{fontFamily:"inherit",fontSize:12,border:"1px solid #e2ddd6",borderRadius:6,padding:"3px 8px"}}>
-            <option value="">Toute l'équipe</option>{people.map(p=><option key={p}>{p}</option>)}
-          </select>
-        </div>}/>
+      <select value={seasonKey} onChange={e=>switchSeason(e.target.value)} style={{fontFamily:"inherit",fontSize:12,border:"1px solid #e2ddd6",borderRadius:6,padding:"3px 8px"}}>
+        {SEASONS.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
+      </select>
+      {objectives.length>0&&objectives.every(o=>o.locked)&&<span style={{fontSize:16}}>🔒</span>}
+      <select value={filterP} onChange={e=>setFilterP(e.target.value)} style={{fontFamily:"inherit",fontSize:12,border:"1px solid #e2ddd6",borderRadius:6,padding:"3px 8px"}}>
+        <option value="">Toute l'équipe</option>{people.map(p=><option key={p}>{p}</option>)}
+      </select>
+    </div>}/>
     <div style={{maxWidth:1100,margin:"0 auto",padding:"0 16px 60px"}}>
       <div style={{padding:"16px 0 0"}}>
         <SeasonBanner seasonKey={seasonKey} avgProg={avgProg} totalKR={totalKR} doneKR={doneKR}/>
@@ -4247,7 +4244,7 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,t
             {isDragTarget&&!dragOverObj?.before&&<div style={{height:3,background:'#2d6a4f',borderRadius:2,margin:'0 4px'}}/>}
           </React.Fragment>;
         });})()}
-        {!allLocked&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        {!(objectives.every&&objectives.every(o=>o.locked))&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
           <button onClick={()=>setModal({type:"obj",item:null,isNew:true})} style={{fontSize:13,color:"#2d6a4f",background:"#d8f3dc",border:"1px dashed #2d6a4f",borderRadius:10,padding:"12px",textAlign:"center",cursor:"pointer"}}>+ Ajouter un objectif</button>
           <button onClick={()=>setModal({type:"import"})} style={{fontSize:13,color:"#1d4ed8",background:"#eff6ff",border:"1px dashed #1d4ed8",borderRadius:10,padding:"12px",textAlign:"center",cursor:"pointer"}}>↓ Importer d'une saison</button>
         </div>}
