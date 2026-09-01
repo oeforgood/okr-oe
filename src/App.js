@@ -2940,7 +2940,7 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
 
   function getBsv3Rate(canal, month){
     // Map reporting canal names to BSv3 canal names
-    const canalMap={'CHR':'CHR','Retail':'Retail','GMS':'Retail','Export':'Export','RHF':'Grands Comptes','Grands Comptes':'Grands Comptes','B2C':'B2C','Autres':'Autres B2B'};
+    const canalMap={'CHR':'CHR','Retail':'Retail','GMS':'Retail','Export':'Export','RHF':'Grands Comptes','Grands Comptes':'Grands Comptes','B2C':'E-commerce B2C','E-commerce B2C':'B2C','Autres':'Autres B2B'};
     const bsv3Canal=canalMap[canal]||canal;
     const rows=bsv3Rows.filter(r=>r['Canal']===bsv3Canal&&parseInt(r['Mois Emission'])===month&&r['Année Emission']===String(bsv3Year)&&!['CASIER-OE','COIFFE-OE','CONTENANT BOUTEILLE'].includes(r['Contenant+Appelation/Robe']));
     if(!rows.length)return null;
