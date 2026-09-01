@@ -826,12 +826,13 @@ function ReportingBanner({onGoReporting}) {
   REPORTING_CANALS_ALL.forEach(canal => {
     const csvKey = CANAL_CSV_MAP2[canal]||canal;
     const canalData = caData[csvKey]||{};
-    caYTD += Object.values(canalData).reduce((a,b)=>a+b,0);
+    const canalTotal = Object.values(canalData).reduce((a,b)=>a+b,0);
+    caYTD += canalTotal;
     const defaultRate = CANAL_MARGIN2[canal]??0.263;
-    // Use same logic as ReportingTab: per-month rate, fallback to canal default, fallback to hardcoded
-    Array.from({length:12},(_,i)=>i+1).forEach(month=>{
-      const caVal = canalData[month]||canalData[String(month)]||0;
-      const rates = effectiveMargin[canal];
+    const rates = effectiveMargin[canal];
+    // caData keys are "YYYY-MM" format
+    Object.entries(canalData).forEach(([key, caVal])=>{
+      const month = parseInt((key.split('-')[1]||key));
       const rate = (rates && typeof rates[month]==='number') ? rates[month] : defaultRate;
       mbYTD += caVal * rate;
     });
