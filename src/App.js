@@ -1312,8 +1312,8 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
               </div>
             </div>
             {/* Right: mood curve - tall */}
-            <div style={{flex:"0 0 340px",alignSelf:"stretch",overflow:"hidden"}}>
-              <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} showDots={false} nWeeks={26} curveHeight={160}/>
+            <div style={{flex:"0 0 340px",alignSelf:"stretch",overflow:"hidden",height:"100%"}}>
+              <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} showDots={false} nWeeks={26} curveHeight={192} stretchHeight={true}/>
             </div>
             {/* Old ratio removed - now in left panel */}
 
