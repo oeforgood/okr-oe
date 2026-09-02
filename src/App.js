@@ -2900,7 +2900,8 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
               const stocksVariation=(()=>{
                 const d=bfrData?.bfr?.stocks?.months||{};
                 const arr=Array(12).fill(0);
-                Object.entries(d).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]+=v;});
+                // Invert: Débit-Crédit is negative when stocks increase (credit account)
+                Object.entries(d).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]+=-v;});
                 return arr;
               })();
               // Solde stocks = AN + cumul variations (stocks are assets: positive = value)
@@ -2912,7 +2913,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                 const arr=Array(12).fill(0);
                 Object.entries(bfrData?.bfr?.stocks?.months||{}).forEach(([k,v])=>{
                   const m=parseInt(k.split('-')[1])-1;
-                  if(m>=0&&m<12)arr[m]+=v;
+                  if(m>=0&&m<12)arr[m]+=-v; // invert: same as stocksVariation
                 });
                 let cum=stocksAN;
                 return arr.map(v=>{cum+=v;return cum;});
