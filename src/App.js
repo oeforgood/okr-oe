@@ -2762,9 +2762,9 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
               const banquesMonths=(()=>{
                 const d=bfrData?.banques?.banques?.months||{};
                 const rows=bfrData?.banques?.banques?.rows||[];
-                // Starting balance from AN entries
-                let startBal=0;
-                rows.forEach(r=>{Object.values(r.an||{}).forEach(v=>startBal-=v);}); // invert: debit account
+                // Starting balance from AN entries (stored at section level)
+                const anEntries=bfrData?.banques?.banques?.an||{};
+                let startBal=Object.values(anEntries).reduce((s,v)=>s-v,0); // invert: credit=positive balance
                 const arr=Array(12).fill(0);
                 Object.entries(d).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]-=v;}); // invert: debit account
                 // Cumulative from starting balance
