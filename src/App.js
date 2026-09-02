@@ -2143,7 +2143,9 @@ function ReportingRow({label, months, lastMonth, bold=false, highlight=false, is
   const ytd = useLastForYTD
     ? ([...months.slice(0,lastMonth)].reverse().find(v=>v!==0) ?? 0)
     : months.slice(0,lastMonth).reduce((a,b)=>a+b,0);
-  const total = months.reduce((a,b)=>a+b,0);
+  const total = useLastForYTD
+    ? ([...months].reverse().find(v=>v!==0) ?? 0)
+    : months.reduce((a,b)=>a+b,0);
   const col = total < 0 ? '#c0392b' : total > 0 ? '#166534' : '#9e9890';
   const bg = isTotal ? '#f0fdf4' : highlight ? '#f8f7f5' : indent===2 ? '#f5f3ef' : indent===3 ? '#efecea' : 'transparent';
   const cell = {padding:'5px 4px',fontSize:11,textAlign:'right',fontFamily:'system-ui,sans-serif',fontVariantNumeric:'tabular-nums',width:44,minWidth:44,maxWidth:44,
