@@ -869,7 +869,8 @@ function ReportingBanner({onGoReporting}) {
     {label:"Trésorerie",val:(()=>{
       const rows=bfrBanner?.banques?.banques?.rows||[];
       let startBal=0;
-      rows.forEach(r=>Object.values(r.an||{}).forEach(v=>startBal-=v));
+      const anEntries=bfrBanner?.banques?.banques?.an||{};
+      startBal=Object.values(anEntries).reduce((s,v)=>s-v,0);
       const months=bfrBanner?.banques?.banques?.months||{};
       const arr=Array(12).fill(0);
       Object.entries(months).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]-=v;});
