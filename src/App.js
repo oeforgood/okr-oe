@@ -2138,8 +2138,11 @@ function fmtPct(v) {
 }
 
 function ReportingRow({label, months, lastMonth, bold=false, highlight=false, isTotal=false,
-  indent=0, onClick, isOpen, inKeur, children, dotActive, onToggleDot}) {
-  const ytd = months.slice(0,lastMonth).reduce((a,b)=>a+b,0);
+  indent=0, onClick, isOpen, inKeur, children, dotActive, onToggleDot, useLastForYTD=false}) {
+  // For stock values (useLastForYTD): YTD = last known value (not sum)
+  const ytd = useLastForYTD
+    ? ([...months.slice(0,lastMonth)].reverse().find(v=>v!==0) ?? 0)
+    : months.slice(0,lastMonth).reduce((a,b)=>a+b,0);
   const total = months.reduce((a,b)=>a+b,0);
   const col = total < 0 ? '#c0392b' : total > 0 ? '#166534' : '#9e9890';
   const bg = isTotal ? '#f0fdf4' : highlight ? '#f8f7f5' : indent===2 ? '#f5f3ef' : indent===3 ? '#efecea' : 'transparent';
