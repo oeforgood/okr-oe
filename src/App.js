@@ -2715,7 +2715,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                     });
                   }
                   // Find entries for this compte from loaded entries
-                  const entries=loadedEntries.filter(e=>e.compte===r.compte).flatMap(e=>e.entries||[]);
+                  const entries=loadedEntries.filter(e=>e.compte===r.compte);
                   return [r.compte,{libCompte:r.libCompte,months,entries}];
                 });
               };
