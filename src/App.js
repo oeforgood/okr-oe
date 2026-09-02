@@ -2994,23 +2994,16 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
 
   return <>
     {/* Upload CSV button */}
-    <div style={{marginBottom:16,padding:'14px 16px',background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:8,display:'flex',alignItems:'center',gap:12}}>
-      <div style={{flex:1}}>
-        <div style={{fontSize:13,fontWeight:600,color:'#166534',marginBottom:4}}>📂 Mettre à jour le fichier Reporting</div>
-        <div style={{fontSize:12,color:'#6b6560'}}>Importez un nouveau fichier CSV pour mettre à jour les données de reporting.</div>
-        {uploadMsg&&<div style={{fontSize:12,marginTop:4,color:uploadMsg.startsWith('❌')?'#c0392b':'#166534'}}>{uploadMsg}</div>}
-      </div>
-      <label style={{display:'inline-block',padding:'8px 16px',background:'#2d6a4f',color:'#fff',borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:500,flexShrink:0}}>
-        {uploading?'En cours...':'Choisir un CSV'}
-        <input type="file" accept=".csv" style={{display:'none'}} disabled={uploading}
-          onChange={async e=>{
-            const f=e.target.files[0];if(!f||!onUploadReporting)return;
-            setUploading(true);setUploadMsg('');
-            try{const r=await onUploadReporting(f);setUploadMsg(r||'✅ Importé');}
-            catch(err){setUploadMsg('❌ '+err.message);}
-            setUploading(false);e.target.value='';
-          }}/>
-      </label>
+    {/* Import note */}
+    <div style={{marginBottom:16,padding:'14px 16px',background:'#fefce8',border:'1px solid #fde68a',borderRadius:8,fontSize:12,color:'#92400e',lineHeight:1.6}}>
+      <div style={{fontWeight:600,marginBottom:6}}>📋 Comment mettre à jour le Reporting</div>
+      <ol style={{margin:0,paddingLeft:18}}>
+        <li>Dans Pennylane, exporter le <strong>Grand Livre analytique 2026</strong> en colonnes A → AR au format CSV</li>
+        <li>Ouvrir dans Google Sheets et vérifier que la colonne <strong>AL (Canal vente)</strong> est bien renseignée</li>
+        <li>Exporter en <strong>.csv</strong> et envoyer le fichier à Claude</li>
+        <li>Claude génère un <code>reporting_data.json</code></li>
+        <li>Dans le Terminal : <code>mv ~/Downloads/reporting_data.json ~/Desktop/Calendula/ &amp;&amp; node ~/Desktop/Calendula/push_reporting.js</code></li>
+      </ol>
     </div>
     <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'16px 20px',marginBottom:20,overflowX:'auto'}}>
       <div style={{fontSize:12,fontWeight:600,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:12}}>Taux de marge brute par canal (%)</div>
