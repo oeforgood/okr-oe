@@ -786,8 +786,8 @@ function Bsv3Banner({onGoBsv3}) {
           onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
           📊 Base Sales v3
         </button>
-        {bsv3ImportedAt&&<div style={{fontSize:9,color:"#c5c0b8",marginTop:4,textAlign:'center'}}>
-          mis à jour le {new Date(bsv3ImportedAt).toLocaleDateString('fr-FR')}
+        {bsv3ImportedAt&&<div style={{fontSize:9,color:"#6b6560",marginTop:4,textAlign:'center',lineHeight:1.5}}>
+          {(d=>{const MN=['','janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];const lm=d.getMonth()===0?12:d.getMonth();const lmn=MN[lm];const j=d.getDate();const m=d.getMonth()+1;const h=d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});return <><span>Mis à jour à fin {lmn}</span><br/><span>le {j}/{m}/{d.getFullYear()} à {h}</span></>;})(new Date(bsv3ImportedAt))}
         </div>}
       </div>
     </div>
@@ -869,7 +869,8 @@ function ReportingBanner({onGoReporting}) {
     {label:"Trésorerie",val:(()=>{
       const rows=bfrBanner?.banques?.banques?.rows||[];
       let startBal=0;
-      rows.forEach(r=>Object.values(r.an||{}).forEach(v=>startBal-=v));
+      const anEntries=bfrBanner?.banques?.banques?.an||{};
+      startBal=Object.values(anEntries).reduce((s,v)=>s-v,0);
       const months=bfrBanner?.banques?.banques?.months||{};
       const arr=Array(12).fill(0);
       Object.entries(months).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]-=v;});
@@ -904,8 +905,8 @@ function ReportingBanner({onGoReporting}) {
           onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
           📈 Voir le Reporting
         </button>
-        {importedAt&&<div style={{fontSize:9,color:"#c5c0b8",marginTop:4,textAlign:'center'}}>
-          mis à jour le {new Date(importedAt).toLocaleDateString('fr-FR')}
+        {importedAt&&<div style={{fontSize:9,color:"#6b6560",marginTop:4,textAlign:'center',lineHeight:1.5}}>
+          {(d=>{const m=d.getMonth()+1;const mn=['','janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'][m];const j=d.getDate();const h=d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});const lm=caData?Math.max(...Object.values(caData).flatMap(c=>Object.keys(c).map(k=>parseInt(k.split('-')[1])))):0;const lmn=['','janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'][lm]||'';return <><span>Mis à jour à fin {lmn}</span><br/><span>le {j}/{m}/{d.getFullYear()} à {h}</span></>;})(new Date(importedAt))}
         </div>}
       </div>
     </div>
@@ -1671,7 +1672,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,onGoOKR,onGoU
                      if(declaredAbsW){emoji=declaredAbsW.type;}
                      else if(q8_.includes('école')||q8_.includes('École')){emoji='🎓';}
                      else if(q8_.includes('congés')){const mo=w.mon.getMonth()+1;emoji=((mo>=12&&w.mon.getDate()>=15)||mo<=4)?'🎿':'🌴';}
-                     else if(update){emoji=(hideCur&&wi===weeks.length-1)?'🫥':(update.answers?.q7||'😐');}
+                     else if(update){emoji=(!hideCur&&wi===weeks.length-1)?'🫥':(update.answers?.q7||'😐');}
                      else{emoji='🫥';}
                     return <div key={wi} onClick={update?()=>setSelectedWeek({wk:w.wk,update,prenom:m.prenom,isOwn:false,authorEmail:m.email}):undefined}
                       style={{width:31,height:31,flexShrink:0,display:"flex",alignItems:"center",
@@ -2137,9 +2138,14 @@ function fmtPct(v) {
 }
 
 function ReportingRow({label, months, lastMonth, bold=false, highlight=false, isTotal=false,
-  indent=0, onClick, isOpen, inKeur, children, dotActive, onToggleDot}) {
-  const ytd = months.slice(0,lastMonth).reduce((a,b)=>a+b,0);
-  const total = months.reduce((a,b)=>a+b,0);
+  indent=0, onClick, isOpen, inKeur, children, dotActive, onToggleDot, useLastForYTD=false}) {
+  // For stock values (useLastForYTD): YTD = last known value (not sum)
+  const ytd = useLastForYTD
+    ? ([...months.slice(0,lastMonth)].reverse().find(v=>v!==0) ?? 0)
+    : months.slice(0,lastMonth).reduce((a,b)=>a+b,0);
+  const total = useLastForYTD
+    ? ([...months].reverse().find(v=>v!==0) ?? 0)
+    : months.reduce((a,b)=>a+b,0);
   const col = total < 0 ? '#c0392b' : total > 0 ? '#166534' : '#9e9890';
   const bg = isTotal ? '#f0fdf4' : highlight ? '#f8f7f5' : indent===2 ? '#f5f3ef' : indent===3 ? '#efecea' : 'transparent';
   const cell = {padding:'5px 4px',fontSize:11,textAlign:'right',fontFamily:'system-ui,sans-serif',fontVariantNumeric:'tabular-nums',width:44,minWidth:44,maxWidth:44,
@@ -2715,7 +2721,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                     });
                   }
                   // Find entries for this compte from loaded entries
-                  const entries=loadedEntries.filter(e=>e.compte===r.compte).flatMap(e=>e.entries||[]);
+                  const entries=loadedEntries.filter(e=>e.compte===r.compte);
                   return [r.compte,{libCompte:r.libCompte,months,entries}];
                 });
               };
@@ -2762,9 +2768,9 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
               const banquesMonths=(()=>{
                 const d=bfrData?.banques?.banques?.months||{};
                 const rows=bfrData?.banques?.banques?.rows||[];
-                // Starting balance from AN entries
-                let startBal=0;
-                rows.forEach(r=>{Object.values(r.an||{}).forEach(v=>startBal-=v);}); // invert: debit account
+                // Starting balance from AN entries (stored at section level)
+                const anEntries=bfrData?.banques?.banques?.an||{};
+                let startBal=Object.values(anEntries).reduce((s,v)=>s-v,0); // invert: credit=positive balance
                 const arr=Array(12).fill(0);
                 Object.entries(d).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]-=v;}); // invert: debit account
                 // Cumulative from starting balance
@@ -2894,20 +2900,20 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
               const stocksVariation=(()=>{
                 const d=bfrData?.bfr?.stocks?.months||{};
                 const arr=Array(12).fill(0);
-                Object.entries(d).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]+=v;});
+                // Invert: Débit-Crédit is negative when stocks increase (credit account)
+                Object.entries(d).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]+=-v;});
                 return arr;
               })();
               // Solde stocks = AN + cumul variations (stocks are assets: positive = value)
               const stocksRows=bfrData?.bfr?.stocks?.rows||[];
-              let stocksAN=0;
-              stocksRows.forEach(r=>Object.values(r.an||{}).forEach(v=>stocksAN+=v));
-              // Stocks are assets (like banques): negate AN (stored as credit=negative)
-              stocksAN=-stocksAN;
+              // Stocks AN: starting balance from bilData.bfr.stocks.an
+              const stocksAnEntries=bfrData?.bfr?.stocks?.an||{};
+              let stocksAN=-Object.values(stocksAnEntries).reduce((s,v)=>s+v,0);
               const stocksSolde=(()=>{
                 const arr=Array(12).fill(0);
                 Object.entries(bfrData?.bfr?.stocks?.months||{}).forEach(([k,v])=>{
                   const m=parseInt(k.split('-')[1])-1;
-                  if(m>=0&&m<12)arr[m]+=v;
+                  if(m>=0&&m<12)arr[m]+=-v; // invert: same as stocksVariation
                 });
                 let cum=stocksAN;
                 return arr.map(v=>{cum+=v;return cum;});
@@ -2994,23 +3000,17 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
 
   return <>
     {/* Upload CSV button */}
-    <div style={{marginBottom:16,padding:'14px 16px',background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:8,display:'flex',alignItems:'center',gap:12}}>
-      <div style={{flex:1}}>
-        <div style={{fontSize:13,fontWeight:600,color:'#166534',marginBottom:4}}>📂 Mettre à jour le fichier Reporting</div>
-        <div style={{fontSize:12,color:'#6b6560'}}>Importez un nouveau fichier CSV pour mettre à jour les données de reporting.</div>
-        {uploadMsg&&<div style={{fontSize:12,marginTop:4,color:uploadMsg.startsWith('❌')?'#c0392b':'#166534'}}>{uploadMsg}</div>}
-      </div>
-      <label style={{display:'inline-block',padding:'8px 16px',background:'#2d6a4f',color:'#fff',borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:500,flexShrink:0}}>
-        {uploading?'En cours...':'Choisir un CSV'}
-        <input type="file" accept=".csv" style={{display:'none'}} disabled={uploading}
-          onChange={async e=>{
-            const f=e.target.files[0];if(!f||!onUploadReporting)return;
-            setUploading(true);setUploadMsg('');
-            try{const r=await onUploadReporting(f);setUploadMsg(r||'✅ Importé');}
-            catch(err){setUploadMsg('❌ '+err.message);}
-            setUploading(false);e.target.value='';
-          }}/>
-      </label>
+    {/* Import note */}
+    <div style={{marginBottom:16,padding:'14px 16px',background:'#fefce8',border:'1px solid #fde68a',borderRadius:8,fontSize:12,color:'#92400e',lineHeight:1.6}}>
+      <div style={{fontWeight:600,marginBottom:6}}>📋 Comment mettre à jour le Reporting</div>
+      <ol style={{margin:0,paddingLeft:18}}>
+        <li>Dans le fichier <em>Reporting basé sur les écritures comptables</em>, télécharger l'onglet <em>GL_analytique_ligne 2026</em> au format .csv</li>
+        <li>Renommer le fichier <code>import_reporting.csv</code></li>
+        <li>Demander à Claude de générer le script pour créer et intégrer le fichier <code>reporting_data.json</code></li>
+        <li>Ouvrir Firebase et modifier la règle en : <code>if true;</code></li>
+        <li>Copier-coller le script dans le Terminal</li>
+        <li>Remettre la règle Firebase en : <code>if request.auth != null;</code></li>
+      </ol>
     </div>
     <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'16px 20px',marginBottom:20,overflowX:'auto'}}>
       <div style={{fontSize:12,fontWeight:600,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:12}}>Taux de marge brute par canal (%)</div>
@@ -5277,21 +5277,66 @@ export default function App(){
   }
 
   async function handleUploadReporting(file){
-    // Parse the reporting CSV and push to Firebase (same as push_reporting.js logic)
-    // For now, show a message directing to the Terminal workflow
-    // TODO: implement full client-side reporting import
-    // Full client-side reporting import
     try{
       const text=await file.text();
-      const lines=text.split('\n');
-      const headers=lines[0]?.split(',').map(h=>h.replace(/^"|"$/g,'').trim())||[];
-      let count=0;
-      // Simple validation: check this looks like a reporting CSV
-      if(!headers.some(h=>h.includes('Débit')||h.includes('Credit')||h.includes('famille'))){
-        return '❌ Ce fichier ne semble pas être un export comptable Reporting. Utilisez le script Terminal : node push_reporting.js';
+      function parseCSVLine(line){const result=[];let cur='',inQ=false;for(const ch of line){if(ch=='"')inQ=!inQ;else if(ch===','&&!inQ){result.push(cur);cur='';}else cur+=ch;}result.push(cur);return result;}
+      function parseAmount(s){const clean=String(s||'').replace(/[\u202f\u00a0\u20ac \u2019\u2018'\'"\s]/g,'').replace(',','.').trim();return parseFloat(clean)||0;}
+      const REPORTING_CANALS=['Autres B2B','B2C','CHR','Export','Grands Comptes','Retail','R\u00e9g\u00e9n\u00e9ration'];
+      const rawLines=text.replace(/^\uFEFF/,'').split('\n');
+      const rows=[];
+      for(let i=1;i<rawLines.length;i++){if(!rawLines[i].trim())continue;const r=parseCSVLine(rawLines[i]);if(r.length>=32)rows.push(r);}
+      if(rows.length===0)return '\u274c Aucune ligne valide';
+      const hdrs=parseCSVLine(rawLines[0]);
+      if(!hdrs.some(h=>h.includes('bit')||h.includes('Canal')))return '\u274c Format non reconnu';
+      const caData={},caRows={},chargeData={},bilData={bfr:{clients:0,fournisseurs:0,stocks:0},autres:{},banques:{banques:0}};
+      const bilEntriesDocs={};
+      function getBilKey(c){
+        if(c.startsWith('3'))return{section:'bfr',key:'stocks'};
+        if(c.startsWith('40'))return{section:'bfr',key:'fournisseurs'};
+        if(c.startsWith('41'))return{section:'bfr',key:'clients'};
+        if(c.startsWith('4'))return{section:'autres',key:c.startsWith('44')?'impots':c.startsWith('42')||c.startsWith('43')?'social':'autres4x'};
+        if(c.startsWith('5'))return{section:'banques',key:'banques'};
+        return null;
       }
-      return '⚠️ Import Reporting complexe — utilisez le script Terminal : mv ~/Downloads/reporting_data.json ~/Desktop/Calendula/reporting_data.json && node push_reporting.js';
-    }catch(e){return '❌ '+e.message;}
+      for(const r of rows){
+        const famille=r[14],compte=r[3],canal=r[37],subcat=r[31];
+        let month=parseInt(r[30]),year=parseInt(r[32]);
+        if(isNaN(month)||month<1||month>12||isNaN(year)){const dp=(r[1]||'').split('/');if(dp.length===3){month=parseInt(dp[1]);year=parseInt(dp[2]);}}
+        const amount=parseAmount(r[29]);
+        if(r[2]==='AN')continue;
+        if(isNaN(month)||month<1||month>12||isNaN(year))continue;
+        const mKey=`${year}-${month}`;
+        if(famille==='Analytique \u00e9critures comptables'&&compte.startsWith('7')&&REPORTING_CANALS.includes(canal)){
+          if(!caData[canal])caData[canal]={};
+          caData[canal][mKey]=(caData[canal][mKey]||0)+amount;
+          if(!caRows[canal])caRows[canal]=[];
+          caRows[canal].push({tiers:r[12]||'',libLigne:r[8]||'',facture:r[10]||'',compte:r[3],libCompte:r[4]||'',month,year,amount});
+        }
+        if(famille==='Analytique \u00e9critures comptables'&&compte.startsWith('6')&&subcat&&subcat!=='#N/A'&&subcat!=='FALSE'&&subcat.match(/^[A-Z]\d/)){
+          if(!chargeData[subcat])chargeData[subcat]={months:{},rows:[]};
+          chargeData[subcat].months[mKey]=(chargeData[subcat].months[mKey]||0)+amount;
+          chargeData[subcat].rows.push({date:r[1],compte:r[3],libCompte:r[4],tiers:r[12]||'',facture:r[10]||'',libLigne:r[8]||'',month,year,amount});
+        }
+        const bilKey=getBilKey(compte);
+        if(bilKey&&famille==='Analytique \u00e9critures comptables'){
+          const {section,key}=bilKey;
+          if(!bilData[section])bilData[section]={};
+          bilData[section][key]=(bilData[section][key]||0)+amount;
+          const docPath=`${section}_${key}`;
+          if(!bilEntriesDocs[docPath])bilEntriesDocs[docPath]=[];
+          bilEntriesDocs[docPath].push({date:r[1],compte:r[3],libCompte:r[4],tiers:r[12]||'',facture:r[10]||'',libLigne:r[8]||'',month,year,amount});
+        }
+      }
+      const importedAt=new Date().toISOString();
+      await setDoc(doc(db,'reporting','ca'),{caData,caRows,importedAt});
+      if(Object.keys(chargeData).length>0)await setDoc(doc(db,'reporting','charges'),{chargeData,importedAt});
+      await setDoc(doc(db,'reporting','bfr'),{bilData,importedAt});
+      await setDoc(doc(db,'reporting','meta'),{importedAt});
+      for(const[k,entries] of Object.entries(bilEntriesDocs)){
+        const[col,...rest]=k.split('_');await setDoc(doc(db,'bfr_entries',k),{entries,importedAt});
+      }
+      return `\u2705 ${rows.length.toLocaleString('fr-FR')} lignes import\u00e9es\u00a0\u2014\u00a0CA\u00a0: ${Object.keys(caData).length} canaux, Charges\u00a0: ${Object.keys(chargeData).length} sous-cat\u00e9gories`;
+    }catch(e){return '\u274c '+e.message;}
   }
   async function handleChangeSeasonKey(newKey){
     const current=okrData?.allSeasons||{};
