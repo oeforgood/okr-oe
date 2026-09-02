@@ -2998,11 +2998,12 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
     <div style={{marginBottom:16,padding:'14px 16px',background:'#fefce8',border:'1px solid #fde68a',borderRadius:8,fontSize:12,color:'#92400e',lineHeight:1.6}}>
       <div style={{fontWeight:600,marginBottom:6}}>📋 Comment mettre à jour le Reporting</div>
       <ol style={{margin:0,paddingLeft:18}}>
-        <li>Dans Pennylane, exporter le <strong>Grand Livre analytique 2026</strong> en colonnes A → AR au format CSV</li>
-        <li>Ouvrir dans Google Sheets et vérifier que la colonne <strong>AL (Canal vente)</strong> est bien renseignée</li>
-        <li>Exporter en <strong>.csv</strong> et envoyer le fichier à Claude</li>
-        <li>Claude génère un <code>reporting_data.json</code></li>
-        <li>Dans le Terminal : <code>mv ~/Downloads/reporting_data.json ~/Desktop/Calendula/ &amp;&amp; node ~/Desktop/Calendula/push_reporting.js</code></li>
+        <li>Dans le fichier <em>Reporting basé sur les écritures comptables</em>, télécharger l'onglet <em>GL_analytique_ligne 2026</em> au format .csv</li>
+        <li>Renommer le fichier <code>import_reporting.csv</code></li>
+        <li>Demander à Claude de générer le script pour créer et intégrer le fichier <code>reporting_data.json</code></li>
+        <li>Ouvrir Firebase et modifier la règle en : <code>if true;</code></li>
+        <li>Copier-coller le script dans le Terminal</li>
+        <li>Remettre la règle Firebase en : <code>request.auth != null;</code></li>
       </ol>
     </div>
     <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'16px 20px',marginBottom:20,overflowX:'auto'}}>
