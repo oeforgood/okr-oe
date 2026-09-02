@@ -3003,7 +3003,7 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
         <li>Demander à Claude de générer le script pour créer et intégrer le fichier <code>reporting_data.json</code></li>
         <li>Ouvrir Firebase et modifier la règle en : <code>if true;</code></li>
         <li>Copier-coller le script dans le Terminal</li>
-        <li>Remettre la règle Firebase en : <code>request.auth != null;</code></li>
+        <li>Remettre la règle Firebase en : <code>if request.auth != null;</code></li>
       </ol>
     </div>
     <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'16px 20px',marginBottom:20,overflowX:'auto'}}>
