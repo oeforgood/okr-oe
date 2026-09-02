@@ -5318,7 +5318,7 @@ export default function App(){
           chargeData[subcat].rows.push({date:r[1],compte:r[3],libCompte:r[4],tiers:r[12]||'',facture:r[10]||'',libLigne:r[8]||'',month,year,amount});
         }
         const bilKey=getBilKey(compte);
-        if(bilKey){
+        if(bilKey&&famille==='Analytique \u00e9critures comptables'){
           const {section,key}=bilKey;
           if(!bilData[section])bilData[section]={};
           bilData[section][key]=(bilData[section][key]||0)+amount;
