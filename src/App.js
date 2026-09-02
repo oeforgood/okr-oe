@@ -786,8 +786,8 @@ function Bsv3Banner({onGoBsv3}) {
           onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
           📊 Base Sales v3
         </button>
-        {bsv3ImportedAt&&<div style={{fontSize:9,color:"#c5c0b8",marginTop:4,textAlign:'center'}}>
-          mis à jour le {new Date(bsv3ImportedAt).toLocaleDateString('fr-FR')}
+        {bsv3ImportedAt&&<div style={{fontSize:9,color:"#6b6560",marginTop:4,textAlign:'center',lineHeight:1.5}}>
+          {(d=>{const MN=['','janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];const lm=d.getMonth()===0?12:d.getMonth();const lmn=MN[lm];const j=d.getDate();const m=d.getMonth()+1;const h=d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});return <><span>Mis à jour à fin {lmn}</span><br/><span>le {j}/{m}/{d.getFullYear()} à {h}</span></>;})(new Date(bsv3ImportedAt))}
         </div>}
       </div>
     </div>
@@ -905,8 +905,8 @@ function ReportingBanner({onGoReporting}) {
           onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
           📈 Voir le Reporting
         </button>
-        {importedAt&&<div style={{fontSize:9,color:"#c5c0b8",marginTop:4,textAlign:'center'}}>
-          mis à jour le {new Date(importedAt).toLocaleDateString('fr-FR')}
+        {importedAt&&<div style={{fontSize:9,color:"#6b6560",marginTop:4,textAlign:'center',lineHeight:1.5}}>
+          {(d=>{const m=d.getMonth()+1;const mn=['','janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'][m];const j=d.getDate();const h=d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});const lm=caData?Math.max(...Object.values(caData).flatMap(c=>Object.keys(c).map(k=>parseInt(k.split('-')[1])))):0;const lmn=['','janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'][lm]||'';return <><span>Mis à jour à fin {lmn}</span><br/><span>le {j}/{m}/{d.getFullYear()} à {h}</span></>;})(new Date(importedAt))}
         </div>}
       </div>
     </div>
