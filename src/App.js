@@ -2903,10 +2903,9 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
               })();
               // Solde stocks = AN + cumul variations (stocks are assets: positive = value)
               const stocksRows=bfrData?.bfr?.stocks?.rows||[];
-              let stocksAN=0;
-              stocksRows.forEach(r=>Object.values(r.an||{}).forEach(v=>stocksAN+=v));
-              // Stocks are assets (like banques): negate AN (stored as credit=negative)
-              stocksAN=-stocksAN;
+              // Stocks AN: starting balance from bilData.bfr.stocks.an
+              const stocksAnEntries=bfrData?.bfr?.stocks?.an||{};
+              let stocksAN=-Object.values(stocksAnEntries).reduce((s,v)=>s+v,0);
               const stocksSolde=(()=>{
                 const arr=Array(12).fill(0);
                 Object.entries(bfrData?.bfr?.stocks?.months||{}).forEach(([k,v])=>{
