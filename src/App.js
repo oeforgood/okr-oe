@@ -614,8 +614,8 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,t
   // Friday reminders
   if(dow===5){
     if(!updateDone){
-      reminderMsgs.push({id:"fri_update",title:"⏰ Pense à faire ton Update avant 15h !",
-        content:`C'est vendredi ! Tu as jusqu'à 15h pour compléter ton Update de la semaine. Partage tes avancées et priorités — ça ne prend que quelques minutes. 🌼`});
+      reminderMsgs.push({id:"fri_update",title:"⏰ Pense à faire ton Update !",
+        content:`C'est vendredi ! Complète ton Update de la semaine pour bien préparer ta semaine prochaine. Partage tes avancées et priorités — ça ne prend que quelques minutes. 🌼`});
     }
   }
 
