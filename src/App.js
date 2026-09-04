@@ -5415,7 +5415,7 @@ export default function App(){
 
     // Save import history
     const histLogSnap=await getDoc(doc(db,'bsv3_history','log'));
-    const existing=(histLogSnap.exists()?histLogSnap.data().entries||[]):[]; 
+    const existing=histLogSnap.exists()?(histLogSnap.data().entries||[]):[];
     const newEntry={importedAt,fileName,totalRows:rows.length};
     const history=[newEntry,...existing].slice(0,20);
     await setDoc(doc(db,'bsv3_history','log'),{entries:history});
