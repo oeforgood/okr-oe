@@ -3358,6 +3358,16 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
   const [tab,setTab]=useState("members");
   const [bsv3Uploading,setBsv3Uploading]=useState(false);
   const [bsv3Msg,setBsv3Msg]=useState('');
+  const [bsv3History,setBsv3History]=useState([]);
+  const [histExpanded,setHistExpanded]=useState(false);
+  useEffect(()=>{
+    if(tab!=='bsv3')return;
+    import('firebase/firestore').then(({getDoc,doc})=>{
+      getDoc(doc(db,'bsv3_history','log')).then(snap=>{
+        if(snap.exists())setBsv3History(snap.data().entries||[]);
+      }).catch(()=>{});
+    });
+  },[tab]);
 
   async function handleBsv3Upload(file){
     if(!file||!onSaveBsv3)return;
@@ -3374,7 +3384,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
         return Object.fromEntries(headers.map((h,i)=>[h,(fields[i]||'').replace(/^"|"$/g,'')]));
       });
       setBsv3Msg(`Envoi de ${rows.length.toLocaleString('fr-FR')} lignes...`);
-      const result=await onSaveBsv3(rows);
+      const result=await onSaveBsv3(rows, file.name);
       setBsv3Msg(result||`✅ ${rows.length.toLocaleString('fr-FR')} lignes importées`);
     }catch(e){setBsv3Msg('❌ Erreur: '+e.message);}
     setBsv3Uploading(false);
@@ -3535,6 +3545,25 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
         </label>
         {bsv3Msg&&<div style={{marginTop:12,fontSize:13,color:bsv3Msg.startsWith('❌')?'#c0392b':'#2d6a4f'}}>{bsv3Msg}</div>}
       </div>}
+        {bsv3History.length>0&&<div style={{marginTop:16}}>
+          <div onClick={()=>setHistExpanded(p=>!p)} style={{cursor:'pointer',fontSize:12,color:'#6b6560',display:'flex',alignItems:'center',gap:6}}>
+            <span>{histExpanded?'▼':'▶'}</span>
+            <span style={{fontWeight:500}}>Historique des imports</span>
+          </div>
+          {(()=>{
+            const shown=histExpanded?bsv3History:[bsv3History[0]];
+            return shown.map((h,i)=>{
+              const d=new Date(h.importedAt);
+              const date=d.toLocaleDateString('fr-FR');
+              const time=d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+              return <div key={i} style={{marginTop:6,padding:'8px 10px',background:'#f8f7f5',borderRadius:6,fontSize:11,color:'#6b6560',display:'flex',gap:12,alignItems:'center'}}>
+                <span style={{color:'#1a1814',fontWeight:500}}>{date} à {time}</span>
+                <span>{h.totalRows?.toLocaleString('fr-FR')} lignes</span>
+                <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',opacity:0.7}}>{h.fileName}</span>
+              </div>;
+            });
+          })()}
+        </div>}
       {tab!=="history"&&tab!=="reporting"&&tab!=="reporting_params"&&tab!=="members"&&tab!=="bsv3"&&<><button onClick={save} style={{marginTop:20,padding:"12px 28px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600}}>
         💾 Enregistrer
       </button>
@@ -5369,7 +5398,7 @@ export default function App(){
     const current=okrData?.allSeasons||{};
     await setDoc(doc(db,"okr","data"),{allSeasons:current,seasonKey:newKey},{merge:true});
   }
-  async function handleSaveBsv3(rows){
+  async function handleSaveBsv3(rows, fileName=''){
     const CHUNK=2000;
     const importedAt=new Date().toISOString();
     // Delete old chunks
@@ -5384,6 +5413,13 @@ export default function App(){
         importedAt,totalRows:rows.length
       });
     }
+
+    // Save import history
+    const histSnap=await getDocs(collection(db,'bsv3_history'));
+    const existing=histSnap.docs.map(d=>d.data()).sort((a,b)=>b.importedAt.localeCompare(a.importedAt));
+    const newEntry={importedAt,fileName,totalRows:rows.length};
+    const history=[newEntry,...existing].slice(0,20); // keep last 20
+    await setDoc(doc(db,'bsv3_history','log'),{entries:history});
     return `✅ ${rows.length.toLocaleString('fr-FR')} lignes importées`;
   }
   async function handleSendMessage(toEmail, toPrenom, title, message){
