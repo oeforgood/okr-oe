@@ -495,7 +495,7 @@ function UpdateStreak({myUpdates, allUpdates=[], onGoUpdate}){
   return <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} onGoUpdate={onGoUpdate}/>;
 }
 
-function NotifDetail({notif, teamMember, teamMembers=[], onSendMessage}) {
+function NotifDetail({notif, teamMember, teamMembers=[], onSendMessage, onMarkAsRead, onClose}) {
   const answers=notif?.answers||{};
   const moodVal=answers.q7||"";
   // q6 visible if viewer is author's manager
@@ -507,15 +507,24 @@ function NotifDetail({notif, teamMember, teamMembers=[], onSendMessage}) {
   const visibleQs=allQs.filter(q=>answers[q.id]&&(q.id!=='q6'||isManager));
   const [replyText,setReplyText]=useState('');
   const [replySent,setReplySent]=useState(false);
+  const [marked,setMarked]=useState(!!(notif?.markedRead||notif?.read));
   async function sendReply(){
     if(!replyText.trim()||!onSendMessage)return;
     const managerPrenom=teamMember?.prenom||'Ton référent';
     const toEmail=authorEmail;
     const toPrenom=teamMembers.find(m=>m.email===toEmail)?.prenom||'';
+    // Store reply and mark as read with reply
     await onSendMessage(toEmail, toPrenom, `${managerPrenom} a répondu à ton update`, replyText.trim());
-    sendNotifEmail(toEmail, toPrenom, `${managerPrenom} a répondu à ton update`);
+    if(onMarkAsRead)await onMarkAsRead(notif, true, replyText.trim());
+    setMarked(true);
     setReplySent(true);
-    setTimeout(()=>{setReplyText('');setReplySent(false);},2000);
+    onClose&&onClose();
+  }
+  async function markAsRead(){
+    if(marked||!onMarkAsRead)return;
+    await onMarkAsRead(notif, false, '');
+    setMarked(true);
+    onClose&&onClose();
   }
   return <div>
     {moodVal&&<div style={{fontSize:28,marginBottom:8}}>{moodVal}</div>}
@@ -560,17 +569,24 @@ function NotifDetail({notif, teamMember, teamMembers=[], onSendMessage}) {
       <textarea value={replyText} onChange={e=>setReplyText(e.target.value)}
         rows={3} style={{width:"100%",border:"1px solid #e2ddd6",borderRadius:6,padding:"8px 10px",fontSize:13,boxSizing:"border-box",resize:"vertical",fontFamily:"inherit"}}
         placeholder="Écris ta réponse…"/>
-      <div style={{display:"flex",justifyContent:"flex-end",marginTop:8}}>
+      <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginTop:8}}>
+        {notif?.fromEmail&&<button onClick={markAsRead} disabled={marked}
+          style={{fontSize:12,padding:"6px 14px",borderRadius:6,border:"1px solid #e2ddd6",
+            background:marked?"#f5f3ef":"#fff",color:marked?"#9e9890":"#1a1814",
+            cursor:marked?"default":"pointer",opacity:marked?0.6:1}}>
+          {marked?"✓ Marqué comme lu":"Marquer comme Lu"}
+        </button>}
         <button onClick={sendReply} disabled={!replyText.trim()||replySent}
-          style={{fontSize:13,fontWeight:500,background:"#2d6a4f",color:"#fff",padding:"7px 18px",borderRadius:6,cursor:"pointer",border:"none",opacity:!replyText.trim()||replySent?0.6:1}}>
+          style={{fontSize:13,fontWeight:500,background:"#2d6a4f",color:"#fff",padding:"7px 18px",borderRadius:6,cursor:!replyText.trim()||replySent?"not-allowed":"pointer",opacity:!replyText.trim()||replySent?0.6:1}}>
           {replySent?"✓ Envoyé !":"Envoyer"}
         </button>
       </div>
     </div>}
+
   </div>;
 }
 
-function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,teamMembers=[],myUpdates=[],allUpdates=[],onSendMessage}){
+function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,onMarkAsRead,teamMember,teamMembers=[],myUpdates=[],allUpdates=[],onSendMessage}){
   const [selected,setSelected]=useState(null);
   // Include manager notifs (update notifications) + system messages
   // System messages: Monday morning greeting, season prep reminder
@@ -614,8 +630,8 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,t
   // Friday reminders
   if(dow===5){
     if(!updateDone){
-      reminderMsgs.push({id:"fri_update",title:"⏰ Pense à faire ton Update avant 15h !",
-        content:`C'est vendredi ! Tu as jusqu'à 15h pour compléter ton Update de la semaine. Partage tes avancées et priorités — ça ne prend que quelques minutes. 🌼`});
+      reminderMsgs.push({id:"fri_update",title:"⏰ Pense à faire ton Update !",
+        content:`C'est vendredi ! Complète ton Update de la semaine pour bien préparer ta semaine prochaine. Partage tes avancées et priorités — ça ne prend que quelques minutes. 🌼`});
     }
   }
 
@@ -658,13 +674,13 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,t
        {allMsgs.map(msg=><div key={msg.id} onClick={()=>{
          setSelected(msg);
          // Auto-mark notif as read and notify teammate when opening
-         if(!msg.isSystem&&msg.notif&&!msg.notif.read){onReadNotif&&onReadNotif(msg.notif);}
+         // Read only triggered by explicit 'Marquer comme Lu' or reply — not on open
          if(msg.isTmNotif&&!msg.read){updateDoc(doc(db,"teammate_notifications",msg.tmNotifId),{read:true}).catch(()=>{});}
        }}
          style={{display:"flex",alignItems:"center",gap:10,padding:"3px 18px",cursor:"pointer",borderBottom:"1px solid #f8f7f5",background:"transparent"}}
          onMouseEnter={e=>e.currentTarget.style.background="#f8f7f5"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-         {!msg.read?<span style={{width:8,height:8,borderRadius:"50%",background:"#2d6a4f",flexShrink:0,display:"inline-block"}}/>:<span style={{width:8,flexShrink:0}}/>}
-         <span style={{fontSize:11,color:msg.read?"#c5c0b8":"#9e9890",minWidth:90,flexShrink:0}}>{msg.date.toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})} {msg.date.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}</span>
+         {!(msg.notif?msg.notif.markedRead:msg.read)?<span style={{width:8,height:8,borderRadius:"50%",background:"#2d6a4f",flexShrink:0,display:"inline-block"}}/>:<span style={{width:8,flexShrink:0}}/>}
+         <span style={{fontSize:11,color:(msg.notif?msg.notif.markedRead:msg.read)?"#c5c0b8":"#9e9890",minWidth:90,flexShrink:0}}>{msg.date.toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})} {msg.date.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}</span>
          <span style={{fontSize:13,color:msg.read?"#c5c0b8":"#1a1814",fontWeight:msg.read?400:500,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textDecoration:msg.read?"line-through":"none"}}>{msg.title}</span>
        </div>)}
      </div>
@@ -672,14 +688,14 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,t
       <div style={{background:"#fff",borderRadius:12,padding:24,width:"95%",maxWidth:900,maxHeight:"85vh",overflowY:"auto"}}>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4,flexWrap:"wrap"}}>
           <span style={{fontSize:15,fontWeight:600}}>{selected.title}</span>
-          {!selected.isSystem&&selected.notif&&<span style={{fontSize:11,color:"#c0392b",marginLeft:"auto",textAlign:"right"}}>{selected.notif.fromPrenom} a été informé(e) que tu as vu son Update.</span>}
+          
         </div>
         <div style={{fontSize:11,color:"#9e9890",marginBottom:4}}>{selected.date.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})} à {selected.date.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}</div>
         {!selected.isSystem&&selected.notif?.weekKey&&<div style={{fontSize:11,color:"#9e9890",marginBottom:18}}>Semaine du {fmtWeekLabel(selected.notif.weekKey)}</div>}
         {selected.isSystem&&<div style={{marginBottom:14}}/>}
         {selected.isSystem
           ?<div style={{fontSize:13,color:"#1a1814",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{selected.content}</div>
-          :<NotifDetail notif={selected.notif} teamMember={teamMember} teamMembers={teamMembers||[]} onSendMessage={onSendMessage} onRead={()=>{onReadNotif&&onReadNotif(selected.notif);setSelected(null);}}/>
+          :<NotifDetail notif={selected.notif} teamMember={teamMember} teamMembers={teamMembers||[]} onSendMessage={onSendMessage} onMarkAsRead={onMarkAsRead} onClose={()=>setSelected(null)}/>
         }
 
       </div>
@@ -962,7 +978,7 @@ function FeedbackBox({currentUser, teamMember}) {
   );
 }
 
-function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,okrData,isAdmin,onOpenSettings,onChangeSeasonKey,onSendMessage,absencesList=[]}){
+function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,onMarkAsRead,okrData,isAdmin,onOpenSettings,onChangeSeasonKey,onSendMessage,absencesList=[]}){
   const {objectives=[],subobjectives=[],keyresults=[],seasonKey:_sk}=okrData||{};
   const seasonKey=okrData?.seasonKey||"printemps_2026";
   const isOwner=currentUser?.email===OWNER_EMAIL;
@@ -1010,7 +1026,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
 
       {/* ── TOP: Notifications + Feedback ── */}
       <div style={{display:"grid",gridTemplateColumns:"3fr 1fr",gap:12,marginBottom:16,alignItems:"stretch"}}>
-        <MessagesPanel managerNotifs={managerNotifs} teammateNotifs={teammateNotifs} onReadNotif={onReadNotif} teamMember={teamMember} teamMembers={teamMembers} myUpdates={myUpdates} allUpdates={allUpdates} onSendMessage={onSendMessage}/>
+        <MessagesPanel managerNotifs={managerNotifs} teammateNotifs={teammateNotifs} onReadNotif={onReadNotif} onMarkAsRead={onMarkAsRead} teamMember={teamMember} teamMembers={teamMembers} myUpdates={myUpdates} allUpdates={allUpdates} onSendMessage={onSendMessage}/>
         <FeedbackBox currentUser={currentUser} teamMember={teamMember}/>
       </div>
 
@@ -1642,7 +1658,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,onGoOKR,onGoU
             const reports=active.filter(m=>m.managerEmail===myEmail);
             const others=active.filter(m=>m.managerEmail!==myEmail);
             const ordered=[...reports,...others];
-            const now2=new Date();const dow2=now2.getDay();const hideCur=!(dow2===6||dow2===0||dow2===1||(dow2===5&&now2.getHours()>=15));
+            const now2=new Date();const hideCur=true;
             const allWeeks=get26Weeks([]);const weeks=hideCur?allWeeks.slice(0,-1):allWeeks;
             const lookup={};
             allUpdates.forEach(u=>{lookup[`${u.email}_${u.weekKey}`]=u;});
@@ -1672,7 +1688,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,onGoOKR,onGoU
                      if(declaredAbsW){emoji=declaredAbsW.type;}
                      else if(q8_.includes('école')||q8_.includes('École')){emoji='🎓';}
                      else if(q8_.includes('congés')){const mo=w.mon.getMonth()+1;emoji=((mo>=12&&w.mon.getDate()>=15)||mo<=4)?'🎿':'🌴';}
-                     else if(update){emoji=(!hideCur&&wi===weeks.length-1)?'🫥':(update.answers?.q7||'😐');}
+                     else if(update){emoji=(update.answers?.q7||'😐');}
                      else{emoji='🫥';}
                     return <div key={wi} onClick={update?()=>setSelectedWeek({wk:w.wk,update,prenom:m.prenom,isOwn:false,authorEmail:m.email}):undefined}
                       style={{width:31,height:31,flexShrink:0,display:"flex",alignItems:"center",
@@ -3358,6 +3374,14 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
   const [tab,setTab]=useState("members");
   const [bsv3Uploading,setBsv3Uploading]=useState(false);
   const [bsv3Msg,setBsv3Msg]=useState('');
+  const [bsv3History,setBsv3History]=useState([]);
+  const [histExpanded,setHistExpanded]=useState(false);
+  useEffect(()=>{
+    if(tab!=='bsv3')return;
+    getDoc(doc(db,'bsv3_history','log')).then(snap=>{
+      if(snap.exists())setBsv3History(snap.data().entries||[]);
+    }).catch(()=>{});
+  },[tab]);
 
   async function handleBsv3Upload(file){
     if(!file||!onSaveBsv3)return;
@@ -3374,7 +3398,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
         return Object.fromEntries(headers.map((h,i)=>[h,(fields[i]||'').replace(/^"|"$/g,'')]));
       });
       setBsv3Msg(`Envoi de ${rows.length.toLocaleString('fr-FR')} lignes...`);
-      const result=await onSaveBsv3(rows);
+      const result=await onSaveBsv3(rows, file.name);
       setBsv3Msg(result||`✅ ${rows.length.toLocaleString('fr-FR')} lignes importées`);
     }catch(e){setBsv3Msg('❌ Erreur: '+e.message);}
     setBsv3Uploading(false);
@@ -3535,6 +3559,34 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
         </label>
         {bsv3Msg&&<div style={{marginTop:12,fontSize:13,color:bsv3Msg.startsWith('❌')?'#c0392b':'#2d6a4f'}}>{bsv3Msg}</div>}
       </div>}
+        {bsv3History.length>0&&<div style={{marginTop:16}}>
+          {(()=>{
+            const validHistory=bsv3History.filter(h=>h.importedAt&&!isNaN(new Date(h.importedAt)));
+            if(!validHistory.length)return null;
+            const last=validHistory[0];
+            const d=new Date(last.importedAt);
+            const date=d.toLocaleDateString('fr-FR');
+            const time=d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+            const prev=validHistory.slice(1);
+            return <>
+              <div onClick={()=>setHistExpanded(p=>!p)} style={{cursor:'pointer',fontSize:11,color:'#6b6560',display:'flex',alignItems:'center',gap:8,marginTop:8,padding:'7px 10px',background:'#f8f7f5',borderRadius:6}}>
+                <span>{histExpanded?'▼':'▶'}</span>
+                <span style={{color:'#1a1814',fontWeight:500}}>{date} à {time}</span>
+                <span>{last.totalRows?.toLocaleString('fr-FR')} lignes</span>
+                <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',opacity:0.7}}>{last.fileName}</span>
+              </div>
+              {histExpanded&&prev.map((h,i)=>{
+                const d2=new Date(h.importedAt);
+                return <div key={i} style={{marginTop:4,padding:'7px 10px',background:'#f8f7f5',borderRadius:6,fontSize:11,color:'#6b6560',display:'flex',gap:8,alignItems:'center'}}>
+                  <span style={{width:8}}/>
+                  <span style={{color:'#1a1814'}}>{d2.toLocaleDateString('fr-FR')} à {d2.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</span>
+                  <span>{h.totalRows?.toLocaleString('fr-FR')} lignes</span>
+                  <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',opacity:0.7}}>{h.fileName}</span>
+                </div>;
+              })}
+            </>;
+          })()}
+        </div>}
       {tab!=="history"&&tab!=="reporting"&&tab!=="reporting_params"&&tab!=="members"&&tab!=="bsv3"&&<><button onClick={save} style={{marginTop:20,padding:"12px 28px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600}}>
         💾 Enregistrer
       </button>
@@ -3544,7 +3596,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
 }
 
 // ─── OKR MODALS (unchanged) ───────────────────────────────────────────────────
-function ObjModal({obj,isNew,people,isAdmin,onClose,onSave,onDelete,onLock,onUnlock,onUnlockRequest}){
+function ObjModal({obj,isNew,people,isAdmin,onClose,onSave,onDelete,onLock,onUnlock,onUnlockRequest,lockError}){
   const locked=obj?.locked||false;
   const [f,setF]=useState(obj?{...obj}:{title:"",owner:"",etp:0.1,priorite:"P1",contributors:[]});
   function upd(k,v){setF(p=>({...p,[k]:v}))}
@@ -3565,6 +3617,10 @@ function ObjModal({obj,isNew,people,isAdmin,onClose,onSave,onDelete,onLock,onUnl
       {locked
         ?<button onClick={isAdmin?onUnlock:undefined} style={{fontSize:12,fontWeight:500,background:isAdmin?"#fef3c7":"#f5f3ef",color:isAdmin?"#92400e":"#c5c0b8",border:`1px solid ${isAdmin?"#f59e0b":"#e2ddd6"}`,padding:"5px 12px",borderRadius:6,cursor:isAdmin?"pointer":"not-allowed",opacity:isAdmin?1:0.6}}>🔓 Déverrouiller</button>
         :<button onClick={onLock} style={{fontSize:12,fontWeight:500,background:"#f5f3ef",color:"#6b6560",border:"1px solid #e2ddd6",padding:"5px 12px",borderRadius:6,cursor:"pointer"}}>🔒 Verrouiller</button>}
+    </div>}
+    {lockError&&lockError.length>0&&<div style={{marginTop:12,padding:"10px 12px",background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:7,fontSize:12,color:"#c0392b"}}>
+      <div style={{fontWeight:600,marginBottom:4}}>⚠️ Impossible de verrouiller :</div>
+      {lockError.map((m,i)=><div key={i} style={{marginTop:2}}>• {m}</div>)}
     </div>}
   </Modal>;
 }
@@ -4215,6 +4271,13 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,t
           const sobjs=subobjectives.filter(s=>s.parent===obj.id);
   const visSobjs=filterP?sobjs.filter(s=>keyresults.filter(k=>k.parent===s.id).some(k=>k.owner===filterP)):sobjs;
           const sobjTotalW=sobjs.reduce((s,o)=>s+o.poids,0),warnSobj=sobjs.length>0&&Math.round(sobjTotalW)!==100;
+          // Check if any sobj has KR weights != 100%
+          const warnKRsBySobj=sobjs.map(s=>{
+            const krs=keyresults.filter(k=>k.parent===s.id);
+            const tw=krs.reduce((a,k)=>a+k.poids,0);
+            return krs.length>0&&Math.round(tw)!==100?s:null;
+          }).filter(Boolean);
+          const hasWeightError=warnSobj||warnKRsBySobj.length>0;
           const isDragTarget=dragOverObj?.id===obj.id;
           return <React.Fragment key={obj.id}>
             {isDragTarget&&dragOverObj?.before&&<div style={{height:3,background:'#2d6a4f',borderRadius:2,margin:'0 4px'}}/>}
@@ -4282,7 +4345,23 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,t
       </div>
     </div>
 
-    {modal?.type==="obj"&&<ObjModal obj={modal.item} isNew={modal.isNew} people={people} isAdmin={isAdmin} onClose={()=>setModal(null)} onSave={d=>handleObjSave({...d,_id:modal.item?.id,_isNew:modal.isNew})} onDelete={()=>handleObjDel(modal.item.id)} onLock={()=>lockObj(modal.item.id)} onUnlock={()=>{unlockObj(modal.item.id);}} onUnlockRequest={()=>setModal({type:"unlock",item:modal.item})}/>}
+    {modal?.type==="obj"&&<ObjModal obj={modal.item} isNew={modal.isNew} people={people} isAdmin={isAdmin} lockError={modal.lockError} onClose={()=>setModal(null)} onSave={d=>handleObjSave({...d,_id:modal.item?.id,_isNew:modal.isNew})} onDelete={()=>handleObjDel(modal.item.id)} onLock={()=>{
+              const obj=objectives.find(o=>o.id===modal.item.id);
+              if(!obj)return;
+              const sobjs=subobjectives.filter(s=>s.parent===obj.id);
+              const msgs=[];
+              const sobjTotalW=sobjs.reduce((s,o)=>s+o.poids,0);
+              if(sobjs.length>0&&Math.round(sobjTotalW)!==100)
+                msgs.push(`Somme des poids des sous-objectifs : ${Math.round(sobjTotalW)}% (attendu 100%)`);
+              sobjs.forEach(s=>{
+                const krs=keyresults.filter(k=>k.parent===s.id);
+                const tw=krs.reduce((a,k)=>a+k.poids,0);
+                if(krs.length>0&&Math.round(tw)!==100)
+                  msgs.push(`Somme des poids des KR de ${s.id} : ${Math.round(tw)}% (attendu 100%)`);
+              });
+              if(msgs.length>0){setModal(m=>({...m,lockError:msgs}));return;}
+              lockObj(modal.item.id);
+            }} onUnlock={()=>{unlockObj(modal.item.id);}} onUnlockRequest={()=>setModal({type:"unlock",item:modal.item})}/>}
     {modal?.type==="sobj"&&<SobjModal sobj={modal.item} isNew={modal.isNew} parentObjId={modal.parentObjId} people={people} subobjectives={subobjectives} onClose={()=>setModal(null)} onSave={d=>handleSobjSave({...d,_id:modal.item?.id,_isNew:modal.isNew,_parentObjId:modal.parentObjId})} onDelete={()=>handleSobjDel(modal.item.id)}/>}
     {modal?.type==="kr"&&<KRModal kr={modal.item} sobjId={modal.sobjId} people={people} keyresults={keyresults} locked={modal.locked} onClose={()=>setModal(null)} onSave={(d,isDuplicate)=>handleKRSave({...d,_id:isDuplicate?undefined:modal.item?.id,_sobjId:modal.sobjId},isDuplicate)} onDelete={()=>handleKRDel(modal.item.id)}/>}
     {modal?.type==="import"&&<ImportObjModal allSeasons={allSeasons} currentSeasonKey={seasonKey} people={people} onClose={()=>setModal(null)} onImport={handleImport}/>}
@@ -5252,28 +5331,37 @@ export default function App(){
   }
 
   async function handleReadNotif(notif){
+    // Called when opening a notif - only marks read visually in local state
+    // Teammate notification is sent separately via handleMarkAsRead
+    if(!notif?.id||notif.type==='system')return;
+    if(notif.fromEmail){
+      await updateDoc(doc(db,"update_notifications",notif.id),{read:true,readAt:Date.now()});
+    }
+  }
+
+  async function handleMarkAsRead(notif, withReply=false, replyText=''){
+    // Called when user clicks "Marquer comme Lu" or sends a reply
     const now=Date.now();
-    // Mark as read
-    await updateDoc(doc(db,"update_notifications",notif.id),{read:true,readAt:now});
-    // Send notification to teammate that manager read their update
-    const{mon,fri}=getWeekBounds(notif.weekKey);
-    const fmtD=d=>`${d.getDate()} ${d.toLocaleString("fr-FR",{month:"long"})}`;
-    const sameM=mon.getMonth()===fri.getMonth();
-    const weekLabel=sameM?`semaine du lundi ${mon.getDate()} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`:`semaine du lundi ${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"long"})} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`;
-    const managerPrenom=currentTeamMember?.prenom;
-    // Store as a teammate_notification readable by the teammate
-    const tmNotifId=`${notif.fromEmail}_${notif.weekKey}_read`;
-    await setDoc(doc(db,"teammate_notifications",tmNotifId),{
-      toEmail:notif.fromEmail,
-      fromPrenom:managerPrenom,
-      weekKey:notif.weekKey,
-      title:`${managerPrenom} a vu ton Update`,
-      message:`${managerPrenom} a lu ton Update de la ${weekLabel}.`,
-      createdAt:now,
-      read:false,
-    });
-      // Send email to teammate
-      sendNotifEmail(notif.fromEmail, notif.fromPrenom||notif.fromEmail, `${managerPrenom} a vu ton Update`);
+    const managerPrenom=currentTeamMember?.prenom||'Ton référent';
+    if(notif.fromEmail){
+      // Mark as read in DB
+      await updateDoc(doc(db,"update_notifications",notif.id),{read:true,readAt:now,markedRead:true});
+      // Build week label
+      const{mon,fri}=getWeekBounds(notif.weekKey);
+      const sameM=mon.getMonth()===fri.getMonth();
+      const weekLabel=sameM?`semaine du lundi ${mon.getDate()} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`:`semaine du lundi ${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"long"})} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`;
+      // Send teammate notif
+      const title=withReply?`${managerPrenom} a lu ton Update et t'a répondu`:`${managerPrenom} a lu ton Update`;
+      const message=withReply
+        ?`${managerPrenom} a lu ton Update de la ${weekLabel} et t'a répondu : "${replyText}"`
+        :`${managerPrenom} a lu ton Update de la ${weekLabel}.`;
+      const tmNotifId=`${notif.fromEmail}_${notif.weekKey}_read`;
+      await setDoc(doc(db,"teammate_notifications",tmNotifId),{
+        toEmail:notif.fromEmail,fromPrenom:managerPrenom,weekKey:notif.weekKey,
+        title,message,createdAt:now,read:false,
+      });
+      sendNotifEmail(notif.fromEmail,notif.fromPrenom||notif.fromEmail,title);
+    }
   }
 
   async function handleUploadReporting(file){
@@ -5342,7 +5430,7 @@ export default function App(){
     const current=okrData?.allSeasons||{};
     await setDoc(doc(db,"okr","data"),{allSeasons:current,seasonKey:newKey},{merge:true});
   }
-  async function handleSaveBsv3(rows){
+  async function handleSaveBsv3(rows, fileName=''){
     const CHUNK=2000;
     const importedAt=new Date().toISOString();
     // Delete old chunks
@@ -5357,6 +5445,13 @@ export default function App(){
         importedAt,totalRows:rows.length
       });
     }
+
+    // Save import history
+    const histLogSnap=await getDoc(doc(db,'bsv3_history','log'));
+    const existing=histLogSnap.exists()?(histLogSnap.data().entries||[]):[];
+    const newEntry={importedAt,fileName,totalRows:rows.length};
+    const history=[newEntry,...existing].slice(0,20);
+    await setDoc(doc(db,'bsv3_history','log'),{entries:history});
     return `✅ ${rows.length.toLocaleString('fr-FR')} lignes importées`;
   }
   async function handleSendMessage(toEmail, toPrenom, title, message){
@@ -5434,7 +5529,7 @@ export default function App(){
     absencesList={absencesList}
     managerNotifs={managerNotifs}
     teammateNotifs={teammateNotifs}
-    onReadNotif={handleReadNotif}
+    onReadNotif={handleReadNotif} onMarkAsRead={handleMarkAsRead}
     okrData={okrData}
     isAdmin={isAdmin}
     onOpenSettings={()=>setPage("settings")}
