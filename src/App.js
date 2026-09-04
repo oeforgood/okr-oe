@@ -1715,7 +1715,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,onGoOKR,onGoU
             <div style={{fontSize:14,fontWeight:600,color:"#166534"}}>Update enregistré !</div>
             <div style={{fontSize:12,color:"#6b6560"}}>{isUpdateLocked()?"Non modifiable (délai vendredi 15h dépassé).":"Modifiable jusqu'au vendredi 15h."}</div>
           </div>
-          {!isUpdateLocked()&&<button onClick={()=>setSubmitted(false)} style={{marginLeft:"auto",fontSize:12,color:"#1d4ed8",background:"none",border:"1px solid #1d4ed8",borderRadius:6,padding:"5px 12px",cursor:"pointer"}}>Modifier</button>}
+          
         </div>
         {/* Show answers read-only */}
         <div style={{display:"flex",flexDirection:"column",gap:10,opacity:0.85}}>
