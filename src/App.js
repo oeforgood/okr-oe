@@ -3544,7 +3544,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
 }
 
 // ─── OKR MODALS (unchanged) ───────────────────────────────────────────────────
-function ObjModal({obj,isNew,people,isAdmin,onClose,onSave,onDelete,onLock,onUnlock,onUnlockRequest}){
+function ObjModal({obj,isNew,people,isAdmin,onClose,onSave,onDelete,onLock,onUnlock,onUnlockRequest,lockError}){
   const locked=obj?.locked||false;
   const [f,setF]=useState(obj?{...obj}:{title:"",owner:"",etp:0.1,priorite:"P1",contributors:[]});
   function upd(k,v){setF(p=>({...p,[k]:v}))}
@@ -3565,6 +3565,10 @@ function ObjModal({obj,isNew,people,isAdmin,onClose,onSave,onDelete,onLock,onUnl
       {locked
         ?<button onClick={isAdmin?onUnlock:undefined} style={{fontSize:12,fontWeight:500,background:isAdmin?"#fef3c7":"#f5f3ef",color:isAdmin?"#92400e":"#c5c0b8",border:`1px solid ${isAdmin?"#f59e0b":"#e2ddd6"}`,padding:"5px 12px",borderRadius:6,cursor:isAdmin?"pointer":"not-allowed",opacity:isAdmin?1:0.6}}>🔓 Déverrouiller</button>
         :<button onClick={onLock} style={{fontSize:12,fontWeight:500,background:"#f5f3ef",color:"#6b6560",border:"1px solid #e2ddd6",padding:"5px 12px",borderRadius:6,cursor:"pointer"}}>🔒 Verrouiller</button>}
+    </div>}
+    {lockError&&lockError.length>0&&<div style={{marginTop:12,padding:"10px 12px",background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:7,fontSize:12,color:"#c0392b"}}>
+      <div style={{fontWeight:600,marginBottom:4}}>⚠️ Impossible de verrouiller :</div>
+      {lockError.map((m,i)=><div key={i} style={{marginTop:2}}>• {m}</div>)}
     </div>}
   </Modal>;
 }
@@ -4297,21 +4301,21 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,t
       </div>
     </div>
 
-    {modal?.type==="obj"&&<ObjModal obj={modal.item} isNew={modal.isNew} people={people} isAdmin={isAdmin} onClose={()=>setModal(null)} onSave={d=>handleObjSave({...d,_id:modal.item?.id,_isNew:modal.isNew})} onDelete={()=>handleObjDel(modal.item.id)} onLock={()=>{
+    {modal?.type==="obj"&&<ObjModal obj={modal.item} isNew={modal.isNew} people={people} isAdmin={isAdmin} lockError={modal.lockError} onClose={()=>setModal(null)} onSave={d=>handleObjSave({...d,_id:modal.item?.id,_isNew:modal.isNew})} onDelete={()=>handleObjDel(modal.item.id)} onLock={()=>{
               const obj=objectives.find(o=>o.id===modal.item.id);
               if(!obj)return;
               const sobjs=subobjectives.filter(s=>s.parent===obj.id);
               const msgs=[];
               const sobjTotalW=sobjs.reduce((s,o)=>s+o.poids,0);
               if(sobjs.length>0&&Math.round(sobjTotalW)!==100)
-                msgs.push(`La somme des poids des sous-objectifs de "${obj.title}" n'est pas égale à 100% (${Math.round(sobjTotalW)}%).`);
+                msgs.push(`Poids des sous-objectifs de ${obj.id} : ${Math.round(sobjTotalW)}% (attendu 100%)`);
               sobjs.forEach(s=>{
                 const krs=keyresults.filter(k=>k.parent===s.id);
                 const tw=krs.reduce((a,k)=>a+k.poids,0);
                 if(krs.length>0&&Math.round(tw)!==100)
-                  msgs.push(`La somme des poids des KR de "${s.id} – ${s.title}" n'est pas égale à 100% (${Math.round(tw)}%).`);
+                  msgs.push(`Poids des KR de ${s.id} : ${Math.round(tw)}% (attendu 100%)`);
               });
-              if(msgs.length>0){alert("Impossible de verrouiller :\n\n"+msgs.join("\n"));return;}
+              if(msgs.length>0){setModal(m=>({...m,lockError:msgs}));return;}
               lockObj(modal.item.id);
             }} onUnlock={()=>{unlockObj(modal.item.id);}} onUnlockRequest={()=>setModal({type:"unlock",item:modal.item})}/>}
     {modal?.type==="sobj"&&<SobjModal sobj={modal.item} isNew={modal.isNew} parentObjId={modal.parentObjId} people={people} subobjectives={subobjectives} onClose={()=>setModal(null)} onSave={d=>handleSobjSave({...d,_id:modal.item?.id,_isNew:modal.isNew,_parentObjId:modal.parentObjId})} onDelete={()=>handleSobjDel(modal.item.id)}/>}
