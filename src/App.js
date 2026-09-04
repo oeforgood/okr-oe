@@ -1658,7 +1658,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,onGoOKR,onGoU
             const reports=active.filter(m=>m.managerEmail===myEmail);
             const others=active.filter(m=>m.managerEmail!==myEmail);
             const ordered=[...reports,...others];
-            const now2=new Date();const dow2=now2.getDay();const hideCur=!(dow2===6||dow2===0||dow2===1||(dow2===5&&now2.getHours()>=15));
+            const now2=new Date();const hideCur=true;
             const allWeeks=get26Weeks([]);const weeks=hideCur?allWeeks.slice(0,-1):allWeeks;
             const lookup={};
             allUpdates.forEach(u=>{lookup[`${u.email}_${u.weekKey}`]=u;});
@@ -1688,7 +1688,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,onGoOKR,onGoU
                      if(declaredAbsW){emoji=declaredAbsW.type;}
                      else if(q8_.includes('école')||q8_.includes('École')){emoji='🎓';}
                      else if(q8_.includes('congés')){const mo=w.mon.getMonth()+1;emoji=((mo>=12&&w.mon.getDate()>=15)||mo<=4)?'🎿':'🌴';}
-                     else if(update){emoji=(!hideCur&&wi===weeks.length-1)?'🫥':(update.answers?.q7||'😐');}
+                     else if(update){emoji=(update.answers?.q7||'😐');}
                      else{emoji='🫥';}
                     return <div key={wi} onClick={update?()=>setSelectedWeek({wk:w.wk,update,prenom:m.prenom,isOwn:false,authorEmail:m.email}):undefined}
                       style={{width:31,height:31,flexShrink:0,display:"flex",alignItems:"center",
