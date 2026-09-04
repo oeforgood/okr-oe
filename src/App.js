@@ -675,7 +675,7 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,onMarkAsRead
        {allMsgs.map(msg=><div key={msg.id} onClick={()=>{
          setSelected(msg);
          // Auto-mark notif as read and notify teammate when opening
-         if(!msg.isSystem&&msg.notif&&!msg.notif.markedRead){onReadNotif&&onReadNotif(msg.notif);}
+         // Read only triggered by explicit 'Marquer comme Lu' or reply — not on open
          if(msg.isTmNotif&&!msg.read){updateDoc(doc(db,"teammate_notifications",msg.tmNotifId),{read:true}).catch(()=>{});}
        }}
          style={{display:"flex",alignItems:"center",gap:10,padding:"3px 18px",cursor:"pointer",borderBottom:"1px solid #f8f7f5",background:"transparent"}}
