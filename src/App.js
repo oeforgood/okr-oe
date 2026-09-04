@@ -3362,11 +3362,9 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
   const [histExpanded,setHistExpanded]=useState(false);
   useEffect(()=>{
     if(tab!=='bsv3')return;
-    import('firebase/firestore').then(({getDoc,doc})=>{
-      getDoc(doc(db,'bsv3_history','log')).then(snap=>{
-        if(snap.exists())setBsv3History(snap.data().entries||[]);
-      }).catch(()=>{});
-    });
+    getDoc(doc(db,'bsv3_history','log')).then(snap=>{
+      if(snap.exists())setBsv3History(snap.data().entries||[]);
+    }).catch(()=>{});
   },[tab]);
 
   async function handleBsv3Upload(file){
@@ -3551,7 +3549,8 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
             <span style={{fontWeight:500}}>Historique des imports</span>
           </div>
           {(()=>{
-            const shown=histExpanded?bsv3History:[bsv3History[0]];
+            const validHistory=bsv3History.filter(h=>h.importedAt&&!isNaN(new Date(h.importedAt)));
+            const shown=histExpanded?validHistory:[validHistory[0]].filter(Boolean);
             return shown.map((h,i)=>{
               const d=new Date(h.importedAt);
               const date=d.toLocaleDateString('fr-FR');
@@ -5415,10 +5414,10 @@ export default function App(){
     }
 
     // Save import history
-    const histSnap=await getDocs(collection(db,'bsv3_history'));
-    const existing=histSnap.docs.map(d=>d.data()).sort((a,b)=>b.importedAt.localeCompare(a.importedAt));
+    const histLogSnap=await getDoc(doc(db,'bsv3_history','log'));
+    const existing=(histLogSnap.exists()?histLogSnap.data().entries||[]):[]; 
     const newEntry={importedAt,fileName,totalRows:rows.length};
-    const history=[newEntry,...existing].slice(0,20); // keep last 20
+    const history=[newEntry,...existing].slice(0,20);
     await setDoc(doc(db,'bsv3_history','log'),{entries:history});
     return `✅ ${rows.length.toLocaleString('fr-FR')} lignes importées`;
   }
