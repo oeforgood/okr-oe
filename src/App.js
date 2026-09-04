@@ -4251,15 +4251,7 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,t
                   <span style={{fontSize:12,fontWeight:600,color:progColor(prog),minWidth:32,textAlign:"right",fontFamily:"monospace"}}>{Math.round(prog)}%</span>
                 </div>
                 {warnSobj&&<span style={{fontSize:10,color:"#b5680f",background:"#fef3c7",border:"1px solid #f59e0b",borderRadius:4,padding:"1px 5px"}}>⚠ {Math.round(sobjTotalW)}%</span>}
-                <button onClick={e=>{e.stopPropagation();
-                    if(!objLocked&&hasWeightError){
-                      const msgs=[];
-                      if(warnSobj)msgs.push(`La somme des poids des sous-objectifs de "${obj.title}" n'est pas égale à 100% (${Math.round(sobjTotalW)}%).`);
-                      warnKRsBySobj.forEach(s=>{const tw=keyresults.filter(k=>k.parent===s.id).reduce((a,k)=>a+k.poids,0);msgs.push(`La somme des poids des KR de "${s.id} – ${s.title}" n'est pas égale à 100% (${Math.round(tw)}%).`);});
-                      alert("Impossible de verrouiller :\n\n"+msgs.join("\n"));
-                      return;
-                    }
-                    setModal({type:"obj",item:obj,isNew:false});}}
+                <button onClick={e=>{e.stopPropagation();setModal({type:"obj",item:obj,isNew:false});}}
                   style={{width:24,height:24,borderRadius:5,border:"none",background:"none",cursor:"pointer",color:objLocked?"#f59e0b":"#9e9890"}}>
                   {objLocked?<span style={{fontSize:16}}>🔒</span>:<svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>}
                 </button>
