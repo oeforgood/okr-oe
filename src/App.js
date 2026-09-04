@@ -569,22 +569,20 @@ function NotifDetail({notif, teamMember, teamMembers=[], onSendMessage, onMarkAs
       <textarea value={replyText} onChange={e=>setReplyText(e.target.value)}
         rows={3} style={{width:"100%",border:"1px solid #e2ddd6",borderRadius:6,padding:"8px 10px",fontSize:13,boxSizing:"border-box",resize:"vertical",fontFamily:"inherit"}}
         placeholder="Écris ta réponse…"/>
-      <div style={{display:"flex",justifyContent:"flex-end",marginTop:8}}>
+      <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginTop:8}}>
+        {notif?.fromEmail&&<button onClick={markAsRead} disabled={marked}
+          style={{fontSize:12,padding:"6px 14px",borderRadius:6,border:"1px solid #e2ddd6",
+            background:marked?"#f5f3ef":"#fff",color:marked?"#9e9890":"#1a1814",
+            cursor:marked?"default":"pointer",opacity:marked?0.6:1}}>
+          {marked?"✓ Marqué comme lu":"Marquer comme Lu"}
+        </button>}
         <button onClick={sendReply} disabled={!replyText.trim()||replySent}
-          style={{fontSize:13,fontWeight:500,background:"#2d6a4f",color:"#fff",padding:"7px 18px",borderRadius:6,cursor:"pointer",border:"none",opacity:!replyText.trim()||replySent?0.6:1}}>
+          style={{fontSize:13,fontWeight:500,background:"#2d6a4f",color:"#fff",padding:"7px 18px",borderRadius:6,cursor:!replyText.trim()||replySent?"not-allowed":"pointer",opacity:!replyText.trim()||replySent?0.6:1}}>
           {replySent?"✓ Envoyé !":"Envoyer"}
         </button>
       </div>
     </div>}
-    {/* Marquer comme Lu button - shown for update notifs */}
-    {notif?.fromEmail&&<div style={{marginTop:16,paddingTop:12,borderTop:"1px solid #e2ddd6"}}>
-      <button onClick={markAsRead} disabled={marked}
-        style={{fontSize:12,padding:"6px 14px",borderRadius:6,border:"1px solid #e2ddd6",
-          background:marked?"#f5f3ef":"#fff",color:marked?"#9e9890":"#1a1814",
-          cursor:marked?"default":"pointer",opacity:marked?0.6:1}}>
-        {marked?"✓ Marqué comme lu":"Marquer comme Lu"}
-      </button>
-    </div>}
+
   </div>;
 }
 
@@ -697,7 +695,7 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,onMarkAsRead
         {selected.isSystem&&<div style={{marginBottom:14}}/>}
         {selected.isSystem
           ?<div style={{fontSize:13,color:"#1a1814",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{selected.content}</div>
-          :<NotifDetail notif={selected.notif} teamMember={teamMember} teamMembers={teamMembers||[]} onSendMessage={onSendMessage} onRead={()=>{onReadNotif&&onReadNotif(selected.notif);setSelected(null);}}/>
+          :<NotifDetail notif={selected.notif} teamMember={teamMember} teamMembers={teamMembers||[]} onSendMessage={onSendMessage} onMarkAsRead={onMarkAsRead} onClose={()=>setSelected(null)}/>
         }
 
       </div>
@@ -5531,7 +5529,7 @@ export default function App(){
     absencesList={absencesList}
     managerNotifs={managerNotifs}
     teammateNotifs={teammateNotifs}
-    onReadNotif={handleReadNotif} onMarkAsRead={handleMarkAsRead} onMarkAsRead={handleMarkAsRead}
+    onReadNotif={handleReadNotif} onMarkAsRead={handleMarkAsRead}
     okrData={okrData}
     isAdmin={isAdmin}
     onOpenSettings={()=>setPage("settings")}
