@@ -4297,7 +4297,23 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,t
       </div>
     </div>
 
-    {modal?.type==="obj"&&<ObjModal obj={modal.item} isNew={modal.isNew} people={people} isAdmin={isAdmin} onClose={()=>setModal(null)} onSave={d=>handleObjSave({...d,_id:modal.item?.id,_isNew:modal.isNew})} onDelete={()=>handleObjDel(modal.item.id)} onLock={()=>lockObj(modal.item.id)} onUnlock={()=>{unlockObj(modal.item.id);}} onUnlockRequest={()=>setModal({type:"unlock",item:modal.item})}/>}
+    {modal?.type==="obj"&&<ObjModal obj={modal.item} isNew={modal.isNew} people={people} isAdmin={isAdmin} onClose={()=>setModal(null)} onSave={d=>handleObjSave({...d,_id:modal.item?.id,_isNew:modal.isNew})} onDelete={()=>handleObjDel(modal.item.id)} onLock={()=>{
+              const obj=objectives.find(o=>o.id===modal.item.id);
+              if(!obj)return;
+              const sobjs=subobjectives.filter(s=>s.parent===obj.id);
+              const msgs=[];
+              const sobjTotalW=sobjs.reduce((s,o)=>s+o.poids,0);
+              if(sobjs.length>0&&Math.round(sobjTotalW)!==100)
+                msgs.push(`La somme des poids des sous-objectifs de "${obj.title}" n'est pas égale à 100% (${Math.round(sobjTotalW)}%).`);
+              sobjs.forEach(s=>{
+                const krs=keyresults.filter(k=>k.parent===s.id);
+                const tw=krs.reduce((a,k)=>a+k.poids,0);
+                if(krs.length>0&&Math.round(tw)!==100)
+                  msgs.push(`La somme des poids des KR de "${s.id} – ${s.title}" n'est pas égale à 100% (${Math.round(tw)}%).`);
+              });
+              if(msgs.length>0){alert("Impossible de verrouiller :\n\n"+msgs.join("\n"));return;}
+              lockObj(modal.item.id);
+            }} onUnlock={()=>{unlockObj(modal.item.id);}} onUnlockRequest={()=>setModal({type:"unlock",item:modal.item})}/>}
     {modal?.type==="sobj"&&<SobjModal sobj={modal.item} isNew={modal.isNew} parentObjId={modal.parentObjId} people={people} subobjectives={subobjectives} onClose={()=>setModal(null)} onSave={d=>handleSobjSave({...d,_id:modal.item?.id,_isNew:modal.isNew,_parentObjId:modal.parentObjId})} onDelete={()=>handleSobjDel(modal.item.id)}/>}
     {modal?.type==="kr"&&<KRModal kr={modal.item} sobjId={modal.sobjId} people={people} keyresults={keyresults} locked={modal.locked} onClose={()=>setModal(null)} onSave={(d,isDuplicate)=>handleKRSave({...d,_id:isDuplicate?undefined:modal.item?.id,_sobjId:modal.sobjId},isDuplicate)} onDelete={()=>handleKRDel(modal.item.id)}/>}
     {modal?.type==="import"&&<ImportObjModal allSeasons={allSeasons} currentSeasonKey={seasonKey} people={people} onClose={()=>setModal(null)} onImport={handleImport}/>}
