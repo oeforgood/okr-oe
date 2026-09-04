@@ -495,7 +495,7 @@ function UpdateStreak({myUpdates, allUpdates=[], onGoUpdate}){
   return <UpdateStreakWithCurve myUpdates={myUpdates} allUpdates={allUpdates} clickable={false} onGoUpdate={onGoUpdate}/>;
 }
 
-function NotifDetail({notif, teamMember, teamMembers=[], onSendMessage}) {
+function NotifDetail({notif, teamMember, teamMembers=[], onSendMessage, onMarkAsRead, onClose}) {
   const answers=notif?.answers||{};
   const moodVal=answers.q7||"";
   // q6 visible if viewer is author's manager
@@ -507,15 +507,23 @@ function NotifDetail({notif, teamMember, teamMembers=[], onSendMessage}) {
   const visibleQs=allQs.filter(q=>answers[q.id]&&(q.id!=='q6'||isManager));
   const [replyText,setReplyText]=useState('');
   const [replySent,setReplySent]=useState(false);
+  const [marked,setMarked]=useState(!!(notif?.markedRead));
   async function sendReply(){
     if(!replyText.trim()||!onSendMessage)return;
     const managerPrenom=teamMember?.prenom||'Ton référent';
     const toEmail=authorEmail;
     const toPrenom=teamMembers.find(m=>m.email===toEmail)?.prenom||'';
+    // Store reply and mark as read with reply
     await onSendMessage(toEmail, toPrenom, `${managerPrenom} a répondu à ton update`, replyText.trim());
-    sendNotifEmail(toEmail, toPrenom, `${managerPrenom} a répondu à ton update`);
+    if(onMarkAsRead)await onMarkAsRead(notif, true, replyText.trim());
+    setMarked(true);
     setReplySent(true);
-    setTimeout(()=>{setReplyText('');setReplySent(false);},2000);
+    setTimeout(()=>{ onClose&&onClose(); },1500);
+  }
+  async function markAsRead(){
+    if(marked||!onMarkAsRead)return;
+    await onMarkAsRead(notif, false, '');
+    setMarked(true);
   }
   return <div>
     {moodVal&&<div style={{fontSize:28,marginBottom:8}}>{moodVal}</div>}
@@ -567,10 +575,19 @@ function NotifDetail({notif, teamMember, teamMembers=[], onSendMessage}) {
         </button>
       </div>
     </div>}
+    {/* Marquer comme Lu button - shown for update notifs */}
+    {notif?.fromEmail&&<div style={{marginTop:16,paddingTop:12,borderTop:"1px solid #e2ddd6"}}>
+      <button onClick={markAsRead} disabled={marked}
+        style={{fontSize:12,padding:"6px 14px",borderRadius:6,border:"1px solid #e2ddd6",
+          background:marked?"#f5f3ef":"#fff",color:marked?"#9e9890":"#1a1814",
+          cursor:marked?"default":"pointer",opacity:marked?0.6:1}}>
+        {marked?"✓ Marqué comme lu":"Marquer comme Lu"}
+      </button>
+    </div>}
   </div>;
 }
 
-function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,teamMembers=[],myUpdates=[],allUpdates=[],onSendMessage}){
+function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,onMarkAsRead,teamMember,teamMembers=[],myUpdates=[],allUpdates=[],onSendMessage}){
   const [selected,setSelected]=useState(null);
   // Include manager notifs (update notifications) + system messages
   // System messages: Monday morning greeting, season prep reminder
@@ -658,13 +675,13 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,teamMember,t
        {allMsgs.map(msg=><div key={msg.id} onClick={()=>{
          setSelected(msg);
          // Auto-mark notif as read and notify teammate when opening
-         if(!msg.isSystem&&msg.notif&&!msg.notif.read){onReadNotif&&onReadNotif(msg.notif);}
+         if(!msg.isSystem&&msg.notif&&!msg.notif.markedRead){onReadNotif&&onReadNotif(msg.notif);}
          if(msg.isTmNotif&&!msg.read){updateDoc(doc(db,"teammate_notifications",msg.tmNotifId),{read:true}).catch(()=>{});}
        }}
          style={{display:"flex",alignItems:"center",gap:10,padding:"3px 18px",cursor:"pointer",borderBottom:"1px solid #f8f7f5",background:"transparent"}}
          onMouseEnter={e=>e.currentTarget.style.background="#f8f7f5"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-         {!msg.read?<span style={{width:8,height:8,borderRadius:"50%",background:"#2d6a4f",flexShrink:0,display:"inline-block"}}/>:<span style={{width:8,flexShrink:0}}/>}
-         <span style={{fontSize:11,color:msg.read?"#c5c0b8":"#9e9890",minWidth:90,flexShrink:0}}>{msg.date.toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})} {msg.date.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}</span>
+         {!(msg.notif?msg.notif.markedRead:msg.read)?<span style={{width:8,height:8,borderRadius:"50%",background:"#2d6a4f",flexShrink:0,display:"inline-block"}}/>:<span style={{width:8,flexShrink:0}}/>}
+         <span style={{fontSize:11,color:(msg.notif?msg.notif.markedRead:msg.read)?"#c5c0b8":"#9e9890",minWidth:90,flexShrink:0}}>{msg.date.toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})} {msg.date.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}</span>
          <span style={{fontSize:13,color:msg.read?"#c5c0b8":"#1a1814",fontWeight:msg.read?400:500,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textDecoration:msg.read?"line-through":"none"}}>{msg.title}</span>
        </div>)}
      </div>
@@ -5315,28 +5332,37 @@ export default function App(){
   }
 
   async function handleReadNotif(notif){
+    // Called when opening a notif - only marks read visually in local state
+    // Teammate notification is sent separately via handleMarkAsRead
+    if(!notif?.id||notif.type==='system')return;
+    if(notif.fromEmail){
+      await updateDoc(doc(db,"update_notifications",notif.id),{read:true,readAt:Date.now()});
+    }
+  }
+
+  async function handleMarkAsRead(notif, withReply=false, replyText=''){
+    // Called when user clicks "Marquer comme Lu" or sends a reply
     const now=Date.now();
-    // Mark as read
-    await updateDoc(doc(db,"update_notifications",notif.id),{read:true,readAt:now});
-    // Send notification to teammate that manager read their update
-    const{mon,fri}=getWeekBounds(notif.weekKey);
-    const fmtD=d=>`${d.getDate()} ${d.toLocaleString("fr-FR",{month:"long"})}`;
-    const sameM=mon.getMonth()===fri.getMonth();
-    const weekLabel=sameM?`semaine du lundi ${mon.getDate()} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`:`semaine du lundi ${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"long"})} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`;
-    const managerPrenom=currentTeamMember?.prenom;
-    // Store as a teammate_notification readable by the teammate
-    const tmNotifId=`${notif.fromEmail}_${notif.weekKey}_read`;
-    await setDoc(doc(db,"teammate_notifications",tmNotifId),{
-      toEmail:notif.fromEmail,
-      fromPrenom:managerPrenom,
-      weekKey:notif.weekKey,
-      title:`${managerPrenom} a vu ton Update`,
-      message:`${managerPrenom} a lu ton Update de la ${weekLabel}.`,
-      createdAt:now,
-      read:false,
-    });
-      // Send email to teammate
-      sendNotifEmail(notif.fromEmail, notif.fromPrenom||notif.fromEmail, `${managerPrenom} a vu ton Update`);
+    const managerPrenom=currentTeamMember?.prenom||'Ton référent';
+    if(notif.fromEmail){
+      // Mark as read in DB
+      await updateDoc(doc(db,"update_notifications",notif.id),{read:true,readAt:now,markedRead:true});
+      // Build week label
+      const{mon,fri}=getWeekBounds(notif.weekKey);
+      const sameM=mon.getMonth()===fri.getMonth();
+      const weekLabel=sameM?`semaine du lundi ${mon.getDate()} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`:`semaine du lundi ${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"long"})} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`;
+      // Send teammate notif
+      const title=withReply?`${managerPrenom} a lu ton Update et t'a répondu`:`${managerPrenom} a lu ton Update`;
+      const message=withReply
+        ?`${managerPrenom} a lu ton Update de la ${weekLabel} et t'a répondu : "${replyText}"`
+        :`${managerPrenom} a lu ton Update de la ${weekLabel}.`;
+      const tmNotifId=`${notif.fromEmail}_${notif.weekKey}_read`;
+      await setDoc(doc(db,"teammate_notifications",tmNotifId),{
+        toEmail:notif.fromEmail,fromPrenom:managerPrenom,weekKey:notif.weekKey,
+        title,message,createdAt:now,read:false,
+      });
+      sendNotifEmail(notif.fromEmail,notif.fromPrenom||notif.fromEmail,title);
+    }
   }
 
   async function handleUploadReporting(file){
@@ -5504,7 +5530,7 @@ export default function App(){
     absencesList={absencesList}
     managerNotifs={managerNotifs}
     teammateNotifs={teammateNotifs}
-    onReadNotif={handleReadNotif}
+    onReadNotif={handleReadNotif} onMarkAsRead={handleMarkAsRead}
     okrData={okrData}
     isAdmin={isAdmin}
     onOpenSettings={()=>setPage("settings")}
