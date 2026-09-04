@@ -507,7 +507,7 @@ function NotifDetail({notif, teamMember, teamMembers=[], onSendMessage, onMarkAs
   const visibleQs=allQs.filter(q=>answers[q.id]&&(q.id!=='q6'||isManager));
   const [replyText,setReplyText]=useState('');
   const [replySent,setReplySent]=useState(false);
-  const [marked,setMarked]=useState(!!(notif?.markedRead));
+  const [marked,setMarked]=useState(!!(notif?.markedRead||notif?.read));
   async function sendReply(){
     if(!replyText.trim()||!onSendMessage)return;
     const managerPrenom=teamMember?.prenom||'Ton référent';
@@ -518,12 +518,13 @@ function NotifDetail({notif, teamMember, teamMembers=[], onSendMessage, onMarkAs
     if(onMarkAsRead)await onMarkAsRead(notif, true, replyText.trim());
     setMarked(true);
     setReplySent(true);
-    setTimeout(()=>{ onClose&&onClose(); },1500);
+    onClose&&onClose();
   }
   async function markAsRead(){
     if(marked||!onMarkAsRead)return;
     await onMarkAsRead(notif, false, '');
     setMarked(true);
+    onClose&&onClose();
   }
   return <div>
     {moodVal&&<div style={{fontSize:28,marginBottom:8}}>{moodVal}</div>}
@@ -689,7 +690,7 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,onMarkAsRead
       <div style={{background:"#fff",borderRadius:12,padding:24,width:"95%",maxWidth:900,maxHeight:"85vh",overflowY:"auto"}}>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4,flexWrap:"wrap"}}>
           <span style={{fontSize:15,fontWeight:600}}>{selected.title}</span>
-          {!selected.isSystem&&selected.notif&&<span style={{fontSize:11,color:"#c0392b",marginLeft:"auto",textAlign:"right"}}>{selected.notif.fromPrenom} a été informé(e) que tu as vu son Update.</span>}
+          
         </div>
         <div style={{fontSize:11,color:"#9e9890",marginBottom:4}}>{selected.date.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})} à {selected.date.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}</div>
         {!selected.isSystem&&selected.notif?.weekKey&&<div style={{fontSize:11,color:"#9e9890",marginBottom:18}}>Semaine du {fmtWeekLabel(selected.notif.weekKey)}</div>}
@@ -979,7 +980,7 @@ function FeedbackBox({currentUser, teamMember}) {
   );
 }
 
-function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,okrData,isAdmin,onOpenSettings,onChangeSeasonKey,onSendMessage,absencesList=[]}){
+function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,onMarkAsRead,okrData,isAdmin,onOpenSettings,onChangeSeasonKey,onSendMessage,absencesList=[]}){
   const {objectives=[],subobjectives=[],keyresults=[],seasonKey:_sk}=okrData||{};
   const seasonKey=okrData?.seasonKey||"printemps_2026";
   const isOwner=currentUser?.email===OWNER_EMAIL;
@@ -1027,7 +1028,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
 
       {/* ── TOP: Notifications + Feedback ── */}
       <div style={{display:"grid",gridTemplateColumns:"3fr 1fr",gap:12,marginBottom:16,alignItems:"stretch"}}>
-        <MessagesPanel managerNotifs={managerNotifs} teammateNotifs={teammateNotifs} onReadNotif={onReadNotif} teamMember={teamMember} teamMembers={teamMembers} myUpdates={myUpdates} allUpdates={allUpdates} onSendMessage={onSendMessage}/>
+        <MessagesPanel managerNotifs={managerNotifs} teammateNotifs={teammateNotifs} onReadNotif={onReadNotif} onMarkAsRead={onMarkAsRead} teamMember={teamMember} teamMembers={teamMembers} myUpdates={myUpdates} allUpdates={allUpdates} onSendMessage={onSendMessage}/>
         <FeedbackBox currentUser={currentUser} teamMember={teamMember}/>
       </div>
 
@@ -5530,7 +5531,7 @@ export default function App(){
     absencesList={absencesList}
     managerNotifs={managerNotifs}
     teammateNotifs={teammateNotifs}
-    onReadNotif={handleReadNotif} onMarkAsRead={handleMarkAsRead}
+    onReadNotif={handleReadNotif} onMarkAsRead={handleMarkAsRead} onMarkAsRead={handleMarkAsRead}
     okrData={okrData}
     isAdmin={isAdmin}
     onOpenSettings={()=>setPage("settings")}
