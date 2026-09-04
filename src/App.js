@@ -3544,23 +3544,31 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
         {bsv3Msg&&<div style={{marginTop:12,fontSize:13,color:bsv3Msg.startsWith('❌')?'#c0392b':'#2d6a4f'}}>{bsv3Msg}</div>}
       </div>}
         {bsv3History.length>0&&<div style={{marginTop:16}}>
-          <div onClick={()=>setHistExpanded(p=>!p)} style={{cursor:'pointer',fontSize:12,color:'#6b6560',display:'flex',alignItems:'center',gap:6}}>
-            <span>{histExpanded?'▼':'▶'}</span>
-            <span style={{fontWeight:500}}>Historique des imports</span>
-          </div>
           {(()=>{
             const validHistory=bsv3History.filter(h=>h.importedAt&&!isNaN(new Date(h.importedAt)));
-            const shown=histExpanded?validHistory:[validHistory[0]].filter(Boolean);
-            return shown.map((h,i)=>{
-              const d=new Date(h.importedAt);
-              const date=d.toLocaleDateString('fr-FR');
-              const time=d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
-              return <div key={i} style={{marginTop:6,padding:'8px 10px',background:'#f8f7f5',borderRadius:6,fontSize:11,color:'#6b6560',display:'flex',gap:12,alignItems:'center'}}>
+            if(!validHistory.length)return null;
+            const last=validHistory[0];
+            const d=new Date(last.importedAt);
+            const date=d.toLocaleDateString('fr-FR');
+            const time=d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+            const prev=validHistory.slice(1);
+            return <>
+              <div onClick={()=>setHistExpanded(p=>!p)} style={{cursor:'pointer',fontSize:11,color:'#6b6560',display:'flex',alignItems:'center',gap:8,marginTop:8,padding:'7px 10px',background:'#f8f7f5',borderRadius:6}}>
+                <span>{histExpanded?'▼':'▶'}</span>
                 <span style={{color:'#1a1814',fontWeight:500}}>{date} à {time}</span>
-                <span>{h.totalRows?.toLocaleString('fr-FR')} lignes</span>
-                <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',opacity:0.7}}>{h.fileName}</span>
-              </div>;
-            });
+                <span>{last.totalRows?.toLocaleString('fr-FR')} lignes</span>
+                <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',opacity:0.7}}>{last.fileName}</span>
+              </div>
+              {histExpanded&&prev.map((h,i)=>{
+                const d2=new Date(h.importedAt);
+                return <div key={i} style={{marginTop:4,padding:'7px 10px',background:'#f8f7f5',borderRadius:6,fontSize:11,color:'#6b6560',display:'flex',gap:8,alignItems:'center'}}>
+                  <span style={{width:8}}/>
+                  <span style={{color:'#1a1814'}}>{d2.toLocaleDateString('fr-FR')} à {d2.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</span>
+                  <span>{h.totalRows?.toLocaleString('fr-FR')} lignes</span>
+                  <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',opacity:0.7}}>{h.fileName}</span>
+                </div>;
+              })}
+            </>;
           })()}
         </div>}
       {tab!=="history"&&tab!=="reporting"&&tab!=="reporting_params"&&tab!=="members"&&tab!=="bsv3"&&<><button onClick={save} style={{marginTop:20,padding:"12px 28px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600}}>
