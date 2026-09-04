@@ -4308,12 +4308,12 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,t
               const msgs=[];
               const sobjTotalW=sobjs.reduce((s,o)=>s+o.poids,0);
               if(sobjs.length>0&&Math.round(sobjTotalW)!==100)
-                msgs.push(`Poids des sous-objectifs de ${obj.id} : ${Math.round(sobjTotalW)}% (attendu 100%)`);
+                msgs.push(`Somme des poids des sous-objectifs : ${Math.round(sobjTotalW)}% (attendu 100%)`);
               sobjs.forEach(s=>{
                 const krs=keyresults.filter(k=>k.parent===s.id);
                 const tw=krs.reduce((a,k)=>a+k.poids,0);
                 if(krs.length>0&&Math.round(tw)!==100)
-                  msgs.push(`Poids des KR de ${s.id} : ${Math.round(tw)}% (attendu 100%)`);
+                  msgs.push(`Somme des poids des KR de ${s.id} : ${Math.round(tw)}% (attendu 100%)`);
               });
               if(msgs.length>0){setModal(m=>({...m,lockError:msgs}));return;}
               lockObj(modal.item.id);
