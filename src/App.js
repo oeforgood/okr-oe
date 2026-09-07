@@ -622,10 +622,7 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,onMarkAsRead
   const reminderMsgs=[];
 
   // Monday morning: remind if no update yet
-  if(dow===1&&now.getHours()>=8&&!updateDone){
-    reminderMsgs.push({id:"mon_reminder",title:"🌅 Pense à faire ton Update de la semaine !",
-      content:`Bonjour ${teamMember?.prenom||""} ! C'est lundi, dernière chance pour compléter ton Update de la semaine passée. Prends 5 minutes pour partager tes avancées — ça aide tout le monde à rester aligné. À toi de jouer ! 🌼`});
-  }
+
 
   // Friday reminders
   if(dow===5){
@@ -2601,11 +2598,12 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
   // ── EXPORT CSV ──
   function exportCSV(){
     const MOIS=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
-    const fmt=v=>{if(v===0||v===null||v===undefined)return '';const r=inKeur?Math.round(v/100)/10:Math.round(v);return r;};
+    // Always export in € with comma as decimal separator
+    const fmt=v=>{if(v===0||v===null||v===undefined)return '';return String(Math.round(v*100)/100).replace('.',',');};
     const ytdFn=arr=>arr.slice(0,lastMonth).reduce((a,b)=>a+b,0);
     const lastFn=arr=>[...arr.slice(0,lastMonth)].reverse().find(v=>v!==0)??0;
 
-    // bilData helpers
+    // bil helpers
     function bilM(section,key){
       const d=bfrData?.[section]?.[key]?.months||{};
       const arr=Array(12).fill(0);
@@ -2619,70 +2617,112 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
         if(r.months&&typeof r.months==='object'){
           Object.entries(r.months).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)months[m]-=v;});
         }
-        return {compte:r.compte,libCompte:r.libCompte||'',months};
+        return {compte:r.compte,libCompte:r.libCompte||'',months,an:r.an||{}};
       }).filter(r=>r.months.slice(0,lastMonth).some(v=>v!==0));
     }
 
     const bfrKeys=[{key:'clients',label:'Clients et comptes rattachés (41x, 49x)'},{key:'fournisseurs',label:'Fournisseurs et comptes rattachés (40x)'},{key:'stocks',label:'Stocks (3x)'}];
     const autresKeys=[{key:'capitaux',label:'Capitaux propres (10-13)'},{key:'provisions',label:'Provisions (14-15)'},{key:'emprunts',label:'Emprunts et dettes assimilées (16)'},{key:'participations',label:'Participations (17-19)'},{key:'immobilisations',label:'Immobilisations (2x)'},{key:'dette_sociale',label:'Dette sociale et salariale (42-43)'},{key:'dette_etat',label:'Dettes envers l\'État (44)'},{key:'comptes_courants',label:'Comptes courants (45)'},{key:'autre',label:'Autre (46-48, 5x sauf 51)'}];
 
-    // Banques solde
     const anBanques=bfrData?.banques?.banques?.an||{};
     let startBal=-Object.values(anBanques).reduce((s,v)=>s+v,0);
     const banquesVarM=(()=>{const d=bfrData?.banques?.banques?.months||{};const arr=Array(12).fill(0);Object.entries(d).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]-=v;});return arr;})();
     const banquesSolde=(()=>{let c=startBal;return banquesVarM.map(v=>{c+=v;return c;});})();
-
-    // Stocks solde
     const anStocks=bfrData?.bfr?.stocks?.an||{};
     let stocksAN=-Object.values(anStocks).reduce((s,v)=>s+v,0);
     const stocksVarM=bilM('bfr','stocks').map(v=>-v);
     const stocksSolde=(()=>{let c=stocksAN;return stocksVarM.map(v=>{c+=v;return c;});})();
-
     const caT=Array(12).fill(0).map((_,i)=>REPORTING_CANALS.reduce((s,c)=>s+(caByCanal[c]?.[i]||0),0));
     const bfrT=Array(12).fill(0).map((_,i)=>bfrKeys.reduce((s,{key})=>s+bilM('bfr',key)[i],0));
     const autresT=Array(12).fill(0).map((_,i)=>autresKeys.reduce((s,{key})=>s+bilM('autres',key)[i],0));
-    const tresoVar=Array(12).fill(0).map((_,i)=>bfrT[i]+autresT[i]+banquesVarM[i]);
 
     const rows=[];
-    rows.push(['Ligne',...MOIS,'YTD','Total']);
+    // Header row: indent placeholder columns + months + YTD + Total
+    // We use 4 indent levels (0-3) → 4 label columns
+    const MAX_INDENT=4;
+    rows.push([...Array(MAX_INDENT).fill('').map((_,i)=>i===0?'Ligne':''),...MOIS,'YTD','Total']);
 
     function addRow(label,arr,indent=0,isStock=false){
       const yt=isStock?lastFn(arr):ytdFn(arr);
       const tot=isStock?lastFn(arr):arr.reduce((a,b)=>a+b,0);
-      const pad='  '.repeat(indent);
-      rows.push([pad+label,...arr.map(v=>fmt(v)),fmt(yt),fmt(tot)]);
+      const labelCols=Array(MAX_INDENT).fill('');
+      labelCols[indent]=label;
+      rows.push([...labelCols,...arr.map(v=>fmt(v)),fmt(yt),fmt(tot)]);
     }
 
     // EXPLOITATION
-    addRow('Chiffre d\'Affaires',caT);
+    addRow("Chiffre d\'Affaires",caT,0);
     if(expanded['ca']){
       REPORTING_CANALS.forEach(c=>addRow(c,caByCanal[c]||Array(12).fill(0),1));
     }
-    addRow('Marge Brute',mbTotal);
-    addRow('Charges d\'exploitation',chargesExpl);
-    if(expanded['charges']){
-      const types=Object.keys(chargeByType||{});
-      types.forEach(type=>{
+    addRow('Marge Brute',mbTotal,0);
+    addRow("Charges d\'exploitation",chargesExpl,0);
+    if(expanded['charges_expl']||expanded['autres_charges']){
+      ['charges_expl','autres_charges'].forEach(type=>{
+        if(!expanded[type]&&type==='charges_expl')return;
+        if(!expanded[type]&&type==='autres_charges')return;
         const cats=chargeByType[type]||{};
-        const typeM=Array(12).fill(0);
-        Object.values(cats).forEach(d=>{Object.entries(d.months||{}).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)typeM[m]+=v;});});
-        addRow(type,typeM,1);
-        if(expanded['charges_'+type]){
-          Object.entries(cats).forEach(([cat,d])=>{
-            const catM=Array(12).fill(0);
-            Object.entries(d.months||{}).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)catM[m]+=v;});
-            addRow(cat,catM,2);
+        const ordCats=CATEGORIES_ORDER.filter(c=>cats[c]&&catTypes[c]===type);
+        const typeM=Array(12).fill(0).map((_,i)=>ordCats.reduce((s,cat)=>s+Object.values(cats[cat]||{}).reduce((ss,d)=>ss+(d.months[i]||0),0),0));
+        addRow(type==='charges_expl'?"Charges d\'exploitation":'Autres charges',typeM,0);
+        if(expanded[type]){
+          ordCats.forEach(cat=>{
+            const catKey=type+'-'+cat;
+            const catM=Array(12).fill(0).map((_,i)=>Object.values(cats[cat]||{}).reduce((s,d)=>s+(d.months[i]||0),0));
+            addRow(cat,catM,1);
+            if(expanded[catKey]){
+              Object.entries(cats[cat]||{}).sort(([a],[b])=>a.localeCompare(b)).forEach(([subcat,d])=>{
+                const subcatKey=catKey+'-'+subcat;
+                const label2=`${subcat} · ${effectiveLabels[subcat]||subcatLabels[subcat]||''}`;
+                addRow(label2,d.months,2);
+                if(expanded[subcatKey]){
+                  // Transaction level for Exploitation
+                  const rows=(d.rows||[]).filter(r=>r.month<=lastMonth);
+                  rows.sort((a,b)=>a.month-b.month).forEach(r=>{
+                    const txLabel=`${r.date||''} · ${r.libLigne||r.tiers||r.libPiece||'—'}`;
+                    const txM=Array(12).fill(0);
+                    if(r.month>=1&&r.month<=12)txM[r.month-1]=r.amount||0;
+                    addRow(txLabel,txM,3);
+                  });
+                }
+              });
+            }
           });
         }
       });
     }
-    addRow('EBITDA',ebitda);
-    addRow('Autres charges',autresCharges);
-    addRow('Résultat net',resultat);
+    addRow('EBITDA',ebitda,0);
+    addRow('Autres charges',autresCharges,0);
+    if(expanded['autres_charges']){
+      const cats=chargeByType['autres_charges']||{};
+      const ordCats=CATEGORIES_ORDER.filter(c=>cats[c]&&catTypes[c]==='autres_charges');
+      ordCats.forEach(cat=>{
+        const catKey='autres_charges-'+cat;
+        const catM=Array(12).fill(0).map((_,i)=>Object.values(cats[cat]||{}).reduce((s,d)=>s+(d.months[i]||0),0));
+        addRow(cat,catM,1);
+        if(expanded[catKey]){
+          Object.entries(cats[cat]||{}).sort(([a],[b])=>a.localeCompare(b)).forEach(([subcat,d])=>{
+            const subcatKey=catKey+'-'+subcat;
+            const label2=`${subcat} · ${effectiveLabels[subcat]||subcatLabels[subcat]||''}`;
+            addRow(label2,d.months,2);
+            if(expanded[subcatKey]){
+              const rows=(d.rows||[]).filter(r=>r.month<=lastMonth);
+              rows.sort((a,b)=>a.month-b.month).forEach(r=>{
+                const txLabel=`${r.date||''} · ${r.libLigne||r.tiers||r.libPiece||'—'}`;
+                const txM=Array(12).fill(0);
+                if(r.month>=1&&r.month<=12)txM[r.month-1]=r.amount||0;
+                addRow(txLabel,txM,3);
+              });
+            }
+          });
+        }
+      });
+    }
+    addRow('Résultat net',resultat,0);
 
     // TRÉSORERIE
-    rows.push([]);
-    addRow('Variation de BFR',bfrT);
+    rows.push(Array(MAX_INDENT+14).fill(''));
+    addRow('Variation de BFR',bfrT,0);
     if(expanded['bfr']){
       bfrKeys.forEach(({key,label})=>{
         const m=bilM('bfr',key);
@@ -2692,7 +2732,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
         }
       });
     }
-    addRow('Variations d\'autres comptes de bilan',autresT);
+    addRow("Variations d\'autres comptes de bilan",autresT,0);
     if(expanded['autres']){
       autresKeys.forEach(({key,label})=>{
         const m=bilM('autres',key);
@@ -2704,7 +2744,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
         }
       });
     }
-    addRow('Variation de Trésorerie',banquesVarM);
+    addRow('Variation de Trésorerie',banquesVarM,0);
     if(expanded['banques']){
       bilRowsByCompte('banques','banques').forEach(r=>addRow(`${r.compte} · ${r.libCompte}`,r.months,1));
     }
@@ -2718,16 +2758,17 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
     }
 
     // STOCKS
-    rows.push([]);
-    addRow('Variation de stocks',stocksVarM);
+    rows.push(Array(MAX_INDENT+14).fill(''));
+    addRow('Variation de stocks (3x)',stocksVarM,0);
     addRow('Stocks (solde)',stocksSolde,0,true);
 
-    const csv='\uFEFF'+rows.map(r=>r.map(v=>String(v??'').includes(',')?`"${v}"`:String(v??'')).join(',')).join('\n');
+    const csv='\uFEFF'+rows.map(r=>r.join(';')).join('\n');
     const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');a.href=url;a.download='reporting_calendula.csv';a.click();
     URL.revokeObjectURL(url);
   }
+
 
 
   return <div>
