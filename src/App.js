@@ -4864,10 +4864,7 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
 
   const currentTopVals=new Set(validRows.map(r=>r[topField]));
   const prevTopVals=new Set(filteredPrev.map(r=>r[topField]));
-  const CA_CANAUX_FILTER=['CHR','Grands Comptes','Retail','Export'];
-  const allTopVals=topLevel==='canal'
-    ?[...new Set([...currentTopVals,...prevTopVals])].filter(v=>CA_CANAUX_FILTER.includes(v))
-    :[...new Set([...currentTopVals,...prevTopVals])];
+  const allTopVals=[...new Set([...currentTopVals,...prevTopVals])];
   const topSorted=topLevel==='mois'
     ?(ytdMode?[1,2,3,4,5,6,7,8,9,10,11,12].filter(m=>m<=maxYtdMonth).map(String):[1,2,3,4,5,6,7,8,9,10,11,12].map(String))
     :sortByLevel(topLevel,allTopVals,validRows,filteredPrev);
@@ -4988,7 +4985,7 @@ function getBsv3ProdLabel(rows, prod){
 }
 
 
-function Bsv3CaTable({rows, importedAt}){
+function Bsv3CaTable({rows, importedAt, clientFilter=''}){
   const CA_CANAUX=['CHR','Grands Comptes','Retail','Export'];
   const [expandedCanaux,setExpandedCanaux]=React.useState({});
   const [expandedClients,setExpandedClients]=React.useState({});
@@ -5007,7 +5004,9 @@ function Bsv3CaTable({rows, importedAt}){
   const monthsNm1=Array.from({length:12},(_,i)=>12-i); // [12,11,...,1]
   const monthsNm2=Array.from({length:12},(_,i)=>12-i);
 
-  const validRows=rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']));
+  const clientFilterLower2=clientFilter.trim().toLowerCase();
+  const validRows=rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])
+    &&(!clientFilterLower2||(r['Client PL']||r['Tiers']||'').toLowerCase().includes(clientFilterLower2)));
 
   function getCA(rows2,mth,yr){
     return rows2.filter(r=>parseInt(r['Mois Emission'])===mth&&r['Année Emission']===String(yr))
@@ -5030,11 +5029,11 @@ function Bsv3CaTable({rows, importedAt}){
   const th={padding:'5px 8px',fontSize:10,fontWeight:600,color:'#6b6560',textAlign:'right',borderBottom:'2px solid #e2ddd6',background:'#f8f7f5',whiteSpace:'nowrap'};
   const thL={...th,textAlign:'left',minWidth:220};
   const thTotal={...th,background:'#e8f4f0',color:'#2d6a4f',cursor:'pointer'};
-  const thYTD={...th,background:'#f0fdf4',color:'#2d6a4f'};
+  const thYTD={...th,background:'#e8f4f0',color:'#2d6a4f'};
   const td={padding:'5px 6px',fontSize:fs,textAlign:'right',borderBottom:'1px solid #f0ede8'};
   const tdL={...td,textAlign:'left',position:'sticky',left:0,background:'#fff',zIndex:1,maxWidth:280,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'};
-  const tdTotal={...td,background:'#f0fdf4',fontWeight:600,color:'#2d6a4f'};
-  const tdYTD={...td,background:'#e8f4f0',fontWeight:600,color:'#1b4332'};
+  const tdTotal={...td,background:'#e8f4f0',fontWeight:600,color:'#2d6a4f'};
+  const tdYTD={...td,background:'#e8f4f0',fontWeight:600,color:'#2d6a4f'};
 
   // Build header cells (same logic used for data cells)
   // Columns: 12Mgl | 12Mprec | YTD_N | [monthsN desc] | Total_N-1 | [Dec_N-1..YTD_N-1..Jan_N-1] | Total_N-2 | [Dec_N-2..YTD_N-2..Jan_N-2]
@@ -5335,6 +5334,7 @@ function Bsv3CommandesTable({rows, importedAt, activeLetters}){
 function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}){
   const {rows,importedAt,loading}=useBsv3Data();
   const [mainTab,setMainTab]=React.useState('ventes');
+  const [clientFilter,setClientFilter]=React.useState('');
   const [levels,setLevels]=React.useState(['mois','canal','client','produit']);
   const [ytdMode,setYtdMode]=React.useState(false);
   const [dragFrom,setDragFrom]=React.useState(null);
@@ -5346,9 +5346,14 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
   const year=importDate.getMonth()===0?importDate.getFullYear()-1:importDate.getFullYear();
   const prevYear=year-1;
 
-  const validRows=rows.filter(r=>r['Année Emission']===String(year)&&!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']));
-  const prevRows=rows.filter(r=>r['Année Emission']===String(prevYear)&&!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']));
-  const allYearRows=rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']));
+  const CA_CANAUX=['CHR','Grands Comptes','Retail','Export'];
+  const clientFilterLower=clientFilter.trim().toLowerCase();
+  const baseFilter=r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])
+    &&CA_CANAUX.includes(r['Canal'])
+    &&(!clientFilterLower||(r['Client PL']||r['Tiers']||'').toLowerCase().includes(clientFilterLower));
+  const validRows=rows.filter(r=>r['Année Emission']===String(year)&&baseFilter(r));
+  const prevRows=rows.filter(r=>r['Année Emission']===String(prevYear)&&baseFilter(r));
+  const allYearRows=rows.filter(r=>baseFilter(r));
   const maxYtdMonth=validRows.length?Math.max(...validRows.map(r=>parseInt(r['Mois Emission'])||0)):12;
   const displayRows=ytdMode?validRows.filter(r=>parseInt(r['Mois Emission'])<=maxYtdMonth):validRows;
 
@@ -5437,7 +5442,7 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
       :mainTab==='ventes'?<Bsv3Table levels={levels} year={year} prevYear={prevYear}
           validRows={displayRows} prevRows={prevRows} allYearRows={allYearRows}
           ytdMode={ytdMode} maxYtdMonth={maxYtdMonth}/>
-      :mainTab==='ca'?<Bsv3CaTable rows={rows} importedAt={importedAt}/>
+      :mainTab==='ca'?<Bsv3CaTable rows={rows} importedAt={importedAt} clientFilter={clientFilter}/>
       :<Bsv3CommandesTable rows={rows} importedAt={importedAt} activeLetters={activeLetters}/>}
     </div>
   </div>;
