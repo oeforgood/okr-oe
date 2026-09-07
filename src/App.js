@@ -2765,7 +2765,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
     const csv='\uFEFF'+rows.map(r=>r.join(';')).join('\n');
     const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
     const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');a.href=url;a.download='reporting_calendula.csv';a.click();
+    const a=document.createElement('a');a.href=url;const now=new Date();const ts=`${String(now.getFullYear()).slice(2)}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;a.download=`reporting_calendula_${ts}.csv`;a.click();
     URL.revokeObjectURL(url);
   }
 
