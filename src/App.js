@@ -5044,8 +5044,8 @@ function Bsv3CaTable({rows, importedAt}){
     return <>
       <td style={tdTotal}>{fmtCA(getCA12M(r2,curY,lastM))}</td>
       <td style={tdTotal}>{fmtCA(getCA12M(r2,prevY,lastM))}</td>
-      <td style={tdYTD}>{fmtCA(getCAYTD(r2,curY))}</td>
-      {monthsN.map(mo=><td key={'n'+mo} style={td}>{fmtCA(getCA(r2,mo,curY))}</td>)}
+      <td style={{...tdYTD,cursor:'pointer'}} onClick={e=>{e.stopPropagation();toggleYear(curY);}}>{fmtCA(getCAYTD(r2,curY))}</td>
+      {!collapsedYears[curY]&&monthsN.map(mo=><td key={'n'+mo} style={td}>{fmtCA(getCA(r2,mo,curY))}</td>)}
       <td style={tdTotal} onClick={e=>{e.stopPropagation();toggleYear(prevY);}}>{fmtCA(getCATotal(r2,prevY))}</td>
       {!collapsed1&&<>
         {monthsNm1.map((mo,i)=>{
@@ -5090,7 +5090,7 @@ function Bsv3CaTable({rows, importedAt}){
         const clKey=canal+'__'+client;
         const clRows=cRows.filter(r=>(r['Client PL']||r['Tiers'])===client);
         const clExpanded=expandedClients[clKey];
-        const sortedProds=sortProduits([...new Set(clRows.map(r=>r['Contenant+Appelation/Robe'])).filter(Boolean)]);
+        const sortedProds=sortProduits([...new Set(clRows.map(r=>r['Contenant+Appelation/Robe']))].filter(Boolean));
         const isInactive=ci>=activeClients.length;
         return <React.Fragment key={client}>
           {ci===activeClients.length&&<tr><td colSpan={99} style={{padding:'3px 8px',fontSize:10,color:'#9e9890',fontStyle:'italic',borderTop:'1px dashed #e2ddd6'}}>Clients inactifs en {curY}</td></tr>}
@@ -5125,8 +5125,8 @@ function Bsv3CaTable({rows, importedAt}){
           <th style={thL}>Canal / Client / Produit</th>
           <th style={thTotal}>12M glissants</th>
           <th style={thTotal}>12M précédents</th>
-          <th style={thYTD}>YTD {curY}</th>
-          {monthsN.map(mo=><th key={'n'+mo} style={th}>{MOIS_LABELS[mo]} {curY}</th>)}
+          <th style={{...thTotal,cursor:'pointer'}} onClick={()=>toggleYear(curY)}>YTD {curY} {collapsedYears[curY]?'▶':'▼'}</th>
+          {!collapsedYears[curY]&&monthsN.map(mo=><th key={'n'+mo} style={th}>{MOIS_LABELS[mo]} {curY}</th>)}
           <th style={thTotal} onClick={()=>toggleYear(prevY)}>Total {prevY} {collapsed1?'▶':'▼'}</th>
           {!collapsed1&&<>
             {monthsNm1.map(mo=><React.Fragment key={'hm1'+mo}>
@@ -5399,7 +5399,6 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
         </div>
       </div>}
 
-      {mainTab==='ca'&&<Bsv3CaTable rows={rows} importedAt={importedAt}/>}
       {mainTab==='ecoulements'&&<div style={{display:'flex',alignItems:'center',gap:6,marginBottom:16,flexWrap:'wrap'}}>
         <span style={{fontSize:11,color:'#9e9890'}}>Filtrer :</span>
         {[{label:'75cl',letters:new Set(['E'])},{label:'33cl',letters:new Set(['P'])},{label:'Mini',letters:new Set(['M'])},{label:'BIB 5l',letters:new Set(['C'])},{label:'Canette',letters:new Set(['S'])},{label:'Autres',letters:null}].map(({label:fl,letters:fset})=>{
@@ -5435,6 +5434,7 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
       :mainTab==='ventes'?<Bsv3Table levels={levels} year={year} prevYear={prevYear}
           validRows={displayRows} prevRows={prevRows} allYearRows={allYearRows}
           ytdMode={ytdMode} maxYtdMonth={maxYtdMonth}/>
+      :mainTab==='ca'?<Bsv3CaTable rows={rows} importedAt={importedAt}/>
       :<Bsv3CommandesTable rows={rows} importedAt={importedAt} activeLetters={activeLetters}/>}
     </div>
   </div>;
