@@ -4917,7 +4917,7 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
             <td style={{...tf,color:aggTotalP.taux!=null&&aggTotalP.taux<0?'#c0392b':'#9e9890'}}>{fmtBPct(aggTotalP.taux)}</td>
           </tr>
           {!ytdMode&&<tr>
-            <td style={{...tfl,fontSize:11,fontWeight:400,color:'#6b6560'}}>YTD {prevYear} (jan-{MOIS_LABELS[maxYtdMonth]})</td>
+            <td style={{...tfl,fontSize:11,fontWeight:700,color:'#2d6a4f'}}>YTD {prevYear} (jan-{MOIS_LABELS[maxYtdMonth]})</td>
             <td style={{...tf,fontSize:11,fontWeight:400,textAlign:'center'}}>—</td>
             <td style={{...tf,fontSize:11,fontWeight:400,color:'#9e9890'}}>{fmtBEur(aggYTD.ca)}</td>
             <td style={{...tf,fontSize:11,fontWeight:400,color:'#9e9890'}}>{fmtBEur(aggYTD.marge)}</td>
@@ -5284,7 +5284,7 @@ function Bsv3CommandesTable({rows, importedAt, activeLetters}){
               const sortedClients=clients.sort((a,b)=>c12m[b]-c12m[a]);
               return <React.Fragment key={prod}>
                 <tr style={{background:'#fff',cursor:'pointer'}} onClick={()=>setExpandedProds(p=>({...p,[prod]:!p[prod]}))}>
-                  <td style={{padding:'5px 8px',fontSize:11,textAlign:'left',borderBottom:'1px solid #eee',fontWeight:500,whiteSpace:'nowrap'}}>
+                  <td style={{padding:'5px 8px',fontSize:11,textAlign:'left',borderBottom:'1px solid #f0ede8',fontWeight:700,color:'#2d6a4f',whiteSpace:'nowrap'}}>
                     <span style={{fontSize:9,color:'#9e9890',marginRight:4}}>{isExp?'▼':'▶'}</span><span style={{fontFamily:'monospace'}}>{prod}</span>{(()=>{const lb=getBsv3ProdLabel(validRows,prod);return lb?<span style={{color:'#6b6560',fontWeight:400,marginLeft:6}}>— {lb}</span>:null;})()}
                   </td>
                   {renderDataCells(prodRows)}
@@ -5305,7 +5305,7 @@ function Bsv3CommandesTable({rows, importedAt, activeLetters}){
                     const sortedClients2=clients2.sort((a,b)=>c12m2[b]-c12m2[a]);
                     return <React.Fragment key={sku4}>
                       <tr style={{background:'#f0fdf4',cursor:'pointer'}} onClick={()=>setExpandedProds(p=>({...p,[prod+'_'+sku4]:!p[prod+'_'+sku4]}))}>
-                        <td style={{padding:'4px 8px 4px 20px',fontSize:10,textAlign:'left',borderBottom:'1px solid #e8f0e8',fontWeight:500,whiteSpace:'nowrap'}}>
+                        <td style={{padding:'4px 8px 4px 20px',fontSize:11,textAlign:'left',borderBottom:'1px solid #f0ede8',fontWeight:500,color:'#1a1814',whiteSpace:'nowrap'}}>
                           <span style={{fontSize:9,color:'#9e9890',marginRight:4}}>{sku4Exp?'▼':'▶'}</span>
                           <span style={{fontFamily:'monospace'}}>{sku4Label}</span>
 
@@ -5385,6 +5385,14 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
             {t.l}
           </button>
         ))}
+        <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:6}}>
+          <span style={{fontSize:11,color:'#9e9890'}}>🔍</span>
+          <input value={clientFilter} onChange={e=>setClientFilter(e.target.value)}
+            placeholder="Filtrer par client..."
+            style={{fontSize:12,padding:'5px 10px',borderRadius:6,border:'1px solid #e2ddd6',outline:'none',width:180,background:'#fff'}}/>
+          {clientFilter&&<button onClick={()=>setClientFilter('')}
+            style={{fontSize:11,padding:'3px 7px',borderRadius:6,border:'1px solid #e2ddd6',background:'#fff',cursor:'pointer',color:'#6b6560'}}>✕</button>}
+        </div>
       </div>
 
       {/* Sub-controls */}
