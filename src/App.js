@@ -4917,7 +4917,7 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
             <td style={{...tf,color:aggTotalP.taux!=null&&aggTotalP.taux<0?'#c0392b':'#9e9890'}}>{fmtBPct(aggTotalP.taux)}</td>
           </tr>
           {!ytdMode&&<tr>
-            <td style={{...tfl,fontSize:11,fontWeight:700,color:'#2d6a4f'}}>YTD {prevYear} (jan-{MOIS_LABELS[maxYtdMonth]})</td>
+            <td style={{...tfl,fontSize:11,fontWeight:900,color:'#2d6a4f'}}>YTD {prevYear} (jan-{MOIS_LABELS[maxYtdMonth]})</td>
             <td style={{...tf,fontSize:11,fontWeight:400,textAlign:'center'}}>—</td>
             <td style={{...tf,fontSize:11,fontWeight:400,color:'#9e9890'}}>{fmtBEur(aggYTD.ca)}</td>
             <td style={{...tf,fontSize:11,fontWeight:400,color:'#9e9890'}}>{fmtBEur(aggYTD.marge)}</td>
@@ -5026,7 +5026,7 @@ function Bsv3CaTable({rows, importedAt, clientFilter=''}){
   function fmtCA(v){return v?Math.round(v).toLocaleString('fr-FR'):'';}
   function toggleYear(k){setCollapsedYears(p=>({...p,[k]:!p[k]}));}
 
-  const th={padding:'5px 8px',fontSize:10,fontWeight:600,color:'#6b6560',textAlign:'right',borderBottom:'2px solid #e2ddd6',background:'#f8f7f5',whiteSpace:'nowrap'};
+  const th={padding:'5px 8px',fontSize:11,fontWeight:800,color:'#6b6560',textAlign:'right',borderBottom:'2px solid #e2ddd6',background:'#f8f7f5',whiteSpace:'nowrap'};
   const thL={...th,textAlign:'left',minWidth:220};
   const thTotal={...th,background:'#e8f4f0',color:'#2d6a4f',cursor:'pointer'};
   const thYTD={...th,background:'#e8f4f0',color:'#2d6a4f'};
@@ -5085,7 +5085,7 @@ function Bsv3CaTable({rows, importedAt, clientFilter=''}){
 
     return <React.Fragment key={canal}>
       <tr style={{cursor:'pointer',background:expanded?'#f0fdf4':'#fff'}} onClick={()=>setExpandedCanaux(p=>({...p,[canal]:!p[canal]}))}>
-        <td style={{...tdL,fontWeight:700,fontSize:fs,color:'#2d6a4f'}}>{expanded?'▼ ':'▶ '}{canal}</td>
+        <td style={{...tdL,fontWeight:900,fontSize:11,color:'#2d6a4f'}}>{expanded?'▼ ':'▶ '}{canal}</td>
         <DataCells r2={cRows}/>
       </tr>
       {expanded&&sortedClients.map((client,ci)=>{
@@ -5097,14 +5097,14 @@ function Bsv3CaTable({rows, importedAt, clientFilter=''}){
         return <React.Fragment key={client}>
           {ci===activeClients.length&&<tr><td colSpan={99} style={{padding:'3px 8px',fontSize:10,color:'#9e9890',fontStyle:'italic',borderTop:'1px dashed #e2ddd6'}}>Clients inactifs en {curY}</td></tr>}
           <tr style={{cursor:'pointer',background:clExpanded?'#f0fdf4':isInactive?'#fafaf8':'#f9faf8'}} onClick={()=>setExpandedClients(p=>({...p,[clKey]:!p[clKey]}))}>
-            <td style={{...tdL,paddingLeft:18,fontSize:fs,color:isInactive?'#9e9890':'#1a1814',fontWeight:500}}>{clExpanded?'▼ ':'▶ '}{client}</td>
+            <td style={{...tdL,paddingLeft:18,fontSize:11,color:isInactive?'#9e9890':'#1a1814',fontWeight:800}}>{clExpanded?'▼ ':'▶ '}{client}</td>
             <DataCells r2={clRows}/>
           </tr>
           {clExpanded&&sortedProds.map(prod=>{
             const pRows=clRows.filter(r=>r['Contenant+Appelation/Robe']===prod);
             const lb=getBsv3ProdLabel(rows,prod);
             return <tr key={prod}>
-              <td style={{...tdL,paddingLeft:36,fontSize:fs-1,color:'#6b6560',fontWeight:400}}>
+              <td style={{...tdL,paddingLeft:36,fontSize:10,color:'#6b6560',fontWeight:700}}>
                 {prod}{lb&&<span style={{color:'#9e9890',marginLeft:4}}>— {lb}</span>}
               </td>
               <DataCells r2={pRows}/>
@@ -5157,7 +5157,7 @@ function Bsv3CaTable({rows, importedAt, clientFilter=''}){
 }
 
 
-function Bsv3CommandesTable({rows, importedAt, activeLetters}){
+function Bsv3CommandesTable({rows, importedAt, activeLetters, clientFilter=''}){
   const [collapsedYears, setCollapsedYears] = React.useState({});
   const [expandedProds, setExpandedProds] = React.useState({});
 
@@ -5175,7 +5175,9 @@ function Bsv3CommandesTable({rows, importedAt, activeLetters}){
   }
   const years = [...new Set(months.map(x=>x.y))];
 
-  const validRows = rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']));
+  const clientFilterLower3=clientFilter.trim().toLowerCase();
+  const validRows = rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])
+    &&(!clientFilterLower3||(r['Client PL']||r['Tiers']||'').toLowerCase().includes(clientFilterLower3)));
   const allProds = [...new Set(validRows.map(r=>r['Contenant+Appelation/Robe']))];
   const sortedAllProds = sortProduitsSuffix(allProds);
 
@@ -5225,7 +5227,7 @@ function Bsv3CommandesTable({rows, importedAt, activeLetters}){
   }
   function fmtQ(v){return v?Math.round(v).toLocaleString('fr-FR'):'—';}
 
-  const th={padding:'5px 8px',fontSize:10,fontWeight:600,color:'#6b6560',textAlign:'right',borderBottom:'2px solid #e2ddd6',background:'#f8f7f5',whiteSpace:'nowrap'};
+  const th={padding:'5px 8px',fontSize:11,fontWeight:800,color:'#6b6560',textAlign:'right',borderBottom:'2px solid #e2ddd6',background:'#f8f7f5',whiteSpace:'nowrap'};
   const thL={...th,textAlign:'left',minWidth:180};
   const thG={...th,background:'#f0fdf4'};
   const thTotal={...th,background:'#e8f4f0',color:'#2d6a4f',cursor:'pointer'};
@@ -5284,7 +5286,7 @@ function Bsv3CommandesTable({rows, importedAt, activeLetters}){
               const sortedClients=clients.sort((a,b)=>c12m[b]-c12m[a]);
               return <React.Fragment key={prod}>
                 <tr style={{background:'#fff',cursor:'pointer'}} onClick={()=>setExpandedProds(p=>({...p,[prod]:!p[prod]}))}>
-                  <td style={{padding:'5px 8px',fontSize:11,textAlign:'left',borderBottom:'1px solid #f0ede8',fontWeight:700,color:'#2d6a4f',whiteSpace:'nowrap'}}>
+                  <td style={{padding:'5px 8px',fontSize:11,textAlign:'left',borderBottom:'1px solid #f0ede8',fontWeight:900,color:'#2d6a4f',whiteSpace:'nowrap'}}>
                     <span style={{fontSize:9,color:'#9e9890',marginRight:4}}>{isExp?'▼':'▶'}</span><span style={{fontFamily:'monospace'}}>{prod}</span>{(()=>{const lb=getBsv3ProdLabel(validRows,prod);return lb?<span style={{color:'#6b6560',fontWeight:400,marginLeft:6}}>— {lb}</span>:null;})()}
                   </td>
                   {renderDataCells(prodRows)}
@@ -5305,7 +5307,7 @@ function Bsv3CommandesTable({rows, importedAt, activeLetters}){
                     const sortedClients2=clients2.sort((a,b)=>c12m2[b]-c12m2[a]);
                     return <React.Fragment key={sku4}>
                       <tr style={{background:'#f0fdf4',cursor:'pointer'}} onClick={()=>setExpandedProds(p=>({...p,[prod+'_'+sku4]:!p[prod+'_'+sku4]}))}>
-                        <td style={{padding:'4px 8px 4px 20px',fontSize:11,textAlign:'left',borderBottom:'1px solid #f0ede8',fontWeight:500,color:'#1a1814',whiteSpace:'nowrap'}}>
+                        <td style={{padding:'4px 8px 4px 20px',fontSize:11,textAlign:'left',borderBottom:'1px solid #f0ede8',fontWeight:800,color:'#1a1814',whiteSpace:'nowrap'}}>
                           <span style={{fontSize:9,color:'#9e9890',marginRight:4}}>{sku4Exp?'▼':'▶'}</span>
                           <span style={{fontFamily:'monospace'}}>{sku4Label}</span>
 
@@ -5451,7 +5453,7 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
           validRows={displayRows} prevRows={prevRows} allYearRows={allYearRows}
           ytdMode={ytdMode} maxYtdMonth={maxYtdMonth}/>
       :mainTab==='ca'?<Bsv3CaTable rows={rows} importedAt={importedAt} clientFilter={clientFilter}/>
-      :<Bsv3CommandesTable rows={rows} importedAt={importedAt} activeLetters={activeLetters}/>}
+      :<Bsv3CommandesTable rows={rows} importedAt={importedAt} activeLetters={activeLetters} clientFilter={clientFilter}/>}
     </div>
   </div>;
 }
