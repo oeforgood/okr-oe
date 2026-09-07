@@ -4994,7 +4994,8 @@ function Bsv3CaTable({rows, importedAt}){
   const importDate = importedAt ? new Date(importedAt) : new Date();
   const importYear = importDate.getMonth() === 0 ? importDate.getFullYear()-1 : importDate.getFullYear();
   const lastM = importDate.getMonth() === 0 ? 12 : importDate.getMonth();
-  const curY = lastY = lastM === 12 ? importYear : importYear;
+  const curY = lastM === 12 ? importYear : importYear;
+  const lastY = curY;
   const prevY = curY-1;
   const prev2Y = curY-2;
 
