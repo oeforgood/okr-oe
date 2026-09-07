@@ -622,10 +622,7 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,onMarkAsRead
   const reminderMsgs=[];
 
   // Monday morning: remind if no update yet
-  if(dow===1&&now.getHours()>=8&&!updateDone){
-    reminderMsgs.push({id:"mon_reminder",title:"🌅 Pense à faire ton Update de la semaine !",
-      content:`Bonjour ${teamMember?.prenom||""} ! C'est lundi, dernière chance pour compléter ton Update de la semaine passée. Prends 5 minutes pour partager tes avancées — ça aide tout le monde à rester aligné. À toi de jouer ! 🌼`});
-  }
+
 
   // Friday reminders
   if(dow===5){
@@ -727,7 +724,7 @@ function Bsv3Banner({onGoBsv3}) {
         const importDate=at?new Date(at):new Date();
         const yr=importDate.getMonth()===0?importDate.getFullYear()-1:importDate.getFullYear();
         setBsv3Year(yr);
-        const valid=all.filter(r=>r['Année Emission']===String(yr)&&!['CASIER-OE','COIFFE-OE','CONTENANT BOUTEILLE'].includes(r['Contenant+Appelation/Robe'])&&r['Canal']);
+        const valid=all.filter(r=>r['Année Emission']===String(yr)&&!['CASIER-OE','COIFFE-OE','CONTENANT BOUTEILLE'].includes(r['Contenant+Appelation/Robe'])&&['CHR','Grands Comptes','Retail','Export'].includes(r['Canal']));
         setBsv3Rows(valid);
       }
     }).catch(()=>{});
@@ -742,7 +739,7 @@ function Bsv3Banner({onGoBsv3}) {
       if(!snap.empty){
         let all=[];
         snap.docs.sort((a,b)=>a.id.localeCompare(b.id)).forEach(d=>all=all.concat(d.data().rows||[]));
-        setBsv3AllRows(all);
+        setBsv3AllRows(all.filter(r=>!['CASIER-OE','COIFFE-OE','CONTENANT BOUTEILLE'].includes(r['Contenant+Appelation/Robe'])&&['CHR','Grands Comptes','Retail','Export'].includes(r['Canal'])));
       }
     }).catch(()=>{});
   },[]);
@@ -1715,7 +1712,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,onGoOKR,onGoU
             <div style={{fontSize:14,fontWeight:600,color:"#166534"}}>Update enregistré !</div>
             <div style={{fontSize:12,color:"#6b6560"}}>{isUpdateLocked()?"Non modifiable (délai vendredi 15h dépassé).":"Modifiable jusqu'au vendredi 15h."}</div>
           </div>
-          {!isUpdateLocked()&&<button onClick={()=>setSubmitted(false)} style={{marginLeft:"auto",fontSize:12,color:"#1d4ed8",background:"none",border:"1px solid #1d4ed8",borderRadius:6,padding:"5px 12px",cursor:"pointer"}}>Modifier</button>}
+          
         </div>
         {/* Show answers read-only */}
         <div style={{display:"flex",flexDirection:"column",gap:10,opacity:0.85}}>
@@ -2366,7 +2363,7 @@ function SubcatsDnD({codeMap, setCodeMap, onSaveCodeMap, subcatLabels, knownSubc
   );
 }
 
-function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMap, savedCustomLabels={}, onSaveCustomLabels, savedCanalMargin, readOnly=false}) {
+function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMap, savedCustomLabels={}, onSaveCustomLabels, savedCanalMargin, readOnly=false, currentUser=null}) {
   const [caData, setCaData] = useState(null);
 
   const [chargeData, setChargeData] = useState(null);
@@ -2597,6 +2594,183 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
     </ReportingRow>;
   }
 
+
+  // ── EXPORT CSV ──
+  function exportCSV(){
+    const MOIS=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+    // Always export in € with comma as decimal separator
+    const fmt=v=>{if(v===0||v===null||v===undefined)return '';return String(Math.round(v*100)/100).replace('.',',');};
+    const ytdFn=arr=>arr.slice(0,lastMonth).reduce((a,b)=>a+b,0);
+    const lastFn=arr=>[...arr.slice(0,lastMonth)].reverse().find(v=>v!==0)??0;
+
+    // bil helpers
+    function bilM(section,key){
+      const d=bfrData?.[section]?.[key]?.months||{};
+      const arr=Array(12).fill(0);
+      Object.entries(d).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]-=v;});
+      return arr;
+    }
+    function bilRowsByCompte(section,key){
+      const rows=bfrData?.[section]?.[key]?.rows||[];
+      return rows.map(r=>{
+        const months=Array(12).fill(0);
+        if(r.months&&typeof r.months==='object'){
+          Object.entries(r.months).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)months[m]-=v;});
+        }
+        return {compte:r.compte,libCompte:r.libCompte||'',months,an:r.an||{}};
+      }).filter(r=>r.months.slice(0,lastMonth).some(v=>v!==0));
+    }
+
+    const bfrKeys=[{key:'clients',label:'Clients et comptes rattachés (41x, 49x)'},{key:'fournisseurs',label:'Fournisseurs et comptes rattachés (40x)'},{key:'stocks',label:'Stocks (3x)'}];
+    const autresKeys=[{key:'capitaux',label:'Capitaux propres (10-13)'},{key:'provisions',label:'Provisions (14-15)'},{key:'emprunts',label:'Emprunts et dettes assimilées (16)'},{key:'participations',label:'Participations (17-19)'},{key:'immobilisations',label:'Immobilisations (2x)'},{key:'dette_sociale',label:'Dette sociale et salariale (42-43)'},{key:'dette_etat',label:'Dettes envers l\'État (44)'},{key:'comptes_courants',label:'Comptes courants (45)'},{key:'autre',label:'Autre (46-48, 5x sauf 51)'}];
+
+    const anBanques=bfrData?.banques?.banques?.an||{};
+    let startBal=-Object.values(anBanques).reduce((s,v)=>s+v,0);
+    const banquesVarM=(()=>{const d=bfrData?.banques?.banques?.months||{};const arr=Array(12).fill(0);Object.entries(d).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]-=v;});return arr;})();
+    const banquesSolde=(()=>{let c=startBal;return banquesVarM.map(v=>{c+=v;return c;});})();
+    const anStocks=bfrData?.bfr?.stocks?.an||{};
+    let stocksAN=-Object.values(anStocks).reduce((s,v)=>s+v,0);
+    const stocksVarM=bilM('bfr','stocks').map(v=>-v);
+    const stocksSolde=(()=>{let c=stocksAN;return stocksVarM.map(v=>{c+=v;return c;});})();
+    const caT=Array(12).fill(0).map((_,i)=>REPORTING_CANALS.reduce((s,c)=>s+(caByCanal[c]?.[i]||0),0));
+    const bfrT=Array(12).fill(0).map((_,i)=>bfrKeys.reduce((s,{key})=>s+bilM('bfr',key)[i],0));
+    const autresT=Array(12).fill(0).map((_,i)=>autresKeys.reduce((s,{key})=>s+bilM('autres',key)[i],0));
+
+    const rows=[];
+    // Header row: indent placeholder columns + months + YTD + Total
+    // We use 4 indent levels (0-3) → 4 label columns
+    const MAX_INDENT=4;
+    rows.push([...Array(MAX_INDENT).fill('').map((_,i)=>i===0?'Ligne':''),...MOIS,'YTD','Total']);
+
+    function addRow(label,arr,indent=0,isStock=false){
+      const yt=isStock?lastFn(arr):ytdFn(arr);
+      const tot=isStock?lastFn(arr):arr.reduce((a,b)=>a+b,0);
+      const labelCols=Array(MAX_INDENT).fill('');
+      labelCols[indent]=label;
+      rows.push([...labelCols,...arr.map(v=>fmt(v)),fmt(yt),fmt(tot)]);
+    }
+
+    // EXPLOITATION
+    addRow("Chiffre d\'Affaires",caT,0);
+    if(expanded['ca']){
+      REPORTING_CANALS.forEach(c=>addRow(c,caByCanal[c]||Array(12).fill(0),1));
+    }
+    addRow('Marge Brute',mbTotal,0);
+    addRow("Charges d\'exploitation",chargesExpl,0);
+    if(expanded['charges_expl']||expanded['autres_charges']){
+      ['charges_expl','autres_charges'].forEach(type=>{
+        if(!expanded[type]&&type==='charges_expl')return;
+        if(!expanded[type]&&type==='autres_charges')return;
+        const cats=chargeByType[type]||{};
+        const ordCats=CATEGORIES_ORDER.filter(c=>cats[c]&&catTypes[c]===type);
+        const typeM=Array(12).fill(0).map((_,i)=>ordCats.reduce((s,cat)=>s+Object.values(cats[cat]||{}).reduce((ss,d)=>ss+(d.months[i]||0),0),0));
+        addRow(type==='charges_expl'?"Charges d\'exploitation":'Autres charges',typeM,0);
+        if(expanded[type]){
+          ordCats.forEach(cat=>{
+            const catKey=type+'-'+cat;
+            const catM=Array(12).fill(0).map((_,i)=>Object.values(cats[cat]||{}).reduce((s,d)=>s+(d.months[i]||0),0));
+            addRow(cat,catM,1);
+            if(expanded[catKey]){
+              Object.entries(cats[cat]||{}).sort(([a],[b])=>a.localeCompare(b)).forEach(([subcat,d])=>{
+                const subcatKey=catKey+'-'+subcat;
+                const label2=`${subcat} · ${effectiveLabels[subcat]||subcatLabels[subcat]||''}`;
+                addRow(label2,d.months,2);
+                if(expanded[subcatKey]){
+                  // Transaction level for Exploitation
+                  const rows=(d.rows||[]).filter(r=>r.month<=lastMonth);
+                  rows.sort((a,b)=>a.month-b.month).forEach(r=>{
+                    const txLabel=`${r.date||''} · ${r.libLigne||r.tiers||r.libPiece||'—'}`;
+                    const txM=Array(12).fill(0);
+                    if(r.month>=1&&r.month<=12)txM[r.month-1]=r.amount||0;
+                    addRow(txLabel,txM,3);
+                  });
+                }
+              });
+            }
+          });
+        }
+      });
+    }
+    addRow('EBITDA',ebitda,0);
+    addRow('Autres charges',autresCharges,0);
+    if(expanded['autres_charges']){
+      const cats=chargeByType['autres_charges']||{};
+      const ordCats=CATEGORIES_ORDER.filter(c=>cats[c]&&catTypes[c]==='autres_charges');
+      ordCats.forEach(cat=>{
+        const catKey='autres_charges-'+cat;
+        const catM=Array(12).fill(0).map((_,i)=>Object.values(cats[cat]||{}).reduce((s,d)=>s+(d.months[i]||0),0));
+        addRow(cat,catM,1);
+        if(expanded[catKey]){
+          Object.entries(cats[cat]||{}).sort(([a],[b])=>a.localeCompare(b)).forEach(([subcat,d])=>{
+            const subcatKey=catKey+'-'+subcat;
+            const label2=`${subcat} · ${effectiveLabels[subcat]||subcatLabels[subcat]||''}`;
+            addRow(label2,d.months,2);
+            if(expanded[subcatKey]){
+              const rows=(d.rows||[]).filter(r=>r.month<=lastMonth);
+              rows.sort((a,b)=>a.month-b.month).forEach(r=>{
+                const txLabel=`${r.date||''} · ${r.libLigne||r.tiers||r.libPiece||'—'}`;
+                const txM=Array(12).fill(0);
+                if(r.month>=1&&r.month<=12)txM[r.month-1]=r.amount||0;
+                addRow(txLabel,txM,3);
+              });
+            }
+          });
+        }
+      });
+    }
+    addRow('Résultat net',resultat,0);
+
+    // TRÉSORERIE
+    rows.push(Array(MAX_INDENT+14).fill(''));
+    addRow('Variation de BFR',bfrT,0);
+    if(expanded['bfr']){
+      bfrKeys.forEach(({key,label})=>{
+        const m=bilM('bfr',key);
+        addRow(label,m,1);
+        if(expanded['bfr_'+key]){
+          bilRowsByCompte('bfr',key).forEach(r=>addRow(`${r.compte} · ${r.libCompte}`,r.months,2));
+        }
+      });
+    }
+    addRow("Variations d\'autres comptes de bilan",autresT,0);
+    if(expanded['autres']){
+      autresKeys.forEach(({key,label})=>{
+        const m=bilM('autres',key);
+        if(m.some(v=>v!==0)){
+          addRow(label,m,1);
+          if(expanded['autres_'+key]){
+            bilRowsByCompte('autres',key).forEach(r=>addRow(`${r.compte} · ${r.libCompte}`,r.months,2));
+          }
+        }
+      });
+    }
+    addRow('Variation de Trésorerie',banquesVarM,0);
+    if(expanded['banques']){
+      bilRowsByCompte('banques','banques').forEach(r=>addRow(`${r.compte} · ${r.libCompte}`,r.months,1));
+    }
+    addRow('Trésorerie (solde)',banquesSolde,0,true);
+    if(expanded['treso_solde']){
+      bilRowsByCompte('banques','banques').forEach(r=>{
+        let c2=-(anBanques[r.compte]||0);
+        const solde=r.months.map(v=>{c2+=v;return c2;});
+        addRow(`${r.compte} · ${r.libCompte}`,solde,1,true);
+      });
+    }
+
+    // STOCKS
+    rows.push(Array(MAX_INDENT+14).fill(''));
+    addRow('Variation de stocks (3x)',stocksVarM,0);
+    addRow('Stocks (solde)',stocksSolde,0,true);
+
+    const csv='\uFEFF'+rows.map(r=>r.join(';')).join('\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;const now=new Date();const ts=`${String(now.getFullYear()).slice(2)}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;a.download=`reporting_calendula_${ts}.csv`;a.click();
+    URL.revokeObjectURL(url);
+  }
+
+
+
   return <div>
     {/* Tabs */}
     <div style={{display:'flex',gap:8,marginBottom:16}}>
@@ -2623,6 +2797,9 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
           Données au {new Date(importedAt).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})} à {new Date(importedAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}
         </span>}
         <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:8}}>
+          {currentUser?.email==='fx@oeforgood.com'&&<button onClick={exportCSV}
+            style={{padding:'3px 10px',borderRadius:10,border:'1px solid #e2ddd6',background:'#fff',
+              color:'#6b6560',cursor:'pointer',fontSize:11}}>📥 Exporter</button>}
           <span style={{fontSize:11,color:'#9e9890'}}>Affichage :</span>
           <button onClick={()=>setInKeur(false)} style={{padding:'3px 10px',borderRadius:10,border:`1px solid ${!inKeur?'#2d6a4f':'#e2ddd6'}`,background:!inKeur?'#2d6a4f':'#fff',color:!inKeur?'#fff':'#6b6560',cursor:'pointer',fontSize:11}}>€</button>
           <button onClick={()=>setInKeur(true)} style={{padding:'3px 10px',borderRadius:10,border:`1px solid ${inKeur?'#2d6a4f':'#e2ddd6'}`,background:inKeur?'#2d6a4f':'#fff',color:inKeur?'#fff':'#6b6560',cursor:'pointer',fontSize:11}}>k€</button>
@@ -4372,12 +4549,12 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,t
 }
 
 // ─── APP ROOT ─────────────────────────────────────────────────────────────────
-function ReportingPagePublic({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3, catTypes, codeMap, customSubcatLabels={}, savedCanalMargin}) {
+function ReportingPagePublic({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3, catTypes, codeMap, customSubcatLabels={}, savedCanalMargin, currentUser}) {
   return <div style={{minHeight:"100vh",background:"#f5f3ef",fontFamily:"system-ui,sans-serif"}}>
     <AppNav current="reporting" onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3}/>
     <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
       <ReportingTab onSaveCatTypes={null} savedCatTypes={catTypes} savedCodeMap={codeMap}
-        onSaveCodeMap={null} savedCustomLabels={customSubcatLabels} onSaveCustomLabels={null} savedCanalMargin={savedCanalMargin} readOnly={true}/>
+        onSaveCodeMap={null} savedCustomLabels={customSubcatLabels} onSaveCustomLabels={null} savedCanalMargin={savedCanalMargin} readOnly={true} currentUser={currentUser}/>
     </div>
   </div>;
 }
@@ -4740,7 +4917,7 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
             <td style={{...tf,color:aggTotalP.taux!=null&&aggTotalP.taux<0?'#c0392b':'#9e9890'}}>{fmtBPct(aggTotalP.taux)}</td>
           </tr>
           {!ytdMode&&<tr>
-            <td style={{...tfl,fontSize:11,fontWeight:400,color:'#6b6560'}}>YTD {prevYear} (jan-{MOIS_LABELS[maxYtdMonth]})</td>
+            <td style={{...tfl,fontSize:11,fontWeight:900,color:'#2d6a4f'}}>YTD {prevYear} (jan-{MOIS_LABELS[maxYtdMonth]})</td>
             <td style={{...tf,fontSize:11,fontWeight:400,textAlign:'center'}}>—</td>
             <td style={{...tf,fontSize:11,fontWeight:400,color:'#9e9890'}}>{fmtBEur(aggYTD.ca)}</td>
             <td style={{...tf,fontSize:11,fontWeight:400,color:'#9e9890'}}>{fmtBEur(aggYTD.marge)}</td>
@@ -4807,7 +4984,180 @@ function getBsv3ProdLabel(rows, prod){
   return row?row['Libellé Contenant+Appelation/Robe'].trim():'';
 }
 
-function Bsv3CommandesTable({rows, importedAt, activeLetters}){
+
+function Bsv3CaTable({rows, importedAt, clientFilter=''}){
+  const CA_CANAUX=['CHR','Grands Comptes','Retail','Export'];
+  const [expandedCanaux,setExpandedCanaux]=React.useState({});
+  const [expandedClients,setExpandedClients]=React.useState({});
+  const [collapsedYears,setCollapsedYears]=React.useState({});
+
+  const importDate=importedAt?new Date(importedAt):new Date();
+  const importYear=importDate.getMonth()===0?importDate.getFullYear()-1:importDate.getFullYear();
+  const lastM=importDate.getMonth()===0?12:importDate.getMonth();
+  const curY=importYear;
+  const prevY=curY-1;
+  const prev2Y=curY-2;
+  const fs=11;
+
+  // Months for each year: N = Jan→lastM, N-1 = Dec→Jan (12 months), N-2 = Dec→Jan (12 months)
+  const monthsN=Array.from({length:lastM},(_,i)=>lastM-i); // [lastM, lastM-1, ..., 1]
+  const monthsNm1=Array.from({length:12},(_,i)=>12-i); // [12,11,...,1]
+  const monthsNm2=Array.from({length:12},(_,i)=>12-i);
+
+  const clientFilterLower2=clientFilter.trim().toLowerCase();
+  const validRows=rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])
+    &&(!clientFilterLower2||(r['Client PL']||r['Tiers']||'').toLowerCase().includes(clientFilterLower2)));
+
+  function getCA(rows2,mth,yr){
+    return rows2.filter(r=>parseInt(r['Mois Emission'])===mth&&r['Année Emission']===String(yr))
+      .reduce((s,r)=>s+parseBsv3Amt(r['Montant HT']),0);
+  }
+  function getCA12M(rows2,fromY,fromM){
+    let total=0,y2=fromY,m2=fromM;
+    for(let i=0;i<12;i++){total+=getCA(rows2,m2,y2);m2--;if(m2===0){m2=12;y2--;}}
+    return total;
+  }
+  function getCAYTD(rows2,yr){
+    let total=0;for(let mth=1;mth<=lastM;mth++)total+=getCA(rows2,mth,yr);return total;
+  }
+  function getCATotal(rows2,yr){
+    let total=0;for(let mth=1;mth<=12;mth++)total+=getCA(rows2,mth,yr);return total;
+  }
+  function fmtCA(v){return v?Math.round(v).toLocaleString('fr-FR'):'';}
+  function toggleYear(k){setCollapsedYears(p=>({...p,[k]:!p[k]}));}
+
+  const th={padding:'5px 8px',fontSize:11,fontWeight:800,color:'#6b6560',textAlign:'right',borderBottom:'2px solid #e2ddd6',background:'#f8f7f5',whiteSpace:'nowrap'};
+  const thL={...th,textAlign:'left',minWidth:220};
+  const thTotal={...th,background:'#e8f4f0',color:'#2d6a4f',cursor:'pointer'};
+  const thYTD={...th,background:'#e8f4f0',color:'#2d6a4f'};
+  const td={padding:'5px 6px',fontSize:fs,textAlign:'right',borderBottom:'1px solid #f0ede8'};
+  const tdL={...td,textAlign:'left',position:'sticky',left:0,background:'#fff',zIndex:1,maxWidth:280,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'};
+  const tdTotal={...td,background:'#e8f4f0',fontWeight:600,color:'#2d6a4f'};
+  const tdYTD={...td,background:'#e8f4f0',fontWeight:600,color:'#2d6a4f'};
+
+  // Build header cells (same logic used for data cells)
+  // Columns: 12Mgl | 12Mprec | YTD_N | [monthsN desc] | Total_N-1 | [Dec_N-1..YTD_N-1..Jan_N-1] | Total_N-2 | [Dec_N-2..YTD_N-2..Jan_N-2]
+  // YTD_N-1 inserted between month lastM+1 and lastM of N-1 (i.e. after month lastM+1 of N-1, before month lastM of N-1)
+  // = after monthsNm1 slice before lastM, before slice from lastM
+
+  function DataCells({r2}){
+    const collapsed1=collapsedYears[prevY];
+    const collapsed2=collapsedYears[prev2Y];
+    return <>
+      <td style={tdTotal}>{fmtCA(getCA12M(r2,curY,lastM))}</td>
+      <td style={tdTotal}>{fmtCA(getCA12M(r2,prevY,lastM))}</td>
+      <td style={{...tdYTD,cursor:'pointer'}} onClick={e=>{e.stopPropagation();toggleYear(curY);}}>{fmtCA(getCAYTD(r2,curY))}</td>
+      {!collapsedYears[curY]&&monthsN.map(mo=><td key={'n'+mo} style={td}>{fmtCA(getCA(r2,mo,curY))}</td>)}
+      <td style={tdTotal} onClick={e=>{e.stopPropagation();toggleYear(prevY);}}>{fmtCA(getCATotal(r2,prevY))}</td>
+      {!collapsed1&&<>
+        {monthsNm1.map((mo,i)=>{
+          const showYTD=mo===lastM+1||(lastM===12&&i===0);
+          return <React.Fragment key={'nm1'+mo}>
+            {mo===lastM&&!collapsed1&&<td style={tdYTD}>{fmtCA(getCAYTD(r2,prevY))}</td>}
+            <td style={td}>{fmtCA(getCA(r2,mo,prevY))}</td>
+          </React.Fragment>;
+        })}
+      </>}
+      <td style={tdTotal} onClick={e=>{e.stopPropagation();toggleYear(prev2Y);}}>{fmtCA(getCATotal(r2,prev2Y))}</td>
+      {!collapsed2&&<>
+        {monthsNm2.map(mo=><React.Fragment key={'nm2'+mo}>
+          {mo===lastM&&<td style={tdYTD}>{fmtCA(getCAYTD(r2,prev2Y))}</td>}
+          <td style={td}>{fmtCA(getCA(r2,mo,prev2Y))}</td>
+        </React.Fragment>)}
+      </>}
+    </>;
+  }
+
+  function CanalRow({canal}){
+    const cRows=validRows.filter(r=>r['Canal']===canal);
+    const expanded=expandedCanaux[canal];
+    const allClients=[...new Set(cRows.map(r=>r['Client PL']||r['Tiers']||'').filter(Boolean))];
+    const clientCA={},clientCAPrev={},clientCAPrev2={};
+    allClients.forEach(cl=>{
+      const cr=cRows.filter(r=>(r['Client PL']||r['Tiers'])===cl);
+      clientCA[cl]=getCAYTD(cr,curY);
+      clientCAPrev[cl]=getCATotal(cr,prevY);
+      clientCAPrev2[cl]=getCATotal(cr,prev2Y);
+    });
+    const activeClients=allClients.filter(c=>clientCA[c]>0).sort((a,b)=>clientCA[b]-clientCA[a]);
+    const inactiveClients=allClients.filter(c=>clientCA[c]===0&&(clientCAPrev[c]>0||clientCAPrev2[c]>0)).sort((a,b)=>clientCAPrev[b]-clientCAPrev[a]||clientCAPrev2[b]-clientCAPrev2[a]);
+    const sortedClients=[...activeClients,...inactiveClients];
+
+    return <React.Fragment key={canal}>
+      <tr style={{cursor:'pointer',background:expanded?'#f0fdf4':'#fff'}} onClick={()=>setExpandedCanaux(p=>({...p,[canal]:!p[canal]}))}>
+        <td style={{...tdL,fontWeight:900,fontSize:11,color:'#2d6a4f'}}>{expanded?'▼ ':'▶ '}{canal}</td>
+        <DataCells r2={cRows}/>
+      </tr>
+      {expanded&&sortedClients.map((client,ci)=>{
+        const clKey=canal+'__'+client;
+        const clRows=cRows.filter(r=>(r['Client PL']||r['Tiers'])===client);
+        const clExpanded=expandedClients[clKey];
+        const sortedProds=sortProduits([...new Set(clRows.map(r=>r['Contenant+Appelation/Robe']))].filter(Boolean));
+        const isInactive=ci>=activeClients.length;
+        return <React.Fragment key={client}>
+          {ci===activeClients.length&&<tr><td colSpan={99} style={{padding:'3px 8px',fontSize:10,color:'#9e9890',fontStyle:'italic',borderTop:'1px dashed #e2ddd6'}}>Clients inactifs en {curY}</td></tr>}
+          <tr style={{cursor:'pointer',background:clExpanded?'#f0fdf4':isInactive?'#fafaf8':'#f9faf8'}} onClick={()=>setExpandedClients(p=>({...p,[clKey]:!p[clKey]}))}>
+            <td style={{...tdL,paddingLeft:18,fontSize:11,color:isInactive?'#9e9890':'#1a1814',fontWeight:800}}>{clExpanded?'▼ ':'▶ '}{client}</td>
+            <DataCells r2={clRows}/>
+          </tr>
+          {clExpanded&&sortedProds.map(prod=>{
+            const pRows=clRows.filter(r=>r['Contenant+Appelation/Robe']===prod);
+            const lb=getBsv3ProdLabel(rows,prod);
+            return <tr key={prod}>
+              <td style={{...tdL,paddingLeft:36,fontSize:10,color:'#6b6560',fontWeight:700}}>
+                {prod}{lb&&<span style={{color:'#9e9890',marginLeft:4}}>— {lb}</span>}
+              </td>
+              <DataCells r2={pRows}/>
+            </tr>;
+          })}
+        </React.Fragment>;
+      })}
+    </React.Fragment>;
+  }
+
+  const activeCanaux=CA_CANAUX.filter(c=>getCAYTD(validRows.filter(r=>r['Canal']===c),curY)>0);
+  const inactiveCanaux=CA_CANAUX.filter(c=>!activeCanaux.includes(c)&&validRows.some(r=>r['Canal']===c&&(r['Année Emission']===String(prevY)||r['Année Emission']===String(prev2Y))));
+  const collapsed1=collapsedYears[prevY];
+  const collapsed2=collapsedYears[prev2Y];
+
+  return <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',overflow:'hidden'}}>
+    <div style={{overflowX:'auto'}}>
+      <table style={{width:'100%',borderCollapse:'collapse'}}>
+        <thead><tr>
+          <th style={thL}>Canal / Client / Produit</th>
+          <th style={thTotal}>12M glissants</th>
+          <th style={thTotal}>12M précédents</th>
+          <th style={{...thTotal,cursor:'pointer'}} onClick={()=>toggleYear(curY)}>YTD {curY} {collapsedYears[curY]?'▶':'▼'}</th>
+          {!collapsedYears[curY]&&monthsN.map(mo=><th key={'n'+mo} style={th}>{MOIS_LABELS[mo]} {curY}</th>)}
+          <th style={thTotal} onClick={()=>toggleYear(prevY)}>Total {prevY} {collapsed1?'▶':'▼'}</th>
+          {!collapsed1&&<>
+            {monthsNm1.map(mo=><React.Fragment key={'hm1'+mo}>
+              {mo===lastM&&<th style={thYTD}>YTD {prevY}</th>}
+              <th style={th}>{MOIS_LABELS[mo]} {prevY}</th>
+            </React.Fragment>)}
+          </>}
+          <th style={thTotal} onClick={()=>toggleYear(prev2Y)}>Total {prev2Y} {collapsed2?'▶':'▼'}</th>
+          {!collapsed2&&<>
+            {monthsNm2.map(mo=><React.Fragment key={'hm2'+mo}>
+              {mo===lastM&&<th style={thYTD}>YTD {prev2Y}</th>}
+              <th style={th}>{MOIS_LABELS[mo]} {prev2Y}</th>
+            </React.Fragment>)}
+          </>}
+        </tr></thead>
+        <tbody>
+          {activeCanaux.map(canal=><CanalRow key={canal} canal={canal}/>)}
+          {inactiveCanaux.length>0&&<>
+            <tr><td colSpan={99} style={{padding:'6px 10px',fontSize:10,color:'#9e9890',fontStyle:'italic',borderTop:'2px solid #e2ddd6'}}>Canaux sans CA en {curY}</td></tr>
+            {inactiveCanaux.map(canal=><CanalRow key={canal} canal={canal}/>)}
+          </>}
+        </tbody>
+      </table>
+    </div>
+  </div>;
+}
+
+
+function Bsv3CommandesTable({rows, importedAt, activeLetters, clientFilter=''}){
   const [collapsedYears, setCollapsedYears] = React.useState({});
   const [expandedProds, setExpandedProds] = React.useState({});
 
@@ -4825,7 +5175,9 @@ function Bsv3CommandesTable({rows, importedAt, activeLetters}){
   }
   const years = [...new Set(months.map(x=>x.y))];
 
-  const validRows = rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']));
+  const clientFilterLower3=clientFilter.trim().toLowerCase();
+  const validRows = rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])
+    &&(!clientFilterLower3||(r['Client PL']||r['Tiers']||'').toLowerCase().includes(clientFilterLower3)));
   const allProds = [...new Set(validRows.map(r=>r['Contenant+Appelation/Robe']))];
   const sortedAllProds = sortProduitsSuffix(allProds);
 
@@ -4875,7 +5227,7 @@ function Bsv3CommandesTable({rows, importedAt, activeLetters}){
   }
   function fmtQ(v){return v?Math.round(v).toLocaleString('fr-FR'):'—';}
 
-  const th={padding:'5px 8px',fontSize:10,fontWeight:600,color:'#6b6560',textAlign:'right',borderBottom:'2px solid #e2ddd6',background:'#f8f7f5',whiteSpace:'nowrap'};
+  const th={padding:'5px 8px',fontSize:11,fontWeight:800,color:'#6b6560',textAlign:'right',borderBottom:'2px solid #e2ddd6',background:'#f8f7f5',whiteSpace:'nowrap'};
   const thL={...th,textAlign:'left',minWidth:180};
   const thG={...th,background:'#f0fdf4'};
   const thTotal={...th,background:'#e8f4f0',color:'#2d6a4f',cursor:'pointer'};
@@ -4934,7 +5286,7 @@ function Bsv3CommandesTable({rows, importedAt, activeLetters}){
               const sortedClients=clients.sort((a,b)=>c12m[b]-c12m[a]);
               return <React.Fragment key={prod}>
                 <tr style={{background:'#fff',cursor:'pointer'}} onClick={()=>setExpandedProds(p=>({...p,[prod]:!p[prod]}))}>
-                  <td style={{padding:'5px 8px',fontSize:11,textAlign:'left',borderBottom:'1px solid #eee',fontWeight:500,whiteSpace:'nowrap'}}>
+                  <td style={{padding:'5px 8px',fontSize:11,textAlign:'left',borderBottom:'1px solid #f0ede8',fontWeight:900,color:'#2d6a4f',whiteSpace:'nowrap'}}>
                     <span style={{fontSize:9,color:'#9e9890',marginRight:4}}>{isExp?'▼':'▶'}</span><span style={{fontFamily:'monospace'}}>{prod}</span>{(()=>{const lb=getBsv3ProdLabel(validRows,prod);return lb?<span style={{color:'#6b6560',fontWeight:400,marginLeft:6}}>— {lb}</span>:null;})()}
                   </td>
                   {renderDataCells(prodRows)}
@@ -4955,7 +5307,7 @@ function Bsv3CommandesTable({rows, importedAt, activeLetters}){
                     const sortedClients2=clients2.sort((a,b)=>c12m2[b]-c12m2[a]);
                     return <React.Fragment key={sku4}>
                       <tr style={{background:'#f0fdf4',cursor:'pointer'}} onClick={()=>setExpandedProds(p=>({...p,[prod+'_'+sku4]:!p[prod+'_'+sku4]}))}>
-                        <td style={{padding:'4px 8px 4px 20px',fontSize:10,textAlign:'left',borderBottom:'1px solid #e8f0e8',fontWeight:500,whiteSpace:'nowrap'}}>
+                        <td style={{padding:'4px 8px 4px 20px',fontSize:11,textAlign:'left',borderBottom:'1px solid #f0ede8',fontWeight:800,color:'#1a1814',whiteSpace:'nowrap'}}>
                           <span style={{fontSize:9,color:'#9e9890',marginRight:4}}>{sku4Exp?'▼':'▶'}</span>
                           <span style={{fontFamily:'monospace'}}>{sku4Label}</span>
 
@@ -4984,6 +5336,7 @@ function Bsv3CommandesTable({rows, importedAt, activeLetters}){
 function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}){
   const {rows,importedAt,loading}=useBsv3Data();
   const [mainTab,setMainTab]=React.useState('ventes');
+  const [clientFilter,setClientFilter]=React.useState('');
   const [levels,setLevels]=React.useState(['mois','canal','client','produit']);
   const [ytdMode,setYtdMode]=React.useState(false);
   const [dragFrom,setDragFrom]=React.useState(null);
@@ -4995,9 +5348,14 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
   const year=importDate.getMonth()===0?importDate.getFullYear()-1:importDate.getFullYear();
   const prevYear=year-1;
 
-  const validRows=rows.filter(r=>r['Année Emission']===String(year)&&!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']));
-  const prevRows=rows.filter(r=>r['Année Emission']===String(prevYear)&&!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']));
-  const allYearRows=rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']));
+  const CA_CANAUX=['CHR','Grands Comptes','Retail','Export'];
+  const clientFilterLower=clientFilter.trim().toLowerCase();
+  const baseFilter=r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])
+    &&CA_CANAUX.includes(r['Canal'])
+    &&(!clientFilterLower||(r['Client PL']||r['Tiers']||'').toLowerCase().includes(clientFilterLower));
+  const validRows=rows.filter(r=>r['Année Emission']===String(year)&&baseFilter(r));
+  const prevRows=rows.filter(r=>r['Année Emission']===String(prevYear)&&baseFilter(r));
+  const allYearRows=rows.filter(r=>baseFilter(r));
   const maxYtdMonth=validRows.length?Math.max(...validRows.map(r=>parseInt(r['Mois Emission'])||0)):12;
   const displayRows=ytdMode?validRows.filter(r=>parseInt(r['Mois Emission'])<=maxYtdMonth):validRows;
 
@@ -5021,7 +5379,7 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
     <div style={{maxWidth:1400,margin:'0 auto',padding:'20px 16px'}}>
       {/* Main tabs */}
       <div style={{display:'flex',gap:8,marginBottom:16,alignItems:'center',flexWrap:'wrap'}}>
-        {[{k:'ventes',l:'Analyse des ventes'},{k:'ecoulements',l:'Analyse des écoulements'}].map(t=>(
+        {[{k:'ventes',l:'Analyse des Marges'},{k:'ca',l:'Analyse des CA'},{k:'ecoulements',l:'Analyse des Écoulements'}].map(t=>(
           <button key={t.k} onClick={()=>setMainTab(t.k)}
             style={{padding:'8px 18px',borderRadius:8,border:`1px solid ${mainTab===t.k?'#2d6a4f':'#e2ddd6'}`,
               background:mainTab===t.k?'#2d6a4f':'#fff',color:mainTab===t.k?'#fff':'#6b6560',
@@ -5029,6 +5387,14 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
             {t.l}
           </button>
         ))}
+        <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:6}}>
+          <span style={{fontSize:11,color:'#9e9890'}}>🔍</span>
+          <input value={clientFilter} onChange={e=>setClientFilter(e.target.value)}
+            placeholder="Filtrer par client..."
+            style={{fontSize:12,padding:'5px 10px',borderRadius:6,border:'1px solid #e2ddd6',outline:'none',width:180,background:'#fff'}}/>
+          {clientFilter&&<button onClick={()=>setClientFilter('')}
+            style={{fontSize:11,padding:'3px 7px',borderRadius:6,border:'1px solid #e2ddd6',background:'#fff',cursor:'pointer',color:'#6b6560'}}>✕</button>}
+        </div>
       </div>
 
       {/* Sub-controls */}
@@ -5086,7 +5452,8 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
       :mainTab==='ventes'?<Bsv3Table levels={levels} year={year} prevYear={prevYear}
           validRows={displayRows} prevRows={prevRows} allYearRows={allYearRows}
           ytdMode={ytdMode} maxYtdMonth={maxYtdMonth}/>
-      :<Bsv3CommandesTable rows={rows} importedAt={importedAt} activeLetters={activeLetters}/>}
+      :mainTab==='ca'?<Bsv3CaTable rows={rows} importedAt={importedAt} clientFilter={clientFilter}/>
+      :<Bsv3CommandesTable rows={rows} importedAt={importedAt} activeLetters={activeLetters} clientFilter={clientFilter}/>}
     </div>
   </div>;
 }
@@ -5512,7 +5879,7 @@ export default function App(){
 
   if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers}/>;
   if(page==="update")return <UpdatePage onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} okrData={okrData} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers}/>;
-  if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels} savedCanalMargin={savedCanalMargin}/>;
+  if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels} savedCanalMargin={savedCanalMargin} currentUser={authUser}/>;
   if(page==="bsv3")return <Bsv3Page onBack={()=>setPage('dashboard')} onGoOKR={()=>setPage('okr')} onGoUpdate={()=>setPage('update')} onGoReporting={()=>setPage('reporting')} onGoBsv3={()=>setPage('bsv3')} currentUser={authUser}/>;
   if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels} savedCanalMargin={savedCanalMargin} onSaveCanalMargin={handleSaveCanalMargin} onSendMessage={handleSendMessage} onSaveBsv3={handleSaveBsv3} onUploadReporting={handleUploadReporting}/>;
 
