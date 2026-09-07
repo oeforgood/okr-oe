@@ -4864,7 +4864,10 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
 
   const currentTopVals=new Set(validRows.map(r=>r[topField]));
   const prevTopVals=new Set(filteredPrev.map(r=>r[topField]));
-  const allTopVals=[...new Set([...currentTopVals,...prevTopVals])];
+  const CA_CANAUX_FILTER=['CHR','Grands Comptes','Retail','Export'];
+  const allTopVals=topLevel==='canal'
+    ?[...new Set([...currentTopVals,...prevTopVals])].filter(v=>CA_CANAUX_FILTER.includes(v))
+    :[...new Set([...currentTopVals,...prevTopVals])];
   const topSorted=topLevel==='mois'
     ?(ytdMode?[1,2,3,4,5,6,7,8,9,10,11,12].filter(m=>m<=maxYtdMonth).map(String):[1,2,3,4,5,6,7,8,9,10,11,12].map(String))
     :sortByLevel(topLevel,allTopVals,validRows,filteredPrev);
