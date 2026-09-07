@@ -2597,6 +2597,77 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
     </ReportingRow>;
   }
 
+
+  // ── EXPORT CSV ──
+  function exportCSV(){
+    const MOIS=['','Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+    const activeMonths=Array(12).fill(0).map((_,i)=>i).filter(i=>monthActive[i]);
+    const fmt=v=>v===0?'':inKeur?Math.round(v/100)/10:Math.round(v);
+    const rows=[];
+    const head=['Ligne',...activeMonths.map(i=>MOIS[i+1]),'YTD','Total'];
+    rows.push(head);
+
+    function addRow(label,months,indent=''){
+      const ytd=months.slice(0,lastMonth).reduce((a,b)=>a+b,0);
+      const total=months.reduce((a,b)=>a+b,0);
+      rows.push([indent+label,...activeMonths.map(i=>fmt(months[i])),fmt(ytd),fmt(total)]);
+    }
+
+    // CA
+    addRow('Chiffre d\'Affaires',caTotal);
+    if(expanded['ca']){
+      REPORTING_CANALS.forEach(c=>{
+        addRow(c,caByCanal[c]||Array(12).fill(0),'  ');
+        if(expanded['ca_'+c]&&caData?.[CANAL_CSV_MAP[c]]){
+          // tiers level
+          const tiers={};
+          (caData[CANAL_CSV_MAP[c]]?.rows||[]).forEach(r=>{
+            if(!tiers[r.tiers])tiers[r.tiers]=Array(12).fill(0);
+            tiers[r.tiers][r.month-1]+=r.amount;
+          });
+          Object.entries(tiers).forEach(([t,m])=>addRow(t,m,'    '));
+        }
+      });
+    }
+
+    // Marge brute
+    addRow('Marge Brute',mbTotal);
+
+    // Charges exploitation
+    addRow('Charges d\'exploitation',chargeTotal);
+    if(expanded['charges']){
+      Object.entries(groupedCharges).forEach(([grp,subcats])=>{
+        addRow(grp,Array(12).fill(0).map((_,i)=>subcats.reduce((s,sc)=>s+(chargeData[sc]?.months?.[`${new Date().getFullYear()}-${i+1}`]||0),0)),'  ');
+        if(expanded['charges_'+grp]){
+          subcats.forEach(sc=>{
+            const months=Array(12).fill(0);
+            Object.entries(chargeData[sc]?.months||{}).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)months[m]+=v;});
+            addRow(SUBCAT_LABELS[sc]||sc,months,'    ');
+          });
+        }
+      });
+    }
+
+    addRow('EBITDA',ebitdaTotal);
+    addRow('Autres charges',autresTotal);
+    addRow('Résultat net',resultatTotal);
+
+    // BFR
+    addRow('Variation de BFR',bfrTotal);
+    addRow('Variation de Trésorerie',tresoVariation);
+    addRow('Trésorerie (solde)',banquesMonths);
+    addRow('CoGS',cogsTotal);
+    addRow('Stocks (solde)',stocksSolde);
+
+    // Build CSV
+    const csv=rows.map(r=>r.map(v=>String(v??'').includes(',')?`"${v}"`:v).join(',')).join('\n');
+    const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download='reporting_calendula.csv';a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return <div>
     {/* Tabs */}
     <div style={{display:'flex',gap:8,marginBottom:16}}>
@@ -2623,6 +2694,9 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
           Données au {new Date(importedAt).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})} à {new Date(importedAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}
         </span>}
         <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:8}}>
+          {currentUser?.email==='fx@oeforgood.com'&&<button onClick={exportCSV}
+            style={{padding:'3px 10px',borderRadius:10,border:'1px solid #e2ddd6',background:'#fff',
+              color:'#6b6560',cursor:'pointer',fontSize:11}}>📥 Exporter</button>}
           <span style={{fontSize:11,color:'#9e9890'}}>Affichage :</span>
           <button onClick={()=>setInKeur(false)} style={{padding:'3px 10px',borderRadius:10,border:`1px solid ${!inKeur?'#2d6a4f':'#e2ddd6'}`,background:!inKeur?'#2d6a4f':'#fff',color:!inKeur?'#fff':'#6b6560',cursor:'pointer',fontSize:11}}>€</button>
           <button onClick={()=>setInKeur(true)} style={{padding:'3px 10px',borderRadius:10,border:`1px solid ${inKeur?'#2d6a4f':'#e2ddd6'}`,background:inKeur?'#2d6a4f':'#fff',color:inKeur?'#fff':'#6b6560',cursor:'pointer',fontSize:11}}>k€</button>
@@ -4372,12 +4446,12 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,t
 }
 
 // ─── APP ROOT ─────────────────────────────────────────────────────────────────
-function ReportingPagePublic({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3, catTypes, codeMap, customSubcatLabels={}, savedCanalMargin}) {
+function ReportingPagePublic({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3, catTypes, codeMap, customSubcatLabels={}, savedCanalMargin, currentUser}) {
   return <div style={{minHeight:"100vh",background:"#f5f3ef",fontFamily:"system-ui,sans-serif"}}>
     <AppNav current="reporting" onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3}/>
     <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
       <ReportingTab onSaveCatTypes={null} savedCatTypes={catTypes} savedCodeMap={codeMap}
-        onSaveCodeMap={null} savedCustomLabels={customSubcatLabels} onSaveCustomLabels={null} savedCanalMargin={savedCanalMargin} readOnly={true}/>
+        onSaveCodeMap={null} savedCustomLabels={customSubcatLabels} onSaveCustomLabels={null} savedCanalMargin={savedCanalMargin} readOnly={true} currentUser={currentUser}/>
     </div>
   </div>;
 }
@@ -5512,7 +5586,7 @@ export default function App(){
 
   if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers}/>;
   if(page==="update")return <UpdatePage onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} okrData={okrData} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers}/>;
-  if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels} savedCanalMargin={savedCanalMargin}/>;
+  if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels} savedCanalMargin={savedCanalMargin} currentUser={authUser}/>;
   if(page==="bsv3")return <Bsv3Page onBack={()=>setPage('dashboard')} onGoOKR={()=>setPage('okr')} onGoUpdate={()=>setPage('update')} onGoReporting={()=>setPage('reporting')} onGoBsv3={()=>setPage('bsv3')} currentUser={authUser}/>;
   if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels} savedCanalMargin={savedCanalMargin} onSaveCanalMargin={handleSaveCanalMargin} onSendMessage={handleSendMessage} onSaveBsv3={handleSaveBsv3} onUploadReporting={handleUploadReporting}/>;
 
