@@ -4994,17 +4994,14 @@ function Bsv3CaTable({rows, importedAt}){
   const importDate = importedAt ? new Date(importedAt) : new Date();
   const importYear = importDate.getMonth() === 0 ? importDate.getFullYear()-1 : importDate.getFullYear();
   const lastM = importDate.getMonth() === 0 ? 12 : importDate.getMonth();
-  const curY = lastM === 12 ? importYear : importYear;
-  const lastY = curY;
+  const curY = importYear;
   const prevY = curY-1;
   const prev2Y = curY-2;
+  const fs=11;
 
   const months = [];
   let m = lastM, y = curY;
-  for(let i=0;i<24;i++){
-    months.push({m,y});
-    m--;if(m===0){m=12;y--;}
-  }
+  for(let i=0;i<24;i++){months.push({m,y});m--;if(m===0){m=12;y--;}}
   const years = [...new Set(months.map(x=>x.y))];
 
   const validRows = rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']));
@@ -5021,25 +5018,20 @@ function Bsv3CaTable({rows, importedAt}){
   function getCAYTD(rows2,yr){
     let total=0;for(let mth=1;mth<=lastM;mth++)total+=getCA(rows2,mth,yr);return total;
   }
-  function fmtCA(v){return v?Math.round(v).toLocaleString('fr-FR')+' €':'';}
+  function fmtCA(v){return v?Math.round(v).toLocaleString('fr-FR'):'';}
   function toggleYear(k){setCollapsedYears(p=>({...p,[k]:!p[k]}));}
 
-  const th={padding:'6px 8px',fontSize:11,fontWeight:600,color:'#6b6560',textAlign:'right',borderBottom:'1px solid #e2ddd6',whiteSpace:'nowrap',background:'#fafaf8'};
-  const thL={...th,textAlign:'left',width:260,minWidth:200,position:'sticky',left:0,background:'#fafaf8',zIndex:1};
-  const thTotal={...th,background:'#f0fdf4',cursor:'pointer',color:'#2d6a4f'};
-  const td={padding:'5px 8px',fontSize:12,textAlign:'right',borderBottom:'1px solid #f0ede8'};
-  const tdL={...td,textAlign:'left',position:'sticky',left:0,background:'#fff',zIndex:1,maxWidth:260,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'};
-  const tdTotal={...td,background:'#f8fffd',fontWeight:600};
-
-  // 12M prev: from lastM of prevY
-  const prev12mStart={y:prevY,m:lastM};
+  // Styles matching Bsv3CommandesTable
+  const th={padding:'5px 8px',fontSize:10,fontWeight:600,color:'#6b6560',textAlign:'right',borderBottom:'2px solid #e2ddd6',background:'#f8f7f5',whiteSpace:'nowrap'};
+  const thL={...th,textAlign:'left',minWidth:220};
+  const thTotal={...th,background:'#e8f4f0',color:'#2d6a4f',cursor:'pointer'};
+  const td={padding:'5px 6px',fontSize:fs,textAlign:'right',borderBottom:'1px solid #f0ede8'};
+  const tdL={...td,textAlign:'left',position:'sticky',left:0,background:'#fff',zIndex:1,maxWidth:280,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'};
+  const tdTotal={...td,background:'#f0fdf4',fontWeight:600,color:'#2d6a4f'};
 
   function CanalRow({canal}){
     const cRows=validRows.filter(r=>r['Canal']===canal);
     const expanded=expandedCanaux[canal];
-    const ca12m=getCA12M(cRows,curY,lastM);
-    const ca12mPrev=getCA12M(cRows,prevY,lastM);
-
     const allClients=[...new Set(cRows.map(r=>r['Client PL']||r['Tiers']||'').filter(Boolean))];
     const clientCA={},clientCAPrev={},clientCAPrev2={};
     allClients.forEach(cl=>{
@@ -5052,69 +5044,34 @@ function Bsv3CaTable({rows, importedAt}){
     const inactiveClients=allClients.filter(c=>clientCA[c]===0&&(clientCAPrev[c]>0||clientCAPrev2[c]>0)).sort((a,b)=>clientCAPrev[b]-clientCAPrev[a]||clientCAPrev2[b]-clientCAPrev2[a]);
     const sortedClients=[...activeClients,...inactiveClients];
 
+    function Row12M(r2){return[<td style={tdTotal}>{fmtCA(getCA12M(r2,curY,lastM))}</td>,<td style={tdTotal}>{fmtCA(getCA12M(r2,prevY,lastM))}</td>,<td style={tdTotal}>{fmtCA(getCAYTD(r2,curY))}</td>,<td style={tdTotal}>{fmtCA(getCAYTD(r2,prevY))}</td>,...(!collapsedYears['ytd']?months.filter(x=>x.y===curY).map(({m:mo})=><td key={mo} style={td}>{fmtCA(getCA(r2,mo,curY))}</td>):[]),...years.filter(yr=>yr!==curY).flatMap(yr=>[<td key={yr+'t'} style={tdTotal}>{fmtCA(getCAYTD(r2,yr))}</td>,...(!collapsedYears[yr]?months.filter(x=>x.y===yr).map(({m:mo})=><td key={yr+mo} style={td}>{fmtCA(getCA(r2,mo,yr))}</td>):[])])];}
+
     return <React.Fragment key={canal}>
       <tr style={{cursor:'pointer',background:expanded?'#f0fdf4':'#fff'}} onClick={()=>setExpandedCanaux(p=>({...p,[canal]:!p[canal]}))}>
-        <td style={{...tdL,fontWeight:600,fontSize:12,color:'#2d6a4f'}}>{expanded?'▼ ':'▶ '}{canal}</td>
-        <td style={tdTotal}>{fmtCA(ca12m)}</td>
-        <td style={tdTotal}>{fmtCA(ca12mPrev)}</td>
-        <td style={tdTotal}>{fmtCA(getCAYTD(cRows,curY))}</td>
-        <td style={tdTotal}>{fmtCA(getCAYTD(cRows,prevY))}</td>
-        {!collapsedYears['ytd']&&months.filter(x=>x.y===curY).map(({m:mo})=>(
-          <td key={mo} style={td}>{fmtCA(getCA(cRows,mo,curY))}</td>
-        ))}
-        {years.filter(yr=>yr!==curY).map(yr=>(
-          <React.Fragment key={yr}>
-            <td style={tdTotal} onClick={e=>{e.stopPropagation();toggleYear(yr);}}>{fmtCA(getCAYTD(cRows,yr))}</td>
-            {!collapsedYears[yr]&&months.filter(x=>x.y===yr).map(({m:mo})=>(
-              <td key={mo} style={td}>{fmtCA(getCA(cRows,mo,yr))}</td>
-            ))}
-          </React.Fragment>
-        ))}
+        <td style={{...tdL,fontWeight:700,fontSize:fs,color:'#2d6a4f'}}>{expanded?'▼ ':'▶ '}{canal}</td>
+        {Row12M(cRows)}
       </tr>
-      {expanded&&sortedClients.map(client=>{
+      {expanded&&sortedClients.map((client,ci)=>{
         const clKey=canal+'__'+client;
         const clRows=cRows.filter(r=>(r['Client PL']||r['Tiers'])===client);
         const clExpanded=expandedClients[clKey];
         const allProds=[...new Set(clRows.map(r=>r['Contenant+Appelation/Robe']))].filter(Boolean);
         const sortedProds=sortProduits(allProds);
+        const isInactive=ci>=activeClients.length;
         return <React.Fragment key={client}>
-          <tr style={{cursor:'pointer',background:clExpanded?'#f8fffd':'#f9faf8'}} onClick={()=>setExpandedClients(p=>({...p,[clKey]:!p[clKey]}))}>
-            <td style={{...tdL,paddingLeft:20,fontSize:12,color:'#1a1814',fontWeight:500}}>{clExpanded?'▼ ':'▶ '}{client}</td>
-            <td style={td}>{fmtCA(getCA12M(clRows,curY,lastM))}</td>
-            <td style={td}>{fmtCA(getCA12M(clRows,prevY,lastM))}</td>
-            <td style={tdTotal}>{fmtCA(getCAYTD(clRows,curY))}</td>
-            <td style={tdTotal}>{fmtCA(getCAYTD(clRows,prevY))}</td>
-            {!collapsedYears['ytd']&&months.filter(x=>x.y===curY).map(({m:mo})=>(
-              <td key={mo} style={td}>{fmtCA(getCA(clRows,mo,curY))}</td>
-            ))}
-            {years.filter(yr=>yr!==curY).map(yr=>(
-              <React.Fragment key={yr}>
-                <td style={tdTotal}>{fmtCA(getCAYTD(clRows,yr))}</td>
-                {!collapsedYears[yr]&&months.filter(x=>x.y===yr).map(({m:mo})=>(
-                  <td key={mo} style={td}>{fmtCA(getCA(clRows,mo,yr))}</td>
-                ))}
-              </React.Fragment>
-            ))}
+          {ci===activeClients.length&&<tr><td colSpan={99} style={{padding:'3px 8px',fontSize:10,color:'#9e9890',fontStyle:'italic',borderTop:'1px dashed #e2ddd6'}}>Clients inactifs en {curY}</td></tr>}
+          <tr style={{cursor:'pointer',background:clExpanded?'#f0fdf4':isInactive?'#fafaf8':'#f9faf8'}} onClick={()=>setExpandedClients(p=>({...p,[clKey]:!p[clKey]}))}>
+            <td style={{...tdL,paddingLeft:18,fontSize:fs,color:isInactive?'#9e9890':'#1a1814',fontWeight:500}}>{clExpanded?'▼ ':'▶ '}{client}</td>
+            {Row12M(clRows)}
           </tr>
           {clExpanded&&sortedProds.map(prod=>{
             const pRows=clRows.filter(r=>r['Contenant+Appelation/Robe']===prod);
+            const lb=getBsv3ProdLabel(rows,prod);
             return <tr key={prod} style={{background:'#fefefe'}}>
-              <td style={{...tdL,paddingLeft:40,fontSize:12,color:'#6b6560',fontWeight:400}}>{prod}</td>
-              <td style={td}>{fmtCA(getCA12M(pRows,curY,lastM))}</td>
-              <td style={td}>{fmtCA(getCA12M(pRows,prevY,lastM))}</td>
-              <td style={tdTotal}>{fmtCA(getCAYTD(pRows,curY))}</td>
-              <td style={tdTotal}>{fmtCA(getCAYTD(pRows,prevY))}</td>
-              {!collapsedYears['ytd']&&months.filter(x=>x.y===curY).map(({m:mo})=>(
-                <td key={mo} style={td}>{fmtCA(getCA(pRows,mo,curY))}</td>
-              ))}
-              {years.filter(yr=>yr!==curY).map(yr=>(
-                <React.Fragment key={yr}>
-                  <td style={tdTotal}>{fmtCA(getCAYTD(pRows,yr))}</td>
-                  {!collapsedYears[yr]&&months.filter(x=>x.y===yr).map(({m:mo})=>(
-                    <td key={mo} style={td}>{fmtCA(getCA(pRows,mo,yr))}</td>
-                  ))}
-                </React.Fragment>
-              ))}
+              <td style={{...tdL,paddingLeft:36,fontSize:fs-1,color:'#6b6560',fontWeight:400}}>
+                {prod}{lb&&<span style={{color:'#9e9890',marginLeft:4}}>— {lb}</span>}
+              </td>
+              {Row12M(pRows)}
             </tr>;
           })}
         </React.Fragment>;
@@ -5122,7 +5079,7 @@ function Bsv3CaTable({rows, importedAt}){
     </React.Fragment>;
   }
 
-  const activeCanaux=CA_CANAUX.filter(c=>validRows.filter(r=>r['Canal']===c&&r['Année Emission']===String(curY)).reduce((s,r)=>s+parseBsv3Amt(r['Montant HT']),0)>0);
+  const activeCanaux=CA_CANAUX.filter(c=>getCAYTD(validRows.filter(r=>r['Canal']===c),curY)>0);
   const inactiveCanaux=CA_CANAUX.filter(c=>!activeCanaux.includes(c)&&validRows.some(r=>r['Canal']===c&&(r['Année Emission']===String(prevY)||r['Année Emission']===String(prev2Y))));
 
   return <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',overflow:'hidden'}}>
@@ -5132,7 +5089,7 @@ function Bsv3CaTable({rows, importedAt}){
           <th style={thL}>Canal / Client / Produit</th>
           <th style={thTotal}>12M glissants</th>
           <th style={thTotal}>12M précédents</th>
-          <th style={{...thTotal}} onClick={()=>toggleYear('ytd')}>YTD {curY} {collapsedYears['ytd']?'▶':'▼'}</th>
+          <th style={thTotal} onClick={()=>toggleYear('ytd')}>YTD {curY} {collapsedYears['ytd']?'▶':'▼'}</th>
           <th style={thTotal}>YTD {prevY}</th>
           {!collapsedYears['ytd']&&months.filter(x=>x.y===curY).map(({m:mo})=>(
             <th key={mo} style={th}>{MOIS_LABELS[mo]}</th>
@@ -5149,7 +5106,7 @@ function Bsv3CaTable({rows, importedAt}){
         <tbody>
           {activeCanaux.map(canal=><CanalRow key={canal} canal={canal}/>)}
           {inactiveCanaux.length>0&&<>
-            <tr><td colSpan={99} style={{padding:'6px 10px',fontSize:11,color:'#9e9890',fontStyle:'italic',borderTop:'2px solid #e2ddd6'}}>Canaux sans CA en {curY}</td></tr>
+            <tr><td colSpan={99} style={{padding:'6px 10px',fontSize:10,color:'#9e9890',fontStyle:'italic',borderTop:'2px solid #e2ddd6'}}>Canaux sans CA en {curY}</td></tr>
             {inactiveCanaux.map(canal=><CanalRow key={canal} canal={canal}/>)}
           </>}
         </tbody>
@@ -5403,7 +5360,7 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
         </div>
       </div>}
 
-
+      {mainTab==='ca'&&<Bsv3CaTable rows={rows} importedAt={importedAt}/>}
       {mainTab==='ecoulements'&&<div style={{display:'flex',alignItems:'center',gap:6,marginBottom:16,flexWrap:'wrap'}}>
         <span style={{fontSize:11,color:'#9e9890'}}>Filtrer :</span>
         {[{label:'75cl',letters:new Set(['E'])},{label:'33cl',letters:new Set(['P'])},{label:'Mini',letters:new Set(['M'])},{label:'BIB 5l',letters:new Set(['C'])},{label:'Canette',letters:new Set(['S'])},{label:'Autres',letters:null}].map(({label:fl,letters:fset})=>{
@@ -5439,8 +5396,6 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
       :mainTab==='ventes'?<Bsv3Table levels={levels} year={year} prevYear={prevYear}
           validRows={displayRows} prevRows={prevRows} allYearRows={allYearRows}
           ytdMode={ytdMode} maxYtdMonth={maxYtdMonth}/>
-      :mainTab==='ca'?<Bsv3CaTable rows={rows} importedAt={importedAt}/>
-      :mainTab==='ca'?<Bsv3CaTable rows={rows} importedAt={importedAt}/>
       :<Bsv3CommandesTable rows={rows} importedAt={importedAt} activeLetters={activeLetters}/>}
     </div>
   </div>;
