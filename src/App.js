@@ -2366,7 +2366,7 @@ function SubcatsDnD({codeMap, setCodeMap, onSaveCodeMap, subcatLabels, knownSubc
   );
 }
 
-function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMap, savedCustomLabels={}, onSaveCustomLabels, savedCanalMargin, readOnly=false, currentUser=null}) {
+function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMap, savedCustomLabels={}, onSaveCustomLabels, savedCanalMargin, readOnly=false}) {
   const [caData, setCaData] = useState(null);
 
   const [chargeData, setChargeData] = useState(null);
@@ -2600,68 +2600,103 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
 
   // ── EXPORT CSV ──
   function exportCSV(){
-    const MOIS=['','Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
-    const activeMonths=Array(12).fill(0).map((_,i)=>i).filter(i=>monthActive[i]);
-    const fmt=v=>v===0?'':inKeur?Math.round(v/100)/10:Math.round(v);
-    const rows=[];
-    const head=['Ligne',...activeMonths.map(i=>MOIS[i+1]),'YTD','Total'];
-    rows.push(head);
+    // Build months headers
+    const MOIS=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+    const div=inKeur?1000:1;
+    const fmt=v=>{if(v===0)return '';const r=Math.round(v/div*10)/10;return r;};
+    const getM=(arr)=>arr||Array(12).fill(0);
+    // lastMonth
+    let lm=0;
+    Object.keys(caData||{}).forEach(canal=>Object.keys(caData[canal]||{}).forEach(k=>{const m=parseInt(k.split('-')[1]);if(m>lm)lm=m;}));
+    const lM=lm;
 
-    function addRow(label,months,indent=''){
-      const ytd=months.slice(0,lastMonth).reduce((a,b)=>a+b,0);
-      const total=months.reduce((a,b)=>a+b,0);
-      rows.push([indent+label,...activeMonths.map(i=>fmt(months[i])),fmt(ytd),fmt(total)]);
+    // Compute totals
+    const caT=Array(12).fill(0).map((_,i)=>REPORTING_CANALS.reduce((s,c)=>s+(caByCanal[c]?.[i]||0),0));
+    const mbT=Array(12).fill(0).map((_,i)=>REPORTING_CANALS.reduce((s,c)=>s+(mbByCanal[c]?.[i]||0),0));
+    const chargesExplT=chargesExpl||Array(12).fill(0);
+    const autresT=autresCharges||Array(12).fill(0);
+    const ebitdaT=ebitda||Array(12).fill(0);
+    const resultatT=resultat||Array(12).fill(0);
+
+    // BFR
+    function bilMonths(section,key){
+      const d=bfrData?.[section]?.[key]?.months||{};
+      const arr=Array(12).fill(0);
+      Object.entries(d).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]-=v;});
+      return arr;
+    }
+    const clientsM=bilMonths('bfr','clients');
+    const fournsM=bilMonths('bfr','fournisseurs');
+    const stocksVarM=bilMonths('bfr','stocks').map(v=>-v);
+    const bfrM=Array(12).fill(0).map((_,i)=>clientsM[i]+fournsM[i]+stocksVarM[i]);
+
+    // Banques variation
+    const banquesVarM=(()=>{
+      const d=bfrData?.banques?.banques?.months||{};
+      const arr=Array(12).fill(0);
+      Object.entries(d).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]-=v;});
+      return arr;
+    })();
+
+    // Banques solde (cumulative)
+    const anBanques=bfrData?.banques?.banques?.an||{};
+    let startBal=-Object.values(anBanques).reduce((s,v)=>s+v,0);
+    const banquesSolde=(()=>{let c=startBal;return banquesVarM.map(v=>{c+=v;return c;});})();
+
+    // Stocks solde
+    const anStocks=bfrData?.bfr?.stocks?.an||{};
+    let stocksAN=-Object.values(anStocks).reduce((s,v)=>s+v,0);
+    const stocksSoldeM=(()=>{const d=bfrData?.bfr?.stocks?.months||{};const arr=Array(12).fill(0);Object.entries(d).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]+=-v;});let c=stocksAN;return arr.map(v=>{c+=v;return c;});})();
+
+    const rows=[];
+    const ytd=arr=>arr.slice(0,lM).reduce((a,b)=>a+b,0);
+    const last=arr=>[...arr].slice(0,lM).reverse().find(v=>v!==0)??0;
+
+    function addRow(label,arr,indent='',isStock=false){
+      const yt=isStock?last(arr):ytd(arr);
+      const tot=isStock?last(arr):arr.reduce((a,b)=>a+b,0);
+      rows.push([indent+label,...arr.map(v=>fmt(v)),fmt(yt),fmt(tot)]);
     }
 
+    const head=['Ligne',...MOIS,'YTD','Total'];
+    rows.push(head);
+
     // CA
-    addRow('Chiffre d\'Affaires',caTotal);
+    addRow('Chiffre d\'Affaires',caT);
     if(expanded['ca']){
       REPORTING_CANALS.forEach(c=>{
         addRow(c,caByCanal[c]||Array(12).fill(0),'  ');
-        if(expanded['ca_'+c]&&caData?.[CANAL_CSV_MAP[c]]){
-          // tiers level
-          const tiers={};
-          (caData[CANAL_CSV_MAP[c]]?.rows||[]).forEach(r=>{
-            if(!tiers[r.tiers])tiers[r.tiers]=Array(12).fill(0);
-            tiers[r.tiers][r.month-1]+=r.amount;
-          });
-          Object.entries(tiers).forEach(([t,m])=>addRow(t,m,'    '));
-        }
       });
     }
-
-    // Marge brute
-    addRow('Marge Brute',mbTotal);
-
-    // Charges exploitation
-    addRow('Charges d\'exploitation',chargeTotal);
+    addRow('Marge Brute',mbT);
+    addRow('Charges d\'exploitation',chargesExplT);
     if(expanded['charges']){
-      Object.entries(groupedCharges).forEach(([grp,subcats])=>{
-        addRow(grp,Array(12).fill(0).map((_,i)=>subcats.reduce((s,sc)=>s+(chargeData[sc]?.months?.[`${new Date().getFullYear()}-${i+1}`]||0),0)),'  ');
-        if(expanded['charges_'+grp]){
-          subcats.forEach(sc=>{
-            const months=Array(12).fill(0);
-            Object.entries(chargeData[sc]?.months||{}).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)months[m]+=v;});
-            addRow(SUBCAT_LABELS[sc]||sc,months,'    ');
+      const types=Object.keys(chargeByType||{});
+      types.forEach(type=>{
+        const cats=chargeByType[type]||{};
+        const typeM=Array(12).fill(0).map((_,i)=>Object.values(cats).reduce((s,d)=>s+Object.values(d.months||{}).filter((_,mi)=>mi===i).reduce((a,b)=>a+b,0),0));
+        addRow(type,typeM,'  ');
+        if(expanded['charges_'+type]){
+          Object.entries(cats).forEach(([cat,d])=>{
+            const catM=Array(12).fill(0).map((_,i)=>Object.values(d.months||{}).filter((_,mi)=>mi===i).reduce((a,b)=>a+b,0));
+            addRow(cat,catM,'    ');
           });
         }
       });
     }
+    addRow('EBITDA',ebitdaT);
+    addRow('Autres charges',autresT);
+    addRow('Résultat net',resultatT);
+    rows.push([]);
+    addRow('Variation de BFR',bfrM);
+    addRow('Variation de Trésorerie',banquesVarM);
+    addRow('Trésorerie (solde)',banquesSolde,false,true);
+    rows.push([]);
+    addRow('Variation de stocks',stocksVarM);
+    addRow('Stocks (solde)',stocksSoldeM,'',true);
 
-    addRow('EBITDA',ebitdaTotal);
-    addRow('Autres charges',autresTotal);
-    addRow('Résultat net',resultatTotal);
-
-    // BFR
-    addRow('Variation de BFR',bfrTotal);
-    addRow('Variation de Trésorerie',tresoVariation);
-    addRow('Trésorerie (solde)',banquesMonths);
-    addRow('CoGS',cogsTotal);
-    addRow('Stocks (solde)',stocksSolde);
-
-    // Build CSV
-    const csv=rows.map(r=>r.map(v=>String(v??'').includes(',')?`"${v}"`:v).join(',')).join('\n');
-    const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+    const csv='\uFEFF'+rows.map(r=>r.map(v=>String(v??'').includes(',')?`"${v}"`:String(v??'')).join(',')).join('\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
     a.href=url;a.download='reporting_calendula.csv';a.click();
