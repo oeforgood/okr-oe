@@ -2366,7 +2366,7 @@ function SubcatsDnD({codeMap, setCodeMap, onSaveCodeMap, subcatLabels, knownSubc
   );
 }
 
-function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMap, savedCustomLabels={}, onSaveCustomLabels, savedCanalMargin, readOnly=false}) {
+function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMap, savedCustomLabels={}, onSaveCustomLabels, savedCanalMargin, readOnly=false, currentUser=null}) {
   const [caData, setCaData] = useState(null);
 
   const [chargeData, setChargeData] = useState(null);
