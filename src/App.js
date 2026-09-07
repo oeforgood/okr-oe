@@ -5360,7 +5360,7 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
         </div>
       </div>}
 
-      {mainTab==='ca'&&<Bsv3CaTable rows={rows} importedAt={importedAt}/>}
+
       {mainTab==='ecoulements'&&<div style={{display:'flex',alignItems:'center',gap:6,marginBottom:16,flexWrap:'wrap'}}>
         <span style={{fontSize:11,color:'#9e9890'}}>Filtrer :</span>
         {[{label:'75cl',letters:new Set(['E'])},{label:'33cl',letters:new Set(['P'])},{label:'Mini',letters:new Set(['M'])},{label:'BIB 5l',letters:new Set(['C'])},{label:'Canette',letters:new Set(['S'])},{label:'Autres',letters:null}].map(({label:fl,letters:fset})=>{
@@ -5396,6 +5396,7 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
       :mainTab==='ventes'?<Bsv3Table levels={levels} year={year} prevYear={prevYear}
           validRows={displayRows} prevRows={prevRows} allYearRows={allYearRows}
           ytdMode={ytdMode} maxYtdMonth={maxYtdMonth}/>
+      :mainTab==='ca'?<Bsv3CaTable rows={rows} importedAt={importedAt}/>
       :<Bsv3CommandesTable rows={rows} importedAt={importedAt} activeLetters={activeLetters}/>}
     </div>
   </div>;
