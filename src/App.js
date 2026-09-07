@@ -724,7 +724,7 @@ function Bsv3Banner({onGoBsv3}) {
         const importDate=at?new Date(at):new Date();
         const yr=importDate.getMonth()===0?importDate.getFullYear()-1:importDate.getFullYear();
         setBsv3Year(yr);
-        const valid=all.filter(r=>r['Année Emission']===String(yr)&&!['CASIER-OE','COIFFE-OE','CONTENANT BOUTEILLE'].includes(r['Contenant+Appelation/Robe'])&&r['Canal']);
+        const valid=all.filter(r=>r['Année Emission']===String(yr)&&!['CASIER-OE','COIFFE-OE','CONTENANT BOUTEILLE'].includes(r['Contenant+Appelation/Robe'])&&['CHR','Grands Comptes','Retail','Export'].includes(r['Canal']));
         setBsv3Rows(valid);
       }
     }).catch(()=>{});
@@ -739,7 +739,7 @@ function Bsv3Banner({onGoBsv3}) {
       if(!snap.empty){
         let all=[];
         snap.docs.sort((a,b)=>a.id.localeCompare(b.id)).forEach(d=>all=all.concat(d.data().rows||[]));
-        setBsv3AllRows(all);
+        setBsv3AllRows(all.filter(r=>!['CASIER-OE','COIFFE-OE','CONTENANT BOUTEILLE'].includes(r['Contenant+Appelation/Robe'])&&['CHR','Grands Comptes','Retail','Export'].includes(r['Canal'])));
       }
     }).catch(()=>{});
   },[]);
