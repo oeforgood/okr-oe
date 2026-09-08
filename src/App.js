@@ -3477,7 +3477,9 @@ function QuestionsEditor({qs,onSave}){
     const next=[...qs];const [moved]=next.splice(dragFrom,1);next.splice(toIdx,0,moved);
     save(next);setDragFrom(null);setDragOver(null);
   }
-  return <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'18px 20px'}}>
+  return <div style={{position:'relative'}}>
+    {factureModal&&<FactureModal rows={factureModal} onClose={()=>setFactureModal(null)}/>}
+    <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'18px 20px'}}>
     <div style={{fontSize:13,fontWeight:600,marginBottom:14}}>Questions de l'Update hebdomadaire</div>
     {qs.map((q,i)=>(
       <div key={q.id} draggable
@@ -4784,6 +4786,125 @@ function EvoSpan({n, p}){
   return <span style={{fontSize:9,color:pos?'#2d6a4f':'#c0392b',marginLeft:4,fontWeight:400}}>({evo})</span>;
 }
 
+
+function FactureModal({rows, onClose}){
+  if(!rows||rows.length===0)return null;
+  const first=rows[0];
+  const client=first['Client PL']||'—';
+  const facture=first['Numéro de facture']||'—';
+  const date=first['Date']||'—';
+
+  function pa(s){
+    if(!s||s==='MARGE NON CALCULABLE'||s==='PAS DE COUT ASSOCIE')return 0;
+    try{return parseFloat(String(s).replace(/€/g,'').replace(/[\s\u00a0\u202f]/g,'').replace(',','.').trim())||0;}catch{return 0;}
+  }
+
+  const lines=rows.map(r=>{
+    const qty=parseFloat(r['Quantité équivalent unité'])||0;
+    const ca=pa(r['Montant HT']);
+    const marge=pa(r['Marge brute']);
+    const cout=pa(r['Cout production vin inclus total']);
+    const crd=pa(r['CRD']);
+    const freinte=pa(r['Freinte']);
+    const transport=pa(r['Transport total']);
+    const prepa=pa(r['Prépa de commande ']||r['Prépa de commande']);
+    const pvU=qty>0?ca/qty:0;
+    const coutU=qty>0?cout/qty:0;
+    const crdU=qty>0?crd/qty:0;
+    const freinteU=qty>0?freinte/qty:0;
+    const transportU=qty>0?transport/qty:0;
+    const prepaU=qty>0?prepa/qty:0;
+    const cogsU=coutU+crdU+freinteU+transportU+prepaU;
+    const taux=ca>0?marge/ca:null;
+    const sku=r['SKU']||'—';
+    const lib=r['Libellé Contenant+Appelation/Robe']||r['Contenant+Appelation/Robe']||'—';
+    return {qty,ca,marge,cout,crd,freinte,transport,prepa,pvU,coutU,crdU,freinteU,transportU,prepaU,cogsU,taux,sku,lib,ok:r['Contenant+Appelation/Robe']!=='PAS DE DETAIL DU PRODUIT'};
+  });
+
+  const totQty=lines.reduce((s,l)=>s+l.qty,0);
+  const totCA=lines.reduce((s,l)=>s+l.ca,0);
+  const totMarge=lines.reduce((s,l)=>s+l.marge,0);
+  const totCout=lines.reduce((s,l)=>s+l.cout,0);
+  const totTransport=lines.reduce((s,l)=>s+l.transport,0);
+  const totPrepa=lines.reduce((s,l)=>s+l.prepa,0);
+  const totTaux=totCA>0?totMarge/totCA:null;
+
+  function fmtE(v){return v===0?'0,00 €':(v<0?'-':'')+Math.abs(v).toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,' ')+' €';}
+  function fmtPct(v){return v===null?'—':(v*100).toFixed(1).replace('.',',')+' %';}
+  function fmtQ(v){return v===0?'0':v.toFixed(1).replace('.',',');}
+
+  const th={padding:'6px 10px',fontSize:10,fontWeight:700,color:'#6b6560',textAlign:'right',borderBottom:'2px solid #e2ddd6',background:'#f8f7f5',whiteSpace:'nowrap'};
+  const thL={...th,textAlign:'left'};
+  const td={padding:'5px 10px',fontSize:11,textAlign:'right',borderBottom:'1px solid #f0ede8'};
+  const tdL={...td,textAlign:'left'};
+  const tdTot={...td,fontWeight:700,background:'#f0fdf4',color:'#2d6a4f'};
+  const tdTotL={...tdTot,textAlign:'left'};
+
+  return <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}
+    onClick={onClose}>
+    <div style={{background:'#fff',borderRadius:12,padding:'24px',maxWidth:'95vw',maxHeight:'90vh',overflow:'auto',minWidth:700}}
+      onClick={e=>e.stopPropagation()}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:16}}>
+        <div>
+          <div style={{fontSize:16,fontWeight:800,color:'#1a1814',marginBottom:2}}>{client}</div>
+          <div style={{fontSize:12,color:'#6b6560'}}>{facture} · {date}</div>
+        </div>
+        <button onClick={onClose} style={{border:'none',background:'none',fontSize:20,cursor:'pointer',color:'#9e9890',padding:'0 4px'}}>✕</button>
+      </div>
+      <div style={{overflowX:'auto'}}>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead><tr>
+            <th style={thL}>SKU</th>
+            <th style={thL}>Libellé</th>
+            <th style={th}>Qté</th>
+            <th style={th}>PV unit.</th>
+            <th style={th}>Produit</th>
+            <th style={th}>CRD</th>
+            <th style={th}>Freinte</th>
+            <th style={th}>Transport</th>
+            <th style={th}>Prépa</th>
+            <th style={th}>CoGS unit.</th>
+            <th style={th}>Tx marge</th>
+            <th style={th}>CA total</th>
+            <th style={th}>Marge totale</th>
+          </tr></thead>
+          <tbody>
+            {lines.map((l,i)=><tr key={i} style={{background:i%2===0?'#fff':'#fafaf8'}}>
+              <td style={tdL}><span style={{fontFamily:'monospace',fontSize:10}}>{l.sku}</span></td>
+              <td style={{...tdL,maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.lib}</td>
+              <td style={td}>{fmtQ(l.qty)}</td>
+              <td style={td}>{fmtE(l.pvU)}</td>
+              <td style={td}>{fmtE(l.coutU)}</td>
+              <td style={td}>{fmtE(l.crdU)}</td>
+              <td style={td}>{fmtE(l.freinteU)}</td>
+              <td style={td}>{fmtE(l.transportU)}</td>
+              <td style={td}>{fmtE(l.prepaU)}</td>
+              <td style={{...td,fontWeight:600}}>{fmtE(l.cogsU)}</td>
+              <td style={{...td,color:l.taux!==null&&l.taux<0?'#c0392b':'#2d6a4f'}}>{fmtPct(l.taux)}</td>
+              <td style={{...td,fontWeight:600}}>{fmtE(l.ca)}</td>
+              <td style={{...td,fontWeight:600,color:l.marge<0?'#c0392b':'#2d6a4f'}}>{fmtE(l.marge)}</td>
+            </tr>)}
+            <tr>
+              <td style={tdTotL} colSpan={2}>Total</td>
+              <td style={tdTot}>{fmtQ(totQty)}</td>
+              <td style={tdTot}>—</td>
+              <td style={tdTot}>—</td>
+              <td style={tdTot}>—</td>
+              <td style={tdTot}>—</td>
+              <td style={tdTot}>{fmtE(totTransport)}</td>
+              <td style={tdTot}>{fmtE(totPrepa)}</td>
+              <td style={tdTot}>—</td>
+              <td style={{...tdTot,color:totTaux!==null&&totTaux<0?'#c0392b':'#2d6a4f'}}>{fmtPct(totTaux)}</td>
+              <td style={tdTot}>{fmtE(totCA)}</td>
+              <td style={{...tdTot,color:totMarge<0?'#c0392b':'#2d6a4f'}}>{fmtE(totMarge)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>;
+}
+
 function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,depth,ytdMode,maxYtdMonth,allRows}){
   const [exp,setExp]=React.useState(false);
   const currentLevel=levels[levelIdx];
@@ -4834,7 +4955,13 @@ function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,dept
   return <React.Fragment>
     <tr style={{background:bg}} onClick={isLeaf?undefined:()=>setExp(p=>!p)}>
       <td style={lbl}>{!isLeaf&&<span style={{fontSize:10,color:'#9e9890'}}>{exp?'▼':'▶'}</span>}
-        {currentLevel==='produit'?<><span style={{fontFamily:'monospace'}}>{displayLabel}</span>{(()=>{const lb=getBsv3ProdLabel(allRows||rows,label);return lb?<span style={{color:'#6b6560',fontWeight:400,marginLeft:6,fontSize:fs-1}}>— {lb}</span>:null;})()}</>:displayLabel}
+        {currentLevel==='produit'?<><span style={{fontFamily:'monospace'}}>{displayLabel}</span>{(()=>{const lb=getBsv3ProdLabel(allRows||rows,label);return lb?<span style={{color:'#6b6560',fontWeight:400,marginLeft:6,fontSize:fs-1}}>— {lb}</span>:null;})()}</>
+        :isFactureLevel?<span style={{display:'flex',alignItems:'center',gap:6}}>{displayLabel}<button
+          onClick={e=>{e.stopPropagation();onFactureClick&&onFactureClick(rows);}}
+          style={{fontSize:9,padding:'1px 6px',borderRadius:4,border:'1px solid #e2ddd6',background:'#f8f7f5',color:'#6b6560',cursor:'pointer',fontWeight:500,flexShrink:0}}>
+          détail
+        </button></span>
+        :displayLabel}
       </td>
       <td style={{...cell,textAlign:'center'}}>{showQty?Math.round(agg.qty).toLocaleString('fr-FR'):'—'}</td>
       <td style={cell}>{fmtBEur(agg.ca)}</td>
@@ -4859,6 +4986,7 @@ function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,dept
 }
 
 function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,maxYtdMonth}){
+  const [factureModal,setFactureModal]=React.useState(null);
   const topLevel=levels[0];
   const topField=getField(topLevel);
   // Always filter prevRows to YTD when ytdMode
@@ -4902,7 +5030,7 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
             return <Bsv3DrillRow key={val} label={val} rows={rows} prevRows={prev}
               contextRows={topLevel==='mois'?allYearRows:rows}
               year={year} levels={levels} levelIdx={0} depth={0}
-              ytdMode={ytdMode} maxYtdMonth={maxYtdMonth} allRows={allYearRows}/>;
+              ytdMode={ytdMode} maxYtdMonth={maxYtdMonth} onFactureClick={setFactureModal} allRows={allYearRows}/>;
           })}
         </tbody>
         <tfoot>
@@ -5155,6 +5283,7 @@ function Bsv3CaTable({rows, importedAt, clientFilter=''}){
         </tbody>
       </table>
     </div>
+  </div>
   </div>;
 }
 
