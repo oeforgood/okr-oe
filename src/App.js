@@ -4900,7 +4900,7 @@ function FactureModal({rows, onClose}){
   </div>;
 }
 
-function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,depth,ytdMode,maxYtdMonth,allRows}){
+function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,depth,ytdMode,maxYtdMonth,allRows,fs=11,onFactureClick}){
   const [exp,setExp]=React.useState(false);
   const currentLevel=levels[levelIdx];
   const nextLevel=levels[levelIdx+1];
