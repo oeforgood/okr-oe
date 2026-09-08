@@ -3477,8 +3477,7 @@ function QuestionsEditor({qs,onSave}){
     const next=[...qs];const [moved]=next.splice(dragFrom,1);next.splice(toIdx,0,moved);
     save(next);setDragFrom(null);setDragOver(null);
   }
-  return <>
-    <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'18px 20px'}}>
+  return <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'18px 20px'}}>
     <div style={{fontSize:13,fontWeight:600,marginBottom:14}}>Questions de l'Update hebdomadaire</div>
     {qs.map((q,i)=>(
       <div key={q.id} draggable
@@ -3514,14 +3513,13 @@ function QuestionsEditor({qs,onSave}){
             </div>
           </div>
           <button onClick={()=>delQ(i)} style={{background:'none',border:'none',cursor:'pointer',fontSize:16,color:'#c0392b',padding:'0 4px',flexShrink:0}}>❌</button>
+        </div>
       </div>
     ))}
     <button onClick={addQ} style={{marginTop:8,padding:'8px 16px',background:'#f0fdf4',border:'1px dashed #2d6a4f',borderRadius:8,color:'#2d6a4f',fontSize:13,fontWeight:500,cursor:'pointer',width:'100%'}}>
       + Ajouter une question
     </button>
-    </div>
-  </div>
-  </>;
+  </div>;
 }
 
 
@@ -4799,7 +4797,7 @@ function FactureModal({rows, onClose}){
     try{return parseFloat(String(s).replace(/€/g,'').replace(/[\s\u00a0\u202f]/g,'').replace(',','.').trim())||0;}catch{return 0;}
   }
 
-  const lines=rows.map(r=>{
+  const lignes=rows.map(r=>{
     const qty=parseFloat(r['Quantité équivalent unité'])||0;
     const ca=pa(r['Montant HT']);
     const marge=pa(r['Marge brute']);
@@ -4818,18 +4816,17 @@ function FactureModal({rows, onClose}){
     const taux=ca>0?marge/ca:null;
     const sku=r['SKU']||'—';
     const lib=r['Libellé Contenant+Appelation/Robe']||r['Contenant+Appelation/Robe']||'—';
-    return {qty,ca,marge,cout,crd,freinte,transport,prepa,pvU,coutU,crdU,freinteU,transportU,prepaU,cogsU,taux,sku,lib,ok:r['Contenant+Appelation/Robe']!=='PAS DE DETAIL DU PRODUIT'};
+    return {qty,ca,marge,cout,crd,freinte,transport,prepa,pvU,coutU,crdU,freinteU,transportU,prepaU,cogsU,taux,sku,lib};
   });
 
-  const totQty=lines.reduce((s,l)=>s+l.qty,0);
-  const totCA=lines.reduce((s,l)=>s+l.ca,0);
-  const totMarge=lines.reduce((s,l)=>s+l.marge,0);
-  const totCout=lines.reduce((s,l)=>s+l.cout,0);
-  const totTransport=lines.reduce((s,l)=>s+l.transport,0);
-  const totPrepa=lines.reduce((s,l)=>s+l.prepa,0);
+  const totQty=lignes.reduce((s,l)=>s+l.qty,0);
+  const totCA=lignes.reduce((s,l)=>s+l.ca,0);
+  const totMarge=lignes.reduce((s,l)=>s+l.marge,0);
+  const totTransport=lignes.reduce((s,l)=>s+l.transport,0);
+  const totPrepa=lignes.reduce((s,l)=>s+l.prepa,0);
   const totTaux=totCA>0?totMarge/totCA:null;
 
-  function fmtE(v){return v===0?'0,00 €':(v<0?'-':'')+Math.abs(v).toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,' ')+' €';}
+  function fmtE(v){return v===0?'—':(v<0?'-':'')+Math.abs(v).toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,' ')+' €';}
   function fmtPct(v){return v===null?'—':(v*100).toFixed(1).replace('.',',')+' %';}
   function fmtQ(v){return v===0?'0':v.toFixed(1).replace('.',',');}
 
@@ -4840,10 +4837,8 @@ function FactureModal({rows, onClose}){
   const tdTot={...td,fontWeight:700,background:'#f0fdf4',color:'#2d6a4f'};
   const tdTotL={...tdTot,textAlign:'left'};
 
-  return <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}
-    onClick={onClose}>
-    <div style={{background:'#fff',borderRadius:12,padding:'24px',maxWidth:'95vw',maxHeight:'90vh',overflow:'auto',minWidth:700}}
-      onClick={e=>e.stopPropagation()}>
+  return <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={onClose}>
+    <div style={{background:'#fff',borderRadius:12,padding:'24px',maxWidth:'95vw',maxHeight:'90vh',overflow:'auto',minWidth:700}} onClick={e=>e.stopPropagation()}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:16}}>
         <div>
           <div style={{fontSize:16,fontWeight:800,color:'#1a1814',marginBottom:2}}>{client}</div>
@@ -4869,7 +4864,7 @@ function FactureModal({rows, onClose}){
             <th style={th}>Marge totale</th>
           </tr></thead>
           <tbody>
-            {lines.map((l,i)=><tr key={i} style={{background:i%2===0?'#fff':'#fafaf8'}}>
+            {lignes.map((l,i)=><tr key={i} style={{background:i%2===0?'#fff':'#fafaf8'}}>
               <td style={tdL}><span style={{fontFamily:'monospace',fontSize:10}}>{l.sku}</span></td>
               <td style={{...tdL,maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.lib}</td>
               <td style={td}>{fmtQ(l.qty)}</td>
@@ -4905,7 +4900,7 @@ function FactureModal({rows, onClose}){
   </div>;
 }
 
-function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,depth,ytdMode,maxYtdMonth,allRows,fs=11,onFactureClick}{
+function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,depth,ytdMode,maxYtdMonth,allRows}){
   const [exp,setExp]=React.useState(false);
   const currentLevel=levels[levelIdx];
   const nextLevel=levels[levelIdx+1];
@@ -4956,9 +4951,9 @@ function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,dept
     <tr style={{background:bg}} onClick={isLeaf?undefined:()=>setExp(p=>!p)}>
       <td style={lbl}>{!isLeaf&&<span style={{fontSize:10,color:'#9e9890'}}>{exp?'▼':'▶'}</span>}
         {currentLevel==='produit'?<><span style={{fontFamily:'monospace'}}>{displayLabel}</span>{(()=>{const lb=getBsv3ProdLabel(allRows||rows,label);return lb?<span style={{color:'#6b6560',fontWeight:400,marginLeft:6,fontSize:fs-1}}>— {lb}</span>:null;})()}</>
-        :isFactureLevel?<span style={{display:'flex',alignItems:'center',gap:6}}>{displayLabel}<button
+        :currentLevel==='facture'?<span style={{display:'inline-flex',alignItems:'center',gap:6}}>{displayLabel}<button
           onClick={e=>{e.stopPropagation();onFactureClick&&onFactureClick(rows);}}
-          style={{fontSize:9,padding:'1px 6px',borderRadius:4,border:'1px solid #e2ddd6',background:'#f8f7f5',color:'#6b6560',cursor:'pointer',fontWeight:500,flexShrink:0}}>
+          style={{fontSize:9,padding:'1px 6px',borderRadius:4,border:'1px solid #e2ddd6',background:'#f8f7f5',color:'#6b6560',cursor:'pointer',fontWeight:500}}>
           détail
         </button></span>
         :displayLabel}
@@ -4980,13 +4975,12 @@ function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,dept
       return <Bsv3DrillRow key={child} label={child} rows={childRows} prevRows={childPrev}
         contextRows={nextLevel==='mois'?contextRows:childRows}
         year={year} levels={levels} levelIdx={levelIdx+1} depth={depth+1}
-        ytdMode={ytdMode} maxYtdMonth={maxYtdMonth} allRows={allRows}/>;
+        ytdMode={ytdMode} maxYtdMonth={maxYtdMonth} allRows={allRows} onFactureClick={onFactureClick}/>;
     })}
   </React.Fragment>;
 }
 
 function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,maxYtdMonth}){
-  const [factureModal,setFactureModal]=React.useState(null);
   const [factureModal,setFactureModal]=React.useState(null);
   const topLevel=levels[0];
   const topField=getField(topLevel);
@@ -5013,9 +5007,9 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
   const tfPrev={...tf,borderLeft:'2px solid #ece8e0'};
   const tfl={...tf,textAlign:'left'};
 
-  return <div style={{position:'relative'}}>
+  return <div>
     {factureModal&&<FactureModal rows={factureModal} onClose={()=>setFactureModal(null)}/>}
-  return <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',overflow:'hidden'}}>
+    <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',overflow:'hidden'}}>
     <div style={{overflowX:'auto'}}>
       <table style={{width:'100%',borderCollapse:'collapse'}}>
         <thead><tr>
@@ -5286,7 +5280,6 @@ function Bsv3CaTable({rows, importedAt, clientFilter=''}){
         </tbody>
       </table>
     </div>
-  </div>
   </div>;
 }
 
@@ -5499,7 +5492,7 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
   const CA_AUTRES=r=>!CA_CANAUX.includes(r['Canal']);
   const ventesBaseFilter=r=>baseFilter(r)
     &&(!activeVentesCanaux||(activeVentesCanaux.has('__autres__')?CA_AUTRES(r):false)||activeVentesCanaux.has(r['Canal']))
-    &&(!activeVentesMois||activeVentesMois.has(String(parseInt(r['Mois Emission']))));
+    &&(!activeVentesMois||activeVentesMois.has('ytd')||activeVentesMois.has('total')||activeVentesMois.has(String(parseInt(r['Mois Emission']))));
   const validRows=rows.filter(r=>r['Année Emission']===String(year)&&baseFilter(r));
   const prevRows=rows.filter(r=>r['Année Emission']===String(prevYear)&&baseFilter(r));
   const allYearRows=rows.filter(r=>baseFilter(r));
@@ -5586,61 +5579,24 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
             style={{padding:'2px 7px',borderRadius:5,border:'1px solid #e2ddd6',background:'#fff',color:'#9e9890',fontSize:10,cursor:'pointer'}}>✕ Tout</button>}
         </div>
         {/* Mois filter */}
-        {(()=>{
-          const lm=ventesMaxYtdMonth; // last month with data
-          // Compute YTD set: months 1..lm
-          const ytdSet=new Set(Array.from({length:lm},(_,i)=>String(i+1)));
-          // Compute Année set: all 12 months
-          const anneeSet=new Set(['1','2','3','4','5','6','7','8','9','10','11','12']);
-          // Current active months (null = all)
-          const activeMois=activeVentesMois||anneeSet;
-          // Check if current selection matches YTD or Année
-          const isYTD=ytdSet.size===activeMois.size&&[...ytdSet].every(m=>activeMois.has(m));
-          const isAnnee=anneeSet.size===activeMois.size&&[...anneeSet].every(m=>activeMois.has(m));
-
-          function setMois(next){
-            if(next.size===0)next=anneeSet;
-            if(next.size===12&&[...anneeSet].every(m=>next.has(m)))setActiveVentesMois(null);
-            else setActiveVentesMois(new Set(next));
-          }
-
-          return <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:16,flexWrap:'wrap'}}>
-            <span style={{fontSize:11,color:'#9e9890'}}>Mois :</span>
-            {/* Individual months */}
-            {['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'].map((m,i)=>{
-              const key=String(i+1);
-              const on=activeMois.has(key);
-              return <button key={key} onClick={()=>{
-                const next=new Set(activeMois);
-                if(on){next.delete(key);}else{next.add(key);}
-                setMois(next);
-              }} style={{padding:'3px 8px',borderRadius:6,border:`1px solid ${on?'#2d6a4f':'#e2ddd6'}`,
-                background:on?'#2d6a4f':'#fff',color:on?'#fff':'#9e9890',fontSize:11,fontWeight:500,cursor:'pointer'}}>
-                {m}
-              </button>;
-            })}
-            <span style={{width:4}}/>
-            {/* YTD button */}
-            <button onClick={()=>{
-              if(isYTD){setActiveVentesMois(null);}
-              else{setActiveVentesMois(new Set(ytdSet));}
-            }} style={{padding:'3px 10px',borderRadius:6,
-              border:`1px solid ${isYTD?'#2d6a4f':'#e2ddd6'}`,
-              background:isYTD?'#2d6a4f':'#fff',color:isYTD?'#fff':'#9e9890',
-              fontSize:11,fontWeight:600,cursor:'pointer'}}>
-              YTD
-            </button>
-            {/* Année button */}
-            <button onClick={()=>{
-              setActiveVentesMois(null);
-            }} style={{padding:'3px 10px',borderRadius:6,
-              border:`1px solid ${isAnnee?'#2d6a4f':'#e2ddd6'}`,
-              background:isAnnee?'#2d6a4f':'#fff',color:isAnnee?'#fff':'#9e9890',
-              fontSize:11,fontWeight:600,cursor:'pointer'}}>
-              Année
-            </button>
-          </div>;
-        })()}
+        <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:16,flexWrap:'wrap'}}>
+          <span style={{fontSize:11,color:'#9e9890'}}>Mois :</span>
+          {['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre','YTD','Total'].map((m,i)=>{
+            const key=i<12?String(i+1):m.toLowerCase();
+            const on=!activeVentesMois||activeVentesMois.has(key);
+            return <button key={key} onClick={()=>{
+              if(!activeVentesMois){setActiveVentesMois(new Set([key]));}
+              else{const next=new Set(activeVentesMois);
+                if(next.has(key)){next.delete(key);}else{next.add(key);}
+                if(next.size===0||next.size===14)setActiveVentesMois(null);else setActiveVentesMois(next);}
+            }} style={{padding:'3px 10px',borderRadius:6,border:`1px solid ${on?'#2d6a4f':'#e2ddd6'}`,
+              background:on?'#2d6a4f':'#fff',color:on?'#fff':'#9e9890',fontSize:11,fontWeight:500,cursor:'pointer'}}>
+              {m}
+            </button>;
+          })}
+          {activeVentesMois&&<button onClick={()=>setActiveVentesMois(null)}
+            style={{padding:'2px 7px',borderRadius:5,border:'1px solid #e2ddd6',background:'#fff',color:'#9e9890',fontSize:10,cursor:'pointer'}}>✕ Tout</button>}
+        </div>
       </>}
 
       {mainTab==='ecoulements'&&<div style={{display:'flex',alignItems:'center',gap:6,marginBottom:16,flexWrap:'wrap'}}>
@@ -5701,8 +5657,10 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
       {loading?<div style={{textAlign:'center',padding:40,color:'#9e9890'}}>Chargement...</div>
       :rows.length===0?<div style={{textAlign:'center',padding:40,color:'#9e9890'}}>Aucune donnée — importez un CSV dans les Paramètres.</div>
       :mainTab==='ventes'?<Bsv3Table levels={levels} year={year} prevYear={prevYear}
-          validRows={ventesRows} prevRows={ventesPrevRows} allYearRows={ventesAllYearRows}
-          ytdMode={false} maxYtdMonth={ventesMaxYtdMonth}/>
+          validRows={activeVentesMois&&activeVentesMois.has('ytd')?ventesRows.filter(r=>parseInt(r['Mois Emission'])<=ventesMaxYtdMonth):ventesRows}
+          prevRows={activeVentesMois&&activeVentesMois.has('ytd')?ventesPrevRows.filter(r=>parseInt(r['Mois Emission'])<=ventesMaxYtdMonth):ventesPrevRows}
+          allYearRows={ventesAllYearRows}
+          ytdMode={!!(activeVentesMois&&activeVentesMois.has('ytd'))} maxYtdMonth={ventesMaxYtdMonth}/>
       :mainTab==='ca'?<Bsv3CaTable rows={rows} importedAt={importedAt} clientFilter={clientFilter}/>
       :<Bsv3CommandesTable rows={rows} importedAt={importedAt} activeLetters={activeLetters} activeAppelations={activeAppelations} clientFilter={clientFilter}/>}
     </div>
