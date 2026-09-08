@@ -4736,7 +4736,7 @@ function getField(level){
 
 function sortByLevel(level, vals, currentRows, prevRows){
   if(level==='mois') return [1,2,3,4,5,6,7,8,9,10,11,12].map(String);
-  if(level==='facture') return [...vals].sort((a,b)=>a.localeCompare(b));
+  if(level==='facture') return [...vals].sort((a,b)=>b.localeCompare(a));
   if(level==='client'){
     const caMap={};const caPrevMap={};
     vals.forEach(v=>{
@@ -4815,7 +4815,7 @@ function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,dept
   const lbl={padding:`${pd}px 10px`,paddingLeft:pl,fontSize:fs,borderBottom:'1px solid #eee',cursor:isLeaf?'default':'pointer',background:bg,display:'flex',alignItems:'center',gap:6,fontWeight:depth===0?500:400};
 
   const isFactureLevel=currentLevel==='facture';
-  const displayLabel=isMoisLevel?MOIS_LABELS[parseInt(label)]||label:isFactureLevel?`📄 ${label}`:label;
+  const displayLabel=isMoisLevel?MOIS_LABELS[parseInt(label)]||label:label;
 
   // Children: union current + prev year values
   let children=[];
@@ -5392,10 +5392,11 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
   const allLetters=[...new Set(allProdsForFilter.map(p=>p[0]))].sort((a,b)=>{
     const ia=PROD_LETTER_ORDER.indexOf(a),ib=PROD_LETTER_ORDER.indexOf(b);
     if(ia>=0&&ib>=0)return ia-ib;if(ia>=0)return -1;if(ib>=0)return 1;return a.localeCompare(b);
-  });
-  const allAppelations=[...new Set(allProdsForFilter.map(p=>p&&p.length>=3?p.slice(1,3):null).filter(Boolean))].sort((a,b)=>{
+  // All unique appelation codes (2 chars after first letter)
+  const allAppelations=[...new Set(allProdsForFilter.map(p=>p.length>=3?p.slice(1,3):null).filter(Boolean))].sort((a,b)=>{
     const ORDER=['FL','FE','EC'];const ia=ORDER.indexOf(a),ib=ORDER.indexOf(b);
     if(ia>=0&&ib>=0)return ia-ib;if(ia>=0)return -1;if(ib>=0)return 1;return a.localeCompare(b);
+  });
   });
 
   return <div style={{minHeight:'100vh',background:'#f8f7f5'}}>
