@@ -5383,7 +5383,6 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
     const ORDER=['FL','FE','EC'];const ia=ORDER.indexOf(a),ib=ORDER.indexOf(b);
     if(ia>=0&&ib>=0)return ia-ib;if(ia>=0)return -1;if(ib>=0)return 1;return a.localeCompare(b);
   });
-  });
 
   return <div style={{minHeight:'100vh',background:'#f8f7f5'}}>
     <AppNav current="bsv3" onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3}/>
