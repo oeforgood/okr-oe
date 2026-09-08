@@ -5377,11 +5377,11 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
   const allLetters=[...new Set(allProdsForFilter.map(p=>p[0]))].sort((a,b)=>{
     const ia=PROD_LETTER_ORDER.indexOf(a),ib=PROD_LETTER_ORDER.indexOf(b);
     if(ia>=0&&ib>=0)return ia-ib;if(ia>=0)return -1;if(ib>=0)return 1;return a.localeCompare(b);
-  });
   // All unique appelation codes (2 chars after first letter)
   const allAppelations=[...new Set(allProdsForFilter.map(p=>p.length>=3?p.slice(1,3):null).filter(Boolean))].sort((a,b)=>{
     const ORDER=['FL','FE','EC'];const ia=ORDER.indexOf(a),ib=ORDER.indexOf(b);
     if(ia>=0&&ib>=0)return ia-ib;if(ia>=0)return -1;if(ib>=0)return 1;return a.localeCompare(b);
+  });
   });
 
   return <div style={{minHeight:'100vh',background:'#f8f7f5'}}>
@@ -5456,19 +5456,28 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
         {activeLetters&&<button onClick={()=>setActiveLetters(null)}
           style={{padding:'2px 7px',borderRadius:5,border:'1px solid #e2ddd6',background:'#fff',color:'#9e9890',fontSize:10,cursor:'pointer'}}>✕ Tout</button>}
       </div>}
-      {mainTab==='ecoulements'&&allAppelations.length>0&&<div style={{display:'flex',alignItems:'center',gap:6,marginBottom:12,flexWrap:'wrap'}}>
+      {mainTab==='ecoulements'&&<div style={{display:'flex',alignItems:'center',gap:6,marginBottom:12,flexWrap:'wrap'}}>
         <span style={{fontSize:11,color:'#9e9890'}}>Appelation :</span>
-        {allAppelations.map(ap=>{
-          const on=!activeAppelations||activeAppelations.has(ap);
-          return <button key={ap} onClick={()=>{
-            if(!activeAppelations){setActiveAppelations(new Set([ap]));}
-            else{const next=new Set(activeAppelations);if(next.has(ap)){next.delete(ap);}else{next.add(ap);}
-              if(next.size===0||next.size===allAppelations.length)setActiveAppelations(null);else setActiveAppelations(next);}
-          }} style={{padding:'3px 10px',borderRadius:6,border:`1px solid ${on?'#2d6a4f':'#e2ddd6'}`,
-            background:on?'#2d6a4f':'#fff',color:on?'#fff':'#9e9890',fontSize:11,fontWeight:500,cursor:'pointer'}}>
-            {ap}
-          </button>;
-        })}
+        {(()=>{
+          const KNOWN=['FL','FE','EC','01','04','05','06','07','08','09','10','11','13','15','18','23','27','29','30','31','32','33','35','37','38','43','BL'];
+          const otherAps=allAppelations.filter(ap=>!KNOWN.includes(ap));
+          const items=[...KNOWN.filter(ap=>allAppelations.includes(ap)),otherAps.length>0?'__autres__':null].filter(Boolean);
+          return items.map(ap=>{
+            const label=ap==='__autres__'?'Autres':ap;
+            const effectiveSet=ap==='__autres__'?new Set(otherAps):new Set([ap]);
+            const on=!activeAppelations||[...effectiveSet].some(x=>activeAppelations.has(x));
+            return <button key={ap} onClick={()=>{
+              if(!activeAppelations){setActiveAppelations(new Set(effectiveSet));}
+              else{const next=new Set(activeAppelations);
+                const allOn=[...effectiveSet].every(x=>next.has(x));
+                if(allOn){[...effectiveSet].forEach(x=>next.delete(x));}else{[...effectiveSet].forEach(x=>next.add(x));}
+                if(next.size===0||next.size===allAppelations.length)setActiveAppelations(null);else setActiveAppelations(next);}
+            }} style={{padding:'3px 10px',borderRadius:6,border:`1px solid ${on?'#2d6a4f':'#e2ddd6'}`,
+              background:on?'#2d6a4f':'#fff',color:on?'#fff':'#9e9890',fontSize:11,fontWeight:500,cursor:'pointer'}}>
+              {label}
+            </button>;
+          });
+        })()}
         {activeAppelations&&<button onClick={()=>setActiveAppelations(null)}
           style={{padding:'2px 7px',borderRadius:5,border:'1px solid #e2ddd6',background:'#fff',color:'#9e9890',fontSize:10,cursor:'pointer'}}>✕ Tout</button>}
       </div>}
