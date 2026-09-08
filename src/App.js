@@ -4731,11 +4731,12 @@ function sortProduits(vals){
 }
 // Generic BSv3 table with configurable drill-down order
 function getField(level){
-  return level==='mois'?'Mois Emission':level==='canal'?'Canal':level==='client'?'Client PL':'Contenant+Appelation/Robe';
+  return level==='mois'?'Mois Emission':level==='canal'?'Canal':level==='client'?'Client PL':level==='facture'?'Numéro de facture':'Contenant+Appelation/Robe';
 }
 
 function sortByLevel(level, vals, currentRows, prevRows){
   if(level==='mois') return [1,2,3,4,5,6,7,8,9,10,11,12].map(String);
+  if(level==='facture') return [...vals].sort((a,b)=>b.localeCompare(a));
   if(level==='client'){
     const caMap={};const caPrevMap={};
     vals.forEach(v=>{
@@ -4813,6 +4814,7 @@ function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,dept
   const cellPrev={...cell,borderLeft:'2px solid #ece8e0'};
   const lbl={padding:`${pd}px 10px`,paddingLeft:pl,fontSize:fs,borderBottom:'1px solid #eee',cursor:isLeaf?'default':'pointer',background:bg,display:'flex',alignItems:'center',gap:6,fontWeight:depth===0?500:400};
 
+  const isFactureLevel=currentLevel==='facture';
   const displayLabel=isMoisLevel?MOIS_LABELS[parseInt(label)]||label:label;
 
   // Children: union current + prev year values
@@ -4935,7 +4937,7 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
 }
 
 function DragPill({level,index,onDragStart,onDragOver,onDrop,isDragOver}){
-  const labels={mois:'Mois',canal:'Canal',client:'Client',produit:'Produit'};
+  const labels={mois:'Mois',canal:'Canal',client:'Client',produit:'Produit',facture:'Facture'};
   return <div draggable
     onDragStart={e=>{e.dataTransfer.setData('text/plain',String(index));onDragStart(index);}}
     onDragOver={e=>{e.preventDefault();onDragOver(index);}}
@@ -5342,8 +5344,10 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
   const {rows,importedAt,loading}=useBsv3Data();
   const [mainTab,setMainTab]=React.useState('ventes');
   const [clientFilter,setClientFilter]=React.useState('');
-  const [levels,setLevels]=React.useState(['mois','canal','client','produit']);
+  const [levels,setLevels]=React.useState(['client','produit','facture']);
   const [ytdMode,setYtdMode]=React.useState(false);
+  const [activeVentesCanaux,setActiveVentesCanaux]=React.useState(null);
+  const [activeVentesMois,setActiveVentesMois]=React.useState(null);
   const [dragFrom,setDragFrom]=React.useState(null);
   const [dragOver,setDragOver]=React.useState(null);
   const [activeLetters,setActiveLetters]=React.useState(null);
@@ -5359,9 +5363,20 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
   const baseFilter=r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])
     &&CA_CANAUX.includes(r['Canal'])
     &&(!clientFilterLower||(r['Client PL']||r['Tiers']||'').toLowerCase().includes(clientFilterLower));
+  // Ventes-specific filters (canal + mois)
+  const CA_AUTRES=r=>!CA_CANAUX.includes(r['Canal']);
+  const ventesBaseFilter=r=>baseFilter(r)
+    &&(!activeVentesCanaux||(activeVentesCanaux.has('__autres__')?CA_AUTRES(r):false)||activeVentesCanaux.has(r['Canal']))
+    &&(!activeVentesMois||activeVentesMois.has('ytd')||activeVentesMois.has('total')||activeVentesMois.has(String(parseInt(r['Mois Emission']))));
   const validRows=rows.filter(r=>r['Année Emission']===String(year)&&baseFilter(r));
   const prevRows=rows.filter(r=>r['Année Emission']===String(prevYear)&&baseFilter(r));
   const allYearRows=rows.filter(r=>baseFilter(r));
+  // Ventes tab filtered rows
+  const ventesRows=rows.filter(r=>r['Année Emission']===String(year)&&ventesBaseFilter(r));
+  const ventesPrevRows=rows.filter(r=>r['Année Emission']===String(prevYear)&&ventesBaseFilter(r));
+  const ventesAllYearRows=rows.filter(r=>ventesBaseFilter(r));
+  // YTD/Total logic for mois filter
+  const ventesMaxYtdMonth=validRows.length?Math.max(...validRows.map(r=>parseInt(r['Mois Emission'])||0).filter(m=>m>0)):12;
   const maxYtdMonth=validRows.length?Math.max(...validRows.map(r=>parseInt(r['Mois Emission'])||0)):12;
   const displayRows=ytdMode?validRows.filter(r=>parseInt(r['Mois Emission'])<=maxYtdMonth):validRows;
 
@@ -5378,8 +5393,7 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
     const ia=PROD_LETTER_ORDER.indexOf(a),ib=PROD_LETTER_ORDER.indexOf(b);
     if(ia>=0&&ib>=0)return ia-ib;if(ia>=0)return -1;if(ib>=0)return 1;return a.localeCompare(b);
   });
-  // All unique appelation codes (2 chars after first letter)
-  const allAppelations=[...new Set(allProdsForFilter.map(p=>p.length>=3?p.slice(1,3):null).filter(Boolean))].sort((a,b)=>{
+  const allAppelations=[...new Set(allProdsForFilter.map(p=>p&&p.length>=3?p.slice(1,3):null).filter(Boolean))].sort((a,b)=>{
     const ORDER=['FL','FE','EC'];const ia=ORDER.indexOf(a),ib=ORDER.indexOf(b);
     if(ia>=0&&ib>=0)return ia-ib;if(ia>=0)return -1;if(ib>=0)return 1;return a.localeCompare(b);
   });
@@ -5409,24 +5423,56 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
       </div>
 
       {/* Sub-controls */}
-      {mainTab==='ventes'&&<div style={{display:'flex',alignItems:'center',gap:8,marginBottom:16,flexWrap:'wrap'}}>
-        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+      {mainTab==='ventes'&&<>
+        {/* Ordre pills */}
+        <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:10}}>
           <span style={{fontSize:11,color:'#9e9890'}}>Ordre :</span>
           {levels.map((level,i)=><DragPill key={level} level={level} index={i}
             onDragStart={setDragFrom} onDragOver={setDragOver} onDrop={handleDrop}
             isDragOver={dragOver===i&&dragFrom!==i}/>)}
         </div>
-        <div style={{marginLeft:'auto',display:'flex',gap:0,background:'#fff',border:'1px solid #e2ddd6',borderRadius:8,padding:'4px'}}>
-          <button onClick={()=>setYtdMode(false)}
-            style={{padding:'5px 12px',borderRadius:6,border:'none',background:!ytdMode?'#2d6a4f':'transparent',color:!ytdMode?'#fff':'#6b6560',fontSize:12,fontWeight:500,cursor:'pointer'}}>
-            Toute l'année
-          </button>
-          <button onClick={()=>setYtdMode(true)}
-            style={{padding:'5px 12px',borderRadius:6,border:'none',background:ytdMode?'#2d6a4f':'transparent',color:ytdMode?'#fff':'#6b6560',fontSize:12,fontWeight:500,cursor:'pointer'}}>
-            YTD
-          </button>
+        {/* Canal filter */}
+        <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8,flexWrap:'wrap'}}>
+          <span style={{fontSize:11,color:'#9e9890'}}>Canal :</span>
+          {(()=>{
+            const VCANAUX=['CHR','Grands Comptes','Retail','Export','__autres__'];
+            return VCANAUX.map(c=>{
+              const label=c==='__autres__'?'Autres':c;
+              const on=!activeVentesCanaux||activeVentesCanaux.has(c);
+              return <button key={c} onClick={()=>{
+                if(!activeVentesCanaux){setActiveVentesCanaux(new Set([c]));}
+                else{const next=new Set(activeVentesCanaux);
+                  if(next.has(c)){next.delete(c);}else{next.add(c);}
+                  if(next.size===0||next.size===VCANAUX.length)setActiveVentesCanaux(null);else setActiveVentesCanaux(next);}
+              }} style={{padding:'3px 10px',borderRadius:6,border:`1px solid ${on?'#2d6a4f':'#e2ddd6'}`,
+                background:on?'#2d6a4f':'#fff',color:on?'#fff':'#9e9890',fontSize:11,fontWeight:500,cursor:'pointer'}}>
+                {label}
+              </button>;
+            });
+          })()}
+          {activeVentesCanaux&&<button onClick={()=>setActiveVentesCanaux(null)}
+            style={{padding:'2px 7px',borderRadius:5,border:'1px solid #e2ddd6',background:'#fff',color:'#9e9890',fontSize:10,cursor:'pointer'}}>✕ Tout</button>}
         </div>
-      </div>}
+        {/* Mois filter */}
+        <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:16,flexWrap:'wrap'}}>
+          <span style={{fontSize:11,color:'#9e9890'}}>Mois :</span>
+          {['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre','YTD','Total'].map((m,i)=>{
+            const key=i<12?String(i+1):m.toLowerCase();
+            const on=!activeVentesMois||activeVentesMois.has(key);
+            return <button key={key} onClick={()=>{
+              if(!activeVentesMois){setActiveVentesMois(new Set([key]));}
+              else{const next=new Set(activeVentesMois);
+                if(next.has(key)){next.delete(key);}else{next.add(key);}
+                if(next.size===0||next.size===14)setActiveVentesMois(null);else setActiveVentesMois(next);}
+            }} style={{padding:'3px 10px',borderRadius:6,border:`1px solid ${on?'#2d6a4f':'#e2ddd6'}`,
+              background:on?'#2d6a4f':'#fff',color:on?'#fff':'#9e9890',fontSize:11,fontWeight:500,cursor:'pointer'}}>
+              {m}
+            </button>;
+          })}
+          {activeVentesMois&&<button onClick={()=>setActiveVentesMois(null)}
+            style={{padding:'2px 7px',borderRadius:5,border:'1px solid #e2ddd6',background:'#fff',color:'#9e9890',fontSize:10,cursor:'pointer'}}>✕ Tout</button>}
+        </div>
+      </>}
 
       {mainTab==='ecoulements'&&<div style={{display:'flex',alignItems:'center',gap:6,marginBottom:16,flexWrap:'wrap'}}>
         <span style={{fontSize:11,color:'#9e9890'}}>Filtrer :</span>
@@ -5456,19 +5502,28 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
         {activeLetters&&<button onClick={()=>setActiveLetters(null)}
           style={{padding:'2px 7px',borderRadius:5,border:'1px solid #e2ddd6',background:'#fff',color:'#9e9890',fontSize:10,cursor:'pointer'}}>✕ Tout</button>}
       </div>}
-      {mainTab==='ecoulements'&&allAppelations.length>0&&<div style={{display:'flex',alignItems:'center',gap:6,marginBottom:12,flexWrap:'wrap'}}>
+      {mainTab==='ecoulements'&&<div style={{display:'flex',alignItems:'center',gap:6,marginBottom:12,flexWrap:'wrap'}}>
         <span style={{fontSize:11,color:'#9e9890'}}>Appelation :</span>
-        {allAppelations.map(ap=>{
-          const on=!activeAppelations||activeAppelations.has(ap);
-          return <button key={ap} onClick={()=>{
-            if(!activeAppelations){setActiveAppelations(new Set([ap]));}
-            else{const next=new Set(activeAppelations);if(next.has(ap)){next.delete(ap);}else{next.add(ap);}
-              if(next.size===0||next.size===allAppelations.length)setActiveAppelations(null);else setActiveAppelations(next);}
-          }} style={{padding:'3px 10px',borderRadius:6,border:`1px solid ${on?'#2d6a4f':'#e2ddd6'}`,
-            background:on?'#2d6a4f':'#fff',color:on?'#fff':'#9e9890',fontSize:11,fontWeight:500,cursor:'pointer'}}>
-            {ap}
-          </button>;
-        })}
+        {(()=>{
+          const KNOWN=['FL','FE','EC','01','04','05','06','07','08','09','10','11','13','15','18','23','27','29','30','31','32','33','35','37','38','43','BL'];
+          const otherAps=allAppelations.filter(ap=>!KNOWN.includes(ap));
+          const items=[...KNOWN.filter(ap=>allAppelations.includes(ap)),otherAps.length>0?'__autres__':null].filter(Boolean);
+          return items.map(ap=>{
+            const label=ap==='__autres__'?'Autres':ap;
+            const effectiveSet=ap==='__autres__'?new Set(otherAps):new Set([ap]);
+            const on=!activeAppelations||[...effectiveSet].some(x=>activeAppelations.has(x));
+            return <button key={ap} onClick={()=>{
+              if(!activeAppelations){setActiveAppelations(new Set(effectiveSet));}
+              else{const next=new Set(activeAppelations);
+                const allOn=[...effectiveSet].every(x=>next.has(x));
+                if(allOn){[...effectiveSet].forEach(x=>next.delete(x));}else{[...effectiveSet].forEach(x=>next.add(x));}
+                if(next.size===0||next.size===allAppelations.length)setActiveAppelations(null);else setActiveAppelations(next);}
+            }} style={{padding:'3px 10px',borderRadius:6,border:`1px solid ${on?'#2d6a4f':'#e2ddd6'}`,
+              background:on?'#2d6a4f':'#fff',color:on?'#fff':'#9e9890',fontSize:11,fontWeight:500,cursor:'pointer'}}>
+              {label}
+            </button>;
+          });
+        })()}
         {activeAppelations&&<button onClick={()=>setActiveAppelations(null)}
           style={{padding:'2px 7px',borderRadius:5,border:'1px solid #e2ddd6',background:'#fff',color:'#9e9890',fontSize:10,cursor:'pointer'}}>✕ Tout</button>}
       </div>}
@@ -5477,8 +5532,10 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
       {loading?<div style={{textAlign:'center',padding:40,color:'#9e9890'}}>Chargement...</div>
       :rows.length===0?<div style={{textAlign:'center',padding:40,color:'#9e9890'}}>Aucune donnée — importez un CSV dans les Paramètres.</div>
       :mainTab==='ventes'?<Bsv3Table levels={levels} year={year} prevYear={prevYear}
-          validRows={displayRows} prevRows={prevRows} allYearRows={allYearRows}
-          ytdMode={ytdMode} maxYtdMonth={maxYtdMonth}/>
+          validRows={activeVentesMois&&activeVentesMois.has('ytd')?ventesRows.filter(r=>parseInt(r['Mois Emission'])<=ventesMaxYtdMonth):ventesRows}
+          prevRows={activeVentesMois&&activeVentesMois.has('ytd')?ventesPrevRows.filter(r=>parseInt(r['Mois Emission'])<=ventesMaxYtdMonth):ventesPrevRows}
+          allYearRows={ventesAllYearRows}
+          ytdMode={!!(activeVentesMois&&activeVentesMois.has('ytd'))} maxYtdMonth={ventesMaxYtdMonth}/>
       :mainTab==='ca'?<Bsv3CaTable rows={rows} importedAt={importedAt} clientFilter={clientFilter}/>
       :<Bsv3CommandesTable rows={rows} importedAt={importedAt} activeLetters={activeLetters} activeAppelations={activeAppelations} clientFilter={clientFilter}/>}
     </div>
