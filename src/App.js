@@ -5377,6 +5377,7 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
   const allLetters=[...new Set(allProdsForFilter.map(p=>p[0]))].sort((a,b)=>{
     const ia=PROD_LETTER_ORDER.indexOf(a),ib=PROD_LETTER_ORDER.indexOf(b);
     if(ia>=0&&ib>=0)return ia-ib;if(ia>=0)return -1;if(ib>=0)return 1;return a.localeCompare(b);
+  });
   // All unique appelation codes (2 chars after first letter)
   const allAppelations=[...new Set(allProdsForFilter.map(p=>p.length>=3?p.slice(1,3):null).filter(Boolean))].sort((a,b)=>{
     const ORDER=['FL','FE','EC'];const ia=ORDER.indexOf(a),ib=ORDER.indexOf(b);
