@@ -3477,8 +3477,7 @@ function QuestionsEditor({qs,onSave}){
     const next=[...qs];const [moved]=next.splice(dragFrom,1);next.splice(toIdx,0,moved);
     save(next);setDragFrom(null);setDragOver(null);
   }
-  return <div style={{position:'relative'}}>
-    {factureModal&&<FactureModal rows={factureModal} onClose={()=>setFactureModal(null)}/>}
+  return <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'18px'}}>
     <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'18px 20px'}}>
     <div style={{fontSize:13,fontWeight:600,marginBottom:14}}>Questions de l'Update hebdomadaire</div>
     {qs.map((q,i)=>(
@@ -3515,7 +3514,6 @@ function QuestionsEditor({qs,onSave}){
             </div>
           </div>
           <button onClick={()=>delQ(i)} style={{background:'none',border:'none',cursor:'pointer',fontSize:16,color:'#c0392b',padding:'0 4px',flexShrink:0}}>❌</button>
-        </div>
       </div>
     ))}
     <button onClick={addQ} style={{marginTop:8,padding:'8px 16px',background:'#f0fdf4',border:'1px dashed #2d6a4f',borderRadius:8,color:'#2d6a4f',fontSize:13,fontWeight:500,cursor:'pointer',width:'100%'}}>
