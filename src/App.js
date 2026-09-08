@@ -1278,13 +1278,6 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
                 onMouseMove={e=>setPos({x:e.clientX,y:e.clientY})}
                 onMouseLeave={()=>setHov(null)}>{icon}</span>;
             })}
-            <span style={{width:4}}/>
-            <button onClick={()=>{if(!isTousCanaux)setActiveVentesCanaux(null);}}
-              style={{padding:'3px 10px',borderRadius:6,
-                border:`1px solid ${isTousCanaux?'#2d6a4f':'#e2ddd6'}`,
-                background:isTousCanaux?'#2d6a4f':'#fff',color:isTousCanaux?'#fff':'#9e9890',
-                fontSize:11,fontWeight:600,cursor:isTousCanaux?'default':'pointer'}}>Tous canaux</button>
-          </div>;
         }
 
         const todayUpdate=weekKey?myUpdates.find(u=>u.weekKey===weekKey):null;
