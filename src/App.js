@@ -4952,7 +4952,7 @@ function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,dept
       <td style={lbl}>{!isLeaf&&<span style={{fontSize:10,color:'#9e9890'}}>{exp?'▼':'▶'}</span>}
         {currentLevel==='produit'?<><span style={{fontFamily:'monospace'}}>{displayLabel}</span>{(()=>{const lb=getBsv3ProdLabel(allRows||rows,label);return lb?<span style={{color:'#6b6560',fontWeight:400,marginLeft:6,fontSize:fs-1}}>— {lb}</span>:null;})()}</>
         :currentLevel==='facture'?<span style={{display:'inline-flex',alignItems:'center',gap:6}}>{displayLabel}<button
-          onClick={e=>{e.stopPropagation();onFactureClick&&onFactureClick(rows);}}
+          onClick={e=>{e.stopPropagation();if(onFactureClick){const factureRows=(allRows||rows).filter(r=>r['Numéro de facture']===label);onFactureClick(factureRows.length>0?factureRows:rows);}}}
           style={{fontSize:9,padding:'1px 6px',borderRadius:4,border:'1px solid #e2ddd6',background:'#f8f7f5',color:'#6b6560',cursor:'pointer',fontWeight:500}}>
           détail
         </button></span>
