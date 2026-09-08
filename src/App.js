@@ -5493,7 +5493,7 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
   const CA_AUTRES=r=>!CA_CANAUX.includes(r['Canal']);
   const ventesBaseFilter=r=>baseFilter(r)
     &&(!activeVentesCanaux||(activeVentesCanaux.has('__autres__')?CA_AUTRES(r):false)||activeVentesCanaux.has(r['Canal']))
-    &&(!activeVentesMois||activeVentesMois.has('ytd')||activeVentesMois.has('total')||activeVentesMois.has(String(parseInt(r['Mois Emission']))));
+    &&(!activeVentesMois||activeVentesMois.has(String(parseInt(r['Mois Emission']))));
   const validRows=rows.filter(r=>r['Année Emission']===String(year)&&baseFilter(r));
   const prevRows=rows.filter(r=>r['Année Emission']===String(prevYear)&&baseFilter(r));
   const allYearRows=rows.filter(r=>baseFilter(r));
@@ -5580,24 +5580,50 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
             style={{padding:'2px 7px',borderRadius:5,border:'1px solid #e2ddd6',background:'#fff',color:'#9e9890',fontSize:10,cursor:'pointer'}}>✕ Tout</button>}
         </div>
         {/* Mois filter */}
-        <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:16,flexWrap:'wrap'}}>
-          <span style={{fontSize:11,color:'#9e9890'}}>Mois :</span>
-          {['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre','YTD','Total'].map((m,i)=>{
-            const key=i<12?String(i+1):m.toLowerCase();
-            const on=!activeVentesMois||activeVentesMois.has(key);
-            return <button key={key} onClick={()=>{
-              if(!activeVentesMois){setActiveVentesMois(new Set([key]));}
-              else{const next=new Set(activeVentesMois);
-                if(next.has(key)){next.delete(key);}else{next.add(key);}
-                if(next.size===0||next.size===14)setActiveVentesMois(null);else setActiveVentesMois(next);}
-            }} style={{padding:'3px 10px',borderRadius:6,border:`1px solid ${on?'#2d6a4f':'#e2ddd6'}`,
-              background:on?'#2d6a4f':'#fff',color:on?'#fff':'#9e9890',fontSize:11,fontWeight:500,cursor:'pointer'}}>
-              {m}
-            </button>;
-          })}
-          {activeVentesMois&&<button onClick={()=>setActiveVentesMois(null)}
-            style={{padding:'2px 7px',borderRadius:5,border:'1px solid #e2ddd6',background:'#fff',color:'#9e9890',fontSize:10,cursor:'pointer'}}>✕ Tout</button>}
-        </div>
+        {(()=>{
+          const lm=ventesMaxYtdMonth;
+          // YTD set = months 1..lm, Année set = all 12
+          const ytdSet=new Set(Array.from({length:lm},(_,i)=>String(i+1)));
+          const anneeSet=new Set(['1','2','3','4','5','6','7','8','9','10','11','12']);
+          // activeMois: null = Année (all 12)
+          const activeMois=activeVentesMois||anneeSet;
+          const isYTD=activeMois.size===ytdSet.size&&[...ytdSet].every(m=>activeMois.has(m));
+          const isAnnee=!activeVentesMois; // null = all selected
+
+          function setMois(next){
+            if(next.size===12&&[...anneeSet].every(m=>next.has(m)))setActiveVentesMois(null);
+            else setActiveVentesMois(new Set(next));
+          }
+
+          return <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:16,flexWrap:'wrap'}}>
+            <span style={{fontSize:11,color:'#9e9890'}}>Mois :</span>
+            {['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'].map((m,i)=>{
+              const key=String(i+1);
+              const on=activeMois.has(key);
+              return <button key={key} onClick={()=>{
+                const next=new Set(activeMois);
+                if(on){next.delete(key);}else{next.add(key);}
+                setMois(next);
+              }} style={{padding:'3px 8px',borderRadius:6,border:`1px solid ${on?'#2d6a4f':'#e2ddd6'}`,
+                background:on?'#2d6a4f':'#fff',color:on?'#fff':'#9e9890',fontSize:11,fontWeight:500,cursor:'pointer'}}>
+                {m}
+              </button>;
+            })}
+            <span style={{width:4}}/>
+            <button onClick={()=>{
+              if(isYTD){setActiveVentesMois(null);}
+              else{setActiveVentesMois(new Set(ytdSet));}
+            }} style={{padding:'3px 10px',borderRadius:6,
+              border:`1px solid ${isYTD?'#2d6a4f':'#e2ddd6'}`,
+              background:isYTD?'#2d6a4f':'#fff',color:isYTD?'#fff':'#9e9890',
+              fontSize:11,fontWeight:600,cursor:'pointer'}}>YTD</button>
+            <button onClick={()=>setActiveVentesMois(null)}
+              style={{padding:'3px 10px',borderRadius:6,
+                border:`1px solid ${isAnnee?'#2d6a4f':'#e2ddd6'}`,
+                background:isAnnee?'#2d6a4f':'#fff',color:isAnnee?'#fff':'#9e9890',
+                fontSize:11,fontWeight:600,cursor:'pointer'}}>Année</button>
+          </div>;
+        })()}
       </>}
 
       {mainTab==='ecoulements'&&<div style={{display:'flex',alignItems:'center',gap:6,marginBottom:16,flexWrap:'wrap'}}>
