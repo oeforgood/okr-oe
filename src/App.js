@@ -772,8 +772,8 @@ function Bsv3Banner({onGoBsv3}) {
   const fmtK=v=>{if(!v&&v!==0)return '—';const abs=Math.abs(v);const s=abs>=1000?(abs/1000).toFixed(0)+'k€':abs.toFixed(0)+'€';return (v<0?'-':'')+s;};
   const fmtPctB=v=>v!=null?(v*100).toFixed(1)+'%':'—';
   const items=[
-    {label:"CA YTD",val:bsv3CA||null,col:"#1a1814",fmt:fmtK},
-    {label:"Marge YTD",val:bsv3Marge||null,col:bsv3Marge<0?"#c0392b":"#1a1814",fmt:fmtK},
+    {label:"CA YTD - B2B 4 canaux",val:bsv3CA||null,col:"#1a1814",fmt:fmtK},
+    {label:"Marge Brute YTD",val:bsv3Marge||null,col:bsv3Marge<0?"#c0392b":"#1a1814",fmt:fmtK},
     {label:`Taux ${MOIS_LABELS[maxMonth]||''}`,val:lastMonthAgg.taux,col:lastMonthArrow==='↑'?"#2d6a4f":lastMonthArrow==='↓'?"#c0392b":"#1a1814",fmt:v=>`${fmtPctB(v)}${lastMonthArrow?` ${lastMonthArrow}`:''}`,arrow:lastMonthArrow},
     {label:"Taux YTD",val:bsv3Taux,col:bsv3Taux!=null&&bsv3Taux<0?"#c0392b":"#1a1814",fmt:fmtPctB},
     {label:"Var. Marge N-1",val:bsv3VarMarge,col:bsv3VarMarge<0?"#c0392b":"#2d6a4f",fmt:v=>v>=0?'+'+fmtK(v):fmtK(v)},
@@ -875,8 +875,8 @@ function ReportingBanner({onGoReporting}) {
   const resultatCol = resultatYTD >= 0 ? '#2d6a4f' : '#c0392b';
 
   const items = [
-    {label:"CA YTD",val:caYTD,col:"#1a1814"},
-    {label:"Marge Brute",val:mbYTD,col:"#2d6a4f"},
+    {label:"CA YTD - tous canaux",val:caYTD,col:"#1a1814"},
+    {label:"Marge Brute YTD",val:mbYTD,col:"#2d6a4f"},
     {label:"Charges expl.",val:Math.abs(chargesExplYTD),col:"#b5680f"},
     {label:"EBITDA",val:ebitdaYTD,col:ebitdaCol},
     {label:"Trésorerie",val:(()=>{
