@@ -3519,6 +3519,7 @@ function QuestionsEditor({qs,onSave}){
     <button onClick={addQ} style={{marginTop:8,padding:'8px 16px',background:'#f0fdf4',border:'1px dashed #2d6a4f',borderRadius:8,color:'#2d6a4f',fontSize:13,fontWeight:500,cursor:'pointer',width:'100%'}}>
       + Ajouter une question
     </button>
+    </button>
   </div>
   </>;
 }
