@@ -1278,6 +1278,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
                 onMouseMove={e=>setPos({x:e.clientX,y:e.clientY})}
                 onMouseLeave={()=>setHov(null)}>{icon}</span>;
             })}
+          </div>;
         }
 
         const todayUpdate=weekKey?myUpdates.find(u=>u.weekKey===weekKey):null;
