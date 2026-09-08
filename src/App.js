@@ -5367,7 +5367,7 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
   const CA_AUTRES=r=>!CA_CANAUX.includes(r['Canal']);
   const ventesBaseFilter=r=>baseFilter(r)
     &&(!activeVentesCanaux||(activeVentesCanaux.has('__autres__')?CA_AUTRES(r):false)||activeVentesCanaux.has(r['Canal']))
-    &&(!activeVentesMois||activeVentesMois.has('ytd')||activeVentesMois.has('total')||activeVentesMois.has(String(parseInt(r['Mois Emission']))));
+    &&(!activeVentesMois||activeVentesMois.has(String(parseInt(r['Mois Emission']))));
   const validRows=rows.filter(r=>r['Année Emission']===String(year)&&baseFilter(r));
   const prevRows=rows.filter(r=>r['Année Emission']===String(prevYear)&&baseFilter(r));
   const allYearRows=rows.filter(r=>baseFilter(r));
@@ -5454,24 +5454,61 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
             style={{padding:'2px 7px',borderRadius:5,border:'1px solid #e2ddd6',background:'#fff',color:'#9e9890',fontSize:10,cursor:'pointer'}}>✕ Tout</button>}
         </div>
         {/* Mois filter */}
-        <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:16,flexWrap:'wrap'}}>
-          <span style={{fontSize:11,color:'#9e9890'}}>Mois :</span>
-          {['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre','YTD','Total'].map((m,i)=>{
-            const key=i<12?String(i+1):m.toLowerCase();
-            const on=!activeVentesMois||activeVentesMois.has(key);
-            return <button key={key} onClick={()=>{
-              if(!activeVentesMois){setActiveVentesMois(new Set([key]));}
-              else{const next=new Set(activeVentesMois);
-                if(next.has(key)){next.delete(key);}else{next.add(key);}
-                if(next.size===0||next.size===14)setActiveVentesMois(null);else setActiveVentesMois(next);}
-            }} style={{padding:'3px 10px',borderRadius:6,border:`1px solid ${on?'#2d6a4f':'#e2ddd6'}`,
-              background:on?'#2d6a4f':'#fff',color:on?'#fff':'#9e9890',fontSize:11,fontWeight:500,cursor:'pointer'}}>
-              {m}
-            </button>;
-          })}
-          {activeVentesMois&&<button onClick={()=>setActiveVentesMois(null)}
-            style={{padding:'2px 7px',borderRadius:5,border:'1px solid #e2ddd6',background:'#fff',color:'#9e9890',fontSize:10,cursor:'pointer'}}>✕ Tout</button>}
-        </div>
+        {(()=>{
+          const lm=ventesMaxYtdMonth; // last month with data
+          // Compute YTD set: months 1..lm
+          const ytdSet=new Set(Array.from({length:lm},(_,i)=>String(i+1)));
+          // Compute Année set: all 12 months
+          const anneeSet=new Set(['1','2','3','4','5','6','7','8','9','10','11','12']);
+          // Current active months (null = all)
+          const activeMois=activeVentesMois||anneeSet;
+          // Check if current selection matches YTD or Année
+          const isYTD=ytdSet.size===activeMois.size&&[...ytdSet].every(m=>activeMois.has(m));
+          const isAnnee=anneeSet.size===activeMois.size&&[...anneeSet].every(m=>activeMois.has(m));
+
+          function setMois(next){
+            if(next.size===0)next=anneeSet;
+            if(next.size===12&&[...anneeSet].every(m=>next.has(m)))setActiveVentesMois(null);
+            else setActiveVentesMois(new Set(next));
+          }
+
+          return <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:16,flexWrap:'wrap'}}>
+            <span style={{fontSize:11,color:'#9e9890'}}>Mois :</span>
+            {/* Individual months */}
+            {['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'].map((m,i)=>{
+              const key=String(i+1);
+              const on=activeMois.has(key);
+              return <button key={key} onClick={()=>{
+                const next=new Set(activeMois);
+                if(on){next.delete(key);}else{next.add(key);}
+                setMois(next);
+              }} style={{padding:'3px 8px',borderRadius:6,border:`1px solid ${on?'#2d6a4f':'#e2ddd6'}`,
+                background:on?'#2d6a4f':'#fff',color:on?'#fff':'#9e9890',fontSize:11,fontWeight:500,cursor:'pointer'}}>
+                {m}
+              </button>;
+            })}
+            <span style={{width:4}}/>
+            {/* YTD button */}
+            <button onClick={()=>{
+              if(isYTD){setActiveVentesMois(null);}
+              else{setActiveVentesMois(new Set(ytdSet));}
+            }} style={{padding:'3px 10px',borderRadius:6,
+              border:`1px solid ${isYTD?'#2d6a4f':'#e2ddd6'}`,
+              background:isYTD?'#2d6a4f':'#fff',color:isYTD?'#fff':'#9e9890',
+              fontSize:11,fontWeight:600,cursor:'pointer'}}>
+              YTD
+            </button>
+            {/* Année button */}
+            <button onClick={()=>{
+              setActiveVentesMois(null);
+            }} style={{padding:'3px 10px',borderRadius:6,
+              border:`1px solid ${isAnnee?'#2d6a4f':'#e2ddd6'}`,
+              background:isAnnee?'#2d6a4f':'#fff',color:isAnnee?'#fff':'#9e9890',
+              fontSize:11,fontWeight:600,cursor:'pointer'}}>
+              Année
+            </button>
+          </div>;
+        })()}
       </>}
 
       {mainTab==='ecoulements'&&<div style={{display:'flex',alignItems:'center',gap:6,marginBottom:16,flexWrap:'wrap'}}>
@@ -5532,10 +5569,8 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
       {loading?<div style={{textAlign:'center',padding:40,color:'#9e9890'}}>Chargement...</div>
       :rows.length===0?<div style={{textAlign:'center',padding:40,color:'#9e9890'}}>Aucune donnée — importez un CSV dans les Paramètres.</div>
       :mainTab==='ventes'?<Bsv3Table levels={levels} year={year} prevYear={prevYear}
-          validRows={activeVentesMois&&activeVentesMois.has('ytd')?ventesRows.filter(r=>parseInt(r['Mois Emission'])<=ventesMaxYtdMonth):ventesRows}
-          prevRows={activeVentesMois&&activeVentesMois.has('ytd')?ventesPrevRows.filter(r=>parseInt(r['Mois Emission'])<=ventesMaxYtdMonth):ventesPrevRows}
-          allYearRows={ventesAllYearRows}
-          ytdMode={!!(activeVentesMois&&activeVentesMois.has('ytd'))} maxYtdMonth={ventesMaxYtdMonth}/>
+          validRows={ventesRows} prevRows={ventesPrevRows} allYearRows={ventesAllYearRows}
+          ytdMode={false} maxYtdMonth={ventesMaxYtdMonth}/>
       :mainTab==='ca'?<Bsv3CaTable rows={rows} importedAt={importedAt} clientFilter={clientFilter}/>
       :<Bsv3CommandesTable rows={rows} importedAt={importedAt} activeLetters={activeLetters} activeAppelations={activeAppelations} clientFilter={clientFilter}/>}
     </div>
