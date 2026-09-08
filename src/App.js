@@ -5058,6 +5058,7 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
         </tfoot>
       </table>
     </div>
+    </div>
   </div>;
 }
 
