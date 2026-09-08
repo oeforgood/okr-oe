@@ -772,8 +772,8 @@ function Bsv3Banner({onGoBsv3}) {
   const fmtK=v=>{if(!v&&v!==0)return '—';const abs=Math.abs(v);const s=abs>=1000?(abs/1000).toFixed(0)+'k€':abs.toFixed(0)+'€';return (v<0?'-':'')+s;};
   const fmtPctB=v=>v!=null?(v*100).toFixed(1)+'%':'—';
   const items=[
-    {label:"CA YTD",val:bsv3CA||null,col:"#1a1814",fmt:fmtK},
-    {label:"Marge YTD",val:bsv3Marge||null,col:bsv3Marge<0?"#c0392b":"#1a1814",fmt:fmtK},
+    {label:"CA YTD - B2B 4 canaux",val:bsv3CA||null,col:"#1a1814",fmt:fmtK},
+    {label:"Marge Brute YTD",val:bsv3Marge||null,col:bsv3Marge<0?"#c0392b":"#1a1814",fmt:fmtK},
     {label:`Taux ${MOIS_LABELS[maxMonth]||''}`,val:lastMonthAgg.taux,col:lastMonthArrow==='↑'?"#2d6a4f":lastMonthArrow==='↓'?"#c0392b":"#1a1814",fmt:v=>`${fmtPctB(v)}${lastMonthArrow?` ${lastMonthArrow}`:''}`,arrow:lastMonthArrow},
     {label:"Taux YTD",val:bsv3Taux,col:bsv3Taux!=null&&bsv3Taux<0?"#c0392b":"#1a1814",fmt:fmtPctB},
     {label:"Var. Marge N-1",val:bsv3VarMarge,col:bsv3VarMarge<0?"#c0392b":"#2d6a4f",fmt:v=>v>=0?'+'+fmtK(v):fmtK(v)},
@@ -875,8 +875,8 @@ function ReportingBanner({onGoReporting}) {
   const resultatCol = resultatYTD >= 0 ? '#2d6a4f' : '#c0392b';
 
   const items = [
-    {label:"CA YTD",val:caYTD,col:"#1a1814"},
-    {label:"Marge Brute",val:mbYTD,col:"#2d6a4f"},
+    {label:"CA YTD - tous canaux",val:caYTD,col:"#1a1814"},
+    {label:"Marge Brute YTD",val:mbYTD,col:"#2d6a4f"},
     {label:"Charges expl.",val:Math.abs(chargesExplYTD),col:"#b5680f"},
     {label:"EBITDA",val:ebitdaYTD,col:ebitdaCol},
     {label:"Trésorerie",val:(()=>{
@@ -5157,7 +5157,7 @@ function Bsv3CaTable({rows, importedAt, clientFilter=''}){
 }
 
 
-function Bsv3CommandesTable({rows, importedAt, activeLetters, clientFilter=''}){
+function Bsv3CommandesTable({rows, importedAt, activeLetters, activeAppelations=null, clientFilter=''}){
   const [collapsedYears, setCollapsedYears] = React.useState({});
   const [expandedProds, setExpandedProds] = React.useState({});
 
@@ -5176,8 +5176,13 @@ function Bsv3CommandesTable({rows, importedAt, activeLetters, clientFilter=''}){
   const years = [...new Set(months.map(x=>x.y))];
 
   const clientFilterLower3=clientFilter.trim().toLowerCase();
-  const validRows = rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])
-    &&(!clientFilterLower3||(r['Client PL']||r['Tiers']||'').toLowerCase().includes(clientFilterLower3)));
+  const validRows = rows.filter(r=>{
+    const prod=r['Contenant+Appelation/Robe']||'';
+    const ap=prod.length>=3?prod.slice(1,3):null;
+    return !BSV3_EXCLUDE_PRODUITS.has(prod)
+      &&(!clientFilterLower3||(r['Client PL']||r['Tiers']||'').toLowerCase().includes(clientFilterLower3))
+      &&(!activeAppelations||!ap||activeAppelations.has(ap));
+  });
   const allProds = [...new Set(validRows.map(r=>r['Contenant+Appelation/Robe']))];
   const sortedAllProds = sortProduitsSuffix(allProds);
 
@@ -5342,6 +5347,7 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
   const [dragFrom,setDragFrom]=React.useState(null);
   const [dragOver,setDragOver]=React.useState(null);
   const [activeLetters,setActiveLetters]=React.useState(null);
+  const [activeAppelations,setActiveAppelations]=React.useState(null);
   const [showCommandes,setShowCommandes]=React.useState(false);
 
   const importDate=importedAt?new Date(importedAt):new Date();
@@ -5370,6 +5376,11 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
   const allProdsForFilter=[...new Set(rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])).map(r=>r['Contenant+Appelation/Robe']))];
   const allLetters=[...new Set(allProdsForFilter.map(p=>p[0]))].sort((a,b)=>{
     const ia=PROD_LETTER_ORDER.indexOf(a),ib=PROD_LETTER_ORDER.indexOf(b);
+    if(ia>=0&&ib>=0)return ia-ib;if(ia>=0)return -1;if(ib>=0)return 1;return a.localeCompare(b);
+  });
+  // All unique appelation codes (2 chars after first letter)
+  const allAppelations=[...new Set(allProdsForFilter.map(p=>p.length>=3?p.slice(1,3):null).filter(Boolean))].sort((a,b)=>{
+    const ORDER=['FL','FE','EC'];const ia=ORDER.indexOf(a),ib=ORDER.indexOf(b);
     if(ia>=0&&ib>=0)return ia-ib;if(ia>=0)return -1;if(ib>=0)return 1;return a.localeCompare(b);
   });
 
@@ -5445,6 +5456,22 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
         {activeLetters&&<button onClick={()=>setActiveLetters(null)}
           style={{padding:'2px 7px',borderRadius:5,border:'1px solid #e2ddd6',background:'#fff',color:'#9e9890',fontSize:10,cursor:'pointer'}}>✕ Tout</button>}
       </div>}
+      {mainTab==='ecoulements'&&allAppelations.length>0&&<div style={{display:'flex',alignItems:'center',gap:6,marginBottom:12,flexWrap:'wrap'}}>
+        <span style={{fontSize:11,color:'#9e9890'}}>Appelation :</span>
+        {allAppelations.map(ap=>{
+          const on=!activeAppelations||activeAppelations.has(ap);
+          return <button key={ap} onClick={()=>{
+            if(!activeAppelations){setActiveAppelations(new Set([ap]));}
+            else{const next=new Set(activeAppelations);if(next.has(ap)){next.delete(ap);}else{next.add(ap);}
+              if(next.size===0||next.size===allAppelations.length)setActiveAppelations(null);else setActiveAppelations(next);}
+          }} style={{padding:'3px 10px',borderRadius:6,border:`1px solid ${on?'#2d6a4f':'#e2ddd6'}`,
+            background:on?'#2d6a4f':'#fff',color:on?'#fff':'#9e9890',fontSize:11,fontWeight:500,cursor:'pointer'}}>
+            {ap}
+          </button>;
+        })}
+        {activeAppelations&&<button onClick={()=>setActiveAppelations(null)}
+          style={{padding:'2px 7px',borderRadius:5,border:'1px solid #e2ddd6',background:'#fff',color:'#9e9890',fontSize:10,cursor:'pointer'}}>✕ Tout</button>}
+      </div>}
 
       {/* Content */}
       {loading?<div style={{textAlign:'center',padding:40,color:'#9e9890'}}>Chargement...</div>
@@ -5453,7 +5480,7 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
           validRows={displayRows} prevRows={prevRows} allYearRows={allYearRows}
           ytdMode={ytdMode} maxYtdMonth={maxYtdMonth}/>
       :mainTab==='ca'?<Bsv3CaTable rows={rows} importedAt={importedAt} clientFilter={clientFilter}/>
-      :<Bsv3CommandesTable rows={rows} importedAt={importedAt} activeLetters={activeLetters} clientFilter={clientFilter}/>}
+      :<Bsv3CommandesTable rows={rows} importedAt={importedAt} activeLetters={activeLetters} activeAppelations={activeAppelations} clientFilter={clientFilter}/>}
     </div>
   </div>;
 }
