@@ -5558,27 +5558,40 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
             isDragOver={dragOver===i&&dragFrom!==i}/>)}
         </div>
         {/* Canal filter */}
-        <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8,flexWrap:'wrap'}}>
-          <span style={{fontSize:11,color:'#9e9890'}}>Canal :</span>
-          {(()=>{
-            const VCANAUX=['CHR','Grands Comptes','Retail','Export','__autres__'];
-            return VCANAUX.map(c=>{
+        {(()=>{
+          const VCANAUX=['CHR','Grands Comptes','Retail','Export','__autres__'];
+          const isTousCanaux=!activeVentesCanaux;
+          function setCanal(next){
+            if(next.size===0||next.size===VCANAUX.length)setActiveVentesCanaux(null);
+            else setActiveVentesCanaux(new Set(next));
+          }
+          return <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8,flexWrap:'wrap'}}>
+            <span style={{fontSize:11,color:'#9e9890'}}>Canal :</span>
+            <button onClick={()=>{if(!isTousCanaux)setActiveVentesCanaux(null);}}
+              style={{padding:'3px 10px',borderRadius:6,
+                border:`1px solid ${isTousCanaux?'#2d6a4f':'#e2ddd6'}`,
+                background:isTousCanaux?'#2d6a4f':'#fff',color:isTousCanaux?'#fff':'#9e9890',
+                fontSize:11,fontWeight:600,cursor:isTousCanaux?'default':'pointer'}}>Tous canaux</button>
+            {VCANAUX.map(c=>{
               const label=c==='__autres__'?'Autres':c;
-              const on=!activeVentesCanaux||activeVentesCanaux.has(c);
+              const activeSet=activeVentesCanaux||new Set(VCANAUX);
+              const on=activeSet.has(c);
               return <button key={c} onClick={()=>{
-                if(!activeVentesCanaux){setActiveVentesCanaux(new Set([c]));}
-                else{const next=new Set(activeVentesCanaux);
-                  if(next.has(c)){next.delete(c);}else{next.add(c);}
-                  if(next.size===0||next.size===VCANAUX.length)setActiveVentesCanaux(null);else setActiveVentesCanaux(next);}
+                if(isTousCanaux){
+                  setActiveVentesCanaux(new Set([c]));
+                } else {
+                  const next=new Set(activeVentesCanaux);
+                  if(on&&next.size===1){setActiveVentesCanaux(null);}
+                  else if(on){next.delete(c);setCanal(next);}
+                  else{next.add(c);setCanal(next);}
+                }
               }} style={{padding:'3px 10px',borderRadius:6,border:`1px solid ${on?'#2d6a4f':'#e2ddd6'}`,
                 background:on?'#2d6a4f':'#fff',color:on?'#fff':'#9e9890',fontSize:11,fontWeight:500,cursor:'pointer'}}>
                 {label}
               </button>;
-            });
-          })()}
-          {activeVentesCanaux&&<button onClick={()=>setActiveVentesCanaux(null)}
-            style={{padding:'2px 7px',borderRadius:5,border:'1px solid #e2ddd6',background:'#fff',color:'#9e9890',fontSize:10,cursor:'pointer'}}>✕ Tout</button>}
-        </div>
+            })}
+          </div>;
+        })()}
         {/* Mois filter */}
         {(()=>{
           const lm=ventesMaxYtdMonth;
@@ -5617,18 +5630,16 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
               </button>;
             })}
             <span style={{width:4}}/>
-            <button onClick={()=>{
-              if(isYTD){setActiveVentesMois(null);}
-              else{setActiveVentesMois(new Set(ytdSet));}
-            }} style={{padding:'3px 10px',borderRadius:6,
-              border:`1px solid ${isYTD?'#2d6a4f':'#e2ddd6'}`,
-              background:isYTD?'#2d6a4f':'#fff',color:isYTD?'#fff':'#9e9890',
-              fontSize:11,fontWeight:600,cursor:'pointer'}}>YTD</button>
-            <button onClick={()=>setActiveVentesMois(null)}
+            <button onClick={()=>{if(!isYTD)setActiveVentesMois(new Set(ytdSet));}}
+              style={{padding:'3px 10px',borderRadius:6,
+                border:`1px solid ${isYTD?'#2d6a4f':'#e2ddd6'}`,
+                background:isYTD?'#2d6a4f':'#fff',color:isYTD?'#fff':'#9e9890',
+                fontSize:11,fontWeight:600,cursor:isYTD?'default':'pointer'}}>YTD</button>
+            <button onClick={()=>{if(!isAnnee)setActiveVentesMois(null);}}
               style={{padding:'3px 10px',borderRadius:6,
                 border:`1px solid ${isAnnee?'#2d6a4f':'#e2ddd6'}`,
                 background:isAnnee?'#2d6a4f':'#fff',color:isAnnee?'#fff':'#9e9890',
-                fontSize:11,fontWeight:600,cursor:'pointer'}}>Année</button>
+                fontSize:11,fontWeight:600,cursor:isAnnee?'default':'pointer'}}>Année</button>
           </div>;
         })()}
       </>}
