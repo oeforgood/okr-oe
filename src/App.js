@@ -5601,10 +5601,16 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
               const key=String(i+1);
               const on=activeMois.has(key);
               return <button key={key} onClick={()=>{
-                // If YTD or Année active (more than 1 month selected): isolate this month
-                if(activeMois.size>1){setMois(new Set([key]));return;}
-                // If already alone: toggle off → Année
-                if(on){setActiveVentesMois(null);}else{setMois(new Set([key]));}
+                if(isYTD||isAnnee){
+                  // YTD or Année active: isolate this month
+                  setMois(new Set([key]));
+                } else {
+                  // Manual selection: toggle this month, keep others
+                  const next=new Set(activeMois);
+                  if(on&&next.size===1){setActiveVentesMois(null);}
+                  else if(on){next.delete(key);setMois(next);}
+                  else{next.add(key);setMois(next);}
+                }
               }} style={{padding:'3px 8px',borderRadius:6,border:`1px solid ${on?'#2d6a4f':'#e2ddd6'}`,
                 background:on?'#2d6a4f':'#fff',color:on?'#fff':'#9e9890',fontSize:11,fontWeight:500,cursor:'pointer'}}>
                 {m}
