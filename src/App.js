@@ -4905,7 +4905,7 @@ function FactureModal({rows, onClose}){
   </div>;
 }
 
-function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,depth,ytdMode,maxYtdMonth,allRows}){
+function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,depth,ytdMode,maxYtdMonth,allRows,fs=11,onFactureClick}{
   const [exp,setExp]=React.useState(false);
   const currentLevel=levels[levelIdx];
   const nextLevel=levels[levelIdx+1];
@@ -4987,6 +4987,7 @@ function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,dept
 
 function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,maxYtdMonth}){
   const [factureModal,setFactureModal]=React.useState(null);
+  const [factureModal,setFactureModal]=React.useState(null);
   const topLevel=levels[0];
   const topField=getField(topLevel);
   // Always filter prevRows to YTD when ytdMode
@@ -5012,6 +5013,8 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
   const tfPrev={...tf,borderLeft:'2px solid #ece8e0'};
   const tfl={...tf,textAlign:'left'};
 
+  return <div style={{position:'relative'}}>
+    {factureModal&&<FactureModal rows={factureModal} onClose={()=>setFactureModal(null)}/>}
   return <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',overflow:'hidden'}}>
     <div style={{overflowX:'auto'}}>
       <table style={{width:'100%',borderCollapse:'collapse'}}>
