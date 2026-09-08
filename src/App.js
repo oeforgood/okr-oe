@@ -3520,6 +3520,7 @@ function QuestionsEditor({qs,onSave}){
       + Ajouter une question
     </button>
     </div>
+  </div>
   </>;
 }
 
