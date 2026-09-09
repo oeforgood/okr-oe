@@ -1075,14 +1075,6 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
               </button>
               {myKRsOwned.length>0&&<><div style={{fontSize:18,fontWeight:700,color:krColPerso,fontFamily:"monospace"}}>{myKRDoneOwned}/{myKRsOwned.length}</div><div style={{fontSize:9,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em"}}>mes KR</div></>}
             </div>
-            {canEditPuce&&<>{['grey','green','orange','red'].map(c=>{
-              const on=filterPuce===c;
-              return <button key={c} onClick={()=>setFilterPuce(on?null:c)}
-                style={{width:12,height:12,borderRadius:'50%',border:`2px solid ${on?'#1a1814':'transparent'}`,
-                  background:PUCE_COLOR[c],cursor:'pointer',padding:0,flexShrink:0}}/>;
-            })}
-            {filterPuce&&<button onClick={()=>setFilterPuce(null)} style={{fontSize:9,padding:'1px 5px',borderRadius:4,border:'1px solid #e2ddd6',background:'#fff',color:'#9e9890',cursor:'pointer'}}>✕</button>}
-            </>}
           </div>;
         })()}
       </div>
