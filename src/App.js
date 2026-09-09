@@ -16,7 +16,7 @@ function sendNotifEmail(toEmail, toName, title) {
   }, EMAILJS_KEY).catch(e => console.warn('EmailJS error:', e));
 }
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, getDocs, getDoc, query, where, updateDoc, deleteDoc } from "firebase/firestore";
+import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, getDocs, getDoc, query, where, updateDoc, deleteDoc, arrayUnion } from "firebase/firestore";
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "firebase/auth";
 
 const firebaseConfig = {
@@ -4785,9 +4785,80 @@ function EvoSpan({n, p}){
 }
 
 
-function FactureModal({rows, onClose, currentUser, onPuceClick, getPuce, puceColors}){
+function FactureModal({rows, onClose, currentUser, onPuceClick, getPuce, puceColors, db}){
   if(!rows||rows.length===0)return null;
   const first=rows[0];
+  const factureNum=first['Numéro de facture']||'';
+  const PUCE_OWNERS_CM=['fx@oeforgood.com','fiona@oeforgood.com'];
+  const canComment=PUCE_OWNERS_CM.includes(currentUser?.email);
+  const [comments,setComments]=React.useState([]);
+  const [commentText,setCommentText]=React.useState('');
+  const [savingComment,setSavingComment]=React.useState(false);
+
+  // Load comments from Firebase
+  React.useEffect(()=>{
+    if(!factureNum||!db)return;
+    const unsub=onSnapshot(doc(db,'bsv3_comments',factureNum),snap=>{
+      if(snap.exists())setComments(snap.data().comments||[]);
+      else setComments([]);
+    });
+    return ()=>unsub();
+  },[factureNum]);
+
+  function fmtCommentDate(ts){
+    const d=new Date(ts);
+    const dd=String(d.getDate()).padStart(2,'0');
+    const mm=String(d.getMonth()+1).padStart(2,'0');
+    const yy=String(d.getFullYear()).slice(2);
+    const hh=String(d.getHours()).padStart(2,'0');
+    const mn=String(d.getMinutes()).padStart(2,'0');
+    return `${dd}/${mm}/${yy} à ${hh}h${mn}`;
+  }
+
+  function getPrenomFromEmail(email){
+    if(email==='fx@oeforgood.com')return 'Fx';
+    if(email==='fiona@oeforgood.com')return 'Fiona';
+    return email.split('@')[0];
+  }
+
+  async function saveComment(){
+    if(!commentText.trim()||!canComment)return;
+    setSavingComment(true);
+    const prenom=getPrenomFromEmail(currentUser.email);
+    const newComment={
+      id:Date.now()+'_'+Math.random().toString(36).slice(2),
+      text:commentText.trim(),
+      email:currentUser.email,
+      prenom,
+      ts:Date.now(),
+      public:false,
+    };
+    const ref=doc(db,'bsv3_comments',factureNum);
+    const snap=await getDoc(ref);
+    if(snap.exists()){
+      await updateDoc(ref,{comments:arrayUnion(newComment)});
+    } else {
+      await setDoc(ref,{comments:[newComment]});
+    }
+    setCommentText('');
+    setSavingComment(false);
+  }
+
+  async function toggleCommentPublic(commentId){
+    const ref=doc(db,'bsv3_comments',factureNum);
+    const snap=await getDoc(ref);
+    if(!snap.exists())return;
+    const updated=(snap.data().comments||[]).map(c=>c.id===commentId?{...c,public:!c.public}:c);
+    await setDoc(ref,{comments:updated});
+  }
+
+  async function deleteComment(commentId){
+    const ref=doc(db,'bsv3_comments',factureNum);
+    const snap=await getDoc(ref);
+    if(!snap.exists())return;
+    const updated=(snap.data().comments||[]).filter(c=>c.id!==commentId);
+    await setDoc(ref,{comments:updated});
+  }
   const client=first['Client PL']||'—';
   const facture=first['Numéro de facture']||'—';
   const date=first['Date']||'—';
@@ -4919,6 +4990,46 @@ function FactureModal({rows, onClose, currentUser, onPuceClick, getPuce, puceCol
           </tbody>
         </table>
       </div>
+
+      {/* Comments section */}
+      <div style={{marginTop:20,borderTop:'1px solid #f0ede8',paddingTop:16}}>
+        {/* Show comments visible to current user */}
+        {comments.filter(c=>c.public||canComment).map(c=>{
+          const canDelete=c.email===currentUser?.email;
+          const isOwn=canComment&&c.email===currentUser?.email;
+          const isOther=canComment&&c.email!==currentUser?.email&&PUCE_OWNERS_CM.includes(c.email);
+          const canToggle=isOwn||isOther;
+          return <div key={c.id} style={{display:'flex',alignItems:'flex-start',gap:6,marginBottom:6}}>
+            {canToggle&&<button onClick={()=>toggleCommentPublic(c.id)}
+              title={c.public?'Visible par tous — cliquer pour restreindre':'Visible par Fx/Fiona — cliquer pour partager'}
+              style={{border:'none',background:'none',cursor:'pointer',fontSize:11,padding:'0 2px',flexShrink:0,opacity:0.7,lineHeight:1.2}}>
+              {c.public?'👁':'🙈'}
+            </button>}
+            {!canToggle&&<span style={{width:16,flexShrink:0}}/>}
+            {canDelete&&<button onClick={()=>deleteComment(c.id)}
+              style={{border:'none',background:'none',cursor:'pointer',fontSize:10,padding:'0 2px',color:'#c0392b',flexShrink:0,lineHeight:1.2}}>✕</button>}
+            <span style={{fontSize:10,color:'#6b6560',lineHeight:1.4}}>
+              <span style={{fontWeight:600,color:'#1a1814'}}>{c.prenom}</span>
+              {' le '}{fmtCommentDate(c.ts)}{' : '}
+              {c.text}
+            </span>
+          </div>;
+        })}
+
+        {/* Input for new comment */}
+        {canComment&&<div style={{display:'flex',gap:6,marginTop:8,alignItems:'center'}}>
+          <input value={commentText} onChange={e=>setCommentText(e.target.value)}
+            onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();saveComment();}}}
+            placeholder="Ajouter un commentaire..."
+            style={{flex:1,fontSize:11,padding:'5px 8px',borderRadius:6,border:'1px solid #e2ddd6',outline:'none'}}/>
+          <button onClick={saveComment} disabled={savingComment||!commentText.trim()}
+            style={{fontSize:11,padding:'5px 10px',borderRadius:6,border:'1px solid #2d6a4f',
+              background:commentText.trim()?'#2d6a4f':'#f0ede8',color:commentText.trim()?'#fff':'#9e9890',
+              cursor:commentText.trim()?'pointer':'default',fontWeight:500}}>
+            OK
+          </button>
+        </div>}
+      </div>
     </div>
   </div>;
 }
@@ -5048,12 +5159,36 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
     }
     return cur;
   }
+  const puceCommentTimers=React.useRef({});
   async function handlePuceClick(fn,cur,email){
     if(!canEditPuceTable)return;
     const nc=getNewColor(cur,email);
     if(nc===cur)return;
     setPuces(prev=>({...prev,[fn]:nc}));
     if(onUpdatePuce)await onUpdatePuce(fn,nc);
+    // Debounced puce comment - wait 5s to group rapid clicks
+    if(puceCommentTimers.current[fn])clearTimeout(puceCommentTimers.current[fn]);
+    puceCommentTimers.current[fn]=setTimeout(async()=>{
+      const prenom=email==='fx@oeforgood.com'?'Fx':'Fiona';
+      const PUCE_LABELS={grey:'grise',green:'verte',orange:'orange',red:'rouge'};
+      const commentText=`a changé la puce en ${PUCE_LABELS[nc]||nc}`;
+      const newComment={
+        id:Date.now()+'_'+Math.random().toString(36).slice(2),
+        text:commentText,
+        email,prenom,ts:Date.now(),public:false,auto:true,
+      };
+      const ref=doc(db,'bsv3_comments',fn);
+      const snap=await getDoc(ref);
+      if(snap.exists()){
+        // Replace last auto comment if exists, else add
+        const existing=snap.data().comments||[];
+        const lastAuto=existing.length>0&&existing[existing.length-1].auto?existing.slice(0,-1):existing;
+        await setDoc(ref,{comments:[...lastAuto,newComment]});
+      } else {
+        await setDoc(ref,{comments:[newComment]});
+      }
+      delete puceCommentTimers.current[fn];
+    },5000);
   }
   const topLevel=levels[0];
   const topField=getField(topLevel);
@@ -5093,7 +5228,7 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
   const tfl={...tf,textAlign:'left'};
 
   return <div>
-    {factureModal&&<FactureModal rows={factureModal} onClose={()=>setFactureModal(null)} currentUser={currentUser} onPuceClick={handlePuceClick} getPuce={getPuce} puceColors={PUCE_COLOR}/>}
+    {factureModal&&<FactureModal rows={factureModal} onClose={()=>setFactureModal(null)} currentUser={currentUser} onPuceClick={handlePuceClick} getPuce={getPuce} puceColors={PUCE_COLOR} db={db}/>}
 
     <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',overflow:'hidden'}}>
     <div style={{overflowX:'auto'}}>
