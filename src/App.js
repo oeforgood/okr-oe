@@ -5068,8 +5068,13 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
     :sortByLevel(topLevel,allTopVals,validRows,filteredPrev);
 
   // Filter topSorted by puce when filter active and top level is facture
-  const topSortedFiltered=effectiveFilterPuce&&topLevel==='facture'
-    ?topSorted.filter(val=>(puces[val]||'grey')===effectiveFilterPuce)
+  const topSortedFiltered=effectiveFilterPuce
+    ?topSorted.filter(val=>{
+      const rr=topLevel==='mois'
+        ?validRows.filter(r=>r['Mois Emission']===val)
+        :validRows.filter(r=>r[topField]===val);
+      return rr.some(r=>(r.puce||'grey')===effectiveFilterPuce);
+    })
     :topSorted;
 
   const firstLabel=topLevel==='mois'?`Mois ${year}`:topLevel==='canal'?'Canal':topLevel==='client'?'Client':topLevel==='facture'?'Facture':'Produit';
@@ -5077,8 +5082,8 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
   const th={padding:'8px 10px',fontSize:11,fontWeight:600,color:'#6b6560',textAlign:'right',borderBottom:'2px solid #e2ddd6',background:'#f8f7f5',whiteSpace:'nowrap'};
   const thPrev={...th,borderLeft:'2px solid #e2ddd6'};
 
-  const pucedValidRows=effectiveFilterPuce?validRows.filter(r=>(puces[r['Numéro de facture']]||'grey')===effectiveFilterPuce):validRows;
-  const pucedPrevRows=effectiveFilterPuce?filteredPrev.filter(r=>(puces[r['Numéro de facture']]||'grey')===effectiveFilterPuce):filteredPrev;
+  const pucedValidRows=effectiveFilterPuce?validRows.filter(r=>(r.puce||'grey')===effectiveFilterPuce):validRows;
+  const pucedPrevRows=effectiveFilterPuce?filteredPrev.filter(r=>(r.puce||'grey')===effectiveFilterPuce):filteredPrev;
   const aggTotal=aggBsv3(pucedValidRows);
   const aggTotalP=aggBsv3(pucedPrevRows);
   const ytdPrevRows=prevRows.filter(r=>parseInt(r['Mois Emission'])<=maxYtdMonth);
@@ -5104,10 +5109,10 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
         <tbody>
           {topSortedFiltered.map(val=>{
             const rows=(topLevel==='mois'?validRows.filter(r=>r['Mois Emission']===val):validRows.filter(r=>r[topField]===val))
-              .filter(r=>!effectiveFilterPuce||(puces[r['Numéro de facture']]||'grey')===effectiveFilterPuce);
+              .filter(r=>!effectiveFilterPuce||(r.puce||'grey')===effectiveFilterPuce);
             const prev=filteredPrev.filter(r=>r[topField]===val)
-              .filter(r=>!effectiveFilterPuce||(puces[r['Numéro de facture']]||'grey')===effectiveFilterPuce);
-            const prev2=filteredPrev.filter(r=>r[topField]===val).filter(r=>!effectiveFilterPuce||(puces[r['Numéro de facture']]||'grey')===effectiveFilterPuce);
+              .filter(r=>!effectiveFilterPuce||(r.puce||'grey')===effectiveFilterPuce);
+            const prev2=filteredPrev.filter(r=>r[topField]===val).filter(r=>!effectiveFilterPuce||(r.puce||'grey')===effectiveFilterPuce);
             return <Bsv3DrillRow key={val} label={val} rows={rows} prevRows={prev2}
               contextRows={topLevel==='mois'?allYearRows:rows}
               year={year} levels={levels} levelIdx={0} depth={0}
