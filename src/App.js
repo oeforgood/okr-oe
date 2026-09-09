@@ -5778,7 +5778,7 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
           validRows={activeVentesMois&&activeVentesMois.has('ytd')?ventesRows.filter(r=>parseInt(r['Mois Emission'])<=ventesMaxYtdMonth):ventesRows}
           prevRows={activeVentesMois&&activeVentesMois.has('ytd')?ventesPrevRows.filter(r=>parseInt(r['Mois Emission'])<=ventesMaxYtdMonth):ventesPrevRows}
           allYearRows={ventesAllYearRows}
-          ytdMode={!!(activeVentesMois&&activeVentesMois.has('ytd'))} maxYtdMonth={ventesMaxYtdMonth}/>
+          ytdMode={!!(activeVentesMois&&activeVentesMois.has('ytd'))} maxYtdMonth={ventesMaxYtdMonth} currentUser={currentUser}/>
       :mainTab==='ca'?<Bsv3CaTable rows={rows} importedAt={importedAt} clientFilter={clientFilter}/>
       :<Bsv3CommandesTable rows={rows} importedAt={importedAt} activeLetters={activeLetters} activeAppelations={activeAppelations} clientFilter={clientFilter}/>}
     </div>
