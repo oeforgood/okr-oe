@@ -4865,8 +4865,8 @@ function FactureModal({rows, onClose, currentUser, onPuceClick, getPuce, puceCol
             const canEdit=PUCE_OWNERS.includes(currentUser?.email);
             return <span onClick={()=>canEdit&&onPuceClick(factureNum,color,currentUser.email)}
               title={canEdit?'Cliquer pour changer':''}
-              style={{width:16,height:16,borderRadius:'50%',background:puceColors[color]||'#d1d5db',
-                cursor:canEdit?'pointer':'default',display:'inline-block',border:'2px solid rgba(0,0,0,0.1)',flexShrink:0}}/>;
+              style={{width:10,height:10,borderRadius:'50%',background:puceColors[color]||'#d1d5db',
+                cursor:canEdit?'pointer':'default',display:'inline-block',border:'1px solid rgba(0,0,0,0.1)',flexShrink:0}}/>;
           })()}
           <button onClick={onClose} style={{border:'none',background:'none',fontSize:20,cursor:'pointer',color:'#9e9890',padding:'0 4px'}}>✕</button>
         </div>
@@ -4977,7 +4977,7 @@ function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,dept
       <td style={lbl}>{!isLeaf&&<span style={{fontSize:10,color:'#9e9890'}}>{exp?'▼':'▶'}</span>}
         {currentLevel==='produit'?<><span style={{fontFamily:'monospace'}}>{displayLabel}</span>{(()=>{const lb=getBsv3ProdLabel(allRows||rows,label);return lb?<span style={{color:'#6b6560',fontWeight:400,marginLeft:6,fontSize:fs-1}}>— {lb}</span>:null;})()}</>
         :currentLevel==='facture'?<span style={{display:'inline-flex',alignItems:'center',gap:6}}>
-          {getPuce&&puceColors&&<span style={{width:10,height:10,borderRadius:'50%',background:puceColors[getPuce(label)]||'#d1d5db',flexShrink:0,display:'inline-block'}}/>}
+          {getPuce&&puceColors&&<span style={{width:6,height:6,borderRadius:'50%',background:puceColors[getPuce(label)]||'#d1d5db',flexShrink:0,display:'inline-block'}}/>}
           {displayLabel}
           <button
             onClick={e=>{e.stopPropagation();if(onFactureClick){const factureRows=(allRows||rows).filter(r=>r['Numéro de facture']===label);onFactureClick(factureRows.length>0?factureRows:rows);}}}
@@ -5030,8 +5030,9 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
   function handlePuceClick(factureNum,currentColor,userEmail){
     if(!canEditPuce)return;
     if(userEmail==='fx@oeforgood.com'){
-      // Fx: grey/orange/red → green; green → red
+      // Fx: grey/orange → green; green → red; red → grey
       if(currentColor==='green')setPuce(factureNum,'red');
+      else if(currentColor==='red')setPuce(factureNum,'grey');
       else setPuce(factureNum,'green');
     } else if(userEmail==='fiona@oeforgood.com'){
       // Fiona: grey/green → no change; orange → red; red → orange; other → green
@@ -5069,16 +5070,7 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
 
   return <div>
     {factureModal&&<FactureModal rows={factureModal} onClose={()=>setFactureModal(null)} currentUser={currentUser} onPuceClick={handlePuceClick} getPuce={getPuce} puceColors={PUCE_COLOR}/>}
-    {canEditPuce&&<div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
-      <span style={{fontSize:11,color:'#9e9890'}}>Filtre puce :</span>
-      {['grey','green','orange','red'].map(c=>{
-        const on=filterPuce===c;
-        return <button key={c} onClick={()=>setFilterPuce(on?null:c)}
-          style={{width:20,height:20,borderRadius:'50%',border:`2px solid ${on?'#1a1814':'transparent'}`,
-            background:PUCE_COLOR[c],cursor:'pointer',padding:0}}/>;
-      })}
-      {filterPuce&&<button onClick={()=>setFilterPuce(null)} style={{fontSize:10,padding:'2px 6px',borderRadius:4,border:'1px solid #e2ddd6',background:'#fff',color:'#9e9890',cursor:'pointer'}}>✕</button>}
-    </div>}
+
     <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',overflow:'hidden'}}>
     <div style={{overflowX:'auto'}}>
       <table style={{width:'100%',borderCollapse:'collapse'}}>
@@ -5713,6 +5705,14 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
                 border:`1px solid ${isAnnee?'#2d6a4f':'#e2ddd6'}`,
                 background:isAnnee?'#2d6a4f':'#fff',color:isAnnee?'#fff':'#9e9890',
                 fontSize:11,fontWeight:600,cursor:isAnnee?'default':'pointer'}}>Année</button>
+            {canEditPuce&&<>{['grey','green','orange','red'].map(c=>{
+              const on=filterPuce===c;
+              return <button key={c} onClick={()=>setFilterPuce(on?null:c)}
+                style={{width:10,height:10,borderRadius:'50%',border:`2px solid ${on?'#1a1814':'transparent'}`,
+                  background:PUCE_COLOR[c],cursor:'pointer',padding:0,flexShrink:0}}/>;
+            })}
+            {filterPuce&&<button onClick={()=>setFilterPuce(null)} style={{fontSize:9,padding:'1px 5px',borderRadius:4,border:'1px solid #e2ddd6',background:'#fff',color:'#9e9890',cursor:'pointer'}}>✕</button>}
+            </>}
           </div>;
         })()}
       </>}
