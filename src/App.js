@@ -1918,6 +1918,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,onGoOKR,onGoU
     <div style={{maxWidth:1000,margin:"0 auto",padding:"24px 16px 60px"}}>
 
       {/* 26-week dots - integrated team view */}
+      {!isMobile&&<>
       <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"16px 20px",marginBottom:20,boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
         {/* Header row: title + button */}
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
@@ -1991,6 +1992,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,onGoOKR,onGoU
         </>}
 
       </div>
+      </>
 
 
       <div style={{fontSize:13,color:"#6b6560",marginBottom:16}}>Semaine du {weekLabel}</div>
@@ -6513,9 +6515,15 @@ export default function App(){
     // Called when user clicks "Marquer comme Lu" or sends a reply
     const now=Date.now();
     const managerPrenom=currentTeamMember?.prenom||'Ton référent';
+    // Mark as read regardless of type
+    if(notif.id){
+      try{
+        const col=notif.fromEmail?"update_notifications":"teammate_notifications";
+        await updateDoc(doc(db,col,notif.id),{read:true,readAt:now,markedRead:true});
+      }catch(e){console.log('markAsRead error',e);}
+    }
     if(notif.fromEmail){
-      // Mark as read in DB
-      await updateDoc(doc(db,"update_notifications",notif.id),{read:true,readAt:now,markedRead:true});
+      // Mark as read in DB (already done above)
       // Build week label
       const{mon,fri}=getWeekBounds(notif.weekKey);
       const sameM=mon.getMonth()===fri.getMonth();
