@@ -5060,7 +5060,6 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
     setPuces(prev=>({...prev,[fn]:nc}));
     if(onUpdatePuce)await onUpdatePuce(fn,nc);
   }
-  const PUCE_COLOR={grey:'#d1d5db',green:'#16a34a',orange:'#f97316',red:'#dc2626'};
   const topLevel=levels[0];
   const topField=getField(topLevel);
   // Always filter prevRows to YTD when ytdMode
