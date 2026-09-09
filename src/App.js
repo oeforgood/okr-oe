@@ -5060,39 +5060,6 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
     setPuces(prev=>({...prev,[fn]:nc}));
     if(onUpdatePuce)await onUpdatePuce(fn,nc);
   }
-  const [puces,setPuces]=React.useState({});
-  const [filterPuce,setFilterPuce]=React.useState(null); // null=no filter, 'grey','green','orange','red'
-  const effectiveFilterPuce=filterPuceFromPage!==undefined?filterPuceFromPage:filterPuce;
-  const PUCE_OWNERS=['fx@oeforgood.com','fiona@oeforgood.com'];
-  const canEditPuce=PUCE_OWNERS.includes(currentUser?.email);
-  // Load puces from Firebase in real-time
-  React.useEffect(()=>{
-    const unsub=onSnapshot(collection(db,'bsv3_puces'),snap=>{
-      const p={};
-      snap.docs.forEach(d=>{p[d.id]=d.data().color||'grey';});
-      setPuces(p);
-    });
-    return ()=>unsub();
-  },[]);
-  function getPuce(factureNum){return puces[factureNum]||'grey';}
-  async function setPuce(factureNum,color){
-    await setDoc(doc(db,'bsv3_puces',factureNum),{color});
-  }
-  function handlePuceClick(factureNum,currentColor,userEmail){
-    if(!canEditPuce)return;
-    if(userEmail==='fx@oeforgood.com'){
-      // Fx: grey/orange → green; green → red; red → grey
-      if(currentColor==='green')setPuce(factureNum,'red');
-      else if(currentColor==='red')setPuce(factureNum,'grey');
-      else setPuce(factureNum,'green');
-    } else if(userEmail==='fiona@oeforgood.com'){
-      // Fiona: grey/green → no change; orange → red; red → orange; other → green
-      if(currentColor==='orange')setPuce(factureNum,'red');
-      else if(currentColor==='red')setPuce(factureNum,'orange');
-      else if(currentColor==='grey')setPuce(factureNum,'green');
-      // green: no change
-    }
-  }
   const PUCE_COLOR={grey:'#d1d5db',green:'#16a34a',orange:'#f97316',red:'#dc2626'};
   const topLevel=levels[0];
   const topField=getField(topLevel);
