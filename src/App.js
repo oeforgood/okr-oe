@@ -1075,14 +1075,6 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
               </button>
               {myKRsOwned.length>0&&<><div style={{fontSize:18,fontWeight:700,color:krColPerso,fontFamily:"monospace"}}>{myKRDoneOwned}/{myKRsOwned.length}</div><div style={{fontSize:9,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em"}}>mes KR</div></>}
             </div>
-          </div>;
-        })()}
-      </div>
-
-      {/* ── SECTION UPDATES ── pleine largeur */}
-      {(()=>{
-        const MOOD_SCORE={"😊":5,"🙂":4,"😐":3,"😕":2,"😩":1};
-        const MOOD_FROM_SCORE=s=>s>=4.5?"😊":s>=3.5?"🙂":s>=2.5?"😐":s>=1.5?"😕":"😩";
         const now=new Date();
         // lastWkKey = calendar week 7 days ago
         const _7daysAgo=new Date(now);_7daysAgo.setDate(now.getDate()-7);
