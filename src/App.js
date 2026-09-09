@@ -1077,6 +1077,12 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             </div>
           </div>;
         })()}
+      </div>
+
+      {/* ── SECTION UPDATES ── pleine largeur */}
+      {(()=>{
+        const MOOD_SCORE={"😊":5,"🙂":4,"😐":3,"😕":2,"😩":1};
+        const MOOD_FROM_SCORE=s=>s>=4.5?"😊":s>=3.5?"🙂":s>=2.5?"😐":s>=1.5?"😕":"😩";
         const now=new Date();
         // lastWkKey = calendar week 7 days ago
         const _7daysAgo=new Date(now);_7daysAgo.setDate(now.getDate()-7);
@@ -4779,7 +4785,7 @@ function EvoSpan({n, p}){
 }
 
 
-function FactureModal({rows, onClose, currentUser, onPuceClick, getPuce, puceColors}){
+function FactureModal({rows, onClose}){
   if(!rows||rows.length===0)return null;
   const first=rows[0];
   const client=first['Client PL']||'—';
@@ -4810,27 +4816,14 @@ function FactureModal({rows, onClose, currentUser, onPuceClick, getPuce, puceCol
     const taux=ca>0?marge/ca:null;
     const sku=r['SKU']||'—';
     const lib=r['Libellé Contenant+Appelation/Robe']||r['Contenant+Appelation/Robe']||'—';
-    // Totaux par ligne (unitaire × quantité)
-    const pvTot=pvU*qty;
-    const coutTot=coutU*qty;
-    const crdTot=crdU*qty;
-    const freinteTot=freinteU*qty;
-    const transportTot=transportU*qty;
-    const prepaTot=prepaU*qty;
-    const cogsTot=cogsU*qty;
-    return {qty,ca,marge,cout,crd,freinte,transport,prepa,pvU,coutU,crdU,freinteU,transportU,prepaU,cogsU,taux,sku,lib,pvTot,coutTot,crdTot,freinteTot,transportTot,prepaTot,cogsTot};
+    return {qty,ca,marge,cout,crd,freinte,transport,prepa,pvU,coutU,crdU,freinteU,transportU,prepaU,cogsU,taux,sku,lib};
   });
 
   const totQty=lignes.reduce((s,l)=>s+l.qty,0);
   const totCA=lignes.reduce((s,l)=>s+l.ca,0);
   const totMarge=lignes.reduce((s,l)=>s+l.marge,0);
-  const totPV=lignes.reduce((s,l)=>s+l.pvTot,0);
-  const totCout=lignes.reduce((s,l)=>s+l.coutTot,0);
-  const totCRD=lignes.reduce((s,l)=>s+l.crdTot,0);
-  const totFreinte=lignes.reduce((s,l)=>s+l.freinteTot,0);
-  const totTransport=lignes.reduce((s,l)=>s+l.transportTot,0);
-  const totPrepa=lignes.reduce((s,l)=>s+l.prepaTot,0);
-  const totCOGS=lignes.reduce((s,l)=>s+l.cogsTot,0);
+  const totTransport=lignes.reduce((s,l)=>s+l.transport,0);
+  const totPrepa=lignes.reduce((s,l)=>s+l.prepa,0);
   const totTaux=totCA>0?totMarge/totCA:null;
 
   function fmtE(v){return v===0?'—':(v<0?'-':'')+Math.abs(v).toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,' ')+' €';}
@@ -4851,19 +4844,7 @@ function FactureModal({rows, onClose, currentUser, onPuceClick, getPuce, puceCol
           <div style={{fontSize:16,fontWeight:800,color:'#1a1814',marginBottom:2}}>{client}</div>
           <div style={{fontSize:12,color:'#6b6560'}}>{facture} · {date}</div>
         </div>
-        <div style={{display:'flex',alignItems:'center',gap:10}}>
-          {getPuce&&puceColors&&onPuceClick&&(()=>{
-            const factureNum=rows[0]?.['Numéro de facture'];
-            const color=getPuce(factureNum)||'grey';
-            const PUCE_OWNERS=['fx@oeforgood.com','fiona@oeforgood.com'];
-            const canEdit=PUCE_OWNERS.includes(currentUser?.email);
-            return <span onClick={()=>canEdit&&onPuceClick(factureNum,color,currentUser.email)}
-              title={canEdit?'Cliquer pour changer':''}
-              style={{width:10,height:10,borderRadius:'50%',background:puceColors[color]||'#d1d5db',
-                cursor:canEdit?'pointer':'default',display:'inline-block',border:'1px solid rgba(0,0,0,0.1)',flexShrink:0}}/>;
-          })()}
-          <button onClick={onClose} style={{border:'none',background:'none',fontSize:20,cursor:'pointer',color:'#9e9890',padding:'0 4px'}}>✕</button>
-        </div>
+        <button onClick={onClose} style={{border:'none',background:'none',fontSize:20,cursor:'pointer',color:'#9e9890',padding:'0 4px'}}>✕</button>
       </div>
       <div style={{overflowX:'auto'}}>
         <table style={{width:'100%',borderCollapse:'collapse'}}>
@@ -4871,13 +4852,13 @@ function FactureModal({rows, onClose, currentUser, onPuceClick, getPuce, puceCol
             <th style={thL}>SKU</th>
             <th style={thL}>Libellé</th>
             <th style={th}>Qté</th>
-            <th style={th}>Prix Vente</th>
-            <th style={th}>Coût Prod.</th>
+            <th style={th}>PV unit.</th>
+            <th style={th}>Produit</th>
             <th style={th}>CRD</th>
             <th style={th}>Freinte</th>
             <th style={th}>Transport</th>
             <th style={th}>Prépa</th>
-            <th style={th}>CoGS</th>
+            <th style={th}>CoGS unit.</th>
             <th style={th}>Tx marge</th>
             <th style={th}>CA total</th>
             <th style={th}>Marge totale</th>
@@ -4901,13 +4882,13 @@ function FactureModal({rows, onClose, currentUser, onPuceClick, getPuce, puceCol
             <tr>
               <td style={tdTotL} colSpan={2}>Total</td>
               <td style={tdTot}>{fmtQ(totQty)}</td>
-              <td style={tdTot}>{fmtE(totPV)}</td>
-              <td style={tdTot}>{fmtE(totCout)}</td>
-              <td style={tdTot}>{fmtE(totCRD)}</td>
-              <td style={tdTot}>{fmtE(totFreinte)}</td>
+              <td style={tdTot}>—</td>
+              <td style={tdTot}>—</td>
+              <td style={tdTot}>—</td>
+              <td style={tdTot}>—</td>
               <td style={tdTot}>{fmtE(totTransport)}</td>
               <td style={tdTot}>{fmtE(totPrepa)}</td>
-              <td style={{...tdTot,fontWeight:700}}>{fmtE(totCOGS)}</td>
+              <td style={tdTot}>—</td>
               <td style={{...tdTot,color:totTaux!==null&&totTaux<0?'#c0392b':'#2d6a4f'}}>{fmtPct(totTaux)}</td>
               <td style={tdTot}>{fmtE(totCA)}</td>
               <td style={{...tdTot,color:totMarge<0?'#c0392b':'#2d6a4f'}}>{fmtE(totMarge)}</td>
@@ -4919,7 +4900,7 @@ function FactureModal({rows, onClose, currentUser, onPuceClick, getPuce, puceCol
   </div>;
 }
 
-function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,depth,ytdMode,maxYtdMonth,allRows,onFactureClick,getPuce,puceColors}){
+function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,depth,ytdMode,maxYtdMonth,allRows,onFactureClick}){
   const [exp,setExp]=React.useState(false);
   const currentLevel=levels[levelIdx];
   const nextLevel=levels[levelIdx+1];
@@ -4970,14 +4951,11 @@ function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,dept
     <tr style={{background:bg}} onClick={isLeaf?undefined:()=>setExp(p=>!p)}>
       <td style={lbl}>{!isLeaf&&<span style={{fontSize:10,color:'#9e9890'}}>{exp?'▼':'▶'}</span>}
         {currentLevel==='produit'?<><span style={{fontFamily:'monospace'}}>{displayLabel}</span>{(()=>{const lb=getBsv3ProdLabel(allRows||rows,label);return lb?<span style={{color:'#6b6560',fontWeight:400,marginLeft:6,fontSize:fs-1}}>— {lb}</span>:null;})()}</>
-        :currentLevel==='facture'?<span style={{display:'inline-flex',alignItems:'center',gap:6}}>
-          {getPuce&&puceColors&&<span style={{width:6,height:6,borderRadius:'50%',background:puceColors[getPuce(label)]||'#d1d5db',flexShrink:0,display:'inline-block'}}/>}
-          {displayLabel}
-          <button
-            onClick={e=>{e.stopPropagation();if(onFactureClick){const factureRows=(allRows||rows).filter(r=>r['Numéro de facture']===label);onFactureClick(factureRows.length>0?factureRows:rows);}}}
-            style={{fontSize:9,padding:'1px 6px',borderRadius:4,border:'1px solid #e2ddd6',background:'#f8f7f5',color:'#6b6560',cursor:'pointer',fontWeight:500}}>
-            détail
-          </button></span>
+        :currentLevel==='facture'?<span style={{display:'inline-flex',alignItems:'center',gap:6}}>{displayLabel}<button
+          onClick={e=>{e.stopPropagation();if(onFactureClick){const factureRows=(allRows||rows).filter(r=>r['Numéro de facture']===label);onFactureClick(factureRows.length>0?factureRows:rows);}}}
+          style={{fontSize:9,padding:'1px 6px',borderRadius:4,border:'1px solid #e2ddd6',background:'#f8f7f5',color:'#6b6560',cursor:'pointer',fontWeight:500}}>
+          détail
+        </button></span>
         :displayLabel}
       </td>
       <td style={{...cell,textAlign:'center'}}>{showQty?Math.round(agg.qty).toLocaleString('fr-FR'):'—'}</td>
@@ -4997,46 +4975,13 @@ function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,dept
       return <Bsv3DrillRow key={child} label={child} rows={childRows} prevRows={childPrev}
         contextRows={nextLevel==='mois'?contextRows:childRows}
         year={year} levels={levels} levelIdx={levelIdx+1} depth={depth+1}
-        ytdMode={ytdMode} maxYtdMonth={maxYtdMonth} allRows={allRows} onFactureClick={onFactureClick} getPuce={getPuce} puceColors={puceColors}/>;
+        ytdMode={ytdMode} maxYtdMonth={maxYtdMonth} allRows={allRows} onFactureClick={onFactureClick}/>;
     })}
   </React.Fragment>;
 }
 
-function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,maxYtdMonth,currentUser}){
+function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,maxYtdMonth}){
   const [factureModal,setFactureModal]=React.useState(null);
-  const [puces,setPuces]=React.useState({});
-  const [filterPuce,setFilterPuce]=React.useState(null); // null=no filter, 'grey','green','orange','red'
-  const PUCE_OWNERS=['fx@oeforgood.com','fiona@oeforgood.com'];
-  const canEditPuce=PUCE_OWNERS.includes(currentUser?.email);
-  // Load puces from Firebase in real-time
-  React.useEffect(()=>{
-    const unsub=onSnapshot(collection(db,'bsv3_puces'),snap=>{
-      const p={};
-      snap.docs.forEach(d=>{p[d.id]=d.data().color||'grey';});
-      setPuces(p);
-    });
-    return ()=>unsub();
-  },[]);
-  function getPuce(factureNum){return puces[factureNum]||'grey';}
-  async function setPuce(factureNum,color){
-    await setDoc(doc(db,'bsv3_puces',factureNum),{color});
-  }
-  function handlePuceClick(factureNum,currentColor,userEmail){
-    if(!canEditPuce)return;
-    if(userEmail==='fx@oeforgood.com'){
-      // Fx: grey/orange → green; green → red; red → grey
-      if(currentColor==='green')setPuce(factureNum,'red');
-      else if(currentColor==='red')setPuce(factureNum,'grey');
-      else setPuce(factureNum,'green');
-    } else if(userEmail==='fiona@oeforgood.com'){
-      // Fiona: grey/green → no change; orange → red; red → orange; other → green
-      if(currentColor==='orange')setPuce(factureNum,'red');
-      else if(currentColor==='red')setPuce(factureNum,'orange');
-      else if(currentColor==='grey')setPuce(factureNum,'green');
-      // green: no change
-    }
-  }
-  const PUCE_COLOR={grey:'#d1d5db',green:'#16a34a',orange:'#f97316',red:'#dc2626'};
   const topLevel=levels[0];
   const topField=getField(topLevel);
   // Always filter prevRows to YTD when ytdMode
@@ -5063,8 +5008,7 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
   const tfl={...tf,textAlign:'left'};
 
   return <div>
-    {factureModal&&<FactureModal rows={factureModal} onClose={()=>setFactureModal(null)} currentUser={currentUser} onPuceClick={handlePuceClick} getPuce={getPuce} puceColors={PUCE_COLOR}/>}
-
+    {factureModal&&<FactureModal rows={factureModal} onClose={()=>setFactureModal(null)}/>}
     <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',overflow:'hidden'}}>
     <div style={{overflowX:'auto'}}>
       <table style={{width:'100%',borderCollapse:'collapse'}}>
@@ -5078,15 +5022,12 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
         </tr></thead>
         <tbody>
           {topSorted.map(val=>{
-            const rows=(topLevel==='mois'?validRows.filter(r=>r['Mois Emission']===val):validRows.filter(r=>r[topField]===val))
-              .filter(r=>!filterPuce||(puces[r['Numéro de facture']]||'grey')===filterPuce);
+            const rows=topLevel==='mois'?validRows.filter(r=>r['Mois Emission']===val):validRows.filter(r=>r[topField]===val);
             const prev=filteredPrev.filter(r=>r[topField]===val);
-            const prev2=filteredPrev.filter(r=>r[topField]===val).filter(r=>!filterPuce||(puces[r['Numéro de facture']]||'grey')===filterPuce);
-            if(rows.length===0&&prev2.length===0)return null;
-            return <Bsv3DrillRow key={val} label={val} rows={rows} prevRows={prev2}
+            return <Bsv3DrillRow key={val} label={val} rows={rows} prevRows={prev}
               contextRows={topLevel==='mois'?allYearRows:rows}
               year={year} levels={levels} levelIdx={0} depth={0}
-              ytdMode={ytdMode} maxYtdMonth={maxYtdMonth} onFactureClick={setFactureModal} getPuce={getPuce} puceColors={PUCE_COLOR} allRows={allYearRows}/>;
+              ytdMode={ytdMode} maxYtdMonth={maxYtdMonth} onFactureClick={setFactureModal} allRows={allYearRows}/>;
           })}
         </tbody>
         <tfoot>
@@ -5765,7 +5706,7 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
           validRows={activeVentesMois&&activeVentesMois.has('ytd')?ventesRows.filter(r=>parseInt(r['Mois Emission'])<=ventesMaxYtdMonth):ventesRows}
           prevRows={activeVentesMois&&activeVentesMois.has('ytd')?ventesPrevRows.filter(r=>parseInt(r['Mois Emission'])<=ventesMaxYtdMonth):ventesPrevRows}
           allYearRows={ventesAllYearRows}
-          ytdMode={!!(activeVentesMois&&activeVentesMois.has('ytd'))} maxYtdMonth={ventesMaxYtdMonth} currentUser={currentUser}/>
+          ytdMode={!!(activeVentesMois&&activeVentesMois.has('ytd'))} maxYtdMonth={ventesMaxYtdMonth}/>
       :mainTab==='ca'?<Bsv3CaTable rows={rows} importedAt={importedAt} clientFilter={clientFilter}/>
       :<Bsv3CommandesTable rows={rows} importedAt={importedAt} activeLetters={activeLetters} activeAppelations={activeAppelations} clientFilter={clientFilter}/>}
     </div>
