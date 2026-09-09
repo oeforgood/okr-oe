@@ -1010,25 +1010,17 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
     const member=(teamMembers||[]).find(m=>m.email===email);
     const checkDate=refDate||new Date();
     const dateStr=toDateStr(checkDate);
-    // Check declared absences (window._absences loaded by absencesList)
-    const abs=(window._absences||absencesList||[]).find(a=>a.email===email&&dateStr>=a.dateFrom&&dateStr<=a.dateTo);
-    if(abs)return abs.type;
-    if(member?.forceMat)return 'mat';
-    if(member?.forceAbsent){const mo=checkDate.getMonth()+1;return((mo>=12&&checkDate.getDate()>=15)||mo<=4)?'ski':'vacances';}
-    // Check q8 declared in update from 2 weeks prior
-    const wn2Date=new Date(checkDate);wn2Date.setDate(checkDate.getDate()-14);
-    const wn2Key=getWeekKey(wn2Date);
-    const prevUpdate=(allUpdates||[]).find(u=>u.email===email&&u.weekKey===wn2Key);
-    if(prevUpdate?.answers?.q8==='school')return 'school';
-    if(prevUpdate?.answers?.q8==='vacances'||prevUpdate?.answers?.q8==='conges')return 'vacances';
+    // absences stored in app_config/absences -> list, loaded via window._absences
+    const absList=window._absences||absencesList||[];
+    const abs=absList.find(a=>a.email===email&&dateStr>=a.dateFrom&&dateStr<=a.dateTo);
+    if(abs)return abs.type; // type is emoji directly: '🤰','🎓','🌴' etc
+    if(member?.forceMat)return '🤰';
+    if(member?.forceAbsent){const mo=checkDate.getMonth()+1;return((mo>=12&&checkDate.getDate()>=15)||mo<=4)?'🎿':'🌴';}
     return null;
   }
   function getMoodIcon(u,email,prenom,refDate){
     const abs=getAbsIcon(email,prenom,refDate);
-    if(abs==='mat')return '🤰';
-    if(abs==='school')return '🎓';
-    if(abs==='ski')return '🎿';
-    if(abs==='vacances'||abs==='conges')return '🌴';
+    if(abs)return abs; // already an emoji
     return u?.answers?.q7||'🫥';
   }
 
