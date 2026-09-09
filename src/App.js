@@ -1172,24 +1172,37 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
     {/* Mood */}
     <div style={card}>
       <div style={sTitle}>😊 Updates</div>
-      {[{label:'Semaine passée',wk:lastWkKey,myU:myLastWk,allU:allLastWk,ref:new Date(_7d)},{label:'Semaine en cours',wk:weekKey,myU:myCurWk,allU:allCurWk,ref:now}].map(({label,myU,allU,ref},si)=>
-        <div key={si} style={si>0?{borderTop:'1px solid #f0ede8',paddingTop:14,marginTop:2}:{}}>
-          <div style={{fontSize:10,color:'#9e9890',marginBottom:8,fontWeight:600}}>{label}</div>
-          <div style={{display:'flex',alignItems:'center',gap:10}}>
-            <span style={{fontSize:44,lineHeight:1}}>{getMoodIcon(myU,myEmail,myPrenom,ref)}</span>
+      {/* Semaine passée */}
+      <div style={{marginBottom:14}}>
+        <div style={{fontSize:10,color:'#9e9890',marginBottom:8,fontWeight:600}}>Semaine passée</div>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <span style={{fontSize:44,lineHeight:1}}>{getMoodIcon(myLastWk,myEmail,myPrenom,new Date(_7d))}</span>
+          <div style={{display:'flex',gap:4,flexWrap:'wrap',alignItems:'center'}}>
+            {sortedTeam(allLastWk,new Date(_7d)).map((m,i)=>{
+              const u=allLastWk.find(u=>u.email===m.email);
+              return <span key={i} style={{fontSize:20,opacity:u?1:0.5}}>{getMoodIcon(u,m.email,m.prenom,new Date(_7d))}</span>;
+            })}
+          </div>
+        </div>
+      </div>
+      {/* Semaine en cours */}
+      <div style={{borderTop:'1px solid #f0ede8',paddingTop:14}}>
+        <div style={{fontSize:10,color:'#9e9890',marginBottom:8,fontWeight:600}}>Semaine en cours</div>
+        {hasSubmittedCur
+          ?<div style={{display:'flex',alignItems:'center',gap:10}}>
+            <span style={{fontSize:44,lineHeight:1}}>{getMoodIcon(myCurWk,myEmail,myPrenom,now)}</span>
             <div style={{display:'flex',gap:4,flexWrap:'wrap',alignItems:'center'}}>
-              {sortedTeam(allU,ref).map((m,i)=>{
-                const u=allU.find(u=>u.email===m.email);
-                return <span key={i} style={{fontSize:20,opacity:u?1:0.5}}>{getMoodIcon(u,m.email,m.prenom,ref)}</span>;
+              {sortedTeam(allCurWk,now).map((m,i)=>{
+                const u=allCurWk.find(u=>u.email===m.email);
+                return <span key={i} style={{fontSize:20,opacity:u?1:0.5}}>{getMoodIcon(u,m.email,m.prenom,now)}</span>;
               })}
             </div>
           </div>
-          {si===1&&!hasSubmittedCur&&<button onClick={()=>setUpdateModal(true)}
-            style={{marginTop:12,width:'100%',padding:'12px',background:'#2d6a4f',color:'#fff',border:'none',borderRadius:10,fontSize:14,fontWeight:700,cursor:'pointer'}}>
+          :<button onClick={()=>setUpdateModal(true)}
+            style={{width:'100%',padding:'12px',background:'#2d6a4f',color:'#fff',border:'none',borderRadius:10,fontSize:14,fontWeight:700,cursor:'pointer'}}>
             ✍️ Faire mon update
           </button>}
-        </div>
-      )}
+      </div>
     </div>
 
     {/* KPIs */}
