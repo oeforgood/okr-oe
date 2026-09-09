@@ -976,9 +976,10 @@ function FeedbackBox({currentUser, teamMember}) {
 }
 
 
-function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,onMarkAsRead,okrData,absencesList=[],onGoUpdate,isAdmin}){
+function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,onMarkAsRead,okrData,absencesList=[],onGoUpdate,isAdmin,questions=[],onSubmitUpdate,onDeleteUpdate}){
   const [notifModal,setNotifModal]=React.useState(null);
   const [updateModal,setUpdateModal]=React.useState(false);
+  const [readNotifIds,setReadNotifIds]=React.useState(new Set());
 
   // OKR data
   const {objectives=[],subobjectives=[],keyresults=[],seasonKey}=okrData||{};
@@ -1008,17 +1009,18 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
   function getAbsIcon(email,prenom,refDate){
     const member=(teamMembers||[]).find(m=>m.email===email);
     const checkDate=refDate||new Date();
-    // Same logic as getAbsenceIcon in desktop
-    const abs=(window._absences||[]).find(a=>a.email===email&&toDateStr(checkDate)>=a.dateFrom&&toDateStr(checkDate)<=a.dateTo);
+    const dateStr=toDateStr(checkDate);
+    // Check declared absences (window._absences loaded by absencesList)
+    const abs=(window._absences||absencesList||[]).find(a=>a.email===email&&dateStr>=a.dateFrom&&dateStr<=a.dateTo);
     if(abs)return abs.type;
     if(member?.forceMat)return 'mat';
     if(member?.forceAbsent){const mo=checkDate.getMonth()+1;return((mo>=12&&checkDate.getDate()>=15)||mo<=4)?'ski':'vacances';}
-    // Check q8 from previous update (school/vacances declared)
+    // Check q8 declared in update from 2 weeks prior
     const wn2Date=new Date(checkDate);wn2Date.setDate(checkDate.getDate()-14);
     const wn2Key=getWeekKey(wn2Date);
     const prevUpdate=(allUpdates||[]).find(u=>u.email===email&&u.weekKey===wn2Key);
     if(prevUpdate?.answers?.q8==='school')return 'school';
-    if(prevUpdate?.answers?.q8==='vacances')return 'vacances';
+    if(prevUpdate?.answers?.q8==='vacances'||prevUpdate?.answers?.q8==='conges')return 'vacances';
     return null;
   }
   function getMoodIcon(u,email,prenom,refDate){
@@ -1026,7 +1028,7 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
     if(abs==='mat')return '🤰';
     if(abs==='school')return '🎓';
     if(abs==='ski')return '🎿';
-    if(abs==='vacances')return '🌴';
+    if(abs==='vacances'||abs==='conges')return '🌴';
     return u?.answers?.q7||'🫥';
   }
 
@@ -1045,7 +1047,7 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
   }
 
   // Notifs - only unread
-  const allNotifs=[...(managerNotifs||[]),...(teammateNotifs||[])].filter(n=>!n.read&&!n.markedRead).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  const allNotifs=[...(managerNotifs||[]),...(teammateNotifs||[])].filter(n=>!n.read&&!n.markedRead&&!readNotifIds.has(n.id)).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
 
   // KPIs from Firebase
   const [kpis,setKpis]=React.useState({});
@@ -1129,7 +1131,7 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
     {allNotifs.length>0&&<div style={card}>
       <div style={sTitle}>🔔 {allNotifs.length} non lue{allNotifs.length>1?'s':''}</div>
       {allNotifs.slice(0,5).map((n,i)=>
-        <div key={n.id||i} onClick={()=>{setNotifModal(n);if(onMarkAsRead)onMarkAsRead(n,false,'');}}
+        <div key={n.id||i} onClick={()=>{setNotifModal(n);if(onMarkAsRead)onMarkAsRead(n,false,'');setReadNotifIds(prev=>new Set([...prev,n.id]));}}
           style={{padding:'9px 0',borderBottom:i<Math.min(allNotifs.length,5)-1?'1px solid #f0ede8':'none',display:'flex',alignItems:'flex-start',gap:10,cursor:'pointer'}}>
           <span style={{width:7,height:7,borderRadius:'50%',background:'#2d6a4f',flexShrink:0,marginTop:4}}/>
           <div style={{flex:1,minWidth:0}}>
@@ -1256,13 +1258,13 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
         <button onClick={()=>setUpdateModal(false)} style={{border:'none',background:'none',fontSize:20,cursor:'pointer',color:'#6b6560',padding:'4px'}}>←</button>
         <span style={{fontSize:15,fontWeight:700,color:'#1a1814'}}>Mon update</span>
       </div>
-      <UpdatePage teamMember={teamMember} questions={okrData?.questions||[]} onSubmit={()=>setUpdateModal(false)} onDelete={()=>{}} onBack={()=>setUpdateModal(false)} okrData={okrData} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers} isMobile={true} onGoOKR={()=>{}} onGoUpdate={()=>{}} onGoReporting={()=>{}} onGoBsv3={()=>{}}/>
+      <UpdatePage teamMember={teamMember} questions={questions} onSubmit={async(data)=>{if(onSubmitUpdate)await onSubmitUpdate(data);setUpdateModal(false);}} onDelete={async(id)=>{if(onDeleteUpdate)await onDeleteUpdate(id);}} onBack={()=>setUpdateModal(false)} okrData={okrData} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers} isMobile={true} onGoOKR={()=>{}} onGoUpdate={()=>{}} onGoReporting={()=>{}} onGoBsv3={()=>{}}/>
     </div>}
   </div>;
 }
 
 
-function Dashboard({isMobile=false,currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,onMarkAsRead,okrData,isAdmin,onOpenSettings,onChangeSeasonKey,onSendMessage,absencesList=[]}){
+function Dashboard({isMobile=false,currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,onMarkAsRead,okrData,isAdmin,onOpenSettings,onChangeSeasonKey,onSendMessage,absencesList=[],questions=[],onSubmitUpdate,onDeleteUpdate}){
   const {objectives=[],subobjectives=[],keyresults=[],seasonKey:_sk}=okrData||{};
   const seasonKey=okrData?.seasonKey||"printemps_2026";
   const isOwner=currentUser?.email===OWNER_EMAIL;
@@ -1296,7 +1298,7 @@ function Dashboard({isMobile=false,currentUser,teamMember,teamMembers=[],onGoOKR
   const todayUpdate=weekKey?myUpdates.find(u=>u.weekKey===weekKey):null;
   const unread=managerNotifs.filter(n=>!n.read);
 
-  if(isMobile)return <DashboardMobile currentUser={currentUser} teamMember={teamMember} teamMembers={teamMembers} myUpdates={myUpdates} allUpdates={allUpdates} managerNotifs={managerNotifs} teammateNotifs={teammateNotifs} onReadNotif={onReadNotif} onMarkAsRead={onMarkAsRead} okrData={okrData} absencesList={absencesList} onGoUpdate={onGoUpdate} isAdmin={isAdmin}/>;
+  if(isMobile)return <DashboardMobile currentUser={currentUser} teamMember={teamMember} teamMembers={teamMembers} myUpdates={myUpdates} allUpdates={allUpdates} managerNotifs={managerNotifs} teammateNotifs={teammateNotifs} onReadNotif={onReadNotif} onMarkAsRead={onMarkAsRead} okrData={okrData} absencesList={absencesList} onGoUpdate={onGoUpdate} isAdmin={isAdmin} questions={questions} onSubmitUpdate={onSubmitUpdate} onDeleteUpdate={onDeleteUpdate}/>;
   return <div style={{minHeight:"100vh",background:"#f5f3ef",fontFamily:"system-ui,sans-serif"}}>
     <div style={{background:"rgba(245,243,239,.95)",borderBottom:"1px solid #e2ddd6",padding:"10px 20px",display:"flex",alignItems:"center",gap:12}}>
       <span style={{fontSize:18,fontWeight:700,color:"#2d6a4f",letterSpacing:"-.3px"}}>🌼 Calendula</span>
@@ -6709,6 +6711,9 @@ export default function App(){
 
   return <Dashboard
     isMobile={isMobile}
+    questions={questions}
+    onSubmitUpdate={handleUpdateSubmit}
+    onDeleteUpdate={handleDeleteUpdate}
     currentUser={authUser}
     teamMember={currentTeamMember}
     teamMembers={teamMembers}
