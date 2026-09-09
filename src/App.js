@@ -4858,9 +4858,9 @@ function FactureModal({rows, onClose, currentUser, onPuceClick, getPuce, puceCol
           <div style={{fontSize:12,color:'#6b6560'}}>{facture} · {date}</div>
         </div>
         <div style={{display:'flex',alignItems:'center',gap:10}}>
-          {puceColors&&onPuceClick&&(()=>{
+          {puceColors&&onPuceClick&&getPuce&&(()=>{
             const fn=rows[0]?.['Numéro de facture'];
-            const color=rows[0]?.puce||'grey';
+            const color=getPuce(fn)||'grey';
             const canEdit=['fx@oeforgood.com','fiona@oeforgood.com'].includes(currentUser?.email);
             return <span onClick={()=>canEdit&&onPuceClick(fn,color,currentUser.email)}
               style={{width:10,height:10,borderRadius:'50%',background:puceColors[color]||'#d1d5db',
