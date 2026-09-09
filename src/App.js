@@ -16,7 +16,7 @@ function sendNotifEmail(toEmail, toName, title) {
   }, EMAILJS_KEY).catch(e => console.warn('EmailJS error:', e));
 }
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, getDocs, getDoc, query, where, updateDoc, deleteDoc } from "firebase/firestore";
+import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, getDocs, getDoc, query, where, updateDoc, deleteDoc, arrayUnion } from "firebase/firestore";
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "firebase/auth";
 
 const firebaseConfig = {
@@ -4785,9 +4785,80 @@ function EvoSpan({n, p}){
 }
 
 
-function FactureModal({rows, onClose}){
+function FactureModal({rows, onClose, currentUser, onPuceClick, getPuce, puceColors, db}){
   if(!rows||rows.length===0)return null;
   const first=rows[0];
+  const factureNum=first['Numéro de facture']||'';
+  const PUCE_OWNERS_CM=['fx@oeforgood.com','fiona@oeforgood.com'];
+  const canComment=PUCE_OWNERS_CM.includes(currentUser?.email);
+  const [comments,setComments]=React.useState([]);
+  const [commentText,setCommentText]=React.useState('');
+  const [savingComment,setSavingComment]=React.useState(false);
+
+  // Load comments from Firebase
+  React.useEffect(()=>{
+    if(!factureNum||!db)return;
+    const unsub=onSnapshot(doc(db,'bsv3_comments',factureNum),snap=>{
+      if(snap.exists())setComments(snap.data().comments||[]);
+      else setComments([]);
+    });
+    return ()=>unsub();
+  },[factureNum]);
+
+  function fmtCommentDate(ts){
+    const d=new Date(ts);
+    const dd=String(d.getDate()).padStart(2,'0');
+    const mm=String(d.getMonth()+1).padStart(2,'0');
+    const yy=String(d.getFullYear()).slice(2);
+    const hh=String(d.getHours()).padStart(2,'0');
+    const mn=String(d.getMinutes()).padStart(2,'0');
+    return `${dd}/${mm}/${yy} à ${hh}h${mn}`;
+  }
+
+  function getPrenomFromEmail(email){
+    if(email==='fx@oeforgood.com')return 'Fx';
+    if(email==='fiona@oeforgood.com')return 'Fiona';
+    return email.split('@')[0];
+  }
+
+  async function saveComment(){
+    if(!commentText.trim()||!canComment)return;
+    setSavingComment(true);
+    const prenom=getPrenomFromEmail(currentUser.email);
+    const newComment={
+      id:Date.now()+'_'+Math.random().toString(36).slice(2),
+      text:commentText.trim(),
+      email:currentUser.email,
+      prenom,
+      ts:Date.now(),
+      public:false,
+    };
+    const ref=doc(db,'bsv3_comments',factureNum);
+    const snap=await getDoc(ref);
+    if(snap.exists()){
+      await updateDoc(ref,{comments:arrayUnion(newComment)});
+    } else {
+      await setDoc(ref,{comments:[newComment]});
+    }
+    setCommentText('');
+    setSavingComment(false);
+  }
+
+  async function toggleCommentPublic(commentId){
+    const ref=doc(db,'bsv3_comments',factureNum);
+    const snap=await getDoc(ref);
+    if(!snap.exists())return;
+    const updated=(snap.data().comments||[]).map(c=>c.id===commentId?{...c,public:!c.public}:c);
+    await setDoc(ref,{comments:updated});
+  }
+
+  async function deleteComment(commentId){
+    const ref=doc(db,'bsv3_comments',factureNum);
+    const snap=await getDoc(ref);
+    if(!snap.exists())return;
+    const updated=(snap.data().comments||[]).filter(c=>c.id!==commentId);
+    await setDoc(ref,{comments:updated});
+  }
   const client=first['Client PL']||'—';
   const facture=first['Numéro de facture']||'—';
   const date=first['Date']||'—';
@@ -4816,14 +4887,27 @@ function FactureModal({rows, onClose}){
     const taux=ca>0?marge/ca:null;
     const sku=r['SKU']||'—';
     const lib=r['Libellé Contenant+Appelation/Robe']||r['Contenant+Appelation/Robe']||'—';
-    return {qty,ca,marge,cout,crd,freinte,transport,prepa,pvU,coutU,crdU,freinteU,transportU,prepaU,cogsU,taux,sku,lib};
+    // Totaux par ligne (unitaire × quantité)
+    const pvTot=pvU*qty;
+    const coutTot=coutU*qty;
+    const crdTot=crdU*qty;
+    const freinteTot=freinteU*qty;
+    const transportTot=transportU*qty;
+    const prepaTot=prepaU*qty;
+    const cogsTot=cogsU*qty;
+    return {qty,ca,marge,cout,crd,freinte,transport,prepa,pvU,coutU,crdU,freinteU,transportU,prepaU,cogsU,taux,sku,lib,pvTot,coutTot,crdTot,freinteTot,transportTot,prepaTot,cogsTot};
   });
 
   const totQty=lignes.reduce((s,l)=>s+l.qty,0);
   const totCA=lignes.reduce((s,l)=>s+l.ca,0);
   const totMarge=lignes.reduce((s,l)=>s+l.marge,0);
-  const totTransport=lignes.reduce((s,l)=>s+l.transport,0);
-  const totPrepa=lignes.reduce((s,l)=>s+l.prepa,0);
+  const totPV=lignes.reduce((s,l)=>s+l.pvTot,0);
+  const totCout=lignes.reduce((s,l)=>s+l.coutTot,0);
+  const totCRD=lignes.reduce((s,l)=>s+l.crdTot,0);
+  const totFreinte=lignes.reduce((s,l)=>s+l.freinteTot,0);
+  const totTransport=lignes.reduce((s,l)=>s+l.transportTot,0);
+  const totPrepa=lignes.reduce((s,l)=>s+l.prepaTot,0);
+  const totCOGS=lignes.reduce((s,l)=>s+l.cogsTot,0);
   const totTaux=totCA>0?totMarge/totCA:null;
 
   function fmtE(v){return v===0?'—':(v<0?'-':'')+Math.abs(v).toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,' ')+' €';}
@@ -4844,7 +4928,17 @@ function FactureModal({rows, onClose}){
           <div style={{fontSize:16,fontWeight:800,color:'#1a1814',marginBottom:2}}>{client}</div>
           <div style={{fontSize:12,color:'#6b6560'}}>{facture} · {date}</div>
         </div>
-        <button onClick={onClose} style={{border:'none',background:'none',fontSize:20,cursor:'pointer',color:'#9e9890',padding:'0 4px'}}>✕</button>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          {puceColors&&onPuceClick&&getPuce&&(()=>{
+            const fn=rows[0]?.['Numéro de facture'];
+            const color=getPuce(fn)||'grey';
+            const canEdit=['fx@oeforgood.com','fiona@oeforgood.com'].includes(currentUser?.email);
+            return <span onClick={()=>canEdit&&onPuceClick(fn,color,currentUser.email)}
+              style={{width:10,height:10,borderRadius:'50%',background:puceColors[color]||'#d1d5db',
+                cursor:canEdit?'pointer':'default',display:'inline-block',border:'1px solid rgba(0,0,0,0.1)'}}/>;
+          })()}
+          <button onClick={onClose} style={{border:'none',background:'none',fontSize:20,cursor:'pointer',color:'#9e9890',padding:'0 4px'}}>✕</button>
+        </div>
       </div>
       <div style={{overflowX:'auto'}}>
         <table style={{width:'100%',borderCollapse:'collapse'}}>
@@ -4852,13 +4946,13 @@ function FactureModal({rows, onClose}){
             <th style={thL}>SKU</th>
             <th style={thL}>Libellé</th>
             <th style={th}>Qté</th>
-            <th style={th}>PV unit.</th>
-            <th style={th}>Produit</th>
+            <th style={th}>Prix Vente</th>
+            <th style={th}>Coût Prod.</th>
             <th style={th}>CRD</th>
             <th style={th}>Freinte</th>
             <th style={th}>Transport</th>
             <th style={th}>Prépa</th>
-            <th style={th}>CoGS unit.</th>
+            <th style={th}>CoGS</th>
             <th style={th}>Tx marge</th>
             <th style={th}>CA total</th>
             <th style={th}>Marge totale</th>
@@ -4882,13 +4976,13 @@ function FactureModal({rows, onClose}){
             <tr>
               <td style={tdTotL} colSpan={2}>Total</td>
               <td style={tdTot}>{fmtQ(totQty)}</td>
-              <td style={tdTot}>—</td>
-              <td style={tdTot}>—</td>
-              <td style={tdTot}>—</td>
-              <td style={tdTot}>—</td>
+              <td style={tdTot}>{fmtE(totPV)}</td>
+              <td style={tdTot}>{fmtE(totCout)}</td>
+              <td style={tdTot}>{fmtE(totCRD)}</td>
+              <td style={tdTot}>{fmtE(totFreinte)}</td>
               <td style={tdTot}>{fmtE(totTransport)}</td>
               <td style={tdTot}>{fmtE(totPrepa)}</td>
-              <td style={tdTot}>—</td>
+              <td style={{...tdTot,fontWeight:700}}>{fmtE(totCOGS)}</td>
               <td style={{...tdTot,color:totTaux!==null&&totTaux<0?'#c0392b':'#2d6a4f'}}>{fmtPct(totTaux)}</td>
               <td style={tdTot}>{fmtE(totCA)}</td>
               <td style={{...tdTot,color:totMarge<0?'#c0392b':'#2d6a4f'}}>{fmtE(totMarge)}</td>
@@ -4896,11 +4990,51 @@ function FactureModal({rows, onClose}){
           </tbody>
         </table>
       </div>
+
+      {/* Comments section */}
+      <div style={{marginTop:20,borderTop:'1px solid #f0ede8',paddingTop:16}}>
+        {/* Show comments visible to current user */}
+        {comments.filter(c=>c.public||canComment).map(c=>{
+          const canDelete=c.email===currentUser?.email;
+          const isOwn=canComment&&c.email===currentUser?.email;
+          const isOther=canComment&&c.email!==currentUser?.email&&PUCE_OWNERS_CM.includes(c.email);
+          const canToggle=isOwn||isOther;
+          return <div key={c.id} style={{display:'flex',alignItems:'flex-start',gap:6,marginBottom:6}}>
+            {canToggle&&<button onClick={()=>toggleCommentPublic(c.id)}
+              title={c.public?'Visible par tous — cliquer pour restreindre':'Visible par Fx/Fiona — cliquer pour partager'}
+              style={{border:'none',background:'none',cursor:'pointer',fontSize:11,padding:'0 2px',flexShrink:0,opacity:0.7,lineHeight:1.2}}>
+              {c.public?'👁':'🙈'}
+            </button>}
+            {!canToggle&&<span style={{width:16,flexShrink:0}}/>}
+            {canDelete&&<button onClick={()=>deleteComment(c.id)}
+              style={{border:'none',background:'none',cursor:'pointer',fontSize:10,padding:'0 2px',color:'#c0392b',flexShrink:0,lineHeight:1.2}}>✕</button>}
+            <span style={{fontSize:10,color:'#6b6560',lineHeight:1.4}}>
+              <span style={{fontWeight:600,color:'#1a1814'}}>{c.prenom}</span>
+              {' le '}{fmtCommentDate(c.ts)}{' : '}
+              {c.text}
+            </span>
+          </div>;
+        })}
+
+        {/* Input for new comment */}
+        {canComment&&<div style={{display:'flex',gap:6,marginTop:8,alignItems:'center'}}>
+          <input value={commentText} onChange={e=>setCommentText(e.target.value)}
+            onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();saveComment();}}}
+            placeholder="Ajouter un commentaire..."
+            style={{flex:1,fontSize:11,padding:'5px 8px',borderRadius:6,border:'1px solid #e2ddd6',outline:'none'}}/>
+          <button onClick={saveComment} disabled={savingComment||!commentText.trim()}
+            style={{fontSize:11,padding:'5px 10px',borderRadius:6,border:'1px solid #2d6a4f',
+              background:commentText.trim()?'#2d6a4f':'#f0ede8',color:commentText.trim()?'#fff':'#9e9890',
+              cursor:commentText.trim()?'pointer':'default',fontWeight:500}}>
+            OK
+          </button>
+        </div>}
+      </div>
     </div>
   </div>;
 }
 
-function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,depth,ytdMode,maxYtdMonth,allRows,onFactureClick}){
+function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,depth,ytdMode,maxYtdMonth,allRows,onFactureClick,getPuce,puceColors,puceFilter}){
   const [exp,setExp]=React.useState(false);
   const currentLevel=levels[levelIdx];
   const nextLevel=levels[levelIdx+1];
@@ -4943,7 +5077,13 @@ function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,dept
       const currentVals=new Set(rows.map(r=>r[field]));
       const prevVals=new Set(filteredPrev.map(r=>r[field]));
       const allVals=[...new Set([...currentVals,...prevVals])];
-      children=sortByLevel(nextLevel,allVals,rows,filteredPrev);
+      const allSorted=sortByLevel(nextLevel,allVals,rows,filteredPrev);
+      // Filter out children that have no rows after puce filter
+      children=puceFilter?allSorted.filter(val=>{
+        const cRows=rows.filter(r=>r[field]===val).filter(r=>(getPuce?getPuce(r['Numéro de facture']):'grey')===puceFilter);
+        const cPrev=filteredPrev.filter(r=>r[field]===val).filter(r=>(getPuce?getPuce(r['Numéro de facture']):'grey')===puceFilter);
+        return cRows.length>0||cPrev.length>0;
+      }):allSorted;
     }
   }
 
@@ -4951,11 +5091,14 @@ function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,dept
     <tr style={{background:bg}} onClick={isLeaf?undefined:()=>setExp(p=>!p)}>
       <td style={lbl}>{!isLeaf&&<span style={{fontSize:10,color:'#9e9890'}}>{exp?'▼':'▶'}</span>}
         {currentLevel==='produit'?<><span style={{fontFamily:'monospace'}}>{displayLabel}</span>{(()=>{const lb=getBsv3ProdLabel(allRows||rows,label);return lb?<span style={{color:'#6b6560',fontWeight:400,marginLeft:6,fontSize:fs-1}}>— {lb}</span>:null;})()}</>
-        :currentLevel==='facture'?<span style={{display:'inline-flex',alignItems:'center',gap:6}}>{displayLabel}<button
-          onClick={e=>{e.stopPropagation();if(onFactureClick){const factureRows=(allRows||rows).filter(r=>r['Numéro de facture']===label);onFactureClick(factureRows.length>0?factureRows:rows);}}}
-          style={{fontSize:9,padding:'1px 6px',borderRadius:4,border:'1px solid #e2ddd6',background:'#f8f7f5',color:'#6b6560',cursor:'pointer',fontWeight:500}}>
-          détail
-        </button></span>
+        :currentLevel==='facture'?<span style={{display:'inline-flex',alignItems:'center',gap:6}}>
+          {getPuce&&puceColors&&<span style={{width:6,height:6,borderRadius:'50%',background:puceColors[getPuce(label)]||'#d1d5db',flexShrink:0,display:'inline-block'}}/>}
+          {displayLabel}
+          <button
+            onClick={e=>{e.stopPropagation();if(onFactureClick){const factureRows=(allRows||rows).filter(r=>r['Numéro de facture']===label);onFactureClick(factureRows.length>0?factureRows:rows);}}}
+            style={{fontSize:9,padding:'1px 6px',borderRadius:4,border:'1px solid #e2ddd6',background:'#f8f7f5',color:'#6b6560',cursor:'pointer',fontWeight:500}}>
+            détail
+          </button></span>
         :displayLabel}
       </td>
       <td style={{...cell,textAlign:'center'}}>{showQty?Math.round(agg.qty).toLocaleString('fr-FR'):'—'}</td>
@@ -4970,18 +5113,83 @@ function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,dept
     </tr>
     {exp&&children.map(child=>{
       const field=getField(nextLevel);
-      const childRows=rows.filter(r=>r[field]===child);
-      const childPrev=filteredPrev.filter(r=>r[field]===child);
+      const childRows=rows.filter(r=>r[field]===child)
+        .filter(r=>!puceFilter||(getPuce?getPuce(r['Numéro de facture']):'grey')===puceFilter);
+      const childPrev=filteredPrev.filter(r=>r[field]===child)
+        .filter(r=>!puceFilter||(getPuce?getPuce(r['Numéro de facture']):'grey')===puceFilter);
+      if(childRows.length===0&&childPrev.length===0)return null;
       return <Bsv3DrillRow key={child} label={child} rows={childRows} prevRows={childPrev}
         contextRows={nextLevel==='mois'?contextRows:childRows}
         year={year} levels={levels} levelIdx={levelIdx+1} depth={depth+1}
-        ytdMode={ytdMode} maxYtdMonth={maxYtdMonth} allRows={allRows} onFactureClick={onFactureClick}/>;
+        ytdMode={ytdMode} maxYtdMonth={maxYtdMonth} allRows={allRows} onFactureClick={onFactureClick} getPuce={getPuce} puceColors={puceColors} puceFilter={puceFilter}/>;
     })}
   </React.Fragment>;
 }
 
-function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,maxYtdMonth}){
+function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,maxYtdMonth,currentUser,filterPuceFromPage,onUpdatePuce}){
   const [factureModal,setFactureModal]=React.useState(null);
+  const [puces,setPuces]=React.useState({});
+  const effectiveFilterPuce=filterPuceFromPage||null;
+  const PUCE_OWNERS=['fx@oeforgood.com','fiona@oeforgood.com'];
+  const canEditPuceTable=PUCE_OWNERS.includes(currentUser?.email);
+  const PUCE_COLOR={grey:'#d1d5db',green:'#16a34a',orange:'#f97316',red:'#dc2626'};
+  React.useEffect(()=>{
+    const p={};
+    allYearRows.forEach(r=>{if(r['Numéro de facture']&&r.puce)p[r['Numéro de facture']]=r.puce;});
+    // Preserve local changes made since last Firebase sync
+    setPuces(prev=>{
+      const merged={...p};
+      Object.entries(prev).forEach(([fn,color])=>{
+        if(color!=='grey')merged[fn]=color;
+      });
+      return merged;
+    });
+  },[allYearRows]);
+  function getPuce(fn){return puces[fn]||'grey';}
+  function getNewColor(cur,email){
+    if(email==='fx@oeforgood.com'){
+      if(cur==='green')return 'red';
+      if(cur==='red')return 'grey';
+      return 'green';
+    }
+    if(email==='fiona@oeforgood.com'){
+      if(cur==='orange')return 'red';
+      if(cur==='red')return 'orange';
+      return cur;
+    }
+    return cur;
+  }
+  const puceCommentTimers=React.useRef({});
+  async function handlePuceClick(fn,cur,email){
+    if(!canEditPuceTable)return;
+    const nc=getNewColor(cur,email);
+    if(nc===cur)return;
+    setPuces(prev=>({...prev,[fn]:nc}));
+    if(onUpdatePuce)await onUpdatePuce(fn,nc);
+    // Debounced puce comment - wait 5s to group rapid clicks
+    if(puceCommentTimers.current[fn])clearTimeout(puceCommentTimers.current[fn]);
+    puceCommentTimers.current[fn]=setTimeout(async()=>{
+      const prenom=email==='fx@oeforgood.com'?'Fx':'Fiona';
+      const PUCE_LABELS={grey:'grise',green:'verte',orange:'orange',red:'rouge'};
+      const commentText=`a changé la puce en ${PUCE_LABELS[nc]||nc}`;
+      const newComment={
+        id:Date.now()+'_'+Math.random().toString(36).slice(2),
+        text:commentText,
+        email,prenom,ts:Date.now(),public:false,auto:true,
+      };
+      const ref=doc(db,'bsv3_comments',fn);
+      const snap=await getDoc(ref);
+      if(snap.exists()){
+        // Replace last auto comment if exists, else add
+        const existing=snap.data().comments||[];
+        const lastAuto=existing.length>0&&existing[existing.length-1].auto?existing.slice(0,-1):existing;
+        await setDoc(ref,{comments:[...lastAuto,newComment]});
+      } else {
+        await setDoc(ref,{comments:[newComment]});
+      }
+      delete puceCommentTimers.current[fn];
+    },5000);
+  }
   const topLevel=levels[0];
   const topField=getField(topLevel);
   // Always filter prevRows to YTD when ytdMode
@@ -4994,13 +5202,25 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
     ?(ytdMode?[1,2,3,4,5,6,7,8,9,10,11,12].filter(m=>m<=maxYtdMonth).map(String):[1,2,3,4,5,6,7,8,9,10,11,12].map(String))
     :sortByLevel(topLevel,allTopVals,validRows,filteredPrev);
 
-  const firstLabel=topLevel==='mois'?`Mois ${year}`:topLevel==='canal'?'Canal':topLevel==='client'?'Client':'Produit';
+  // Filter topSorted by puce when filter active and top level is facture
+  const topSortedFiltered=effectiveFilterPuce
+    ?topSorted.filter(val=>{
+      const rr=topLevel==='mois'
+        ?validRows.filter(r=>r['Mois Emission']===val)
+        :validRows.filter(r=>r[topField]===val);
+      return rr.some(r=>(r.puce||'grey')===effectiveFilterPuce);
+    })
+    :topSorted;
+
+  const firstLabel=topLevel==='mois'?`Mois ${year}`:topLevel==='canal'?'Canal':topLevel==='client'?'Client':topLevel==='facture'?'Facture':'Produit';
   const showQtyTop=produitIsAtOrBefore(levels,0);
   const th={padding:'8px 10px',fontSize:11,fontWeight:600,color:'#6b6560',textAlign:'right',borderBottom:'2px solid #e2ddd6',background:'#f8f7f5',whiteSpace:'nowrap'};
   const thPrev={...th,borderLeft:'2px solid #e2ddd6'};
 
-  const aggTotal=aggBsv3(validRows);
-  const aggTotalP=aggBsv3(filteredPrev);
+  const pucedValidRows=effectiveFilterPuce?validRows.filter(r=>(r.puce||'grey')===effectiveFilterPuce):validRows;
+  const pucedPrevRows=effectiveFilterPuce?filteredPrev.filter(r=>(r.puce||'grey')===effectiveFilterPuce):filteredPrev;
+  const aggTotal=aggBsv3(pucedValidRows);
+  const aggTotalP=aggBsv3(pucedPrevRows);
   const ytdPrevRows=prevRows.filter(r=>parseInt(r['Mois Emission'])<=maxYtdMonth);
   const aggYTD=aggBsv3(ytdPrevRows);
   const tf={padding:'8px 10px',fontSize:12,textAlign:'right',borderTop:'2px solid #e2ddd6',fontFamily:'monospace',fontWeight:600,background:'#f8f7f5'};
@@ -5008,7 +5228,8 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
   const tfl={...tf,textAlign:'left'};
 
   return <div>
-    {factureModal&&<FactureModal rows={factureModal} onClose={()=>setFactureModal(null)}/>}
+    {factureModal&&<FactureModal rows={factureModal} onClose={()=>setFactureModal(null)} currentUser={currentUser} onPuceClick={handlePuceClick} getPuce={getPuce} puceColors={PUCE_COLOR} db={db}/>}
+
     <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',overflow:'hidden'}}>
     <div style={{overflowX:'auto'}}>
       <table style={{width:'100%',borderCollapse:'collapse'}}>
@@ -5021,13 +5242,16 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
           <th style={th}>CA {prevYear}</th><th style={th}>Marge {prevYear}</th><th style={th}>Taux {prevYear}</th>
         </tr></thead>
         <tbody>
-          {topSorted.map(val=>{
-            const rows=topLevel==='mois'?validRows.filter(r=>r['Mois Emission']===val):validRows.filter(r=>r[topField]===val);
-            const prev=filteredPrev.filter(r=>r[topField]===val);
-            return <Bsv3DrillRow key={val} label={val} rows={rows} prevRows={prev}
+          {topSortedFiltered.map(val=>{
+            const rows=(topLevel==='mois'?validRows.filter(r=>r['Mois Emission']===val):validRows.filter(r=>r[topField]===val))
+              .filter(r=>!effectiveFilterPuce||(r.puce||'grey')===effectiveFilterPuce);
+            const prev=filteredPrev.filter(r=>r[topField]===val)
+              .filter(r=>!effectiveFilterPuce||(r.puce||'grey')===effectiveFilterPuce);
+            const prev2=filteredPrev.filter(r=>r[topField]===val).filter(r=>!effectiveFilterPuce||(r.puce||'grey')===effectiveFilterPuce);
+            return <Bsv3DrillRow key={val} label={val} rows={rows} prevRows={prev2}
               contextRows={topLevel==='mois'?allYearRows:rows}
               year={year} levels={levels} levelIdx={0} depth={0}
-              ytdMode={ytdMode} maxYtdMonth={maxYtdMonth} onFactureClick={setFactureModal} allRows={allYearRows}/>;
+              ytdMode={ytdMode} maxYtdMonth={maxYtdMonth} onFactureClick={setFactureModal} getPuce={getPuce} puceColors={PUCE_COLOR} puceFilter={effectiveFilterPuce} allRows={allYearRows}/>;
           })}
         </tbody>
         <tfoot>
@@ -5466,7 +5690,7 @@ function Bsv3CommandesTable({rows, importedAt, activeLetters, activeAppelations=
   </div>;
 }
 
-function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}){
+function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,onUpdatePuce}){
   const {rows,importedAt,loading}=useBsv3Data();
   const [mainTab,setMainTab]=React.useState('ventes');
   const [clientFilter,setClientFilter]=React.useState('');
@@ -5474,6 +5698,10 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
   const [ytdMode,setYtdMode]=React.useState(false);
   const [activeVentesCanaux,setActiveVentesCanaux]=React.useState(null);
   const [activeVentesMois,setActiveVentesMois]=React.useState(null);
+  const PUCE_OWNERS_PAGE=['fx@oeforgood.com','fiona@oeforgood.com'];
+  const canEditPuce=PUCE_OWNERS_PAGE.includes(currentUser?.email);
+  const [filterPuce,setFilterPuce]=React.useState(null);
+  const PUCE_COLOR_PAGE={grey:'#d1d5db',green:'#16a34a',orange:'#f97316',red:'#dc2626'};
   const [dragFrom,setDragFrom]=React.useState(null);
   const [dragOver,setDragOver]=React.useState(null);
   const [activeLetters,setActiveLetters]=React.useState(null);
@@ -5641,6 +5869,15 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
                 border:`1px solid ${isAnnee?'#2d6a4f':'#e2ddd6'}`,
                 background:isAnnee?'#2d6a4f':'#fff',color:isAnnee?'#fff':'#9e9890',
                 fontSize:11,fontWeight:600,cursor:isAnnee?'default':'pointer'}}>Année</button>
+            {canEditPuce&&<div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:4}}>
+              {['grey','green','orange','red'].map(c=>{
+                const on=filterPuce===c;
+                return <button key={c} onClick={()=>setFilterPuce(on?null:c)}
+                  style={{width:10,height:10,borderRadius:'50%',border:`2px solid ${on?'#1a1814':'transparent'}`,
+                    background:PUCE_COLOR_PAGE[c],cursor:'pointer',padding:0,flexShrink:0}}/>;
+              })}
+              {filterPuce&&<button onClick={()=>setFilterPuce(null)} style={{fontSize:9,padding:'1px 5px',borderRadius:4,border:'1px solid #e2ddd6',background:'#fff',color:'#9e9890',cursor:'pointer'}}>✕</button>}
+            </div>}
           </div>;
         })()}
       </>}
@@ -5706,7 +5943,7 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
           validRows={activeVentesMois&&activeVentesMois.has('ytd')?ventesRows.filter(r=>parseInt(r['Mois Emission'])<=ventesMaxYtdMonth):ventesRows}
           prevRows={activeVentesMois&&activeVentesMois.has('ytd')?ventesPrevRows.filter(r=>parseInt(r['Mois Emission'])<=ventesMaxYtdMonth):ventesPrevRows}
           allYearRows={ventesAllYearRows}
-          ytdMode={!!(activeVentesMois&&activeVentesMois.has('ytd'))} maxYtdMonth={ventesMaxYtdMonth}/>
+          ytdMode={!!(activeVentesMois&&activeVentesMois.has('ytd'))} maxYtdMonth={ventesMaxYtdMonth} currentUser={currentUser} filterPuceFromPage={filterPuce} onUpdatePuce={onUpdatePuce}/>
       :mainTab==='ca'?<Bsv3CaTable rows={rows} importedAt={importedAt} clientFilter={clientFilter}/>
       :<Bsv3CommandesTable rows={rows} importedAt={importedAt} activeLetters={activeLetters} activeAppelations={activeAppelations} clientFilter={clientFilter}/>}
     </div>
@@ -6052,19 +6289,42 @@ export default function App(){
     const current=okrData?.allSeasons||{};
     await setDoc(doc(db,"okr","data"),{allSeasons:current,seasonKey:newKey},{merge:true});
   }
+  async function updatePuceInFirebase(factureNum, color){
+    console.log('[puce] updating', factureNum, '->', color);
+    const snap=await getDocs(collection(db,'bsv3_data'));
+    let updated=0;
+    await Promise.all(snap.docs.map(async d=>{
+      const data=d.data();
+      const rows=data.rows||[];
+      const matches=rows.filter(r=>r['Numéro de facture']===factureNum);
+      if(matches.length===0)return;
+      console.log('[puce] found',matches.length,'rows in chunk',d.id);
+      const updatedRows=rows.map(r=>r['Numéro de facture']===factureNum?{...r,puce:color}:r);
+      await setDoc(d.ref,{...data,rows:updatedRows});
+      updated+=matches.length;
+    }));
+    console.log('[puce] done, updated',updated,'rows');
+  }
+
   async function handleSaveBsv3(rows, fileName=''){
     const CHUNK=2000;
     const importedAt=new Date().toISOString();
-    // Delete old chunks
     const oldSnap=await getDocs(collection(db,'bsv3_data'));
+    const existingPuces={};
+    oldSnap.docs.forEach(d=>{
+      (d.data().rows||[]).forEach(r=>{
+        if(r['Numéro de facture']&&r.puce&&r.puce!=='grey')
+          existingPuces[r['Numéro de facture']]=r.puce;
+      });
+    });
     await Promise.all(oldSnap.docs.map(d=>deleteDoc(d.ref)));
-    // Store new chunks
-    for(let i=0;i<rows.length;i+=CHUNK){
-      const chunk=rows.slice(i,i+CHUNK);
+    const rowsWithPuce=rows.map(r=>({...r,puce:existingPuces[r['Numéro de facture']]||'grey'}));
+    for(let i=0;i<rowsWithPuce.length;i+=CHUNK){
+      const chunk=rowsWithPuce.slice(i,i+CHUNK);
       await setDoc(doc(db,'bsv3_data',`chunk_${Math.floor(i/CHUNK)}`),{
         rows:chunk,chunk:Math.floor(i/CHUNK),
-        total:Math.ceil(rows.length/CHUNK),
-        importedAt,totalRows:rows.length
+        total:Math.ceil(rowsWithPuce.length/CHUNK),
+        importedAt,totalRows:rowsWithPuce.length
       });
     }
 
@@ -6135,8 +6395,8 @@ export default function App(){
   if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers}/>;
   if(page==="update")return <UpdatePage onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} okrData={okrData} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers}/>;
   if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels} savedCanalMargin={savedCanalMargin} currentUser={authUser}/>;
-  if(page==="bsv3")return <Bsv3Page onBack={()=>setPage('dashboard')} onGoOKR={()=>setPage('okr')} onGoUpdate={()=>setPage('update')} onGoReporting={()=>setPage('reporting')} onGoBsv3={()=>setPage('bsv3')} currentUser={authUser}/>;
-  if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels} savedCanalMargin={savedCanalMargin} onSaveCanalMargin={handleSaveCanalMargin} onSendMessage={handleSendMessage} onSaveBsv3={handleSaveBsv3} onUploadReporting={handleUploadReporting}/>;
+  if(page==="bsv3")return <Bsv3Page onBack={()=>setPage('dashboard')} onGoOKR={()=>setPage('okr')} onGoUpdate={()=>setPage('update')} onGoReporting={()=>setPage('reporting')} onGoBsv3={()=>setPage('bsv3')} currentUser={authUser} onUpdatePuce={updatePuceInFirebase}/>;
+  if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels} savedCanalMargin={savedCanalMargin} onSaveCanalMargin={handleSaveCanalMargin} onSendMessage={handleSendMessage} onSaveBsv3={handleSaveBsv3} onUpdatePuce={updatePuceInFirebase} onUploadReporting={handleUploadReporting}/>;
 
   return <Dashboard
     currentUser={authUser}
