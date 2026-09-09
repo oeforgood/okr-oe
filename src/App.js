@@ -993,7 +993,20 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
   const allKRsDone=keyresults.filter(k=>(k.taux||calcTaux(k.val_depart,k.val_actuel,k.val_cible,k.unite))>=100);
   const myKRsOwned=keyresults.filter(k=>k.owner===myPrenom);
   const myOwnedDone=myKRsOwned.filter(k=>(k.taux||calcTaux(k.val_depart,k.val_actuel,k.val_cible,k.unite))>=100);
-  const myOwnedPct=myKRsOwned.length>0?Math.round(myOwnedDone.length/myKRsOwned.length*100):0;
+  // Personal weighted progress (same formula as desktop)
+  const myOwnedPct=(()=>{
+    let totalW=0,weightedSum=0;
+    myKRsOwned.filter(k=>k.poids>0).forEach(kr=>{
+      const sobj=subobjectives.find(s=>s.id===kr.parent);
+      const obj=objectives.find(o=>o.id===sobj?.parent);
+      const sobjPoids=sobj?sobj.poids:100;
+      const objEtp=obj?Math.max(obj.etp||0,0.01):1;
+      const w=kr.poids*(sobjPoids/100)*objEtp;
+      const taux=calcTaux(kr.val_depart,kr.val_actuel,kr.val_cible,kr.unite)||0;
+      totalW+=w;weightedSum+=taux*w;
+    });
+    return totalW>0?Math.round(weightedSum/totalW*10)/10:0;
+  })();
 
   // Updates
   const now=new Date();
