@@ -5025,7 +5025,14 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
   React.useEffect(()=>{
     const p={};
     allYearRows.forEach(r=>{if(r['Numéro de facture']&&r.puce)p[r['Numéro de facture']]=r.puce;});
-    setPuces(p);
+    // Preserve local changes made since last Firebase sync
+    setPuces(prev=>{
+      const merged={...p};
+      Object.entries(prev).forEach(([fn,color])=>{
+        if(color!=='grey')merged[fn]=color;
+      });
+      return merged;
+    });
   },[allYearRows]);
   function getPuce(fn){return puces[fn]||'grey';}
   function getNewColor(cur,email){
