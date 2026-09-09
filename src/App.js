@@ -1008,16 +1008,25 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
   function getAbsIcon(email,prenom,refDate){
     const member=(teamMembers||[]).find(m=>m.email===email);
     const checkDate=refDate||new Date();
+    // Same logic as getAbsenceIcon in desktop
     const abs=(window._absences||[]).find(a=>a.email===email&&toDateStr(checkDate)>=a.dateFrom&&toDateStr(checkDate)<=a.dateTo);
     if(abs)return abs.type;
-    if(member?.forceMat)return '🤰';
-    if(member?.forceAbsent){const mo=checkDate.getMonth()+1;return((mo>=12&&checkDate.getDate()>=15)||mo<=4)?'🎿':'🌴';}
+    if(member?.forceMat)return 'mat';
+    if(member?.forceAbsent){const mo=checkDate.getMonth()+1;return((mo>=12&&checkDate.getDate()>=15)||mo<=4)?'ski':'vacances';}
+    // Check q8 from previous update (school/vacances declared)
+    const wn2Date=new Date(checkDate);wn2Date.setDate(checkDate.getDate()-14);
+    const wn2Key=getWeekKey(wn2Date);
+    const prevUpdate=(allUpdates||[]).find(u=>u.email===email&&u.weekKey===wn2Key);
+    if(prevUpdate?.answers?.q8==='school')return 'school';
+    if(prevUpdate?.answers?.q8==='vacances')return 'vacances';
     return null;
   }
   function getMoodIcon(u,email,prenom,refDate){
     const abs=getAbsIcon(email,prenom,refDate);
-    const absEmoji={mat:'🤰',school:'🎓',vacances:'🌴',ski:'🎿'};
-    if(abs)return absEmoji[abs]||'🌴';
+    if(abs==='mat')return '🤰';
+    if(abs==='school')return '🎓';
+    if(abs==='ski')return '🎿';
+    if(abs==='vacances')return '🌴';
     return u?.answers?.q7||'🫥';
   }
 
@@ -1091,7 +1100,7 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
     const s=abs>=1000000?(Math.round(abs/100000)/10)+'M':abs>=1000?Math.round(abs/1000)+'k':Math.round(abs)+'';
     return (v<0?'−':'')+s+' €';
   }
-  function fmtPct(v){return v===null||v===undefined?'—':Math.round(v*100)+'%';}
+  function fmtPct(v){return v===null||v===undefined?'—':((v*100).toFixed(1).replace('.',','))+'%';}
   function fmtDate(ts){if(!ts)return '';const d=new Date(ts);return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'});}
 
   const card={background:'#fff',borderRadius:14,padding:'16px',marginBottom:12,boxShadow:'0 1px 4px rgba(0,0,0,.06)'};
@@ -1120,7 +1129,7 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
     {allNotifs.length>0&&<div style={card}>
       <div style={sTitle}>🔔 {allNotifs.length} non lue{allNotifs.length>1?'s':''}</div>
       {allNotifs.slice(0,5).map((n,i)=>
-        <div key={n.id||i} onClick={()=>{setNotifModal(n);if(onReadNotif)onReadNotif(n.id);}}
+        <div key={n.id||i} onClick={()=>{setNotifModal(n);if(onMarkAsRead)onMarkAsRead(n,false,'');}}
           style={{padding:'9px 0',borderBottom:i<Math.min(allNotifs.length,5)-1?'1px solid #f0ede8':'none',display:'flex',alignItems:'flex-start',gap:10,cursor:'pointer'}}>
           <span style={{width:7,height:7,borderRadius:'50%',background:'#2d6a4f',flexShrink:0,marginTop:4}}/>
           <div style={{flex:1,minWidth:0}}>
@@ -1228,14 +1237,13 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
       </div>
     </div>}
 
-    {/* Update modal (bottom sheet) */}
-    {updateModal&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1000,display:'flex',alignItems:'flex-end'}} onClick={()=>setUpdateModal(false)}>
-      <div style={{background:'#fff',borderRadius:'20px 20px 0 0',padding:'12px 0 0',width:'100%',height:'92vh',overflow:'hidden',boxSizing:'border-box'}} onClick={e=>e.stopPropagation()}>
-        <div style={{width:40,height:4,background:'#e2ddd6',borderRadius:2,margin:'0 auto 8px'}}/>
-        <div style={{height:'calc(100% - 20px)',overflow:'auto'}}>
-          <UpdatePage teamMember={teamMember} questions={[]} onSubmit={()=>setUpdateModal(false)} onDelete={()=>{}} onBack={()=>setUpdateModal(false)} okrData={okrData} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers} isMobile={true} onGoOKR={()=>{}} onGoUpdate={()=>{}} onGoReporting={()=>{}} onGoBsv3={()=>{}}/>
-        </div>
+    {/* Update modal (bottom sheet) - opens UpdatePage full screen */}
+    {updateModal&&<div style={{position:'fixed',inset:0,background:'#fff',zIndex:2000,overflow:'auto'}}>
+      <div style={{display:'flex',alignItems:'center',gap:12,padding:'16px',borderBottom:'1px solid #f0ede8',position:'sticky',top:0,background:'#fff',zIndex:1}}>
+        <button onClick={()=>setUpdateModal(false)} style={{border:'none',background:'none',fontSize:20,cursor:'pointer',color:'#6b6560',padding:'4px'}}>←</button>
+        <span style={{fontSize:15,fontWeight:700,color:'#1a1814'}}>Mon update</span>
       </div>
+      <UpdatePage teamMember={teamMember} questions={okrData?.questions||[]} onSubmit={()=>setUpdateModal(false)} onDelete={()=>{}} onBack={()=>setUpdateModal(false)} okrData={okrData} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers} isMobile={true} onGoOKR={()=>{}} onGoUpdate={()=>{}} onGoReporting={()=>{}} onGoBsv3={()=>{}}/>
     </div>}
   </div>;
 }
