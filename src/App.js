@@ -4968,7 +4968,13 @@ function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,dept
       const currentVals=new Set(rows.map(r=>r[field]));
       const prevVals=new Set(filteredPrev.map(r=>r[field]));
       const allVals=[...new Set([...currentVals,...prevVals])];
-      children=sortByLevel(nextLevel,allVals,rows,filteredPrev);
+      const allSorted=sortByLevel(nextLevel,allVals,rows,filteredPrev);
+      // Filter out children that have no rows after puce filter
+      children=puceFilter?allSorted.filter(val=>{
+        const cRows=rows.filter(r=>r[field]===val).filter(r=>(getPuce?getPuce(r['Numéro de facture']):'grey')===puceFilter);
+        const cPrev=filteredPrev.filter(r=>r[field]===val).filter(r=>(getPuce?getPuce(r['Numéro de facture']):'grey')===puceFilter);
+        return cRows.length>0||cPrev.length>0;
+      }):allSorted;
     }
   }
 
@@ -5069,8 +5075,10 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
   const th={padding:'8px 10px',fontSize:11,fontWeight:600,color:'#6b6560',textAlign:'right',borderBottom:'2px solid #e2ddd6',background:'#f8f7f5',whiteSpace:'nowrap'};
   const thPrev={...th,borderLeft:'2px solid #e2ddd6'};
 
-  const aggTotal=aggBsv3(validRows);
-  const aggTotalP=aggBsv3(filteredPrev);
+  const pucedValidRows=effectiveFilterPuce?validRows.filter(r=>(puces[r['Numéro de facture']]||'grey')===effectiveFilterPuce):validRows;
+  const pucedPrevRows=effectiveFilterPuce?filteredPrev.filter(r=>(puces[r['Numéro de facture']]||'grey')===effectiveFilterPuce):filteredPrev;
+  const aggTotal=aggBsv3(pucedValidRows);
+  const aggTotalP=aggBsv3(pucedPrevRows);
   const ytdPrevRows=prevRows.filter(r=>parseInt(r['Mois Emission'])<=maxYtdMonth);
   const aggYTD=aggBsv3(ytdPrevRows);
   const tf={padding:'8px 10px',fontSize:12,textAlign:'right',borderTop:'2px solid #e2ddd6',fontFamily:'monospace',fontWeight:600,background:'#f8f7f5'};
