@@ -2022,7 +2022,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,onGoOKR,onGoU
             if(q.type==="mood")return <div key={q.id} style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"16px 20px"}}>
               <div style={{fontSize:13,fontWeight:500,marginBottom:12,color:"#1a1814"}}>{q.text}</div>
               <div style={{display:"flex",gap:12}}>
-                {MOODS.map(m=><button key={m} onClick={()=>upd(q.id,m)} style={{fontSize:28,background:answers[q.id]===m?"#f0fdf4":"none",border:answers[q.id]===m?"2px solid #2d6a4f":"2px solid transparent",borderRadius:10,padding:"6px 10px",cursor:"pointer",transition:"all .15s"}}>{m}</button>)}
+                {MOODS.map(m=><button key={m} onClick={()=>upd(q.id,m)} style={{fontSize:28,background:answers[q.id]===m?"#f0fdf4":"none",border:answers[q.id]===m?"2px solid #2d6a4f":"2px solid transparent",borderRadius:10,padding:"6px 6px",cursor:"pointer",transition:"all .15s"}}>{m}</button>)}
               </div>
             </div>;
             if(q.type==="presence")return <div key={q.id} style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"16px 20px"}}>
