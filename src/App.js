@@ -6185,6 +6185,12 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,
   </div>;
 }
 export default function App(){
+  const [isMobile,setIsMobile]=React.useState(()=>window.innerWidth<768);
+  React.useEffect(()=>{
+    const h=()=>setIsMobile(window.innerWidth<768);
+    window.addEventListener('resize',h);
+    return ()=>window.removeEventListener('resize',h);
+  },[]);
   const [authUser,setAuthUser]=useState(null);
   const [authLoading,setAuthLoading]=useState(true);
   const [authError,setAuthError]=useState("");
