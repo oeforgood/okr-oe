@@ -3572,7 +3572,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
         const fields=[];let cur='',inQ=false;
         for(const ch of l){if(ch==='"'){inQ=!inQ;}else if(ch===','&&!inQ){fields.push(cur.trim());cur='';}else cur+=ch;}
         fields.push(cur.trim());
-        return Object.fromEntries(headers.map((h,i)=>[h,(fields[i]||'').replace(/^"|"$/g,'')]));
+        return Object.fromEntries(headers.map((h,i)=>[h,(fields[i]||'').replace(/^"|"$/g,'').replace(/[\u00a0\u202f\u2009]/g,'')]));
       });
       setBsv3Msg(`Envoi de ${rows.length.toLocaleString('fr-FR')} lignes...`);
       const result=await onSaveBsv3(rows, file.name);
