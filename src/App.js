@@ -6143,14 +6143,20 @@ export default function App(){
     await setDoc(doc(db,"okr","data"),{allSeasons:current,seasonKey:newKey},{merge:true});
   }
   async function updatePuceInFirebase(factureNum, color){
+    console.log('[puce] updating', factureNum, '->', color);
     const snap=await getDocs(collection(db,'bsv3_data'));
+    let updated=0;
     await Promise.all(snap.docs.map(async d=>{
       const data=d.data();
       const rows=data.rows||[];
-      if(!rows.some(r=>r['Numéro de facture']===factureNum))return;
+      const matches=rows.filter(r=>r['Numéro de facture']===factureNum);
+      if(matches.length===0)return;
+      console.log('[puce] found',matches.length,'rows in chunk',d.id);
       const updatedRows=rows.map(r=>r['Numéro de facture']===factureNum?{...r,puce:color}:r);
       await setDoc(d.ref,{...data,rows:updatedRows});
+      updated+=matches.length;
     }));
+    console.log('[puce] done, updated',updated,'rows');
   }
 
   async function handleSaveBsv3(rows, fileName=''){
