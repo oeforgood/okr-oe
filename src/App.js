@@ -5567,10 +5567,6 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,
   const canEditPuce=PUCE_OWNERS_PAGE.includes(currentUser?.email);
   const [filterPuce,setFilterPuce]=React.useState(null);
   const PUCE_COLOR_PAGE={grey:'#d1d5db',green:'#16a34a',orange:'#f97316',red:'#dc2626'};
-  const PUCE_OWNERS_PAGE=['fx@oeforgood.com','fiona@oeforgood.com'];
-  const canEditPuce=PUCE_OWNERS_PAGE.includes(currentUser?.email);
-  const [filterPuce,setFilterPuce]=React.useState(null);
-  const PUCE_COLOR_PAGE={grey:'#d1d5db',green:'#16a34a',orange:'#f97316',red:'#dc2626'};
   const [dragFrom,setDragFrom]=React.useState(null);
   const [dragOver,setDragOver]=React.useState(null);
   const [activeLetters,setActiveLetters]=React.useState(null);
