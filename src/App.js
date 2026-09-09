@@ -4857,7 +4857,7 @@ function FactureModal({rows, onClose, currentUser, onPuceClick, getPuce, puceCol
           <div style={{fontSize:16,fontWeight:800,color:'#1a1814',marginBottom:2}}>{client}</div>
           <div style={{fontSize:12,color:'#6b6560'}}>{facture} · {date}</div>
         </div>
-          <div style={{display:'flex',alignItems:'center',gap:10}}>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
           {puceColors&&onPuceClick&&(()=>{
             const fn=rows[0]?.['Numéro de facture'];
             const color=rows[0]?.puce||'grey';
@@ -4867,7 +4867,6 @@ function FactureModal({rows, onClose, currentUser, onPuceClick, getPuce, puceCol
                 cursor:canEdit?'pointer':'default',display:'inline-block',border:'1px solid rgba(0,0,0,0.1)'}}/>;
           })()}
           <button onClick={onClose} style={{border:'none',background:'none',fontSize:20,cursor:'pointer',color:'#9e9890',padding:'0 4px'}}>✕</button>
-        </div>
         </div>
       </div>
       <div style={{overflowX:'auto'}}>
