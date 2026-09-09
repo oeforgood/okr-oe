@@ -989,10 +989,10 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
   const myPrenom=teamMember?.prenom;
   const myEmail=currentUser?.email;
   const myKRs=keyresults.filter(k=>k.owner===myPrenom||(k.contribs||[]).includes(myPrenom));
-  const myKRsDone=myKRs.filter(k=>calcTaux(k.val_depart,k.val_actuel,k.val_cible,k.unite)>=100);
-  const allKRsDone=keyresults.filter(k=>calcTaux(k.val_depart,k.val_actuel,k.val_cible,k.unite)>=100);
+  const myKRsDone=myKRs.filter(k=>(k.taux||calcTaux(k.val_depart,k.val_actuel,k.val_cible,k.unite))>=100);
+  const allKRsDone=keyresults.filter(k=>(k.taux||calcTaux(k.val_depart,k.val_actuel,k.val_cible,k.unite))>=100);
   const myKRsOwned=keyresults.filter(k=>k.owner===myPrenom);
-  const myOwnedDone=myKRsOwned.filter(k=>calcTaux(k.val_depart,k.val_actuel,k.val_cible,k.unite)>=100);
+  const myOwnedDone=myKRsOwned.filter(k=>(k.taux||calcTaux(k.val_depart,k.val_actuel,k.val_cible,k.unite))>=100);
   const myOwnedPct=myKRsOwned.length>0?Math.round(myOwnedDone.length/myKRsOwned.length*100):0;
 
   // Updates
