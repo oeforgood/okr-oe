@@ -4858,9 +4858,9 @@ function FactureModal({rows, onClose, currentUser, onPuceClick, getPuce, puceCol
           <div style={{fontSize:12,color:'#6b6560'}}>{facture} · {date}</div>
         </div>
         <div style={{display:'flex',alignItems:'center',gap:10}}>
-          {getPuce&&puceColors&&onPuceClick&&(()=>{
+          {puceColors&&onPuceClick&&(()=>{
             const factureNum=rows[0]?.['Numéro de facture'];
-            const color=getPuce(factureNum)||'grey';
+            const color=rows[0]?.puce||'grey';
             const PUCE_OWNERS=['fx@oeforgood.com','fiona@oeforgood.com'];
             const canEdit=PUCE_OWNERS.includes(currentUser?.email);
             return <span onClick={()=>canEdit&&onPuceClick(factureNum,color,currentUser.email)}
@@ -4971,8 +4971,8 @@ function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,dept
       const allSorted=sortByLevel(nextLevel,allVals,rows,filteredPrev);
       // Filter out children that have no rows after puce filter
       children=puceFilter?allSorted.filter(val=>{
-        const cRows=rows.filter(r=>r[field]===val).filter(r=>(getPuce?getPuce(r['Numéro de facture']):'grey')===puceFilter);
-        const cPrev=filteredPrev.filter(r=>r[field]===val).filter(r=>(getPuce?getPuce(r['Numéro de facture']):'grey')===puceFilter);
+        const cRows=rows.filter(r=>r[field]===val&&(r.puce||'grey')===puceFilter);
+        const cPrev=filteredPrev.filter(r=>r[field]===val&&(r.puce||'grey')===puceFilter);
         return cRows.length>0||cPrev.length>0;
       }):allSorted;
     }
@@ -4983,7 +4983,7 @@ function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,dept
       <td style={lbl}>{!isLeaf&&<span style={{fontSize:10,color:'#9e9890'}}>{exp?'▼':'▶'}</span>}
         {currentLevel==='produit'?<><span style={{fontFamily:'monospace'}}>{displayLabel}</span>{(()=>{const lb=getBsv3ProdLabel(allRows||rows,label);return lb?<span style={{color:'#6b6560',fontWeight:400,marginLeft:6,fontSize:fs-1}}>— {lb}</span>:null;})()}</>
         :currentLevel==='facture'?<span style={{display:'inline-flex',alignItems:'center',gap:6}}>
-          {getPuce&&puceColors&&<span style={{width:6,height:6,borderRadius:'50%',background:puceColors[getPuce(label)]||'#d1d5db',flexShrink:0,display:'inline-block'}}/>}
+          {puceColors&&rows.length>0&&<span style={{width:6,height:6,borderRadius:'50%',background:puceColors[rows[0].puce||'grey']||'#d1d5db',flexShrink:0,display:'inline-block'}}/>}
           {displayLabel}
           <button
             onClick={e=>{e.stopPropagation();if(onFactureClick){const factureRows=(allRows||rows).filter(r=>r['Numéro de facture']===label);onFactureClick(factureRows.length>0?factureRows:rows);}}}
@@ -5004,10 +5004,8 @@ function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,dept
     </tr>
     {exp&&children.map(child=>{
       const field=getField(nextLevel);
-      const childRows=rows.filter(r=>r[field]===child)
-        .filter(r=>!puceFilter||(getPuce?getPuce(r['Numéro de facture']):'grey')===puceFilter);
-      const childPrev=filteredPrev.filter(r=>r[field]===child)
-        .filter(r=>!puceFilter||(getPuce?getPuce(r['Numéro de facture']):'grey')===puceFilter);
+      const childRows=rows.filter(r=>r[field]===child&&(!puceFilter||(r.puce||'grey')===puceFilter));
+      const childPrev=filteredPrev.filter(r=>r[field]===child&&(!puceFilter||(r.puce||'grey')===puceFilter));
       if(childRows.length===0&&childPrev.length===0)return null;
       return <Bsv3DrillRow key={child} label={child} rows={childRows} prevRows={childPrev}
         contextRows={nextLevel==='mois'?contextRows:childRows}
@@ -5017,7 +5015,7 @@ function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,dept
   </React.Fragment>;
 }
 
-function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,maxYtdMonth,currentUser,filterPuceFromPage}){
+function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,maxYtdMonth,currentUser,filterPuceFromPage,onUpdatePuce}){
   const [factureModal,setFactureModal]=React.useState(null);
   const [puces,setPuces]=React.useState({});
   const [filterPuce,setFilterPuce]=React.useState(null); // null=no filter, 'grey','green','orange','red'
@@ -5066,8 +5064,12 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
     :sortByLevel(topLevel,allTopVals,validRows,filteredPrev);
 
   // Filter topSorted by puce when filter active and top level is facture
-  const topSortedFiltered=effectiveFilterPuce&&topLevel==='facture'
-    ?topSorted.filter(val=>(puces[val]||'grey')===effectiveFilterPuce)
+  // For facture level: filter by puce directly on rows
+  const topSortedFiltered=effectiveFilterPuce
+    ?topSorted.filter(val=>{
+        const r=validRows.find(r=>r['Numéro de facture']===val);
+        return r&&(r.puce||'grey')===effectiveFilterPuce;
+      })
     :topSorted;
 
   const firstLabel=topLevel==='mois'?`Mois ${year}`:topLevel==='canal'?'Canal':topLevel==='client'?'Client':topLevel==='facture'?'Facture':'Produit';
@@ -5075,8 +5077,8 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
   const th={padding:'8px 10px',fontSize:11,fontWeight:600,color:'#6b6560',textAlign:'right',borderBottom:'2px solid #e2ddd6',background:'#f8f7f5',whiteSpace:'nowrap'};
   const thPrev={...th,borderLeft:'2px solid #e2ddd6'};
 
-  const pucedValidRows=effectiveFilterPuce?validRows.filter(r=>(puces[r['Numéro de facture']]||'grey')===effectiveFilterPuce):validRows;
-  const pucedPrevRows=effectiveFilterPuce?filteredPrev.filter(r=>(puces[r['Numéro de facture']]||'grey')===effectiveFilterPuce):filteredPrev;
+  const pucedValidRows=effectiveFilterPuce?validRows.filter(r=>(r.puce||'grey')===effectiveFilterPuce):validRows;
+  const pucedPrevRows=effectiveFilterPuce?filteredPrev.filter(r=>(r.puce||'grey')===effectiveFilterPuce):filteredPrev;
   const aggTotal=aggBsv3(pucedValidRows);
   const aggTotalP=aggBsv3(pucedPrevRows);
   const ytdPrevRows=prevRows.filter(r=>parseInt(r['Mois Emission'])<=maxYtdMonth);
@@ -5102,10 +5104,10 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
         <tbody>
           {topSortedFiltered.map(val=>{
             const rows=(topLevel==='mois'?validRows.filter(r=>r['Mois Emission']===val):validRows.filter(r=>r[topField]===val))
-              .filter(r=>!effectiveFilterPuce||(puces[r['Numéro de facture']]||'grey')===effectiveFilterPuce);
+              .filter(r=>!effectiveFilterPuce||(r.puce||'grey')===effectiveFilterPuce);
             const prev=filteredPrev.filter(r=>r[topField]===val)
-              .filter(r=>!effectiveFilterPuce||(puces[r['Numéro de facture']]||'grey')===effectiveFilterPuce);
-            const prev2=filteredPrev.filter(r=>r[topField]===val).filter(r=>!effectiveFilterPuce||(puces[r['Numéro de facture']]||'grey')===effectiveFilterPuce);
+              .filter(r=>!effectiveFilterPuce||(r.puce||'grey')===effectiveFilterPuce);
+            const prev2=filteredPrev.filter(r=>r[topField]===val).filter(r=>!effectiveFilterPuce||(r.puce||'grey')===effectiveFilterPuce);
             return <Bsv3DrillRow key={val} label={val} rows={rows} prevRows={prev2}
               contextRows={topLevel==='mois'?allYearRows:rows}
               year={year} levels={levels} levelIdx={0} depth={0}
@@ -5548,7 +5550,7 @@ function Bsv3CommandesTable({rows, importedAt, activeLetters, activeAppelations=
   </div>;
 }
 
-function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}){
+function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,onUpdatePuce}){
   const {rows,importedAt,loading}=useBsv3Data();
   const [mainTab,setMainTab]=React.useState('ventes');
   const [clientFilter,setClientFilter]=React.useState('');
@@ -5801,7 +5803,7 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
           validRows={activeVentesMois&&activeVentesMois.has('ytd')?ventesRows.filter(r=>parseInt(r['Mois Emission'])<=ventesMaxYtdMonth):ventesRows}
           prevRows={activeVentesMois&&activeVentesMois.has('ytd')?ventesPrevRows.filter(r=>parseInt(r['Mois Emission'])<=ventesMaxYtdMonth):ventesPrevRows}
           allYearRows={ventesAllYearRows}
-          ytdMode={!!(activeVentesMois&&activeVentesMois.has('ytd'))} maxYtdMonth={ventesMaxYtdMonth} currentUser={currentUser} filterPuceFromPage={filterPuce}/>
+          ytdMode={!!(activeVentesMois&&activeVentesMois.has('ytd'))} maxYtdMonth={ventesMaxYtdMonth} currentUser={currentUser} filterPuceFromPage={filterPuce} onUpdatePuce={onUpdatePuce}/>
       :mainTab==='ca'?<Bsv3CaTable rows={rows} importedAt={importedAt} clientFilter={clientFilter}/>
       :<Bsv3CommandesTable rows={rows} importedAt={importedAt} activeLetters={activeLetters} activeAppelations={activeAppelations} clientFilter={clientFilter}/>}
     </div>
@@ -6147,19 +6149,33 @@ export default function App(){
     const current=okrData?.allSeasons||{};
     await setDoc(doc(db,"okr","data"),{allSeasons:current,seasonKey:newKey},{merge:true});
   }
+  async function updatePuceInFirebase(factureNum, color){
+    // Find all chunks and update rows for this facture
+    const snap=await getDocs(collection(db,'bsv3_data'));
+    await Promise.all(snap.docs.map(async d=>{
+      const data=d.data();
+      const rows=data.rows||[];
+      const needsUpdate=rows.some(r=>r['Numéro de facture']===factureNum);
+      if(!needsUpdate)return;
+      const updatedRows=rows.map(r=>r['Numéro de facture']===factureNum?{...r,puce:color}:r);
+      await setDoc(d.ref,{...data,rows:updatedRows});
+    }));
+  }
+
   async function handleSaveBsv3(rows, fileName=''){
     const CHUNK=2000;
     const importedAt=new Date().toISOString();
     // Delete old chunks
     const oldSnap=await getDocs(collection(db,'bsv3_data'));
     await Promise.all(oldSnap.docs.map(d=>deleteDoc(d.ref)));
-    // Store new chunks
-    for(let i=0;i<rows.length;i+=CHUNK){
-      const chunk=rows.slice(i,i+CHUNK);
+    // Store new chunks - add puce:'grey' to each row
+    const rowsWithPuce=rows.map(r=>({...r,puce:'grey'}));
+    for(let i=0;i<rowsWithPuce.length;i+=CHUNK){
+      const chunk=rowsWithPuce.slice(i,i+CHUNK);
       await setDoc(doc(db,'bsv3_data',`chunk_${Math.floor(i/CHUNK)}`),{
         rows:chunk,chunk:Math.floor(i/CHUNK),
-        total:Math.ceil(rows.length/CHUNK),
-        importedAt,totalRows:rows.length
+        total:Math.ceil(rowsWithPuce.length/CHUNK),
+        importedAt,totalRows:rowsWithPuce.length
       });
     }
 
@@ -6231,7 +6247,7 @@ export default function App(){
   if(page==="update")return <UpdatePage onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} okrData={okrData} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers}/>;
   if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels} savedCanalMargin={savedCanalMargin} currentUser={authUser}/>;
   if(page==="bsv3")return <Bsv3Page onBack={()=>setPage('dashboard')} onGoOKR={()=>setPage('okr')} onGoUpdate={()=>setPage('update')} onGoReporting={()=>setPage('reporting')} onGoBsv3={()=>setPage('bsv3')} currentUser={authUser}/>;
-  if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels} savedCanalMargin={savedCanalMargin} onSaveCanalMargin={handleSaveCanalMargin} onSendMessage={handleSendMessage} onSaveBsv3={handleSaveBsv3} onUploadReporting={handleUploadReporting}/>;
+  if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels} savedCanalMargin={savedCanalMargin} onSaveCanalMargin={handleSaveCanalMargin} onSendMessage={handleSendMessage} onSaveBsv3={handleSaveBsv3} onUpdatePuce={updatePuceInFirebase} onUploadReporting={handleUploadReporting}/>;
 
   return <Dashboard
     currentUser={authUser}
