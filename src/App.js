@@ -1098,7 +1098,7 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
   function fmtDate(ts){if(!ts)return '';const d=new Date(ts);return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'});}
 
   const card={background:'#fff',borderRadius:14,padding:'16px',marginBottom:12,boxShadow:'0 1px 4px rgba(0,0,0,.06)'};
-  const sTitle={fontSize:10,fontWeight:700,color:'#9e9890',textTransform:'uppercase',letterSpacing:0.8,marginBottom:12};
+  const sTitle={fontSize:12,fontWeight:700,color:'#6b6560',marginBottom:12};
 
   function ProgressBar({pct,color}){
     return <div style={{background:'#f0ede8',borderRadius:6,height:9,overflow:'hidden',flex:1}}>
@@ -1110,7 +1110,7 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
 
     {/* Header */}
     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
-      <div style={{fontSize:20,fontWeight:900,color:'#1a1814',letterSpacing:-0.5}}>Calendula</div>
+      <span style={{fontSize:18,fontWeight:700,color:'#2d6a4f',letterSpacing:'-.3px'}}>🌼 Calendula</span>
       <div style={{display:'flex',alignItems:'center',gap:10}}>
         {allNotifs.length>0&&<span style={{background:'#dc2626',color:'#fff',borderRadius:10,padding:'2px 8px',fontSize:11,fontWeight:700}}>{allNotifs.length}</span>}
         <div style={{width:34,height:34,borderRadius:'50%',background:'#2d6a4f',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:14,fontWeight:800}}>
@@ -1137,7 +1137,7 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
 
     {/* OKR */}
     <div style={card}>
-      <div style={sTitle}>🎯 OKR — {season?.label||seasonKey||'Saison'}</div>
+      <div style={{...sTitle,fontSize:14,color:'#1a1814'}}>🎯 {season?.label||seasonKey||'OKR'}</div>
       {[
         {label:'Avancement équipe',pct:avgPct,color:progColor(Math.round(avgPct))},
         {label:'Avancement saison',pct:seasonPct,color:'#b5680f'},
@@ -1153,19 +1153,23 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
       )}
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginTop:14}}>
         <div style={{background:'#f8f7f5',borderRadius:10,padding:'10px 12px'}}>
-          <div style={{fontSize:10,color:'#9e9890',marginBottom:2}}>KR complétés</div>
-          <div style={{fontSize:18,fontWeight:800,color:'#1a1814'}}>{allKRsDone.length}<span style={{fontSize:11,fontWeight:400,color:'#9e9890'}}>/{keyresults.length}</span></div>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <span style={{fontSize:10,color:'#9e9890'}}>KR complétés</span>
+            <span style={{fontSize:16,fontWeight:800,color:'#1a1814'}}>{allKRsDone.length}<span style={{fontSize:11,fontWeight:400,color:'#9e9890'}}>/{keyresults.length}</span></span>
+          </div>
         </div>
         <div style={{background:'#f0fdf4',borderRadius:10,padding:'10px 12px'}}>
-          <div style={{fontSize:10,color:'#9e9890',marginBottom:2}}>Mes KR complétés</div>
-          <div style={{fontSize:18,fontWeight:800,color:'#2d6a4f'}}>{myKRsDone.length}<span style={{fontSize:11,fontWeight:400,color:'#9e9890'}}>/{myKRs.length}</span></div>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <span style={{fontSize:10,color:'#9e9890'}}>Mes KR</span>
+            <span style={{fontSize:16,fontWeight:800,color:'#2d6a4f'}}>{myKRsDone.length}<span style={{fontSize:11,fontWeight:400,color:'#9e9890'}}>/{myKRs.length}</span></span>
+          </div>
         </div>
       </div>
     </div>
 
     {/* Mood */}
     <div style={card}>
-      <div style={sTitle}>😊 Updates</div>
+      <div style={{...sTitle,fontSize:14,color:'#1a1814'}}>😊 Updates</div>
       {/* Semaine passée */}
       <div style={{marginBottom:14}}>
         <div style={{fontSize:10,color:'#9e9890',marginBottom:8,fontWeight:600}}>Semaine passée</div>
@@ -1201,7 +1205,7 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
 
     {/* KPIs */}
     <div style={card}>
-      <div style={sTitle}>📊 KPIs</div>
+      <div style={{...sTitle,fontSize:14,color:'#1a1814'}}>📊 KPIs</div>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
         {/* Top left: CA YTD */}
         <div style={{background:'#f8f7f5',borderRadius:10,padding:'11px 13px'}}>
@@ -1231,7 +1235,6 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
           <div style={{fontSize:16,fontWeight:800,color:'#2d6a4f'}}>{fmtPct(kpis.bsv3Taux)}</div>
         </div>
       </div>
-      {kpis.bsv3ImportedAt&&<div style={{fontSize:9,color:'#c5c0b8',marginTop:8}}>BSv3 importé le {fmtDate(kpis.bsv3ImportedAt)}</div>}
     </div>
 
     {/* Notif modal */}
