@@ -975,7 +975,226 @@ function FeedbackBox({currentUser, teamMember}) {
   );
 }
 
-function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,onMarkAsRead,okrData,isAdmin,onOpenSettings,onChangeSeasonKey,onSendMessage,absencesList=[]}){
+
+function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,onMarkAsRead,okrData,absencesList=[],onGoUpdate,isAdmin}){
+  const [notifModal,setNotifModal]=React.useState(null);
+
+  // OKR data
+  const {objectives=[],subobjectives=[],keyresults=[],seasonKey}=okrData||{};
+  const season=getSeasonInfo(seasonKey);
+  const avgPct=calcWeightedAvg(objectives,subobjectives,keyresults);
+  const myEmail=currentUser?.email;
+  const myKRs=keyresults.filter(kr=>kr.owner===myEmail||kr.contribs?.includes(myEmail));
+  const myKRsDone=myKRs.filter(kr=>{const p=calcTaux(kr.dep,kr.act,kr.cib,kr.u);return p>=1;});
+  const allKRsDone=keyresults.filter(kr=>{const p=calcTaux(kr.dep,kr.act,kr.cib,kr.u);return p>=1;});
+
+  // Updates
+  const now=new Date();
+  const weekKey=getWeekKey(now);
+  const _7d=new Date(now);_7d.setDate(now.getDate()-7);
+  const lastWkKey=getWeekKey(_7d);
+  const myLastWk=myUpdates.find(u=>u.weekKey===lastWkKey);
+  const myCurWk=myUpdates.find(u=>u.weekKey===weekKey);
+  const allLastWk=allUpdates.filter(u=>u.weekKey===lastWkKey);
+  const allCurWk=allUpdates.filter(u=>u.weekKey===weekKey);
+  const hasSubmittedCur=!!myCurWk;
+
+  // Notifs
+  const allNotifs=[...(managerNotifs||[]),...(teammateNotifs||[])].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  const unreadCount=allNotifs.filter(n=>!n.read&&!n.markedRead).length;
+
+  // KPIs from Firebase
+  const [kpiReporting,setKpiReporting]=React.useState(null);
+  const [kpiBsv3,setKpiBsv3]=React.useState(null);
+  React.useEffect(()=>{
+    const u1=onSnapshot(doc(db,'reporting','ca'),snap=>{
+      if(!snap.exists())return;
+      const d=snap.data().caData||{};
+      const yr=new Date().getFullYear();
+      const mo=new Date().getMonth()+1;
+      let ytd=0;
+      for(let m=1;m<=mo;m++){
+        const raw=String(d[String(yr)]?.[m]||'').replace(/[^0-9,.-]/g,'').replace(',','.');
+        ytd+=parseFloat(raw)||0;
+      }
+      setKpiReporting({caYTD:ytd,lastMo:mo,yr});
+    });
+    getDocs(collection(db,'bsv3_data')).then(snap=>{
+      if(snap.empty)return;
+      const at=snap.docs[0]?.data()?.importedAt||null;
+      let allRows=[];
+      snap.docs.sort((a,b)=>a.id.localeCompare(b.id)).forEach(d=>allRows=allRows.concat(d.data().rows||[]));
+      const CA_CANAUX=['CHR','Grands Comptes','Retail','Export'];
+      const yr=new Date().getFullYear();
+      const mo=new Date().getMonth()+1;
+      const valid=allRows.filter(r=>r['Année Emission']===String(yr)&&CA_CANAUX.includes(r['Canal'])&&!['CASIER-OE','COIFFE-OE','CONTENANT BOUTEILLE'].includes(r['Contenant+Appelation/Robe']));
+      const lastMo=valid.length?Math.max(...valid.map(r=>parseInt(r['Mois Emission'])||0).filter(m=>m>0)):mo;
+      const ytdRows=valid.filter(r=>parseInt(r['Mois Emission'])<=lastMo);
+      const ca=ytdRows.reduce((s,r)=>s+parseBsv3Amt(r['Montant HT']),0);
+      const marge=ytdRows.reduce((s,r)=>s+parseBsv3Amt(r['Marge brute']),0);
+      setKpiBsv3({ca,marge,taux:ca>0?marge/ca:null,lastMo,importedAt:at});
+    });
+    return ()=>u1();
+  },[]);
+
+  const MOIS_NOMS=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+  function fmtE(v){
+    if(!v&&v!==0)return '—';
+    const abs=Math.abs(v);
+    const s=abs>=1000000?(Math.round(abs/100000)/10)+'M':abs>=1000?Math.round(abs/1000)+'k':Math.round(abs)+'';
+    return (v<0?'-':'')+s+' €';
+  }
+  function fmtPct(v){return v===null||v===undefined?'—':Math.round(v*100)+'%';}
+  function fmtDate(ts){if(!ts)return '';const d=new Date(ts);return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'});}
+
+  const card={background:'#fff',borderRadius:12,padding:'16px',marginBottom:12,boxShadow:'0 1px 4px rgba(0,0,0,.06)'};
+  const kpiBox={background:'#f8f7f5',borderRadius:8,padding:'10px 12px'};
+  const kpiBoxGreen={...kpiBox,background:'#f0fdf4'};
+  const sTitle={fontSize:10,fontWeight:700,color:'#9e9890',textTransform:'uppercase',letterSpacing:0.8,marginBottom:10};
+
+  return <div style={{minHeight:'100vh',background:'#f5f3ef',fontFamily:'system-ui,sans-serif',padding:'16px 12px 40px',maxWidth:480,margin:'0 auto'}}>
+
+    {/* Header */}
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
+      <div style={{fontSize:20,fontWeight:900,color:'#1a1814',letterSpacing:-0.5}}>Calendula</div>
+      <div style={{display:'flex',alignItems:'center',gap:10}}>
+        {unreadCount>0&&<span style={{background:'#dc2626',color:'#fff',borderRadius:10,padding:'2px 8px',fontSize:11,fontWeight:700}}>{unreadCount}</span>}
+        <div style={{width:34,height:34,borderRadius:'50%',background:'#2d6a4f',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:14,fontWeight:800}}>
+          {(teamMember?.prenom||'?')[0].toUpperCase()}
+        </div>
+      </div>
+    </div>
+
+    {/* Notifs */}
+    {allNotifs.length>0&&<div style={card}>
+      <div style={sTitle}>🔔 Notifications</div>
+      {allNotifs.slice(0,5).map((n,i)=>{
+        const isUnread=!n.read&&!n.markedRead;
+        return <div key={n.id||i} onClick={()=>{setNotifModal(n);if(isUnread&&onReadNotif)onReadNotif(n.id);}}
+          style={{padding:'9px 0',borderBottom:i<Math.min(allNotifs.length,5)-1?'1px solid #f0ede8':'none',
+            display:'flex',alignItems:'flex-start',gap:10,cursor:'pointer'}}>
+          <span style={{width:7,height:7,borderRadius:'50%',background:isUnread?'#2d6a4f':'#e2ddd6',flexShrink:0,marginTop:4}}/>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:12,fontWeight:isUnread?600:400,color:'#1a1814',lineHeight:1.3,
+              overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{n.title||n.message||'Notification'}</div>
+            <div style={{fontSize:10,color:'#9e9890',marginTop:2}}>{fmtDate(n.createdAt)}</div>
+          </div>
+          <span style={{fontSize:12,color:'#c5c0b8',flexShrink:0}}>›</span>
+        </div>;
+      })}
+    </div>}
+
+    {/* OKR */}
+    <div style={card}>
+      <div style={sTitle}>🎯 OKR — {season?.label||seasonKey||'Saison'}</div>
+      <div style={{marginBottom:14}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+          <span style={{fontSize:12,color:'#6b6560'}}>Avancement global</span>
+          <span style={{fontSize:16,fontWeight:800,color:progColor(Math.round(avgPct*100))}}>{Math.round(avgPct*100)}%</span>
+        </div>
+        <div style={{background:'#f0ede8',borderRadius:6,height:10,overflow:'hidden'}}>
+          <div style={{background:progColor(Math.round(avgPct*100)),width:`${Math.min(100,avgPct*100)}%`,height:10,borderRadius:6,transition:'width 0.5s'}}/>
+        </div>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+        <div style={kpiBox}>
+          <div style={{fontSize:10,color:'#9e9890',marginBottom:3}}>KR complétés</div>
+          <div style={{fontSize:18,fontWeight:800,color:'#1a1814'}}>{allKRsDone.length}<span style={{fontSize:11,fontWeight:400,color:'#9e9890'}}>/{keyresults.length}</span></div>
+        </div>
+        <div style={kpiBoxGreen}>
+          <div style={{fontSize:10,color:'#9e9890',marginBottom:3}}>Mes KR complétés</div>
+          <div style={{fontSize:18,fontWeight:800,color:'#2d6a4f'}}>{myKRsDone.length}<span style={{fontSize:11,fontWeight:400,color:'#9e9890'}}>/{myKRs.length}</span></div>
+        </div>
+      </div>
+    </div>
+
+    {/* Mood / Updates */}
+    <div style={card}>
+      <div style={sTitle}>😊 Updates</div>
+      <div style={{marginBottom:14}}>
+        <div style={{fontSize:10,color:'#9e9890',marginBottom:8,fontWeight:600}}>Semaine passée</div>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <span style={{fontSize:44,lineHeight:1}}>{myLastWk?.answers?.q7||'🫥'}</span>
+          <div style={{display:'flex',gap:4,flexWrap:'wrap',alignItems:'center'}}>
+            {allLastWk.filter(u=>u.email!==myEmail).map((u,i)=><span key={i} style={{fontSize:20}}>{u.answers?.q7||'🫥'}</span>)}
+          </div>
+        </div>
+      </div>
+      <div style={{borderTop:'1px solid #f0ede8',paddingTop:14}}>
+        <div style={{fontSize:10,color:'#9e9890',marginBottom:8,fontWeight:600}}>Semaine en cours</div>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <span style={{fontSize:44,lineHeight:1}}>{myCurWk?.answers?.q7||'🫥'}</span>
+          <div style={{display:'flex',gap:4,flexWrap:'wrap',alignItems:'center'}}>
+            {allCurWk.filter(u=>u.email!==myEmail).map((u,i)=><span key={i} style={{fontSize:20}}>{u.answers?.q7||'🫥'}</span>)}
+          </div>
+        </div>
+        {!hasSubmittedCur&&<button onClick={onGoUpdate}
+          style={{marginTop:12,width:'100%',padding:'12px',background:'#2d6a4f',color:'#fff',
+            border:'none',borderRadius:10,fontSize:14,fontWeight:700,cursor:'pointer',letterSpacing:-0.2}}>
+          ✍️ Faire mon update
+        </button>}
+      </div>
+    </div>
+
+    {/* KPIs Reporting */}
+    <div style={card}>
+      <div style={sTitle}>📊 Reporting</div>
+      {kpiReporting
+        ?<><div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+            <div style={kpiBox}>
+              <div style={{fontSize:10,color:'#9e9890',marginBottom:3}}>CA YTD — tous canaux</div>
+              <div style={{fontSize:18,fontWeight:800,color:'#1a1814'}}>{fmtE(kpiReporting.caYTD)}</div>
+            </div>
+          </div>
+          <div style={{fontSize:10,color:'#9e9890',marginTop:8}}>Jusqu'à {MOIS_NOMS[(kpiReporting.lastMo||1)-1]} {kpiReporting.yr}</div>
+        </>
+        :<div style={{color:'#9e9890',fontSize:12,textAlign:'center',padding:'8px 0'}}>Chargement...</div>}
+    </div>
+
+    {/* KPIs BSv3 */}
+    <div style={card}>
+      <div style={sTitle}>🍷 Base Sales B2B</div>
+      {kpiBsv3
+        ?<><div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+            <div style={kpiBox}>
+              <div style={{fontSize:10,color:'#9e9890',marginBottom:3}}>CA YTD B2B</div>
+              <div style={{fontSize:18,fontWeight:800,color:'#1a1814'}}>{fmtE(kpiBsv3.ca)}</div>
+            </div>
+            <div style={kpiBoxGreen}>
+              <div style={{fontSize:10,color:'#9e9890',marginBottom:3}}>Marge Brute YTD</div>
+              <div style={{fontSize:18,fontWeight:800,color:'#2d6a4f'}}>{fmtE(kpiBsv3.marge)}</div>
+            </div>
+            <div style={kpiBox}>
+              <div style={{fontSize:10,color:'#9e9890',marginBottom:3}}>Taux de marge</div>
+              <div style={{fontSize:18,fontWeight:800,color:kpiBsv3.taux!==null&&kpiBsv3.taux<0?'#c0392b':'#1a1814'}}>{fmtPct(kpiBsv3.taux)}</div>
+            </div>
+          </div>
+          <div style={{fontSize:10,color:'#9e9890',marginTop:8}}>
+            Jusqu'à {MOIS_NOMS[(kpiBsv3.lastMo||1)-1]} · Import {fmtDate(kpiBsv3.importedAt)}
+          </div>
+        </>
+        :<div style={{color:'#9e9890',fontSize:12,textAlign:'center',padding:'8px 0'}}>Chargement...</div>}
+    </div>
+
+    {/* Notif bottom sheet modal */}
+    {notifModal&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1000,display:'flex',alignItems:'flex-end'}}
+      onClick={()=>setNotifModal(null)}>
+      <div style={{background:'#fff',borderRadius:'20px 20px 0 0',padding:'12px 20px 32px',width:'100%',maxHeight:'80vh',overflow:'auto',boxSizing:'border-box'}}
+        onClick={e=>e.stopPropagation()}>
+        <div style={{width:40,height:4,background:'#e2ddd6',borderRadius:2,margin:'0 auto 20px'}}/>
+        <div style={{fontSize:15,fontWeight:700,color:'#1a1814',marginBottom:10}}>{notifModal.title||'Notification'}</div>
+        <div style={{fontSize:13,color:'#6b6560',lineHeight:1.7,whiteSpace:'pre-wrap'}}>{notifModal.message||notifModal.body||''}</div>
+        <button onClick={()=>setNotifModal(null)}
+          style={{marginTop:20,width:'100%',padding:'13px',background:'#f8f7f5',color:'#6b6560',
+            border:'1px solid #e2ddd6',borderRadius:10,fontSize:14,cursor:'pointer'}}>
+          Fermer
+        </button>
+      </div>
+    </div>}
+  </div>;
+}
+
+function Dashboard({isMobile=false,currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,onMarkAsRead,okrData,isAdmin,onOpenSettings,onChangeSeasonKey,onSendMessage,absencesList=[]}){
   const {objectives=[],subobjectives=[],keyresults=[],seasonKey:_sk}=okrData||{};
   const seasonKey=okrData?.seasonKey||"printemps_2026";
   const isOwner=currentUser?.email===OWNER_EMAIL;
@@ -1009,6 +1228,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
   const todayUpdate=weekKey?myUpdates.find(u=>u.weekKey===weekKey):null;
   const unread=managerNotifs.filter(n=>!n.read);
 
+  if(isMobile)return <DashboardMobile currentUser={currentUser} teamMember={teamMember} teamMembers={teamMembers} myUpdates={myUpdates} allUpdates={allUpdates} managerNotifs={managerNotifs} teammateNotifs={teammateNotifs} onReadNotif={onReadNotif} onMarkAsRead={onMarkAsRead} okrData={okrData} absencesList={absencesList} onGoUpdate={onGoUpdate} isAdmin={isAdmin}/>;
   return <div style={{minHeight:"100vh",background:"#f5f3ef",fontFamily:"system-ui,sans-serif"}}>
     <div style={{background:"rgba(245,243,239,.95)",borderBottom:"1px solid #e2ddd6",padding:"10px 20px",display:"flex",alignItems:"center",gap:12}}>
       <span style={{fontSize:18,fontWeight:700,color:"#2d6a4f",letterSpacing:"-.3px"}}>🌼 Calendula</span>
@@ -6414,6 +6634,7 @@ export default function App(){
   if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels} savedCanalMargin={savedCanalMargin} onSaveCanalMargin={handleSaveCanalMargin} onSendMessage={handleSendMessage} onSaveBsv3={handleSaveBsv3} onUpdatePuce={updatePuceInFirebase} onUploadReporting={handleUploadReporting}/>;
 
   return <Dashboard
+    isMobile={isMobile}
     currentUser={authUser}
     teamMember={currentTeamMember}
     teamMembers={teamMembers}
