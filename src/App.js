@@ -1077,6 +1077,7 @@ function Dashboard({currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onG
             </div>
           </div>;
         })()}
+      {(()=>{
         const now=new Date();
         // lastWkKey = calendar week 7 days ago
         const _7daysAgo=new Date(now);_7daysAgo.setDate(now.getDate()-7);
