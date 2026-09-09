@@ -4925,7 +4925,7 @@ function FactureModal({rows, onClose, currentUser, onPuceClick, getPuce, puceCol
   </div>;
 }
 
-function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,depth,ytdMode,maxYtdMonth,allRows,onFactureClick,getPuce,puceColors}){
+function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,depth,ytdMode,maxYtdMonth,allRows,onFactureClick,getPuce,puceColors,puceFilter}){
   const [exp,setExp]=React.useState(false);
   const currentLevel=levels[levelIdx];
   const nextLevel=levels[levelIdx+1];
@@ -4998,12 +4998,15 @@ function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,dept
     </tr>
     {exp&&children.map(child=>{
       const field=getField(nextLevel);
-      const childRows=rows.filter(r=>r[field]===child);
-      const childPrev=filteredPrev.filter(r=>r[field]===child);
+      const childRows=rows.filter(r=>r[field]===child)
+        .filter(r=>!puceFilter||(getPuce?getPuce(r['Numéro de facture']):'grey')===puceFilter);
+      const childPrev=filteredPrev.filter(r=>r[field]===child)
+        .filter(r=>!puceFilter||(getPuce?getPuce(r['Numéro de facture']):'grey')===puceFilter);
+      if(childRows.length===0&&childPrev.length===0)return null;
       return <Bsv3DrillRow key={child} label={child} rows={childRows} prevRows={childPrev}
         contextRows={nextLevel==='mois'?contextRows:childRows}
         year={year} levels={levels} levelIdx={levelIdx+1} depth={depth+1}
-        ytdMode={ytdMode} maxYtdMonth={maxYtdMonth} allRows={allRows} onFactureClick={onFactureClick} getPuce={getPuce} puceColors={puceColors}/>;
+        ytdMode={ytdMode} maxYtdMonth={maxYtdMonth} allRows={allRows} onFactureClick={onFactureClick} getPuce={getPuce} puceColors={puceColors} puceFilter={puceFilter}/>;
     })}
   </React.Fragment>;
 }
@@ -5087,12 +5090,13 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
           {topSorted.map(val=>{
             const rows=(topLevel==='mois'?validRows.filter(r=>r['Mois Emission']===val):validRows.filter(r=>r[topField]===val))
               .filter(r=>!effectiveFilterPuce||(puces[r['Numéro de facture']]||'grey')===effectiveFilterPuce);
-            const prev=filteredPrev.filter(r=>r[topField]===val);
+            const prev=filteredPrev.filter(r=>r[topField]===val)
+              .filter(r=>!effectiveFilterPuce||(puces[r['Numéro de facture']]||'grey')===effectiveFilterPuce);
             const prev2=filteredPrev.filter(r=>r[topField]===val).filter(r=>!effectiveFilterPuce||(puces[r['Numéro de facture']]||'grey')===effectiveFilterPuce);
             return <Bsv3DrillRow key={val} label={val} rows={rows} prevRows={prev2}
               contextRows={topLevel==='mois'?allYearRows:rows}
               year={year} levels={levels} levelIdx={0} depth={0}
-              ytdMode={ytdMode} maxYtdMonth={maxYtdMonth} onFactureClick={setFactureModal} getPuce={getPuce} puceColors={PUCE_COLOR} allRows={allYearRows}/>;
+              ytdMode={ytdMode} maxYtdMonth={maxYtdMonth} onFactureClick={setFactureModal} getPuce={getPuce} puceColors={PUCE_COLOR} puceFilter={effectiveFilterPuce} allRows={allYearRows}/>;
           })}
         </tbody>
         <tfoot>
@@ -5710,14 +5714,15 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
                 border:`1px solid ${isAnnee?'#2d6a4f':'#e2ddd6'}`,
                 background:isAnnee?'#2d6a4f':'#fff',color:isAnnee?'#fff':'#9e9890',
                 fontSize:11,fontWeight:600,cursor:isAnnee?'default':'pointer'}}>Année</button>
-            {canEditPuce&&<>{['grey','green','orange','red'].map(c=>{
-              const on=filterPuce===c;
-              return <button key={c} onClick={()=>setFilterPuce(on?null:c)}
-                style={{width:10,height:10,borderRadius:'50%',border:`2px solid ${on?'#1a1814':'transparent'}`,
-                  background:PUCE_COLOR_PAGE[c],cursor:'pointer',padding:0,flexShrink:0}}/>;
-            })}
-            {filterPuce&&<button onClick={()=>setFilterPuce(null)} style={{fontSize:9,padding:'1px 5px',borderRadius:4,border:'1px solid #e2ddd6',background:'#fff',color:'#9e9890',cursor:'pointer'}}>✕</button>}
-            </>}
+            {canEditPuce&&<div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:4}}>
+              {['grey','green','orange','red'].map(c=>{
+                const on=filterPuce===c;
+                return <button key={c} onClick={()=>setFilterPuce(on?null:c)}
+                  style={{width:10,height:10,borderRadius:'50%',border:`2px solid ${on?'#1a1814':'transparent'}`,
+                    background:PUCE_COLOR_PAGE[c],cursor:'pointer',padding:0,flexShrink:0}}/>;
+              })}
+              {filterPuce&&<button onClick={()=>setFilterPuce(null)} style={{fontSize:9,padding:'1px 5px',borderRadius:4,border:'1px solid #e2ddd6',background:'#fff',color:'#9e9890',cursor:'pointer'}}>✕</button>}
+            </div>}
           </div>;
         })()}
       </>}
