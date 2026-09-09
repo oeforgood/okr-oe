@@ -1042,7 +1042,7 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
   const [kpis,setKpis]=React.useState({});
   const [bfrBanner,setBfrBanner]=React.useState(null);
   React.useEffect(()=>{
-    const u1=onSnapshot(doc(db,'reporting','bilan'),snap=>{if(snap.exists())setBfrBanner(snap.data().bilData);});
+    const u1=onSnapshot(doc(db,'reporting','bfr'),snap=>{if(snap.exists())setBfrBanner(snap.data().bilData);});
     getDocs(collection(db,'bsv3_data')).then(snap=>{
       if(snap.empty)return;
       const at=snap.docs[0]?.data()?.importedAt||null;
