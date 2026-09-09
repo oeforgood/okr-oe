@@ -5008,10 +5008,11 @@ function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,dept
   </React.Fragment>;
 }
 
-function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,maxYtdMonth,currentUser}){
+function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,maxYtdMonth,currentUser,filterPuceFromPage}){
   const [factureModal,setFactureModal]=React.useState(null);
   const [puces,setPuces]=React.useState({});
   const [filterPuce,setFilterPuce]=React.useState(null); // null=no filter, 'grey','green','orange','red'
+  const effectiveFilterPuce=filterPuceFromPage!==undefined?filterPuceFromPage:filterPuce;
   const PUCE_OWNERS=['fx@oeforgood.com','fiona@oeforgood.com'];
   const canEditPuce=PUCE_OWNERS.includes(currentUser?.email);
   // Load puces from Firebase in real-time
@@ -5085,9 +5086,9 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
         <tbody>
           {topSorted.map(val=>{
             const rows=(topLevel==='mois'?validRows.filter(r=>r['Mois Emission']===val):validRows.filter(r=>r[topField]===val))
-              .filter(r=>!filterPuce||(puces[r['Numéro de facture']]||'grey')===filterPuce);
+              .filter(r=>!effectiveFilterPuce||(puces[r['Numéro de facture']]||'grey')===effectiveFilterPuce);
             const prev=filteredPrev.filter(r=>r[topField]===val);
-            const prev2=filteredPrev.filter(r=>r[topField]===val).filter(r=>!filterPuce||(puces[r['Numéro de facture']]||'grey')===filterPuce);
+            const prev2=filteredPrev.filter(r=>r[topField]===val).filter(r=>!effectiveFilterPuce||(puces[r['Numéro de facture']]||'grey')===effectiveFilterPuce);
             return <Bsv3DrillRow key={val} label={val} rows={rows} prevRows={prev2}
               contextRows={topLevel==='mois'?allYearRows:rows}
               year={year} levels={levels} levelIdx={0} depth={0}
@@ -5538,6 +5539,10 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
   const [ytdMode,setYtdMode]=React.useState(false);
   const [activeVentesCanaux,setActiveVentesCanaux]=React.useState(null);
   const [activeVentesMois,setActiveVentesMois]=React.useState(null);
+  const PUCE_OWNERS_PAGE=['fx@oeforgood.com','fiona@oeforgood.com'];
+  const canEditPuce=PUCE_OWNERS_PAGE.includes(currentUser?.email);
+  const [filterPuce,setFilterPuce]=React.useState(null);
+  const PUCE_COLOR_PAGE={grey:'#d1d5db',green:'#16a34a',orange:'#f97316',red:'#dc2626'};
   const [dragFrom,setDragFrom]=React.useState(null);
   const [dragOver,setDragOver]=React.useState(null);
   const [activeLetters,setActiveLetters]=React.useState(null);
@@ -5709,7 +5714,7 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
               const on=filterPuce===c;
               return <button key={c} onClick={()=>setFilterPuce(on?null:c)}
                 style={{width:10,height:10,borderRadius:'50%',border:`2px solid ${on?'#1a1814':'transparent'}`,
-                  background:PUCE_COLOR[c],cursor:'pointer',padding:0,flexShrink:0}}/>;
+                  background:PUCE_COLOR_PAGE[c],cursor:'pointer',padding:0,flexShrink:0}}/>;
             })}
             {filterPuce&&<button onClick={()=>setFilterPuce(null)} style={{fontSize:9,padding:'1px 5px',borderRadius:4,border:'1px solid #e2ddd6',background:'#fff',color:'#9e9890',cursor:'pointer'}}>✕</button>}
             </>}
@@ -5778,7 +5783,7 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser}
           validRows={activeVentesMois&&activeVentesMois.has('ytd')?ventesRows.filter(r=>parseInt(r['Mois Emission'])<=ventesMaxYtdMonth):ventesRows}
           prevRows={activeVentesMois&&activeVentesMois.has('ytd')?ventesPrevRows.filter(r=>parseInt(r['Mois Emission'])<=ventesMaxYtdMonth):ventesPrevRows}
           allYearRows={ventesAllYearRows}
-          ytdMode={!!(activeVentesMois&&activeVentesMois.has('ytd'))} maxYtdMonth={ventesMaxYtdMonth} currentUser={currentUser}/>
+          ytdMode={!!(activeVentesMois&&activeVentesMois.has('ytd'))} maxYtdMonth={ventesMaxYtdMonth} currentUser={currentUser} filterPuceFromPage={filterPuce}/>
       :mainTab==='ca'?<Bsv3CaTable rows={rows} importedAt={importedAt} clientFilter={clientFilter}/>
       :<Bsv3CommandesTable rows={rows} importedAt={importedAt} activeLetters={activeLetters} activeAppelations={activeAppelations} clientFilter={clientFilter}/>}
     </div>
