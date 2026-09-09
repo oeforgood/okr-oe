@@ -1918,8 +1918,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,onGoOKR,onGoU
     <div style={{maxWidth:1000,margin:"0 auto",padding:"24px 16px 60px"}}>
 
       {/* 26-week dots - integrated team view */}
-      {!isMobile&&<>
-      <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"16px 20px",marginBottom:20,boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
+      <div style={{display:isMobile?"none":"block",background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"16px 20px",marginBottom:20,boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
         {/* Header row: title + button */}
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
           <div style={{fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em"}}>Mes updates ces 6 derniers mois</div>
@@ -1993,7 +1992,6 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,onGoOKR,onGoU
 
       </div>
 
-      </>
 
       <div style={{fontSize:13,color:"#6b6560",marginBottom:16}}>Semaine du {weekLabel}</div>
 
