@@ -989,10 +989,10 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
   const myPrenom=teamMember?.prenom;
   const myEmail=currentUser?.email;
   const myKRs=keyresults.filter(k=>k.owner===myPrenom||(k.contribs||[]).includes(myPrenom));
-  const myKRsDone=myKRs.filter(k=>calcTaux(k.val_depart,k.val_actuel,k.val_cible,k.unite)>=1);
-  const allKRsDone=keyresults.filter(k=>calcTaux(k.val_depart,k.val_actuel,k.val_cible,k.unite)>=1);
+  const myKRsDone=myKRs.filter(k=>calcTaux(k.val_depart,k.val_actuel,k.val_cible,k.unite)>=100);
+  const allKRsDone=keyresults.filter(k=>calcTaux(k.val_depart,k.val_actuel,k.val_cible,k.unite)>=100);
   const myKRsOwned=keyresults.filter(k=>k.owner===myPrenom);
-  const myOwnedDone=myKRsOwned.filter(k=>calcTaux(k.val_depart,k.val_actuel,k.val_cible,k.unite)>=1);
+  const myOwnedDone=myKRsOwned.filter(k=>calcTaux(k.val_depart,k.val_actuel,k.val_cible,k.unite)>=100);
   const myOwnedPct=myKRsOwned.length>0?Math.round(myOwnedDone.length/myKRsOwned.length*100):0;
 
   // Updates
@@ -1155,13 +1155,13 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
         <div style={{background:'#f8f7f5',borderRadius:10,padding:'10px 12px'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
             <span style={{fontSize:10,color:'#9e9890'}}>KR complétés</span>
-            <span style={{fontSize:16,fontWeight:800,color:'#1a1814'}}>{allKRsDone.length}<span style={{fontSize:11,fontWeight:400,color:'#9e9890'}}>/{keyresults.length}</span></span>
+            <span style={{fontSize:16,fontWeight:800,color:'#1a1814'}}>{allKRsDone.length}<span style={{fontSize:11,fontWeight:400,color:'#9e9890'}}> / {keyresults.length}</span></span>
           </div>
         </div>
         <div style={{background:'#f0fdf4',borderRadius:10,padding:'10px 12px'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
             <span style={{fontSize:10,color:'#9e9890'}}>Mes KR</span>
-            <span style={{fontSize:16,fontWeight:800,color:'#2d6a4f'}}>{myKRsDone.length}<span style={{fontSize:11,fontWeight:400,color:'#9e9890'}}>/{myKRs.length}</span></span>
+            <span style={{fontSize:16,fontWeight:800,color:'#2d6a4f'}}>{myKRsDone.length}<span style={{fontSize:11,fontWeight:400,color:'#9e9890'}}> / {myKRs.length}</span></span>
           </div>
         </div>
       </div>
