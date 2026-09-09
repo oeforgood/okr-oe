@@ -5059,7 +5059,12 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
     ?(ytdMode?[1,2,3,4,5,6,7,8,9,10,11,12].filter(m=>m<=maxYtdMonth).map(String):[1,2,3,4,5,6,7,8,9,10,11,12].map(String))
     :sortByLevel(topLevel,allTopVals,validRows,filteredPrev);
 
-  const firstLabel=topLevel==='mois'?`Mois ${year}`:topLevel==='canal'?'Canal':topLevel==='client'?'Client':'Produit';
+  // Filter topSorted by puce when filter active and top level is facture
+  const topSortedFiltered=effectiveFilterPuce&&topLevel==='facture'
+    ?topSorted.filter(val=>(puces[val]||'grey')===effectiveFilterPuce)
+    :topSorted;
+
+  const firstLabel=topLevel==='mois'?`Mois ${year}`:topLevel==='canal'?'Canal':topLevel==='client'?'Client':topLevel==='facture'?'Facture':'Produit';
   const showQtyTop=produitIsAtOrBefore(levels,0);
   const th={padding:'8px 10px',fontSize:11,fontWeight:600,color:'#6b6560',textAlign:'right',borderBottom:'2px solid #e2ddd6',background:'#f8f7f5',whiteSpace:'nowrap'};
   const thPrev={...th,borderLeft:'2px solid #e2ddd6'};
@@ -5087,7 +5092,7 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
           <th style={th}>CA {prevYear}</th><th style={th}>Marge {prevYear}</th><th style={th}>Taux {prevYear}</th>
         </tr></thead>
         <tbody>
-          {topSorted.map(val=>{
+          {topSortedFiltered.map(val=>{
             const rows=(topLevel==='mois'?validRows.filter(r=>r['Mois Emission']===val):validRows.filter(r=>r[topField]===val))
               .filter(r=>!effectiveFilterPuce||(puces[r['Numéro de facture']]||'grey')===effectiveFilterPuce);
             const prev=filteredPrev.filter(r=>r[topField]===val)
