@@ -3572,7 +3572,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
         const fields=[];let cur='',inQ=false;
         for(const ch of l){if(ch==='"'){inQ=!inQ;}else if(ch===','&&!inQ){fields.push(cur.trim());cur='';}else cur+=ch;}
         fields.push(cur.trim());
-        return Object.fromEntries(headers.map((h,i)=>[h,(fields[i]||'').replace(/^"|"$/g,'')]));
+        return Object.fromEntries(headers.map((h,i)=>[h,(fields[i]||'').replace(/^"|"$/g,'').replace(/[\u00a0\u202f\u2009]/g,'')]));
       });
       setBsv3Msg(`Envoi de ${rows.length.toLocaleString('fr-FR')} lignes...`);
       const result=await onSaveBsv3(rows, file.name);
@@ -4865,11 +4865,11 @@ function FactureModal({rows, onClose, currentUser, onPuceClick, getPuce, puceCol
 
   function pa(s){
     if(!s||s==='MARGE NON CALCULABLE'||s==='PAS DE COUT ASSOCIE')return 0;
-    try{return parseFloat(String(s).replace(/€/g,'').replace(/[\s\u00a0\u202f]/g,'').replace(',','.').trim())||0;}catch{return 0;}
+    try{return parseFloat(String(s).replace(/€/g,'').replace(/[\s\u00a0\u202f\u2009]/g,'').replace(',','.').trim())||0;}catch{return 0;}
   }
 
   const lignes=rows.map(r=>{
-    const qty=parseFloat(r['Quantité équivalent unité'])||0;
+    const qty=parseFloat(String(r['Quantité équivalent unité']||'').replace(/[\u00a0\u202f\u2009\s]/g,''))||0;
     const ca=pa(r['Montant HT']);
     const marge=pa(r['Marge brute']);
     const cout=pa(r['Cout production vin inclus total']);
@@ -5034,7 +5034,7 @@ function FactureModal({rows, onClose, currentUser, onPuceClick, getPuce, puceCol
   </div>;
 }
 
-function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,depth,ytdMode,maxYtdMonth,allRows,onFactureClick,getPuce,puceColors,puceFilter}){
+function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,depth,ytdMode,maxYtdMonth,allRows,onFactureClick,getPuce,puceColors,puceFilter,facturesWithComments}){
   const [exp,setExp]=React.useState(false);
   const currentLevel=levels[levelIdx];
   const nextLevel=levels[levelIdx+1];
@@ -5094,6 +5094,7 @@ function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,dept
         :currentLevel==='facture'?<span style={{display:'inline-flex',alignItems:'center',gap:6}}>
           {getPuce&&puceColors&&<span style={{width:6,height:6,borderRadius:'50%',background:puceColors[getPuce(label)]||'#d1d5db',flexShrink:0,display:'inline-block'}}/>}
           {displayLabel}
+          {facturesWithComments&&facturesWithComments.has(label)&&<span style={{fontSize:9,opacity:0.6,flexShrink:0}}>👁</span>}
           <button
             onClick={e=>{e.stopPropagation();if(onFactureClick){const factureRows=(allRows||rows).filter(r=>r['Numéro de facture']===label);onFactureClick(factureRows.length>0?factureRows:rows);}}}
             style={{fontSize:9,padding:'1px 6px',borderRadius:4,border:'1px solid #e2ddd6',background:'#f8f7f5',color:'#6b6560',cursor:'pointer',fontWeight:500}}>
@@ -5121,7 +5122,7 @@ function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,dept
       return <Bsv3DrillRow key={child} label={child} rows={childRows} prevRows={childPrev}
         contextRows={nextLevel==='mois'?contextRows:childRows}
         year={year} levels={levels} levelIdx={levelIdx+1} depth={depth+1}
-        ytdMode={ytdMode} maxYtdMonth={maxYtdMonth} allRows={allRows} onFactureClick={onFactureClick} getPuce={getPuce} puceColors={puceColors} puceFilter={puceFilter}/>;
+        ytdMode={ytdMode} maxYtdMonth={maxYtdMonth} allRows={allRows} onFactureClick={onFactureClick} getPuce={getPuce} puceColors={puceColors} puceFilter={puceFilter} facturesWithComments={facturesWithComments}/>;
     })}
   </React.Fragment>;
 }
@@ -5129,10 +5130,24 @@ function Bsv3DrillRow({label,rows,prevRows,contextRows,year,levels,levelIdx,dept
 function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,maxYtdMonth,currentUser,filterPuceFromPage,onUpdatePuce}){
   const [factureModal,setFactureModal]=React.useState(null);
   const [puces,setPuces]=React.useState({});
+  const [facturesWithComments,setFacturesWithComments]=React.useState(new Set());
   const effectiveFilterPuce=filterPuceFromPage||null;
   const PUCE_OWNERS=['fx@oeforgood.com','fiona@oeforgood.com'];
   const canEditPuceTable=PUCE_OWNERS.includes(currentUser?.email);
   const PUCE_COLOR={grey:'#d1d5db',green:'#16a34a',orange:'#f97316',red:'#dc2626'};
+  // Load factures with comments
+  React.useEffect(()=>{
+    const unsub=onSnapshot(collection(db,'bsv3_comments'),snap=>{
+      const s=new Set();
+      snap.docs.forEach(d=>{
+        const hasPublic=(d.data().comments||[]).some(c=>c.public);
+        if(hasPublic)s.add(d.id);
+      });
+      setFacturesWithComments(s);
+    });
+    return ()=>unsub();
+  },[]);
+
   React.useEffect(()=>{
     const p={};
     allYearRows.forEach(r=>{if(r['Numéro de facture']&&r.puce)p[r['Numéro de facture']]=r.puce;});
@@ -5251,7 +5266,7 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
             return <Bsv3DrillRow key={val} label={val} rows={rows} prevRows={prev2}
               contextRows={topLevel==='mois'?allYearRows:rows}
               year={year} levels={levels} levelIdx={0} depth={0}
-              ytdMode={ytdMode} maxYtdMonth={maxYtdMonth} onFactureClick={setFactureModal} getPuce={getPuce} puceColors={PUCE_COLOR} puceFilter={effectiveFilterPuce} allRows={allYearRows}/>;
+              ytdMode={ytdMode} maxYtdMonth={maxYtdMonth} onFactureClick={setFactureModal} getPuce={getPuce} puceColors={PUCE_COLOR} puceFilter={effectiveFilterPuce} facturesWithComments={facturesWithComments} allRows={allYearRows}/>;
           })}
         </tbody>
         <tfoot>
