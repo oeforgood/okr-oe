@@ -4816,14 +4816,27 @@ function FactureModal({rows, onClose}){
     const taux=ca>0?marge/ca:null;
     const sku=r['SKU']||'—';
     const lib=r['Libellé Contenant+Appelation/Robe']||r['Contenant+Appelation/Robe']||'—';
-    return {qty,ca,marge,cout,crd,freinte,transport,prepa,pvU,coutU,crdU,freinteU,transportU,prepaU,cogsU,taux,sku,lib};
+    // Totaux par ligne (unitaire × quantité)
+    const pvTot=pvU*qty;
+    const coutTot=coutU*qty;
+    const crdTot=crdU*qty;
+    const freinteTot=freinteU*qty;
+    const transportTot=transportU*qty;
+    const prepaTot=prepaU*qty;
+    const cogsTot=cogsU*qty;
+    return {qty,ca,marge,cout,crd,freinte,transport,prepa,pvU,coutU,crdU,freinteU,transportU,prepaU,cogsU,taux,sku,lib,pvTot,coutTot,crdTot,freinteTot,transportTot,prepaTot,cogsTot};
   });
 
   const totQty=lignes.reduce((s,l)=>s+l.qty,0);
   const totCA=lignes.reduce((s,l)=>s+l.ca,0);
   const totMarge=lignes.reduce((s,l)=>s+l.marge,0);
-  const totTransport=lignes.reduce((s,l)=>s+l.transport,0);
-  const totPrepa=lignes.reduce((s,l)=>s+l.prepa,0);
+  const totPV=lignes.reduce((s,l)=>s+l.pvTot,0);
+  const totCout=lignes.reduce((s,l)=>s+l.coutTot,0);
+  const totCRD=lignes.reduce((s,l)=>s+l.crdTot,0);
+  const totFreinte=lignes.reduce((s,l)=>s+l.freinteTot,0);
+  const totTransport=lignes.reduce((s,l)=>s+l.transportTot,0);
+  const totPrepa=lignes.reduce((s,l)=>s+l.prepaTot,0);
+  const totCOGS=lignes.reduce((s,l)=>s+l.cogsTot,0);
   const totTaux=totCA>0?totMarge/totCA:null;
 
   function fmtE(v){return v===0?'—':(v<0?'-':'')+Math.abs(v).toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,' ')+' €';}
@@ -4852,13 +4865,13 @@ function FactureModal({rows, onClose}){
             <th style={thL}>SKU</th>
             <th style={thL}>Libellé</th>
             <th style={th}>Qté</th>
-            <th style={th}>PV unit.</th>
-            <th style={th}>Produit</th>
+            <th style={th}>Prix Vente</th>
+            <th style={th}>Coût Prod.</th>
             <th style={th}>CRD</th>
             <th style={th}>Freinte</th>
             <th style={th}>Transport</th>
             <th style={th}>Prépa</th>
-            <th style={th}>CoGS unit.</th>
+            <th style={th}>CoGS</th>
             <th style={th}>Tx marge</th>
             <th style={th}>CA total</th>
             <th style={th}>Marge totale</th>
@@ -4868,13 +4881,13 @@ function FactureModal({rows, onClose}){
               <td style={tdL}><span style={{fontFamily:'monospace',fontSize:10}}>{l.sku}</span></td>
               <td style={{...tdL,maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.lib}</td>
               <td style={td}>{fmtQ(l.qty)}</td>
-              <td style={td}>{fmtE(l.pvU)}</td>
-              <td style={td}>{fmtE(l.coutU)}</td>
-              <td style={td}>{fmtE(l.crdU)}</td>
-              <td style={td}>{fmtE(l.freinteU)}</td>
-              <td style={td}>{fmtE(l.transportU)}</td>
-              <td style={td}>{fmtE(l.prepaU)}</td>
-              <td style={{...td,fontWeight:600}}>{fmtE(l.cogsU)}</td>
+              <td style={td}>{fmtE(l.pvTot)}</td>
+              <td style={td}>{fmtE(l.coutTot)}</td>
+              <td style={td}>{fmtE(l.crdTot)}</td>
+              <td style={td}>{fmtE(l.freinteTot)}</td>
+              <td style={td}>{fmtE(l.transportTot)}</td>
+              <td style={td}>{fmtE(l.prepaTot)}</td>
+              <td style={{...td,fontWeight:600}}>{fmtE(l.cogsTot)}</td>
               <td style={{...td,color:l.taux!==null&&l.taux<0?'#c0392b':'#2d6a4f'}}>{fmtPct(l.taux)}</td>
               <td style={{...td,fontWeight:600}}>{fmtE(l.ca)}</td>
               <td style={{...td,fontWeight:600,color:l.marge<0?'#c0392b':'#2d6a4f'}}>{fmtE(l.marge)}</td>
@@ -4882,13 +4895,13 @@ function FactureModal({rows, onClose}){
             <tr>
               <td style={tdTotL} colSpan={2}>Total</td>
               <td style={tdTot}>{fmtQ(totQty)}</td>
-              <td style={tdTot}>—</td>
-              <td style={tdTot}>—</td>
-              <td style={tdTot}>—</td>
-              <td style={tdTot}>—</td>
+              <td style={tdTot}>{fmtE(totPV)}</td>
+              <td style={tdTot}>{fmtE(totCout)}</td>
+              <td style={tdTot}>{fmtE(totCRD)}</td>
+              <td style={tdTot}>{fmtE(totFreinte)}</td>
               <td style={tdTot}>{fmtE(totTransport)}</td>
               <td style={tdTot}>{fmtE(totPrepa)}</td>
-              <td style={tdTot}>—</td>
+              <td style={{...tdTot,fontWeight:700}}>{fmtE(totCOGS)}</td>
               <td style={{...tdTot,color:totTaux!==null&&totTaux<0?'#c0392b':'#2d6a4f'}}>{fmtPct(totTaux)}</td>
               <td style={tdTot}>{fmtE(totCA)}</td>
               <td style={{...tdTot,color:totMarge<0?'#c0392b':'#2d6a4f'}}>{fmtE(totMarge)}</td>
