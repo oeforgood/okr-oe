@@ -4865,11 +4865,11 @@ function FactureModal({rows, onClose, currentUser, onPuceClick, getPuce, puceCol
 
   function pa(s){
     if(!s||s==='MARGE NON CALCULABLE'||s==='PAS DE COUT ASSOCIE')return 0;
-    try{return parseFloat(String(s).replace(/€/g,'').replace(/[\s\u00a0\u202f]/g,'').replace(',','.').trim())||0;}catch{return 0;}
+    try{return parseFloat(String(s).replace(/€/g,'').replace(/[\s\u00a0\u202f\u2009]/g,'').replace(',','.').trim())||0;}catch{return 0;}
   }
 
   const lignes=rows.map(r=>{
-    const qty=parseFloat(r['Quantité équivalent unité'])||0;
+    const qty=parseFloat(String(r['Quantité équivalent unité']||'').replace(/[\u00a0\u202f\u2009\s]/g,''))||0;
     const ca=pa(r['Montant HT']);
     const marge=pa(r['Marge brute']);
     const cout=pa(r['Cout production vin inclus total']);
