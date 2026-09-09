@@ -687,6 +687,7 @@ function MessagesPanel({managerNotifs,teammateNotifs=[],onReadNotif,onMarkAsRead
           <span style={{fontSize:15,fontWeight:600}}>{selected.title}</span>
           
         </div>
+      </>
         <div style={{fontSize:11,color:"#9e9890",marginBottom:4}}>{selected.date.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})} à {selected.date.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}</div>
         {!selected.isSystem&&selected.notif?.weekKey&&<div style={{fontSize:11,color:"#9e9890",marginBottom:18}}>Semaine du {fmtWeekLabel(selected.notif.weekKey)}</div>}
         {selected.isSystem&&<div style={{marginBottom:14}}/>}
