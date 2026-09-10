@@ -1059,6 +1059,23 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
   const [bfrBanner,setBfrBanner]=React.useState(null);
   React.useEffect(()=>{
     const u1=onSnapshot(doc(db,'reporting','bfr'),snap=>{if(snap.exists())setBfrBanner(snap.data().bilData);});
+    // CA tous canaux from reporting
+    const u2=onSnapshot(doc(db,'reporting','ca'),snap=>{
+      if(!snap.exists())return;
+      const caData=snap.data().caData||{};
+      const yr=new Date().getFullYear();
+      const mo=new Date().getMonth()+1;
+      let total=0;
+      Object.values(caData).forEach(canalData=>{
+        if(typeof canalData==='object'){
+          Object.entries(canalData).forEach(([k,v])=>{
+            const m=parseInt((k.split('-')[1]||'0'));
+            if(m>=1&&m<=mo)total+=typeof v==='number'?v:parseFloat(String(v).replace(',','.'))||0;
+          });
+        }
+      });
+      setKpis(p=>({...p,caTousCanaux:total,caTousCanauxMo:mo}));
+    });
     getDocs(collection(db,'bsv3_data')).then(snap=>{
       if(snap.empty)return;
       const at=snap.docs[0]?.data()?.importedAt||null;
@@ -1220,11 +1237,11 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
     <div style={card}>
       <div style={{...sTitle,fontSize:14,color:'#1a1814'}}>📊 KPIs</div>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-        {/* Top left: CA YTD */}
+        {/* Top left: CA YTD tous canaux */}
         <div style={{background:'#f8f7f5',borderRadius:10,padding:'11px 13px'}}>
-          <div style={{fontSize:10,color:'#9e9890',marginBottom:3}}>CA YTD B2B</div>
-          <div style={{fontSize:16,fontWeight:800,color:'#1a1814'}}>{kpis.bsv3CA!==undefined?fmtE(kpis.bsv3CA):'…'}</div>
-          {kpis.bsv3LastMo&&<div style={{fontSize:9,color:'#c5c0b8',marginTop:2}}>jusqu'à {MOIS[kpis.bsv3LastMo-1]}</div>}
+          <div style={{fontSize:10,color:'#9e9890',marginBottom:3}}>CA YTD tous canaux</div>
+          <div style={{fontSize:16,fontWeight:800,color:'#1a1814'}}>{kpis.caTousCanaux!==undefined?fmtE(kpis.caTousCanaux):'…'}</div>
+          {kpis.caTousCanauxMo&&<div style={{fontSize:9,color:'#c5c0b8',marginTop:2}}>jusqu'à {MOIS[kpis.caTousCanauxMo-1]}</div>}
         </div>
         {/* Top right: Trésorerie */}
         <div style={{background:'#eff6ff',borderRadius:10,padding:'11px 13px'}}>
