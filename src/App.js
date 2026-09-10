@@ -976,7 +976,7 @@ function FeedbackBox({currentUser, teamMember}) {
 }
 
 
-function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,onMarkAsRead,okrData,absencesList=[],onGoUpdate,isAdmin,questions=[],onSubmitUpdate,onDeleteUpdate}){
+function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,onMarkAsRead,okrData,absencesList=[],onGoUpdate,isAdmin,questions=[],onSubmitUpdate,onDeleteUpdate,bsv3KPIs,reportingKPIs}){
   const [notifModal,setNotifModal]=React.useState(null);
   const [updateModal,setUpdateModal]=React.useState(false);
   const [readNotifIds,setReadNotifIds]=React.useState(new Set());
@@ -1059,6 +1059,26 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
   const [bfrBanner,setBfrBanner]=React.useState(null);
   React.useEffect(()=>{
     const u1=onSnapshot(doc(db,'reporting','bfr'),snap=>{if(snap.exists())setBfrBanner(snap.data().bilData);});
+    // CA tous canaux from reporting
+    const u2=onSnapshot(doc(db,'reporting','ca'),snap=>{
+      console.log('[CA] snap exists:', snap.exists());
+      if(!snap.exists())return;
+      const raw=snap.data();
+      console.log('[CA] keys:', Object.keys(raw));
+      const caData=raw.caData||{};
+      console.log('[CA] caData keys:', Object.keys(caData));
+      let total=0;
+      Object.entries(caData).forEach(([canal,canalData])=>{
+        if(typeof canalData==='object'&&canalData!==null){
+          const canalTotal=Object.values(canalData).reduce((s,v)=>s+(typeof v==='number'?v:parseFloat(String(v).replace(',','.'))||0),0);
+          console.log('[CA]',canal,'=',canalTotal);
+          total+=canalTotal;
+        }
+      });
+      console.log('[CA] total=',total);
+      const mo=new Date().getMonth()+1;
+      setKpis(p=>({...p,caTousCanaux:total,caTousCanauxMo:mo}));
+    });
     getDocs(collection(db,'bsv3_data')).then(snap=>{
       if(snap.empty)return;
       const at=snap.docs[0]?.data()?.importedAt||null;
@@ -1150,7 +1170,7 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
 
     {/* OKR */}
     <div style={card}>
-      <div style={{...sTitle,fontSize:14,color:'#1a1814'}}>🎯 {season?.label||seasonKey||'OKR'}</div>
+      <div style={{...sTitle,fontSize:14,color:'#1a1814'}}>🎯 OKR — {season?.label||seasonKey||''}</div>
       {[
         {label:'Avancement équipe',pct:avgPct,color:progColor(Math.round(avgPct))},
         {label:'Avancement saison',pct:seasonPct,color:'#b5680f'},
@@ -1185,7 +1205,7 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
       <div style={{...sTitle,fontSize:14,color:'#1a1814'}}>😊 Updates</div>
       {/* Semaine passée */}
       <div style={{marginBottom:14}}>
-        <div style={{fontSize:10,color:'#9e9890',marginBottom:8,fontWeight:600}}>Semaine passée</div>
+        <div style={{fontSize:10,color:'#9e9890',marginBottom:8,fontWeight:600}}>Semaine passée : moi et l'équipe</div>
         <div style={{display:'flex',alignItems:'center',gap:10}}>
           <span style={{fontSize:44,lineHeight:1}}>{getMoodIcon(myLastWk,myEmail,myPrenom,new Date(_7d))}</span>
           <div style={{display:'flex',gap:4,flexWrap:'wrap',alignItems:'center'}}>
@@ -1220,11 +1240,11 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
     <div style={card}>
       <div style={{...sTitle,fontSize:14,color:'#1a1814'}}>📊 KPIs</div>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-        {/* Top left: CA YTD */}
+        {/* Top left: CA YTD tous canaux */}
         <div style={{background:'#f8f7f5',borderRadius:10,padding:'11px 13px'}}>
-          <div style={{fontSize:10,color:'#9e9890',marginBottom:3}}>CA YTD B2B</div>
-          <div style={{fontSize:16,fontWeight:800,color:'#1a1814'}}>{kpis.bsv3CA!==undefined?fmtE(kpis.bsv3CA):'…'}</div>
-          {kpis.bsv3LastMo&&<div style={{fontSize:9,color:'#c5c0b8',marginTop:2}}>jusqu'à {MOIS[kpis.bsv3LastMo-1]}</div>}
+          <div style={{fontSize:10,color:'#9e9890',marginBottom:3}}>CA YTD tous canaux</div>
+          <div style={{fontSize:16,fontWeight:800,color:'#1a1814'}}>{reportingKPIs?.caYTD!==undefined?fmtE(reportingKPIs.caYTD):'…'}</div>
+          {reportingKPIs?.mo&&<div style={{fontSize:9,color:'#c5c0b8',marginTop:2}}>jusqu'à {MOIS[reportingKPIs.mo-1]}</div>}
         </div>
         {/* Top right: Trésorerie */}
         <div style={{background:'#eff6ff',borderRadius:10,padding:'11px 13px'}}>
@@ -1234,10 +1254,10 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
         </div>
         {/* Bottom left: Tx marge dernier mois avec flèche */}
         <div style={{background:'#f8f7f5',borderRadius:10,padding:'11px 13px'}}>
-          <div style={{fontSize:10,color:'#9e9890',marginBottom:3}}>Tx marge {kpis.bsv3LastMo?MOIS[kpis.bsv3LastMo-1]:''}</div>
+          <div style={{fontSize:10,color:'#9e9890',marginBottom:3}}>Tx marge {bsv3KPIs?.lastMo?MOIS[bsv3KPIs.lastMo-1]:''}</div>
           <div style={{display:'flex',alignItems:'center',gap:6}}>
-            <span style={{fontSize:16,fontWeight:800,color:'#1a1814'}}>{fmtPct(kpis.bsv3TauxLM)}</span>
-            {kpis.bsv3TauxLM!==null&&kpis.bsv3TauxPM!==null&&<span style={{fontSize:13,color:kpis.bsv3TauxLM>=kpis.bsv3TauxPM?'#2d6a4f':'#c0392b'}}>
+            <span style={{fontSize:16,fontWeight:800,color:'#1a1814'}}>{fmtPct(bsv3KPIs?.tauxLM)}</span>
+            {bsv3KPIs?.tauxLM!==null&&bsv3KPIs?.tauxPM!==null&&<span style={{fontSize:13,color:bsv3KPIs.tauxLM>=bsv3KPIs.tauxPM?'#2d6a4f':'#c0392b'}}>
               {kpis.bsv3TauxLM>=kpis.bsv3TauxPM?'↑':'↓'}
             </span>}
           </div>
@@ -1245,7 +1265,7 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
         {/* Bottom right: Tx marge YTD */}
         <div style={{background:'#f0fdf4',borderRadius:10,padding:'11px 13px'}}>
           <div style={{fontSize:10,color:'#9e9890',marginBottom:3}}>Tx marge YTD</div>
-          <div style={{fontSize:16,fontWeight:800,color:'#2d6a4f'}}>{fmtPct(kpis.bsv3Taux)}</div>
+          <div style={{fontSize:16,fontWeight:800,color:'#2d6a4f'}}>{fmtPct(bsv3KPIs?.taux)}</div>
         </div>
       </div>
     </div>
@@ -1272,7 +1292,7 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
 }
 
 
-function Dashboard({isMobile=false,currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,onMarkAsRead,okrData,isAdmin,onOpenSettings,onChangeSeasonKey,onSendMessage,absencesList=[],questions=[],onSubmitUpdate,onDeleteUpdate}){
+function Dashboard({isMobile=false,currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,onMarkAsRead,okrData,isAdmin,onOpenSettings,onChangeSeasonKey,onSendMessage,absencesList=[],questions=[],onSubmitUpdate,onDeleteUpdate,bsv3KPIs,reportingKPIs}){
   const {objectives=[],subobjectives=[],keyresults=[],seasonKey:_sk}=okrData||{};
   const seasonKey=okrData?.seasonKey||"printemps_2026";
   const isOwner=currentUser?.email===OWNER_EMAIL;
@@ -1306,7 +1326,7 @@ function Dashboard({isMobile=false,currentUser,teamMember,teamMembers=[],onGoOKR
   const todayUpdate=weekKey?myUpdates.find(u=>u.weekKey===weekKey):null;
   const unread=managerNotifs.filter(n=>!n.read);
 
-  if(isMobile)return <DashboardMobile currentUser={currentUser} teamMember={teamMember} teamMembers={teamMembers} myUpdates={myUpdates} allUpdates={allUpdates} managerNotifs={managerNotifs} teammateNotifs={teammateNotifs} onReadNotif={onReadNotif} onMarkAsRead={onMarkAsRead} okrData={okrData} absencesList={absencesList} onGoUpdate={onGoUpdate} isAdmin={isAdmin} questions={questions} onSubmitUpdate={onSubmitUpdate} onDeleteUpdate={onDeleteUpdate}/>;
+  if(isMobile)return <DashboardMobile currentUser={currentUser} teamMember={teamMember} teamMembers={teamMembers} myUpdates={myUpdates} allUpdates={allUpdates} managerNotifs={managerNotifs} teammateNotifs={teammateNotifs} onReadNotif={onReadNotif} onMarkAsRead={onMarkAsRead} okrData={okrData} absencesList={absencesList} onGoUpdate={onGoUpdate} isAdmin={isAdmin} questions={questions} onSubmitUpdate={onSubmitUpdate} onDeleteUpdate={onDeleteUpdate} bsv3KPIs={bsv3KPIs} reportingKPIs={reportingKPIs}/>;
   return <div style={{minHeight:"100vh",background:"#f5f3ef",fontFamily:"system-ui,sans-serif"}}>
     <div style={{background:"rgba(245,243,239,.95)",borderBottom:"1px solid #e2ddd6",padding:"10px 20px",display:"flex",alignItems:"center",gap:12}}>
       <span style={{fontSize:18,fontWeight:700,color:"#2d6a4f",letterSpacing:"-.3px"}}>🌼 Calendula</span>
@@ -5650,7 +5670,7 @@ function getBsv3ProdLabel(rows, prod){
 }
 
 
-function Bsv3CaTable({rows, importedAt, clientFilter=''}){
+function Bsv3CaTable({rows, importedAt, clientFilter='', proprietaireFilter=''}){
   const CA_CANAUX=['CHR','Grands Comptes','Retail','Export'];
   const [expandedCanaux,setExpandedCanaux]=React.useState({});
   const [expandedClients,setExpandedClients]=React.useState({});
@@ -5671,7 +5691,8 @@ function Bsv3CaTable({rows, importedAt, clientFilter=''}){
 
   const clientFilterLower2=clientFilter.trim().toLowerCase();
   const validRows=rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])
-    &&(!clientFilterLower2||(r['Client PL']||r['Tiers']||'').toLowerCase().includes(clientFilterLower2)));
+    &&(!clientFilterLower2||(r['Client PL']||r['Tiers']||'').toLowerCase().includes(clientFilterLower2))
+    &&(!proprietaireFilter||(r['Propriétaire HS']||'')===proprietaireFilter));
 
   function getCA(rows2,mth,yr){
     return rows2.filter(r=>parseInt(r['Mois Emission'])===mth&&r['Année Emission']===String(yr))
@@ -6007,6 +6028,7 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,
   const {rows,importedAt,loading}=useBsv3Data();
   const [mainTab,setMainTab]=React.useState('ventes');
   const [clientFilter,setClientFilter]=React.useState('');
+  const [proprietaireFilter,setProprietaireFilter]=React.useState('');
   const [levels,setLevels]=React.useState(['client','produit','facture']);
   const [ytdMode,setYtdMode]=React.useState(false);
   const [activeVentesCanaux,setActiveVentesCanaux]=React.useState(null);
@@ -6029,12 +6051,14 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,
   const clientFilterLower=clientFilter.trim().toLowerCase();
   const baseFilter=r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])
     &&CA_CANAUX.includes(r['Canal'])
-    &&(!clientFilterLower||(r['Client PL']||r['Tiers']||'').toLowerCase().includes(clientFilterLower));
+    &&(!clientFilterLower||(r['Client PL']||r['Tiers']||'').toLowerCase().includes(clientFilterLower))
+    &&(!proprietaireFilter||(r['Propriétaire HS']||'')===proprietaireFilter);
   // Ventes-specific filters (canal + mois)
   const CA_AUTRES=r=>!CA_CANAUX.includes(r['Canal']);
   const ventesBaseFilter=r=>baseFilter(r)
     &&(!activeVentesCanaux||(activeVentesCanaux.has('__autres__')?CA_AUTRES(r):false)||activeVentesCanaux.has(r['Canal']))
-    &&(!activeVentesMois||activeVentesMois.has(String(parseInt(r['Mois Emission']))));
+    &&(!activeVentesMois||activeVentesMois.has(String(parseInt(r['Mois Emission']))))
+    &&(!proprietaireFilter||(r['Propriétaire HS']||'')===proprietaireFilter);
   const validRows=rows.filter(r=>r['Année Emission']===String(year)&&baseFilter(r));
   const prevRows=rows.filter(r=>r['Année Emission']===String(prevYear)&&baseFilter(r));
   const allYearRows=rows.filter(r=>baseFilter(r));
@@ -6056,6 +6080,20 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,
 
   // Letter filter for écoulements
   const allProdsForFilter=[...new Set(rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])).map(r=>r['Contenant+Appelation/Robe']))];
+  const allProprietaires=(()=>{
+    const clientsMap={};
+    rows.forEach(r=>{const p=r['Propriétaire HS'];const cl=r['Client PL']||r['Tiers'];if(p&&cl){if(!clientsMap[p])clientsMap[p]=new Set();clientsMap[p].add(cl);}});
+    const all=[...new Set(rows.map(r=>r['Propriétaire HS']).filter(Boolean))];
+    const ABSENT='Tiers absent de HubSpot';const DEACT='(Deactivated User)';
+    const deactLower=DEACT.toLowerCase();
+    return all.sort((a,b)=>{
+      if(a===ABSENT)return -1;if(b===ABSENT)return 1;
+      const aD=a.toLowerCase().includes(deactLower);
+      const bD=b.toLowerCase().includes(deactLower);
+      if(aD&&!bD)return 1;if(!aD&&bD)return -1;
+      return a.localeCompare(b,'fr',{sensitivity:'base'});
+    }).map(p=>({value:p,label:p+' - '+(clientsMap[p]?.size||0)+' client'+(clientsMap[p]?.size>1?'s':'')}));
+  })();
   const allLetters=[...new Set(allProdsForFilter.map(p=>p[0]))].sort((a,b)=>{
     const ia=PROD_LETTER_ORDER.indexOf(a),ib=PROD_LETTER_ORDER.indexOf(b);
     if(ia>=0&&ib>=0)return ia-ib;if(ia>=0)return -1;if(ib>=0)return 1;return a.localeCompare(b);
@@ -6079,7 +6117,12 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,
             {t.l}
           </button>
         ))}
-        <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:6}}>
+        <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:10}}>
+          {mainTab!=='ecoulements'&&allProprietaires.length>0&&<select value={proprietaireFilter} onChange={e=>setProprietaireFilter(e.target.value)}
+            style={{fontSize:12,padding:'5px 8px',borderRadius:6,border:'1px solid #e2ddd6',outline:'none',background:'#fff',color:proprietaireFilter?'#1a1814':'#9e9890',cursor:'pointer'}}>
+            <option value=''>Tous les propriétaires HubSpot</option>
+            {allProprietaires.map(p=><option key={p.value} value={p.value}>{p.label}</option>)}
+          </select>}
           <span style={{fontSize:11,color:'#9e9890'}}>🔍</span>
           <input value={clientFilter} onChange={e=>setClientFilter(e.target.value)}
             placeholder="Filtrer par client..."
@@ -6257,7 +6300,7 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,
           prevRows={activeVentesMois&&activeVentesMois.has('ytd')?ventesPrevRows.filter(r=>parseInt(r['Mois Emission'])<=ventesMaxYtdMonth):ventesPrevRows}
           allYearRows={ventesAllYearRows}
           ytdMode={!!(activeVentesMois&&activeVentesMois.has('ytd'))} maxYtdMonth={ventesMaxYtdMonth} currentUser={currentUser} filterPuceFromPage={filterPuce} onUpdatePuce={onUpdatePuce}/>
-      :mainTab==='ca'?<Bsv3CaTable rows={rows} importedAt={importedAt} clientFilter={clientFilter}/>
+      :mainTab==='ca'?<Bsv3CaTable rows={rows} importedAt={importedAt} clientFilter={clientFilter} proprietaireFilter={proprietaireFilter}/>
       :<Bsv3CommandesTable rows={rows} importedAt={importedAt} activeLetters={activeLetters} activeAppelations={activeAppelations} clientFilter={clientFilter}/>}
     </div>
   </div>;
@@ -6269,6 +6312,44 @@ export default function App(){
     window.addEventListener('resize',h);
     return ()=>window.removeEventListener('resize',h);
   },[]);
+  const [appBsv3KPIs,setAppBsv3KPIs]=React.useState(null);
+  const [appReportingKPIs,setAppReportingKPIs]=React.useState(null);
+  // Load KPIs for mobile dashboard
+  React.useEffect(()=>{
+    if(!isMobile)return;
+    // BSv3 KPIs - load all chunks (only on mobile dashboard)
+    getDocs(collection(db,'bsv3_data')).then(snap=>{
+      if(snap.empty)return;
+      const at=snap.docs[0]?.data()?.importedAt||null;
+      let allRows=[];
+      snap.docs.sort((a,b)=>a.id.localeCompare(b.id)).forEach(d=>allRows=allRows.concat(d.data().rows||[]));
+      const CA_CANAUX=['CHR','Grands Comptes','Retail','Export'];
+      const yr=new Date().getFullYear();
+      const valid=allRows.filter(r=>r['Année Emission']===String(yr)&&CA_CANAUX.includes(r['Canal'])&&!['CASIER-OE','COIFFE-OE','CONTENANT BOUTEILLE'].includes(r['Contenant+Appelation/Robe']));
+      const lastMo=valid.length?Math.max(...valid.map(r=>parseInt(r['Mois Emission'])||0).filter(m=>m>0)):0;
+      const ytdRows=valid.filter(r=>parseInt(r['Mois Emission'])<=lastMo);
+      const lastMoRows=valid.filter(r=>parseInt(r['Mois Emission'])===lastMo);
+      const prevMoRows=valid.filter(r=>parseInt(r['Mois Emission'])===lastMo-1);
+      const ca=ytdRows.reduce((s,r)=>s+parseBsv3Amt(r['Montant HT']),0);
+      const marge=ytdRows.reduce((s,r)=>s+parseBsv3Amt(r['Marge brute']),0);
+      const caLM=lastMoRows.reduce((s,r)=>s+parseBsv3Amt(r['Montant HT']),0);
+      const margeLM=lastMoRows.reduce((s,r)=>s+parseBsv3Amt(r['Marge brute']),0);
+      const caPM=prevMoRows.reduce((s,r)=>s+parseBsv3Amt(r['Montant HT']),0);
+      const margePM=prevMoRows.reduce((s,r)=>s+parseBsv3Amt(r['Marge brute']),0);
+      setAppBsv3KPIs({ca,marge,taux:ca>0?marge/ca:null,tauxLM:caLM>0?margeLM/caLM:null,tauxPM:caPM>0?margePM/caPM:null,lastMo,importedAt:at});
+    });
+    // Reporting CA
+    onSnapshot(doc(db,'reporting','ca'),snap=>{
+      if(!snap.exists())return;
+      const caData=snap.data().caData||{};
+      let total=0;
+      Object.values(caData).forEach(canalData=>{
+        if(typeof canalData==='object'&&canalData!==null)
+          Object.values(canalData).forEach(v=>{total+=typeof v==='number'?v:parseFloat(String(v).replace(',','.'))||0;});
+      });
+      setAppReportingKPIs({caYTD:total,mo:new Date().getMonth()+1});
+    });
+  },[isMobile]);
   const [authUser,setAuthUser]=useState(null);
   const [authLoading,setAuthLoading]=useState(true);
   const [authError,setAuthError]=useState("");
@@ -6725,6 +6806,8 @@ export default function App(){
 
   return <Dashboard
     isMobile={isMobile}
+    bsv3KPIs={appBsv3KPIs}
+    reportingKPIs={appReportingKPIs}
     questions={questions}
     onSubmitUpdate={handleUpdateSubmit}
     onDeleteUpdate={handleDeleteUpdate}
