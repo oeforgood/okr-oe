@@ -6079,6 +6079,13 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,
 
   // Letter filter for écoulements
   const allProdsForFilter=[...new Set(rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])).map(r=>r['Contenant+Appelation/Robe']))];
+  const allProprietaires=(()=>{
+    const clientsMap={};
+    rows.forEach(r=>{const p=r['Propriétaire HS'];const cl=r['Client PL']||r['Tiers'];if(p&&cl){if(!clientsMap[p])clientsMap[p]=new Set();clientsMap[p].add(cl);}});
+    const all=[...new Set(rows.map(r=>r['Propriétaire HS']).filter(Boolean))];
+    const ABSENT='Tiers absent de HubSpot';const DEACT='(Desactivated User)';
+    return all.sort((a,b)=>{if(a===ABSENT)return -1;if(b===ABSENT)return 1;const aD=a.includes(DEACT);const bD=b.includes(DEACT);if(aD&&!bD)return 1;if(!aD&&bD)return -1;return a.localeCompare(b,'fr',{sensitivity:'base'});}).map(p=>({value:p,label:p+' - '+(clientsMap[p]?.size||0)+' client'+(clientsMap[p]?.size>1?'s':'')}));
+  })();
   const allLetters=[...new Set(allProdsForFilter.map(p=>p[0]))].sort((a,b)=>{
     const ia=PROD_LETTER_ORDER.indexOf(a),ib=PROD_LETTER_ORDER.indexOf(b);
     if(ia>=0&&ib>=0)return ia-ib;if(ia>=0)return -1;if(ib>=0)return 1;return a.localeCompare(b);
