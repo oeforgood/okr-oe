@@ -6079,7 +6079,6 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,
 
   // Letter filter for écoulements
   const allProdsForFilter=[...new Set(rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])).map(r=>r['Contenant+Appelation/Robe']))];
-  const allProprietaires=[...new Set(rows.map(r=>r['Propriétaire HS']).filter(Boolean))].sort();
   const allLetters=[...new Set(allProdsForFilter.map(p=>p[0]))].sort((a,b)=>{
     const ia=PROD_LETTER_ORDER.indexOf(a),ib=PROD_LETTER_ORDER.indexOf(b);
     if(ia>=0&&ib>=0)return ia-ib;if(ia>=0)return -1;if(ib>=0)return 1;return a.localeCompare(b);
@@ -6107,7 +6106,7 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,
           {allProprietaires.length>0&&<select value={proprietaireFilter} onChange={e=>setProprietaireFilter(e.target.value)}
             style={{fontSize:12,padding:'5px 8px',borderRadius:6,border:'1px solid #e2ddd6',outline:'none',background:'#fff',color:proprietaireFilter?'#1a1814':'#9e9890',cursor:'pointer'}}>
             <option value=''>Propriétaire HS</option>
-            {allProprietaires.map(p=><option key={p} value={p}>{p}</option>)}
+            {allProprietaires.map(p=><option key={p.value} value={p.value}>{p.label}</option>)}
           </select>}
           <span style={{fontSize:11,color:'#9e9890'}}>🔍</span>
           <input value={clientFilter} onChange={e=>setClientFilter(e.target.value)}
