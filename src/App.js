@@ -976,7 +976,7 @@ function FeedbackBox({currentUser, teamMember}) {
 }
 
 
-function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,onMarkAsRead,okrData,absencesList=[],onGoUpdate,isAdmin,questions=[],onSubmitUpdate,onDeleteUpdate}){
+function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,onMarkAsRead,okrData,absencesList=[],onGoUpdate,isAdmin,questions=[],onSubmitUpdate,onDeleteUpdate,bsv3KPIs,reportingKPIs}){
   const [notifModal,setNotifModal]=React.useState(null);
   const [updateModal,setUpdateModal]=React.useState(false);
   const [readNotifIds,setReadNotifIds]=React.useState(new Set());
@@ -1243,8 +1243,8 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
         {/* Top left: CA YTD tous canaux */}
         <div style={{background:'#f8f7f5',borderRadius:10,padding:'11px 13px'}}>
           <div style={{fontSize:10,color:'#9e9890',marginBottom:3}}>CA YTD tous canaux</div>
-          <div style={{fontSize:16,fontWeight:800,color:'#1a1814'}}>{kpis.caTousCanaux!==undefined?fmtE(kpis.caTousCanaux):'…'}</div>
-          {kpis.caTousCanauxMo&&<div style={{fontSize:9,color:'#c5c0b8',marginTop:2}}>jusqu'à {MOIS[kpis.caTousCanauxMo-1]}</div>}
+          <div style={{fontSize:16,fontWeight:800,color:'#1a1814'}}>{reportingKPIs?.caYTD!==undefined?fmtE(reportingKPIs.caYTD):'…'}</div>
+          {reportingKPIs?.mo&&<div style={{fontSize:9,color:'#c5c0b8',marginTop:2}}>jusqu'à {MOIS[reportingKPIs.mo-1]}</div>}
         </div>
         {/* Top right: Trésorerie */}
         <div style={{background:'#eff6ff',borderRadius:10,padding:'11px 13px'}}>
@@ -1254,10 +1254,10 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
         </div>
         {/* Bottom left: Tx marge dernier mois avec flèche */}
         <div style={{background:'#f8f7f5',borderRadius:10,padding:'11px 13px'}}>
-          <div style={{fontSize:10,color:'#9e9890',marginBottom:3}}>Tx marge {kpis.bsv3LastMo?MOIS[kpis.bsv3LastMo-1]:''}</div>
+          <div style={{fontSize:10,color:'#9e9890',marginBottom:3}}>Tx marge {bsv3KPIs?.lastMo?MOIS[bsv3KPIs.lastMo-1]:''}</div>
           <div style={{display:'flex',alignItems:'center',gap:6}}>
-            <span style={{fontSize:16,fontWeight:800,color:'#1a1814'}}>{fmtPct(kpis.bsv3TauxLM)}</span>
-            {kpis.bsv3TauxLM!==null&&kpis.bsv3TauxPM!==null&&<span style={{fontSize:13,color:kpis.bsv3TauxLM>=kpis.bsv3TauxPM?'#2d6a4f':'#c0392b'}}>
+            <span style={{fontSize:16,fontWeight:800,color:'#1a1814'}}>{fmtPct(bsv3KPIs?.tauxLM)}</span>
+            {bsv3KPIs?.tauxLM!==null&&bsv3KPIs?.tauxPM!==null&&<span style={{fontSize:13,color:bsv3KPIs.tauxLM>=bsv3KPIs.tauxPM?'#2d6a4f':'#c0392b'}}>
               {kpis.bsv3TauxLM>=kpis.bsv3TauxPM?'↑':'↓'}
             </span>}
           </div>
@@ -1265,7 +1265,7 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
         {/* Bottom right: Tx marge YTD */}
         <div style={{background:'#f0fdf4',borderRadius:10,padding:'11px 13px'}}>
           <div style={{fontSize:10,color:'#9e9890',marginBottom:3}}>Tx marge YTD</div>
-          <div style={{fontSize:16,fontWeight:800,color:'#2d6a4f'}}>{fmtPct(kpis.bsv3Taux)}</div>
+          <div style={{fontSize:16,fontWeight:800,color:'#2d6a4f'}}>{fmtPct(bsv3KPIs?.taux)}</div>
         </div>
       </div>
     </div>
@@ -1292,7 +1292,7 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
 }
 
 
-function Dashboard({isMobile=false,currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,onMarkAsRead,okrData,isAdmin,onOpenSettings,onChangeSeasonKey,onSendMessage,absencesList=[],questions=[],onSubmitUpdate,onDeleteUpdate}){
+function Dashboard({isMobile=false,currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,onMarkAsRead,okrData,isAdmin,onOpenSettings,onChangeSeasonKey,onSendMessage,absencesList=[],questions=[],onSubmitUpdate,onDeleteUpdate,bsv3KPIs,reportingKPIs}){
   const {objectives=[],subobjectives=[],keyresults=[],seasonKey:_sk}=okrData||{};
   const seasonKey=okrData?.seasonKey||"printemps_2026";
   const isOwner=currentUser?.email===OWNER_EMAIL;
@@ -1326,7 +1326,7 @@ function Dashboard({isMobile=false,currentUser,teamMember,teamMembers=[],onGoOKR
   const todayUpdate=weekKey?myUpdates.find(u=>u.weekKey===weekKey):null;
   const unread=managerNotifs.filter(n=>!n.read);
 
-  if(isMobile)return <DashboardMobile currentUser={currentUser} teamMember={teamMember} teamMembers={teamMembers} myUpdates={myUpdates} allUpdates={allUpdates} managerNotifs={managerNotifs} teammateNotifs={teammateNotifs} onReadNotif={onReadNotif} onMarkAsRead={onMarkAsRead} okrData={okrData} absencesList={absencesList} onGoUpdate={onGoUpdate} isAdmin={isAdmin} questions={questions} onSubmitUpdate={onSubmitUpdate} onDeleteUpdate={onDeleteUpdate}/>;
+  if(isMobile)return <DashboardMobile currentUser={currentUser} teamMember={teamMember} teamMembers={teamMembers} myUpdates={myUpdates} allUpdates={allUpdates} managerNotifs={managerNotifs} teammateNotifs={teammateNotifs} onReadNotif={onReadNotif} onMarkAsRead={onMarkAsRead} okrData={okrData} absencesList={absencesList} onGoUpdate={onGoUpdate} isAdmin={isAdmin} questions={questions} onSubmitUpdate={onSubmitUpdate} onDeleteUpdate={onDeleteUpdate} bsv3KPIs={bsv3KPIs} reportingKPIs={reportingKPIs}/>;
   return <div style={{minHeight:"100vh",background:"#f5f3ef",fontFamily:"system-ui,sans-serif"}}>
     <div style={{background:"rgba(245,243,239,.95)",borderBottom:"1px solid #e2ddd6",padding:"10px 20px",display:"flex",alignItems:"center",gap:12}}>
       <span style={{fontSize:18,fontWeight:700,color:"#2d6a4f",letterSpacing:"-.3px"}}>🌼 Calendula</span>
@@ -6289,6 +6289,44 @@ export default function App(){
     window.addEventListener('resize',h);
     return ()=>window.removeEventListener('resize',h);
   },[]);
+  const [appBsv3KPIs,setAppBsv3KPIs]=React.useState(null);
+  const [appReportingKPIs,setAppReportingKPIs]=React.useState(null);
+  // Load KPIs for mobile dashboard
+  React.useEffect(()=>{
+    if(!isMobile)return;
+    // BSv3 KPIs - load all chunks (only on mobile dashboard)
+    getDocs(collection(db,'bsv3_data')).then(snap=>{
+      if(snap.empty)return;
+      const at=snap.docs[0]?.data()?.importedAt||null;
+      let allRows=[];
+      snap.docs.sort((a,b)=>a.id.localeCompare(b.id)).forEach(d=>allRows=allRows.concat(d.data().rows||[]));
+      const CA_CANAUX=['CHR','Grands Comptes','Retail','Export'];
+      const yr=new Date().getFullYear();
+      const valid=allRows.filter(r=>r['Année Emission']===String(yr)&&CA_CANAUX.includes(r['Canal'])&&!['CASIER-OE','COIFFE-OE','CONTENANT BOUTEILLE'].includes(r['Contenant+Appelation/Robe']));
+      const lastMo=valid.length?Math.max(...valid.map(r=>parseInt(r['Mois Emission'])||0).filter(m=>m>0)):0;
+      const ytdRows=valid.filter(r=>parseInt(r['Mois Emission'])<=lastMo);
+      const lastMoRows=valid.filter(r=>parseInt(r['Mois Emission'])===lastMo);
+      const prevMoRows=valid.filter(r=>parseInt(r['Mois Emission'])===lastMo-1);
+      const ca=ytdRows.reduce((s,r)=>s+parseBsv3Amt(r['Montant HT']),0);
+      const marge=ytdRows.reduce((s,r)=>s+parseBsv3Amt(r['Marge brute']),0);
+      const caLM=lastMoRows.reduce((s,r)=>s+parseBsv3Amt(r['Montant HT']),0);
+      const margeLM=lastMoRows.reduce((s,r)=>s+parseBsv3Amt(r['Marge brute']),0);
+      const caPM=prevMoRows.reduce((s,r)=>s+parseBsv3Amt(r['Montant HT']),0);
+      const margePM=prevMoRows.reduce((s,r)=>s+parseBsv3Amt(r['Marge brute']),0);
+      setAppBsv3KPIs({ca,marge,taux:ca>0?marge/ca:null,tauxLM:caLM>0?margeLM/caLM:null,tauxPM:caPM>0?margePM/caPM:null,lastMo,importedAt:at});
+    });
+    // Reporting CA
+    onSnapshot(doc(db,'reporting','ca'),snap=>{
+      if(!snap.exists())return;
+      const caData=snap.data().caData||{};
+      let total=0;
+      Object.values(caData).forEach(canalData=>{
+        if(typeof canalData==='object'&&canalData!==null)
+          Object.values(canalData).forEach(v=>{total+=typeof v==='number'?v:parseFloat(String(v).replace(',','.'))||0;});
+      });
+      setAppReportingKPIs({caYTD:total,mo:new Date().getMonth()+1});
+    });
+  },[isMobile]);
   const [authUser,setAuthUser]=useState(null);
   const [authLoading,setAuthLoading]=useState(true);
   const [authError,setAuthError]=useState("");
@@ -6745,6 +6783,8 @@ export default function App(){
 
   return <Dashboard
     isMobile={isMobile}
+    bsv3KPIs={appBsv3KPIs}
+    reportingKPIs={appReportingKPIs}
     questions={questions}
     onSubmitUpdate={handleUpdateSubmit}
     onDeleteUpdate={handleDeleteUpdate}
