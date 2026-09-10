@@ -5670,7 +5670,7 @@ function getBsv3ProdLabel(rows, prod){
 }
 
 
-function Bsv3CaTable({rows, importedAt, clientFilter=''}){
+function Bsv3CaTable({rows, importedAt, clientFilter='', proprietaireFilter=''}){
   const CA_CANAUX=['CHR','Grands Comptes','Retail','Export'];
   const [expandedCanaux,setExpandedCanaux]=React.useState({});
   const [expandedClients,setExpandedClients]=React.useState({});
@@ -6103,7 +6103,7 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,
           </button>
         ))}
         <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:10}}>
-          {allProprietaires.length>0&&<select value={proprietaireFilter} onChange={e=>setProprietaireFilter(e.target.value)}
+          {mainTab!=='ecoulements'&&allProprietaires.length>0&&<select value={proprietaireFilter} onChange={e=>setProprietaireFilter(e.target.value)}
             style={{fontSize:12,padding:'5px 8px',borderRadius:6,border:'1px solid #e2ddd6',outline:'none',background:'#fff',color:proprietaireFilter?'#1a1814':'#9e9890',cursor:'pointer'}}>
             <option value=''>Propriétaire HS</option>
             {allProprietaires.map(p=><option key={p.value} value={p.value}>{p.label}</option>)}
@@ -6285,7 +6285,7 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,
           prevRows={activeVentesMois&&activeVentesMois.has('ytd')?ventesPrevRows.filter(r=>parseInt(r['Mois Emission'])<=ventesMaxYtdMonth):ventesPrevRows}
           allYearRows={ventesAllYearRows}
           ytdMode={!!(activeVentesMois&&activeVentesMois.has('ytd'))} maxYtdMonth={ventesMaxYtdMonth} currentUser={currentUser} filterPuceFromPage={filterPuce} onUpdatePuce={onUpdatePuce}/>
-      :mainTab==='ca'?<Bsv3CaTable rows={rows} importedAt={importedAt} clientFilter={clientFilter}/>
+      :mainTab==='ca'?<Bsv3CaTable rows={rows} importedAt={importedAt} clientFilter={clientFilter} proprietaireFilter={proprietaireFilter}/>
       :<Bsv3CommandesTable rows={rows} importedAt={importedAt} activeLetters={activeLetters} activeAppelations={activeAppelations} clientFilter={clientFilter}/>}
     </div>
   </div>;
