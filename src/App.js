@@ -1061,17 +1061,21 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
     const u1=onSnapshot(doc(db,'reporting','bfr'),snap=>{if(snap.exists())setBfrBanner(snap.data().bilData);});
     // CA tous canaux from reporting
     const u2=onSnapshot(doc(db,'reporting','ca'),snap=>{
+      console.log('[CA] snap exists:', snap.exists());
       if(!snap.exists())return;
-      const caData=snap.data().caData||{};
-      // caData[canalKey][monthNumber] = value — sum all canals all months
+      const raw=snap.data();
+      console.log('[CA] keys:', Object.keys(raw));
+      const caData=raw.caData||{};
+      console.log('[CA] caData keys:', Object.keys(caData));
       let total=0;
-      Object.values(caData).forEach(canalData=>{
-        if(typeof canalData==='object'){
-          Object.values(canalData).forEach(v=>{
-            total+=typeof v==='number'?v:parseFloat(String(v).replace(',','.'))||0;
-          });
+      Object.entries(caData).forEach(([canal,canalData])=>{
+        if(typeof canalData==='object'&&canalData!==null){
+          const canalTotal=Object.values(canalData).reduce((s,v)=>s+(typeof v==='number'?v:parseFloat(String(v).replace(',','.'))||0),0);
+          console.log('[CA]',canal,'=',canalTotal);
+          total+=canalTotal;
         }
       });
+      console.log('[CA] total=',total);
       const mo=new Date().getMonth()+1;
       setKpis(p=>({...p,caTousCanaux:total,caTousCanauxMo:mo}));
     });
