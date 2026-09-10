@@ -6083,7 +6083,7 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,
     const clientsMap={};
     rows.forEach(r=>{const p=r['Propriétaire HS'];const cl=r['Client PL']||r['Tiers'];if(p&&cl){if(!clientsMap[p])clientsMap[p]=new Set();clientsMap[p].add(cl);}});
     const all=[...new Set(rows.map(r=>r['Propriétaire HS']).filter(Boolean))];
-    const ABSENT='Tiers absent de HubSpot';const DEACT='(Desactivated User)';
+    const ABSENT='Tiers absent de HubSpot';const DEACT='(Deactivated User)';
     const deactLower=DEACT.toLowerCase();
     return all.sort((a,b)=>{
       if(a===ABSENT)return -1;if(b===ABSENT)return 1;
