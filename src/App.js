@@ -1170,7 +1170,7 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
 
     {/* OKR */}
     <div style={card}>
-      <div style={{...sTitle,fontSize:14,color:'#1a1814'}}>🎯 {season?.label||seasonKey||'OKR'}</div>
+      <div style={{...sTitle,fontSize:14,color:'#1a1814'}}>🎯 OKR — {season?.label||seasonKey||''}</div>
       {[
         {label:'Avancement équipe',pct:avgPct,color:progColor(Math.round(avgPct))},
         {label:'Avancement saison',pct:seasonPct,color:'#b5680f'},
@@ -5691,8 +5691,7 @@ function Bsv3CaTable({rows, importedAt, clientFilter='', proprietaireFilter=''})
 
   const clientFilterLower2=clientFilter.trim().toLowerCase();
   const validRows=rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])
-    &&(!clientFilterLower2||(r['Client PL']||r['Tiers']||'').toLowerCase().includes(clientFilterLower2))
-    &&(!proprietaireFilter||(r['Propriétaire HS']||'')===proprietaireFilter));
+    &&(!clientFilterLower2||(r['Client PL']||r['Tiers']||'').toLowerCase().includes(clientFilterLower2)));
 
   function getCA(rows2,mth,yr){
     return rows2.filter(r=>parseInt(r['Mois Emission'])===mth&&r['Année Emission']===String(yr))
@@ -6080,13 +6079,6 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,
 
   // Letter filter for écoulements
   const allProdsForFilter=[...new Set(rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])).map(r=>r['Contenant+Appelation/Robe']))];
-  const allProprietaires=(()=>{
-    const clientsMap={};
-    rows.forEach(r=>{const p=r['Propriétaire HS'];const cl=r['Client PL']||r['Tiers'];if(p&&cl){if(!clientsMap[p])clientsMap[p]=new Set();clientsMap[p].add(cl);}});
-    const all=[...new Set(rows.map(r=>r['Propriétaire HS']).filter(Boolean))];
-    const ABSENT='Tiers absent de HubSpot';
-    return all.sort((a,b)=>{if(a===ABSENT)return -1;if(b===ABSENT)return 1;const aD=a.includes('(Desactivated User)');const bD=b.includes('(Desactivated User)');if(aD&&!bD)return 1;if(!aD&&bD)return -1;return a.localeCompare(b,'fr');}).map(p=>({value:p,label:p+' - '+(clientsMap[p]?.size||0)+' client'+(clientsMap[p]?.size>1?'s':'')}));
-  })();
   const allLetters=[...new Set(allProdsForFilter.map(p=>p[0]))].sort((a,b)=>{
     const ia=PROD_LETTER_ORDER.indexOf(a),ib=PROD_LETTER_ORDER.indexOf(b);
     if(ia>=0&&ib>=0)return ia-ib;if(ia>=0)return -1;if(ib>=0)return 1;return a.localeCompare(b);
@@ -6113,7 +6105,7 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,
         <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:10}}>
           {mainTab!=='ecoulements'&&allProprietaires.length>0&&<select value={proprietaireFilter} onChange={e=>setProprietaireFilter(e.target.value)}
             style={{fontSize:12,padding:'5px 8px',borderRadius:6,border:'1px solid #e2ddd6',outline:'none',background:'#fff',color:proprietaireFilter?'#1a1814':'#9e9890',cursor:'pointer'}}>
-            <option value=''>Propriétaire HS</option>
+            <option value=''>Tous les propriétaires HubSpot</option>
             {allProprietaires.map(p=><option key={p.value} value={p.value}>{p.label}</option>)}
           </select>}
           <span style={{fontSize:11,color:'#9e9890'}}>🔍</span>
