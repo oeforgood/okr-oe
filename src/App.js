@@ -1205,7 +1205,7 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
       <div style={{...sTitle,fontSize:14,color:'#1a1814'}}>😊 Updates</div>
       {/* Semaine passée */}
       <div style={{marginBottom:14}}>
-        <div style={{fontSize:10,color:'#9e9890',marginBottom:8,fontWeight:600}}>Semaine passée</div>
+        <div style={{fontSize:10,color:'#9e9890',marginBottom:8,fontWeight:600}}>Semaine passée : moi et l'équipe</div>
         <div style={{display:'flex',alignItems:'center',gap:10}}>
           <span style={{fontSize:44,lineHeight:1}}>{getMoodIcon(myLastWk,myEmail,myPrenom,new Date(_7d))}</span>
           <div style={{display:'flex',gap:4,flexWrap:'wrap',alignItems:'center'}}>
@@ -6084,7 +6084,14 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,
     rows.forEach(r=>{const p=r['Propriétaire HS'];const cl=r['Client PL']||r['Tiers'];if(p&&cl){if(!clientsMap[p])clientsMap[p]=new Set();clientsMap[p].add(cl);}});
     const all=[...new Set(rows.map(r=>r['Propriétaire HS']).filter(Boolean))];
     const ABSENT='Tiers absent de HubSpot';const DEACT='(Desactivated User)';
-    return all.sort((a,b)=>{if(a===ABSENT)return -1;if(b===ABSENT)return 1;const aD=a.includes(DEACT);const bD=b.includes(DEACT);if(aD&&!bD)return 1;if(!aD&&bD)return -1;return a.localeCompare(b,'fr',{sensitivity:'base'});}).map(p=>({value:p,label:p+' - '+(clientsMap[p]?.size||0)+' client'+(clientsMap[p]?.size>1?'s':'')}));
+    const deactLower=DEACT.toLowerCase();
+    return all.sort((a,b)=>{
+      if(a===ABSENT)return -1;if(b===ABSENT)return 1;
+      const aD=a.toLowerCase().includes(deactLower);
+      const bD=b.toLowerCase().includes(deactLower);
+      if(aD&&!bD)return 1;if(!aD&&bD)return -1;
+      return a.localeCompare(b,'fr',{sensitivity:'base'});
+    }).map(p=>({value:p,label:p+' - '+(clientsMap[p]?.size||0)+' client'+(clientsMap[p]?.size>1?'s':'')}));
   })();
   const allLetters=[...new Set(allProdsForFilter.map(p=>p[0]))].sort((a,b)=>{
     const ia=PROD_LETTER_ORDER.indexOf(a),ib=PROD_LETTER_ORDER.indexOf(b);
