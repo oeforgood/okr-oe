@@ -1063,17 +1063,16 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
     const u2=onSnapshot(doc(db,'reporting','ca'),snap=>{
       if(!snap.exists())return;
       const caData=snap.data().caData||{};
-      const yr=new Date().getFullYear();
-      const mo=new Date().getMonth()+1;
+      // caData[canalKey][monthNumber] = value — sum all canals all months
       let total=0;
       Object.values(caData).forEach(canalData=>{
         if(typeof canalData==='object'){
-          Object.entries(canalData).forEach(([k,v])=>{
-            const m=parseInt((k.split('-')[1]||'0'));
-            if(m>=1&&m<=mo)total+=typeof v==='number'?v:parseFloat(String(v).replace(',','.'))||0;
+          Object.values(canalData).forEach(v=>{
+            total+=typeof v==='number'?v:parseFloat(String(v).replace(',','.'))||0;
           });
         }
       });
+      const mo=new Date().getMonth()+1;
       setKpis(p=>({...p,caTousCanaux:total,caTousCanauxMo:mo}));
     });
     getDocs(collection(db,'bsv3_data')).then(snap=>{
