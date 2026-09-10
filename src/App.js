@@ -5691,7 +5691,8 @@ function Bsv3CaTable({rows, importedAt, clientFilter='', proprietaireFilter=''})
 
   const clientFilterLower2=clientFilter.trim().toLowerCase();
   const validRows=rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])
-    &&(!clientFilterLower2||(r['Client PL']||r['Tiers']||'').toLowerCase().includes(clientFilterLower2)));
+    &&(!clientFilterLower2||(r['Client PL']||r['Tiers']||'').toLowerCase().includes(clientFilterLower2))
+    &&(!proprietaireFilter||(r['Propriétaire HS']||'')===proprietaireFilter));
 
   function getCA(rows2,mth,yr){
     return rows2.filter(r=>parseInt(r['Mois Emission'])===mth&&r['Année Emission']===String(yr))
