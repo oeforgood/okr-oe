@@ -6027,6 +6027,7 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,
   const {rows,importedAt,loading}=useBsv3Data();
   const [mainTab,setMainTab]=React.useState('ventes');
   const [clientFilter,setClientFilter]=React.useState('');
+  const [proprietaireFilter,setProprietaireFilter]=React.useState('');
   const [levels,setLevels]=React.useState(['client','produit','facture']);
   const [ytdMode,setYtdMode]=React.useState(false);
   const [activeVentesCanaux,setActiveVentesCanaux]=React.useState(null);
@@ -6049,12 +6050,14 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,
   const clientFilterLower=clientFilter.trim().toLowerCase();
   const baseFilter=r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])
     &&CA_CANAUX.includes(r['Canal'])
-    &&(!clientFilterLower||(r['Client PL']||r['Tiers']||'').toLowerCase().includes(clientFilterLower));
+    &&(!clientFilterLower||(r['Client PL']||r['Tiers']||'').toLowerCase().includes(clientFilterLower))
+    &&(!proprietaireFilter||(r['Propriétaire HS']||'')===proprietaireFilter);
   // Ventes-specific filters (canal + mois)
   const CA_AUTRES=r=>!CA_CANAUX.includes(r['Canal']);
   const ventesBaseFilter=r=>baseFilter(r)
     &&(!activeVentesCanaux||(activeVentesCanaux.has('__autres__')?CA_AUTRES(r):false)||activeVentesCanaux.has(r['Canal']))
-    &&(!activeVentesMois||activeVentesMois.has(String(parseInt(r['Mois Emission']))));
+    &&(!activeVentesMois||activeVentesMois.has(String(parseInt(r['Mois Emission']))))
+    &&(!proprietaireFilter||(r['Propriétaire HS']||'')===proprietaireFilter);
   const validRows=rows.filter(r=>r['Année Emission']===String(year)&&baseFilter(r));
   const prevRows=rows.filter(r=>r['Année Emission']===String(prevYear)&&baseFilter(r));
   const allYearRows=rows.filter(r=>baseFilter(r));
@@ -6099,7 +6102,12 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,
             {t.l}
           </button>
         ))}
-        <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:6}}>
+        <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:10}}>
+          {allProprietaires.length>0&&<select value={proprietaireFilter} onChange={e=>setProprietaireFilter(e.target.value)}
+            style={{fontSize:12,padding:'5px 8px',borderRadius:6,border:'1px solid #e2ddd6',outline:'none',background:'#fff',color:proprietaireFilter?'#1a1814':'#9e9890',cursor:'pointer'}}>
+            <option value=''>Propriétaire HS</option>
+            {allProprietaires.map(p=><option key={p} value={p}>{p}</option>)}
+          </select>}
           <span style={{fontSize:11,color:'#9e9890'}}>🔍</span>
           <input value={clientFilter} onChange={e=>setClientFilter(e.target.value)}
             placeholder="Filtrer par client..."
