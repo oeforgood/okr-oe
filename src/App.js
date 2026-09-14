@@ -3841,6 +3841,118 @@ function QuestionsEditor({qs,onSave}){
 }
 
 
+
+function TarifTab({db}){
+  const [tarif,setTarif]=React.useState([]);
+  const [loading,setLoading]=React.useState(true);
+  const [saving,setSaving]=React.useState(false);
+  const [msg,setMsg]=React.useState('');
+  const fileRef=React.useRef();
+  const COLS=['code','libelle','robe','contenant','prix24','prix120','prix240','prix360','prix600','prixPalette','pcb','eq75','qpalette','tva'];
+  const COL_LABELS={'code':'Code','libelle':'Libellé','robe':'Robe','contenant':'Contenant','prix24':'Prix/24','prix120':'Prix/120','prix240':'Prix/240','prix360':'Prix/360','prix600':'Prix/600','prixPalette':'Prix palette','pcb':'PCB','eq75':'Éq.75','qpalette':'Q.palette','tva':'TVA'};
+
+  React.useEffect(()=>{
+    if(!db)return;
+    getDocs(collection(db,'tarif')).then(snap=>{
+      if(!snap.empty){
+        const rows=[];
+        snap.docs.sort((a,b)=>a.id.localeCompare(b.id)).forEach(d=>rows.push(...(d.data().rows||[])));
+        setTarif(rows);
+      }
+      setLoading(false);
+    });
+  },[]);
+
+  function parseCSV(text){
+    const lines=text.split(/?
+/).filter(l=>l.trim());
+    if(lines.length<2)return[];
+    // Detect separator
+    const sep=lines[0].includes(';')?';':',';
+    const headers=lines[0].split(sep).map(h=>h.trim().replace(/^"|"$/g,'').toLowerCase());
+    // Map CSV headers to our columns
+    const colMap={};
+    const CSV_MAP={'code produit':'code','libellé':'libelle','libelle':'libelle','robe':'robe','contenant':'contenant',
+      'prix par 24':'prix24','prix par 120':'prix120','prix par 240':'prix240','prix par 360':'prix360','prix par 600':'prix600',
+      'prix par palette complète':'prixPalette','prix par palette complete':'prixPalette',
+      'pcb':'pcb','equivalent75':'eq75','équivalent75':'eq75','eq75':'eq75','eq 75':'eq75',
+      'qpalette':'qpalette','q palette':'qpalette','tva':'tva'};
+    headers.forEach((h,i)=>{const key=CSV_MAP[h];if(key)colMap[key]=i;});
+    return lines.slice(1).filter(l=>l.trim()).map(l=>{
+      const fields=[];let cur='',inQ=false;
+      for(const ch of l){if(ch==='"'){inQ=!inQ;}else if(ch===sep&&!inQ){fields.push(cur.trim());cur='';}else cur+=ch;}
+      fields.push(cur.trim());
+      const row={};
+      COLS.forEach(c=>{if(colMap[c]!==undefined)row[c]=(fields[colMap[c]]||'').replace(/^"|"$/g,'').trim();else row[c]='';});
+      return row;
+    }).filter(r=>r.code);
+  }
+
+  async function handleImport(e){
+    const file=e.target.files[0];if(!file)return;
+    setMsg('Lecture...');
+    const text=await file.text();
+    const rows=parseCSV(text);
+    if(!rows.length){setMsg('❌ Aucune ligne valide trouvée');return;}
+    setSaving(true);setMsg('Enregistrement...');
+    // Save in chunks of 100
+    const CHUNK=100;
+    const oldSnap=await getDocs(collection(db,'tarif'));
+    await Promise.all(oldSnap.docs.map(d=>deleteDoc(d.ref)));
+    for(let i=0;i<rows.length;i+=CHUNK){
+      await setDoc(doc(db,'tarif',`chunk_${Math.floor(i/CHUNK)}`),{rows:rows.slice(i,i+CHUNK)});
+    }
+    setTarif(rows);setSaving(false);
+    setMsg(`✅ ${rows.length} produits importés`);
+    e.target.value='';
+  }
+
+  async function updateCell(rowIdx,col,val){
+    const next=tarif.map((r,i)=>i===rowIdx?{...r,[col]:val}:r);
+    setTarif(next);
+    // Debounced save
+    clearTimeout(window._tarifSaveTimer);
+    window._tarifSaveTimer=setTimeout(async()=>{
+      const CHUNK=100;
+      for(let i=0;i<next.length;i+=CHUNK){
+        await setDoc(doc(db,'tarif',`chunk_${Math.floor(i/CHUNK)}`),{rows:next.slice(i,i+CHUNK)});
+      }
+    },1500);
+  }
+
+  const th={padding:'5px 8px',fontSize:10,fontWeight:700,color:'#6b6560',textAlign:'left',borderBottom:'2px solid #e2ddd6',background:'#f8f7f5',whiteSpace:'nowrap',position:'sticky',top:0};
+  const td={padding:'4px 6px',fontSize:11,borderBottom:'1px solid #f0ede8'};
+  const inp={width:'100%',fontSize:11,border:'1px solid transparent',borderRadius:4,padding:'2px 4px',background:'transparent',outline:'none',fontFamily:'inherit'};
+
+  return <div style={{padding:'16px 0'}}>
+    <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20}}>
+      <div style={{fontSize:15,fontWeight:700}}>💰 Tarif produits</div>
+      <button onClick={()=>fileRef.current.click()}
+        style={{padding:'7px 16px',background:'#2d6a4f',color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>
+        📥 Importer un tarif (.csv)
+      </button>
+      <input ref={fileRef} type="file" accept=".csv" style={{display:'none'}} onChange={handleImport}/>
+      {msg&&<span style={{fontSize:12,color:msg.startsWith('❌')?'#c0392b':'#2d6a4f'}}>{msg}</span>}
+      {saving&&<span style={{fontSize:11,color:'#9e9890'}}>Enregistrement...</span>}
+    </div>
+    {loading?<div style={{color:'#9e9890',fontSize:13}}>Chargement...</div>
+    :tarif.length===0?<div style={{color:'#9e9890',fontSize:13}}>Aucun tarif chargé. Importez un fichier CSV.</div>
+    :<div style={{overflowX:'auto',maxHeight:'70vh',overflowY:'auto',border:'1px solid #e2ddd6',borderRadius:8}}>
+      <table style={{borderCollapse:'collapse',minWidth:'100%'}}>
+        <thead><tr>{COLS.map(c=><th key={c} style={th}>{COL_LABELS[c]}</th>)}</tr></thead>
+        <tbody>{tarif.map((row,i)=><tr key={i} style={{background:i%2===0?'#fff':'#fafaf8'}}>
+          {COLS.map(c=><td key={c} style={td}>
+            <input value={row[c]||''} onChange={e=>updateCell(i,c,e.target.value)}
+              style={{...inp,width:c==='libelle'?180:c==='code'?80:c==='robe'?80:70}}
+              onFocus={e=>e.target.style.border='1px solid #2d6a4f'}
+              onBlur={e=>e.target.style.border='1px solid transparent'}/>
+          </td>)}
+        </tr>)}</tbody>
+      </table>
+    </div>}
+  </div>;
+}
+
 function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions,catTypes,onSaveCatTypes,codeMap,onSaveCodeMap,customSubcatLabels,onSaveCustomSubcatLabels,savedCanalMargin,onSaveCanalMargin,onSendMessage,onSaveBsv3,onUploadReporting}){
   const [members,setMembers]=useState(teamMembers.map(m=>({...m})));
   const [msgModal,setMsgModal]=useState(null); // {email, prenom}
@@ -3944,7 +4056,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
     <TopBar onBack={onBack} title="⚙️ Paramètres"/>
     <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
       <div style={{display:"flex",gap:10,marginBottom:20}}>
-        {([{k:"members",l:"👥 Membres & rôles"},...(currentUser?.email===OWNER_EMAIL?[{k:"questions",l:"❓ Questions Update"},{k:"history",l:"📋 Historique Updates"},{k:"feedback",l:"💡 Feedback"},{k:"reporting_params",l:"⚙️ Reporting"},{k:"bsv3",l:"📊 Base Sales v3"}]:[])]).map(t=><button key={t.k} onClick={()=>setTab(t.k)}
+        {([{k:"members",l:"👥 Membres & rôles"},...(currentUser?.email===OWNER_EMAIL?[{k:"questions",l:"❓ Questions Update"},{k:"history",l:"📋 Historique Updates"},{k:"feedback",l:"💡 Feedback"},{k:"reporting_params",l:"⚙️ Reporting"},{k:"bsv3",l:"📊 Base Sales v3"},{k:"tarif",l:"💰 Tarif"}]:[])]).map(t=><button key={t.k} onClick={()=>setTab(t.k)}
           style={{padding:"8px 16px",borderRadius:8,border:`1px solid ${tab===t.k?"#2d6a4f":"#e2ddd6"}`,background:tab===t.k?"#2d6a4f":"#fff",color:tab===t.k?"#fff":"#6b6560",cursor:"pointer",fontSize:13,fontWeight:500}}>
           {t.l}
         </button>)}
@@ -4044,6 +4156,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
           </div>
         </div>
       </div>}
+      {tab==="tarif"&&<TarifTab db={db}/>}
       {tab==="bsv3"&&<div style={{padding:"16px 0"}}>
         <div style={{fontSize:15,fontWeight:600,marginBottom:8}}>📊 Base Sales v3</div>
         <p style={{fontSize:13,color:"#6b6560",marginBottom:16}}>Importez le fichier CSV mensuel pour mettre à jour les données de marge nette commerciale.</p>
