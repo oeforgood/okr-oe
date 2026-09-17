@@ -1257,7 +1257,7 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
           <div style={{fontSize:10,color:'#9e9890',marginBottom:3}}>Tx marge {bsv3KPIs?.lastMo?MOIS[bsv3KPIs.lastMo-1]:''}</div>
           <div style={{display:'flex',alignItems:'center',gap:6}}>
             <span style={{fontSize:16,fontWeight:800,color:'#1a1814'}}>{fmtPct(bsv3KPIs?.tauxLM)}</span>
-            {bsv3KPIs?.tauxLM!==null&&bsv3KPIs?.tauxPM!==null&&<span style={{fontSize:13,color:bsv3KPIs.tauxLM>=bsv3KPIs.tauxPM?'#2d6a4f':'#c0392b'}}>
+            {bsv3KPIs?.tauxLM!=null&&bsv3KPIs?.tauxPM!=null&&<span style={{fontSize:13,color:bsv3KPIs.tauxLM>=bsv3KPIs.tauxPM?'#2d6a4f':'#c0392b'}}>
               {kpis.bsv3TauxLM>=kpis.bsv3TauxPM?'↑':'↓'}
             </span>}
           </div>
@@ -1292,7 +1292,7 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
 }
 
 
-function Dashboard({isMobile=false,currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,onMarkAsRead,okrData,isAdmin,onOpenSettings,onChangeSeasonKey,onSendMessage,absencesList=[],questions=[],onSubmitUpdate,onDeleteUpdate,bsv3KPIs,reportingKPIs}){
+function Dashboard({isMobile=false,currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,onMarkAsRead,okrData,isAdmin,onOpenSettings,onChangeSeasonKey,onSendMessage,absencesList=[],questions=[],onSubmitUpdate,onDeleteUpdate,bsv3KPIs,reportingKPIs}){
   const {objectives=[],subobjectives=[],keyresults=[],seasonKey:_sk}=okrData||{};
   const seasonKey=okrData?.seasonKey||"printemps_2026";
   const isOwner=currentUser?.email===OWNER_EMAIL;
@@ -1331,7 +1331,7 @@ function Dashboard({isMobile=false,currentUser,teamMember,teamMembers=[],onGoOKR
     <div style={{background:"rgba(245,243,239,.95)",borderBottom:"1px solid #e2ddd6",padding:"10px 20px",display:"flex",alignItems:"center",gap:12}}>
       <span style={{fontSize:18,fontWeight:700,color:"#2d6a4f",letterSpacing:"-.3px"}}>🌼 Calendula</span>
       <div style={{flex:1}}/>
-      {!isMobile&&<button onClick={()=>setPage('devis')} style={{padding:'6px 14px',borderRadius:8,border:'1px solid #2d6a4f',background:'#f0fdf4',color:'#2d6a4f',fontSize:12,fontWeight:600,cursor:'pointer'}}>📄 Devis/Commande</button>}<span style={{fontSize:13,color:"#6b6560"}}>{teamMember?.prenom}</span>
+      {!isMobile&&onGoDevis&&<button onClick={onGoDevis} style={{padding:'6px 14px',borderRadius:8,border:'1px solid #2d6a4f',background:'#f0fdf4',color:'#2d6a4f',fontSize:12,fontWeight:600,cursor:'pointer'}}>📄 Devis/Commande</button>}<span style={{fontSize:13,color:"#6b6560"}}>{teamMember?.prenom}</span>
       {isAdmin&&<button onClick={onOpenSettings} title="Paramètres" style={{width:32,height:32,borderRadius:8,border:"1px solid #e2ddd6",background:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#6b6560",fontSize:16}}
         onMouseEnter={e=>e.currentTarget.style.background="#f5f3ef"} onMouseLeave={e=>e.currentTarget.style.background="none"}>⚙️</button>}
       <button onClick={()=>signOut(auth)} style={{fontSize:12,color:"#9e9890",background:"none",border:"1px solid #e2ddd6",borderRadius:6,padding:"4px 10px",cursor:"pointer"}}>Déconnexion</button>
@@ -7172,6 +7172,7 @@ export default function App(){
 
   return <Dashboard
     isMobile={isMobile}
+    onGoDevis={()=>setPage('devis')}
     bsv3KPIs={appBsv3KPIs}
     reportingKPIs={appReportingKPIs}
     questions={questions}
