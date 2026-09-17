@@ -3864,9 +3864,7 @@ function TarifTab({db}){
   },[]);
 
   function parseCSV(text){
-    const lines=text.split(/
-?
-/).filter(l=>l.trim());
+    const lines=text.split(/\r?\n/).filter(l=>l.trim());
     if(lines.length<2)return[];
     // Detect separator
     const sep=lines[0].includes(';')?';':',';
