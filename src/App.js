@@ -1331,7 +1331,7 @@ function Dashboard({isMobile=false,currentUser,teamMember,teamMembers=[],onGoOKR
     <div style={{background:"rgba(245,243,239,.95)",borderBottom:"1px solid #e2ddd6",padding:"10px 20px",display:"flex",alignItems:"center",gap:12}}>
       <span style={{fontSize:18,fontWeight:700,color:"#2d6a4f",letterSpacing:"-.3px"}}>🌼 Calendula</span>
       <div style={{flex:1}}/>
-      <span style={{fontSize:13,color:"#6b6560"}}>{teamMember?.prenom}</span>
+      {!isMobile&&<button onClick={()=>setPage('devis')} style={{padding:'6px 14px',borderRadius:8,border:'1px solid #2d6a4f',background:'#f0fdf4',color:'#2d6a4f',fontSize:12,fontWeight:600,cursor:'pointer'}}>📄 Devis/Commande</button>}<span style={{fontSize:13,color:"#6b6560"}}>{teamMember?.prenom}</span>
       {isAdmin&&<button onClick={onOpenSettings} title="Paramètres" style={{width:32,height:32,borderRadius:8,border:"1px solid #e2ddd6",background:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#6b6560",fontSize:16}}
         onMouseEnter={e=>e.currentTarget.style.background="#f5f3ef"} onMouseLeave={e=>e.currentTarget.style.background="none"}>⚙️</button>}
       <button onClick={()=>signOut(auth)} style={{fontSize:12,color:"#9e9890",background:"none",border:"1px solid #e2ddd6",borderRadius:6,padding:"4px 10px",cursor:"pointer"}}>Déconnexion</button>
@@ -3840,6 +3840,259 @@ function QuestionsEditor({qs,onSave}){
   </div>;
 }
 
+
+
+const EMAILJS_TEMPLATE_DEVIS = 'template_devis';
+const ROBE_COLORS = {
+  rouge: {dot:'#dc2626'},rosé:{dot:'#db2777'},rose:{dot:'#db2777'},
+  blanc: {dot:'#16a34a'},effervescent:{dot:'#64748b'},essence:{dot:'#2563eb'},essences:{dot:'#2563eb'},
+};
+function getRobeDot(robe){return (ROBE_COLORS[(robe||'').toLowerCase()]||{dot:'#9e9890'}).dot;}
+
+function DevisCommandePage({onBack,currentUser,teamMember}){
+  const [mode,setMode]=React.useState(null);
+  const [tarif,setTarif]=React.useState([]);
+  const [loadingTarif,setLoadingTarif]=React.useState(true);
+  const [sending,setSending]=React.useState(false);
+  const [sent,setSent]=React.useState(false);
+  const [societe,setSociete]=React.useState('');
+  const [contact,setContact]=React.useState('');
+  const [factAddr,setFactAddr]=React.useState({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});
+  const [expAddr,setExpAddr]=React.useState({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});
+  const [sameAddr,setSameAddr]=React.useState(false);
+  const [infoLivraison,setInfoLivraison]=React.useState('');
+  const [message,setMessage]=React.useState('');
+  const [lignes,setLignes]=React.useState([]);
+  const [selectedProd,setSelectedProd]=React.useState('');
+
+  React.useEffect(()=>{
+    getDocs(collection(db,'tarif')).then(snap=>{
+      const rows=[];
+      snap.docs.sort((a,b)=>a.id.localeCompare(b.id)).forEach(d=>rows.push(...(d.data().rows||[])));
+      setTarif(rows);setLoadingTarif(false);
+    });
+  },[]);
+
+  const totalEq75=lignes.reduce((s,l)=>{
+    const p=tarif.find(t=>t.code===l.code);
+    return s+(parseFloat(p?.eq75||0)*parseInt(l.qty||0));
+  },0);
+
+  function getPU(prod,qty){
+    const qtyN=parseInt(qty||0);
+    const qpal=parseInt(prod.qpalette||0);
+    if(qpal>0&&qtyN>0&&qtyN%qpal===0&&totalEq75>=600)return parseFloat(prod.prixPalette||0);
+    if(totalEq75>=600)return parseFloat(prod.prix600||0);
+    if(totalEq75>=360)return parseFloat(prod.prix360||0);
+    if(totalEq75>=240)return parseFloat(prod.prix240||0);
+    if(totalEq75>=120)return parseFloat(prod.prix120||0);
+    return parseFloat(prod.prix24||0);
+  }
+
+  function addProduit(code){
+    const prod=tarif.find(t=>t.code===code);if(!prod)return;
+    const pcb=parseInt(prod.pcb||1);
+    setLignes(p=>[...p,{code:prod.code,libelle:prod.libelle,robe:prod.robe,pcb,eq75:prod.eq75,tva:prod.tva,qty:pcb,qtyMode:'select'}]);
+    setSelectedProd('');
+  }
+  function updLigne(i,f,v){setLignes(p=>p.map((l,j)=>j===i?{...l,[f]:v}:l));}
+  function remLigne(i){setLignes(p=>p.filter((_,j)=>j!==i));}
+
+  const totalHT=lignes.reduce((s,l)=>{const p=tarif.find(t=>t.code===l.code);return s+(p?getPU(p,l.qty)*parseInt(l.qty||0):0);},0);
+  const totalTVA=lignes.reduce((s,l)=>{const p=tarif.find(t=>t.code===l.code);if(!p)return s;return s+getPU(p,l.qty)*parseInt(l.qty||0)*(parseFloat(l.tva||0)/100);},0);
+  const totalTTC=totalHT+totalTVA;
+  function fmtE(v){return Number(v).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' \u20ac';}
+
+  function genRef(){
+    const d=new Date();
+    return (mode==='devis'?'DEV':'CMD')+`-${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}-${String(Math.floor(Math.random()*900)+100)}`;
+  }
+
+  function buildHTML(ref){
+    const expA=sameAddr?factAddr:expAddr;
+    const lignesHTML=lignes.map(l=>{
+      const p=tarif.find(t=>t.code===l.code);const pu=p?getPU(p,l.qty):0;
+      return `<tr><td style="padding:6px 8px;border-bottom:1px solid #f0ede8">${l.code}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #f0ede8"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${getRobeDot(l.robe)};margin-right:5px"></span>${l.libelle}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #f0ede8;text-align:right">${l.qty}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #f0ede8;text-align:right">${fmtE(pu)}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #f0ede8;text-align:right">${fmtE(pu*parseInt(l.qty||0))}</td></tr>`;
+    }).join('');
+    return `<div style="font-family:system-ui,sans-serif;max-width:680px;margin:0 auto;color:#1a1814">
+      <div style="background:#2d6a4f;color:#fff;padding:20px;border-radius:12px 12px 0 0">
+        <div style="font-size:20px;font-weight:800">🌼 Oé — ${mode==='devis'?'DEVIS':'BON DE COMMANDE'}</div>
+        <div style="font-size:13px;opacity:.8">Réf : ${ref} · ${new Date().toLocaleDateString('fr-FR')}</div>
+      </div>
+      <div style="background:#f8f7f5;padding:20px;border:1px solid #e2ddd6;border-top:none">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16;margin-bottom:16px">
+          <div><b>${societe}</b><br>${contact}<br><small style="color:#6b6560">${factAddr.addr}, ${factAddr.cp} ${factAddr.ville} — ${factAddr.pays}<br>${factAddr.email}</small></div>
+          <div><small style="color:#6b6560">${expA.addr}, ${expA.cp} ${expA.ville}${infoLivraison?'<br><b>Livraison :</b> '+infoLivraison:''}</small></div>
+        </div>
+        ${message?`<div style="background:#fff;border:1px solid #e2ddd6;border-radius:8px;padding:10px;margin-bottom:12px;font-size:13px"><em>${message}</em></div>`:''}
+        <table style="width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden">
+          <thead><tr style="background:#f0ede8"><th style="padding:7px 8px;text-align:left;font-size:11px;color:#6b6560">Code</th><th style="padding:7px 8px;text-align:left;font-size:11px;color:#6b6560">Produit</th><th style="padding:7px 8px;text-align:right;font-size:11px;color:#6b6560">Qté</th><th style="padding:7px 8px;text-align:right;font-size:11px;color:#6b6560">P.U. HT</th><th style="padding:7px 8px;text-align:right;font-size:11px;color:#6b6560">Total HT</th></tr></thead>
+          <tbody>${lignesHTML}</tbody>
+        </table>
+        <div style="margin-top:12px;text-align:right;font-size:13px;color:#6b6560">
+          Total HT : <b>${fmtE(totalHT)}</b><br>TVA : <b>${fmtE(totalTVA)}</b><br>
+          <span style="font-size:16px;font-weight:800;color:#2d6a4f">Total TTC : ${fmtE(totalTTC)}</span>
+        </div>
+      </div>
+      <div style="background:#f0ede8;padding:10px 20px;border-radius:0 0 12px 12px;font-size:11px;color:#9e9890;text-align:center">Oé — contact@oeforgood.com</div>
+    </div>`;
+  }
+
+  async function handleEnvoyer(){
+    if(!lignes.length){alert('Ajoutez au moins un produit.');return;}
+    if(mode==='devis'&&!factAddr.email){alert('Email de facturation requis.');return;}
+    setSending(true);
+    const ref=genRef();
+    await setDoc(doc(db,'devis_commandes',ref),{ref,mode,societe,contact,factAddr,expAddr:sameAddr?factAddr:expAddr,infoLivraison,message,lignes,totalHT,totalTVA,totalTTC,createdAt:Date.now(),createdBy:currentUser?.email});
+    try{
+      await emailjs.send(EMAILJS_SERVICE,'template_devis',{
+        to_email:mode==='devis'?factAddr.email:'pro@oeforgood.com',
+        cc_email:mode==='commande'?currentUser?.email:'',
+        to_name:mode==='devis'?societe:'Équipe pro',
+        from_name:teamMember?.prenom||'Oé',
+        subject:mode==='devis'?`Devis ${ref} — Oé`:`Commande ${ref} — Oé`,
+        ref,html_content:buildHTML(ref),
+      },EMAILJS_KEY);
+    }catch(e){console.log('EmailJS',e);}
+    setSending(false);setSent(true);
+  }
+
+  function resetForm(){setSent(false);setMode(null);setLignes([]);setSociete('');setContact('');setFactAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setExpAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setMessage('');setInfoLivraison('');}
+
+  const INP=(w='100%')=>({fontSize:13,padding:'7px 10px',borderRadius:7,border:'1px solid #e2ddd6',outline:'none',fontFamily:'inherit',width:w,boxSizing:'border-box'});
+  const LBL={fontSize:11,fontWeight:600,color:'#6b6560',marginBottom:3,display:'block'};
+  const SECT={background:'#fff',borderRadius:12,padding:'20px',marginBottom:16,border:'1px solid #e2ddd6'};
+
+  if(sent)return <div style={{minHeight:'100vh',background:'#f5f3ef',fontFamily:'system-ui,sans-serif'}}>
+    <TopBar onBack={onBack} title={mode==='devis'?'📄 Devis':'📦 Commande'}/>
+    <div style={{maxWidth:500,margin:'80px auto',textAlign:'center',padding:'0 16px'}}>
+      <div style={{fontSize:48,marginBottom:12}}>✅</div>
+      <div style={{fontSize:18,fontWeight:700,marginBottom:8}}>{mode==='devis'?'Devis envoyé !':'Commande enregistrée !'}</div>
+      <div style={{fontSize:13,color:'#6b6560',marginBottom:24}}>{mode==='devis'?`Envoyé à ${factAddr.email}`:'Envoyé à pro@oeforgood.com'}</div>
+      <button onClick={resetForm} style={{padding:'10px 24px',background:'#2d6a4f',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:600,cursor:'pointer'}}>Nouveau devis / commande</button>
+    </div>
+  </div>;
+
+  return <div style={{minHeight:'100vh',background:'#f5f3ef',fontFamily:'system-ui,sans-serif'}}>
+    <TopBar onBack={onBack} title="📄 Devis / Commande"/>
+    <div style={{maxWidth:900,margin:'0 auto',padding:'20px 16px 60px'}}>
+
+      {!mode&&<div style={{...SECT,textAlign:'center',padding:'48px'}}>
+        <div style={{fontSize:16,fontWeight:700,marginBottom:24}}>Que souhaitez-vous faire ?</div>
+        <div style={{display:'flex',gap:16,justifyContent:'center',flexWrap:'wrap'}}>
+          <button onClick={()=>setMode('devis')} style={{padding:'20px 28px',borderRadius:12,border:'2px solid #2d6a4f',background:'#f0fdf4',cursor:'pointer',fontSize:14,fontWeight:700,color:'#2d6a4f'}}>📄 Faire et envoyer un devis</button>
+          <button onClick={()=>setMode('commande')} style={{padding:'20px 28px',borderRadius:12,border:'2px solid #b5680f',background:'#fef9f0',cursor:'pointer',fontSize:14,fontWeight:700,color:'#b5680f'}}>📦 Enregistrer une commande confirmée</button>
+        </div>
+      </div>}
+
+      {mode&&<>
+        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
+          <span style={{padding:'4px 12px',borderRadius:20,fontSize:12,fontWeight:700,background:mode==='devis'?'#f0fdf4':'#fef9f0',color:mode==='devis'?'#2d6a4f':'#b5680f',border:`1px solid ${mode==='devis'?'#2d6a4f':'#b5680f'}`}}>{mode==='devis'?'📄 Devis':'📦 Commande confirmée'}</span>
+          <button onClick={()=>setMode(null)} style={{fontSize:11,color:'#9e9890',background:'none',border:'none',cursor:'pointer'}}>Changer</button>
+        </div>
+
+        <div style={SECT}>
+          <div style={{fontSize:13,fontWeight:700,marginBottom:14}}>👤 Informations client</div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:14}}>
+            <div><label style={LBL}>Nom de la société</label><input value={societe} onChange={e=>setSociete(e.target.value)} style={INP()}/></div>
+            <div><label style={LBL}>Prénom et Nom du contact</label><input value={contact} onChange={e=>setContact(e.target.value)} style={INP()}/></div>
+          </div>
+          <div style={{fontSize:12,fontWeight:700,color:'#6b6560',marginBottom:8}}>Adresse de facturation</div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
+            <div><label style={LBL}>Adresse</label><input value={factAddr.addr} onChange={e=>setFactAddr(p=>({...p,addr:e.target.value}))} style={INP()}/></div>
+            <div><label style={LBL}>Complément</label><input value={factAddr.addr2} onChange={e=>setFactAddr(p=>({...p,addr2:e.target.value}))} style={INP()}/></div>
+            <div><label style={LBL}>Code postal</label><input value={factAddr.cp} onChange={e=>setFactAddr(p=>({...p,cp:e.target.value}))} style={INP()}/></div>
+            <div><label style={LBL}>Ville</label><input value={factAddr.ville} onChange={e=>setFactAddr(p=>({...p,ville:e.target.value}))} style={INP()}/></div>
+            <div><label style={LBL}>Pays</label><input value={factAddr.pays} onChange={e=>setFactAddr(p=>({...p,pays:e.target.value}))} style={INP()}/></div>
+            <div><label style={LBL}>Téléphone</label><input value={factAddr.tel} onChange={e=>setFactAddr(p=>({...p,tel:e.target.value}))} style={INP()}/></div>
+            <div style={{gridColumn:'1/-1'}}><label style={LBL}>Email</label><input value={factAddr.email} onChange={e=>setFactAddr(p=>({...p,email:e.target.value}))} style={INP()}/></div>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+            <div style={{fontSize:12,fontWeight:700,color:'#6b6560'}}>Adresse d'expédition</div>
+            <label style={{display:'flex',alignItems:'center',gap:4,fontSize:11,color:'#9e9890',cursor:'pointer'}}>
+              <input type="checkbox" checked={sameAddr} onChange={e=>setSameAddr(e.target.checked)}/> Identique à la facturation
+            </label>
+          </div>
+          {!sameAddr&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
+            <div><label style={LBL}>Adresse</label><input value={expAddr.addr} onChange={e=>setExpAddr(p=>({...p,addr:e.target.value}))} style={INP()}/></div>
+            <div><label style={LBL}>Complément</label><input value={expAddr.addr2} onChange={e=>setExpAddr(p=>({...p,addr2:e.target.value}))} style={INP()}/></div>
+            <div><label style={LBL}>Code postal</label><input value={expAddr.cp} onChange={e=>setExpAddr(p=>({...p,cp:e.target.value}))} style={INP()}/></div>
+            <div><label style={LBL}>Ville</label><input value={expAddr.ville} onChange={e=>setExpAddr(p=>({...p,ville:e.target.value}))} style={INP()}/></div>
+            <div><label style={LBL}>Pays</label><input value={expAddr.pays} onChange={e=>setExpAddr(p=>({...p,pays:e.target.value}))} style={INP()}/></div>
+            <div><label style={LBL}>Téléphone</label><input value={expAddr.tel} onChange={e=>setExpAddr(p=>({...p,tel:e.target.value}))} style={INP()}/></div>
+            <div style={{gridColumn:'1/-1'}}><label style={LBL}>Email</label><input value={expAddr.email} onChange={e=>setExpAddr(p=>({...p,email:e.target.value}))} style={INP()}/></div>
+          </div>}
+          <div style={{marginTop:8}}><label style={LBL}>Informations de livraison</label><input value={infoLivraison} onChange={e=>setInfoLivraison(e.target.value)} style={INP()}/></div>
+          <div style={{marginTop:10}}><label style={LBL}>{mode==='devis'?'Message pour le client':'Message pour la supply'}</label>
+            <textarea value={message} onChange={e=>setMessage(e.target.value)} rows={3} style={{...INP(),resize:'vertical'}}/></div>
+        </div>
+
+        <div style={SECT}>
+          <div style={{fontSize:13,fontWeight:700,marginBottom:14}}>🍷 Produits</div>
+          {loadingTarif?<div style={{color:'#9e9890',fontSize:13}}>Chargement du tarif...</div>
+          :tarif.length===0?<div style={{color:'#9e9890',fontSize:13}}>Aucun tarif chargé. Importez-en un dans les Paramètres.</div>
+          :<>
+            <select value={selectedProd} onChange={e=>{if(e.target.value)addProduit(e.target.value);}}
+              style={{...INP(),marginBottom:16,color:selectedProd?'#1a1814':'#9e9890'}}>
+              <option value=''>— Ajouter un produit —</option>
+              {tarif.filter(p=>p.code).map(p=><option key={p.code} value={p.code}>{p.code} — {p.libelle} ({p.robe})</option>)}
+            </select>
+            {lignes.length>0&&<>
+              <table style={{width:'100%',borderCollapse:'collapse'}}>
+                <thead><tr style={{background:'#f8f7f5'}}>
+                  {['Code','Produit','Quantité','P.U. HT','Total HT',''].map((h,i)=><th key={i} style={{padding:'6px 8px',fontSize:11,color:'#6b6560',textAlign:i>=2&&i<5?'right':'left',fontWeight:700}}>{h}</th>)}
+                </tr></thead>
+                <tbody>{lignes.map((l,i)=>{
+                  const p=tarif.find(t=>t.code===l.code);
+                  const pcb=parseInt(l.pcb||1);
+                  const pu=p?getPU(p,l.qty):0;
+                  const qtyOpts=Array.from({length:12},(_,k)=>(k+1)*pcb);
+                  return <tr key={i} style={{borderBottom:'1px solid #f0ede8'}}>
+                    <td style={{padding:'8px',fontSize:12,color:'#6b6560'}}>{l.code}</td>
+                    <td style={{padding:'8px',fontSize:12}}>
+                      <span style={{display:'inline-block',width:9,height:9,borderRadius:'50%',background:getRobeDot(l.robe),marginRight:6,verticalAlign:'middle'}}/>
+                      {l.libelle}
+                    </td>
+                    <td style={{padding:'8px',textAlign:'right'}}>
+                      {l.qtyMode==='select'
+                        ?<select value={l.qty} onChange={e=>e.target.value==='plus'?updLigne(i,'qtyMode','free'):updLigne(i,'qty',parseInt(e.target.value))}
+                          style={{fontSize:12,padding:'3px 6px',borderRadius:6,border:'1px solid #e2ddd6'}}>
+                          {qtyOpts.map(q=><option key={q} value={q}>{q}</option>)}
+                          <option value="plus">Plus...</option>
+                        </select>
+                        :<input type="number" value={l.qty} min={pcb} step={pcb}
+                          onChange={e=>updLigne(i,'qty',Math.max(pcb,Math.ceil((parseInt(e.target.value)||pcb)/pcb)*pcb))}
+                          style={{width:70,fontSize:12,padding:'3px 6px',borderRadius:6,border:'1px solid #e2ddd6',textAlign:'right'}}/>}
+                    </td>
+                    <td style={{padding:'8px',fontSize:12,textAlign:'right',color:'#6b6560'}}>{fmtE(pu)}</td>
+                    <td style={{padding:'8px',fontSize:12,textAlign:'right',fontWeight:600}}>{fmtE(pu*parseInt(l.qty||0))}</td>
+                    <td style={{padding:'4px',textAlign:'center'}}><button onClick={()=>remLigne(i)} style={{border:'none',background:'none',color:'#c0392b',cursor:'pointer',fontSize:14,padding:'2px 6px'}}>✕</button></td>
+                  </tr>;
+                })}</tbody>
+              </table>
+              <div style={{marginTop:14,borderTop:'2px solid #e2ddd6',paddingTop:12,textAlign:'right'}}>
+                <div style={{fontSize:13,color:'#6b6560'}}>Total HT : <strong>{fmtE(totalHT)}</strong></div>
+                <div style={{fontSize:13,color:'#6b6560'}}>TVA : <strong>{fmtE(totalTVA)}</strong></div>
+                <div style={{fontSize:16,fontWeight:800,color:'#2d6a4f',marginTop:6}}>Total TTC : {fmtE(totalTTC)}</div>
+              </div>
+            </>}
+          </>}
+        </div>
+
+        <div style={{display:'flex',justifyContent:'flex-end'}}>
+          <button onClick={handleEnvoyer} disabled={sending||!lignes.length}
+            style={{padding:'12px 32px',background:sending||!lignes.length?'#e2ddd6':'#2d6a4f',color:sending||!lignes.length?'#9e9890':'#fff',border:'none',borderRadius:10,fontSize:15,fontWeight:700,cursor:sending||!lignes.length?'default':'pointer'}}>
+            {sending?'Envoi...':(mode==='devis'?'📤 Envoyer le devis':'📦 Enregistrer la commande')}
+          </button>
+        </div>
+      </>}
+    </div>
+  </div>;
+}
 
 
 function TarifTab({db}){
@@ -6914,6 +7167,7 @@ export default function App(){
   if(page==="update")return <UpdatePage onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} okrData={okrData} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers}/>;
   if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels} savedCanalMargin={savedCanalMargin} currentUser={authUser}/>;
   if(page==="bsv3")return <Bsv3Page onBack={()=>setPage('dashboard')} onGoOKR={()=>setPage('okr')} onGoUpdate={()=>setPage('update')} onGoReporting={()=>setPage('reporting')} onGoBsv3={()=>setPage('bsv3')} currentUser={authUser} onUpdatePuce={updatePuceInFirebase}/>;
+  if(page==="devis")return <DevisCommandePage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMember={currentTeamMember}/>;
   if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels} savedCanalMargin={savedCanalMargin} onSaveCanalMargin={handleSaveCanalMargin} onSendMessage={handleSendMessage} onSaveBsv3={handleSaveBsv3} onUpdatePuce={updatePuceInFirebase} onUploadReporting={handleUploadReporting}/>;
 
   return <Dashboard
