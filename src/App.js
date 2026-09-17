@@ -1331,7 +1331,7 @@ function Dashboard({isMobile=false,currentUser,teamMember,teamMembers=[],onGoOKR
     <div style={{background:"rgba(245,243,239,.95)",borderBottom:"1px solid #e2ddd6",padding:"10px 20px",display:"flex",alignItems:"center",gap:12}}>
       <span style={{fontSize:18,fontWeight:700,color:"#2d6a4f",letterSpacing:"-.3px"}}>🌼 Calendula</span>
       <div style={{flex:1}}/>
-      <span style={{fontSize:13,color:"#6b6560"}}>{teamMember?.prenom}</span>
+      {!isMobile&&<button onClick={onGoDevis} style={{padding:"6px 14px",borderRadius:8,border:"1px solid #2d6a4f",background:"#f0fdf4",color:"#2d6a4f",fontSize:12,fontWeight:600,cursor:"pointer"}}>📄 Devis/Commande</button>}<span style={{fontSize:13,color:"#6b6560"}}>{teamMember?.prenom}</span>
       {isAdmin&&<button onClick={onOpenSettings} title="Paramètres" style={{width:32,height:32,borderRadius:8,border:"1px solid #e2ddd6",background:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#6b6560",fontSize:16}}
         onMouseEnter={e=>e.currentTarget.style.background="#f5f3ef"} onMouseLeave={e=>e.currentTarget.style.background="none"}>⚙️</button>}
       <button onClick={()=>signOut(auth)} style={{fontSize:12,color:"#9e9890",background:"none",border:"1px solid #e2ddd6",borderRadius:6,padding:"4px 10px",cursor:"pointer"}}>Déconnexion</button>
@@ -3850,7 +3850,7 @@ const ROBE_COLORS = {
 function getRobeDot(robe){return (ROBE_COLORS[(robe||'').toLowerCase()]||{dot:'#9e9890'}).dot;}
 
 function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3}){
-  const [mode,setMode]=React.useState(null);
+  const [mode,setMode]=React.useState('commande');
   const [tarif,setTarif]=React.useState([]);
   const [loadingTarif,setLoadingTarif]=React.useState(true);
   const [sending,setSending]=React.useState(false);
@@ -3950,9 +3950,14 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     await setDoc(doc(db,'devis_commandes',ref),{ref,mode,societe,contact,factAddr,expAddr:sameAddr?factAddr:expAddr,infoLivraison,message,lignes,totalHT,totalTVA,totalTTC,createdAt:Date.now(),createdBy:currentUser?.email});
     try{
       const htmlContent=buildHTML(ref);
-      const msgBody=mode==='devis'
-        ?`Bonjour,\n\nSuite à nos échanges, voici le chiffrage détaillé :\n\n${htmlContent}\n\nTrès belle fin de journée !\n${teamMember?.prenom||'Oé'} — Oé`
-        :`Bonjour,\n\nUne nouvelle commande a été enregistrée par ${teamMember?.prenom||'Oé'}.\n\n${htmlContent}\n\nLa bise.\n${teamMember?.prenom||'Oé'}`;
+      const prenom=teamMember?.prenom||'Oé';
+      const intro=mode==='devis'
+        ?`<p>Bonjour,</p><p>Suite à nos échanges, voici le chiffrage détaillé :</p>`
+        :`<p>Bonjour,</p><p>Une nouvelle commande a été enregistrée par ${prenom}.</p>`;
+      const outro=mode==='devis'
+        ?`<p>Très belle fin de journée !<br><strong>${prenom} — Oé</strong></p>`
+        :`<p>La bise.<br><strong>${prenom}</strong></p>`;
+      const msgBody=intro+htmlContent+outro;
       await emailjs.send(EMAILJS_SERVICE,EMAILJS_TEMPLATE_DEVIS,{
         to_email:mode==='devis'?factAddr.email:'pro@oeforgood.com',
         cc_email:mode==='commande'?currentUser?.email:'',
@@ -3990,12 +3995,11 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
 
       {/* Mode toggle - BSv3 style */}
       <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
-        {[{k:'devis',l:'📄 Faire et envoyer un devis'},{k:'commande',l:'📦 Enregistrer une commande'}].map(t=>
+        {[{k:'commande',l:'📦 Enregistrer une commande'},{k:'devis',l:'📄 Faire et envoyer un devis'}].map(t=>
           <button key={t.k} onClick={()=>setMode(t.k)}
-            style={{padding:'9px 20px',borderRadius:10,border:'none',fontSize:13,fontWeight:600,cursor:'pointer',transition:'all .15s',
-              background:mode===t.k?'#2d6a4f':'#fff',
-              color:mode===t.k?'#fff':'#6b6560',
-              boxShadow:mode===t.k?'none':'0 1px 3px rgba(0,0,0,.08)'}}>
+            style={{padding:'8px 18px',borderRadius:8,border:`1px solid ${mode===t.k?'#2d6a4f':'#e2ddd6'}`,
+              background:mode===t.k?'#2d6a4f':'#fff',color:mode===t.k?'#fff':'#6b6560',
+              fontSize:13,fontWeight:500,cursor:'pointer'}}>
             {t.l}
           </button>
         )}
