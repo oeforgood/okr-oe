@@ -3949,15 +3949,11 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     const ref=genRef();
     await setDoc(doc(db,'devis_commandes',ref),{ref,mode,societe,contact,factAddr,expAddr:sameAddr?factAddr:expAddr,infoLivraison,message,lignes,totalHT,totalTVA,totalTTC,createdAt:Date.now(),createdBy:currentUser?.email});
     try{
-      const htmlContent=buildHTML(ref);
       const prenom=teamMember?.prenom||'Oé';
-      const intro=mode==='devis'
-        ?`<p>Bonjour,</p><p>Suite à nos échanges, voici le chiffrage détaillé :</p>`
-        :`<p>Bonjour,</p><p>Une nouvelle commande a été enregistrée par ${prenom}.</p>`;
-      const outro=mode==='devis'
-        ?`<p>Très belle fin de journée !<br><strong>${prenom} — Oé</strong></p>`
-        :`<p>La bise.<br><strong>${prenom}</strong></p>`;
-      const msgBody=intro+htmlContent+outro;
+      const textContent=buildText(ref);
+      const msgBody=mode==='devis'
+        ?`Bonjour,\n\nSuite à nos échanges, voici le chiffrage détaillé :\n\n${textContent}\n\nTrès belle fin de journée !\n${prenom} — Oé`
+        :`Bonjour,\n\nUne nouvelle commande a été enregistrée par ${prenom}.\n\n${textContent}\n\nLa bise.\n${prenom}`;
       await emailjs.send(EMAILJS_SERVICE,EMAILJS_TEMPLATE_DEVIS,{
         to_email:mode==='devis'?factAddr.email:'pro@oeforgood.com',
         cc_email:mode==='commande'?currentUser?.email:'',
@@ -3967,7 +3963,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
         email:currentUser?.email||'',
         reply_to:currentUser?.email||'fx@oeforgood.com',
         subject:mode==='devis'?`Devis ${ref} — Oé`:`Commande ${ref} — Oé`,
-        ref,html_content:msgBody,
+        ref,html_content:msgBody,message:msgBody,
       },EMAILJS_KEY);
     }catch(e){console.log('EmailJS',e);}
     setSending(false);setSent(true);
