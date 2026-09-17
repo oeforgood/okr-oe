@@ -1331,7 +1331,7 @@ function Dashboard({isMobile=false,currentUser,teamMember,teamMembers=[],onGoOKR
     <div style={{background:"rgba(245,243,239,.95)",borderBottom:"1px solid #e2ddd6",padding:"10px 20px",display:"flex",alignItems:"center",gap:12}}>
       <span style={{fontSize:18,fontWeight:700,color:"#2d6a4f",letterSpacing:"-.3px"}}>🌼 Calendula</span>
       <div style={{flex:1}}/>
-      {!isMobile&&onGoDevis&&<button onClick={onGoDevis} style={{padding:'6px 14px',borderRadius:8,border:'1px solid #2d6a4f',background:'#f0fdf4',color:'#2d6a4f',fontSize:12,fontWeight:600,cursor:'pointer'}}>📄 Devis/Commande</button>}<span style={{fontSize:13,color:"#6b6560"}}>{teamMember?.prenom}</span>
+      <span style={{fontSize:13,color:"#6b6560"}}>{teamMember?.prenom}</span>
       {isAdmin&&<button onClick={onOpenSettings} title="Paramètres" style={{width:32,height:32,borderRadius:8,border:"1px solid #e2ddd6",background:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#6b6560",fontSize:16}}
         onMouseEnter={e=>e.currentTarget.style.background="#f5f3ef"} onMouseLeave={e=>e.currentTarget.style.background="none"}>⚙️</button>}
       <button onClick={()=>signOut(auth)} style={{fontSize:12,color:"#9e9890",background:"none",border:"1px solid #e2ddd6",borderRadius:6,padding:"4px 10px",cursor:"pointer"}}>Déconnexion</button>
@@ -3842,14 +3842,14 @@ function QuestionsEditor({qs,onSave}){
 
 
 
-const EMAILJS_TEMPLATE_DEVIS = 'template_devis';
+const EMAILJS_TEMPLATE_DEVIS = 'template_2cltjij';
 const ROBE_COLORS = {
   rouge: {dot:'#dc2626'},rosé:{dot:'#db2777'},rose:{dot:'#db2777'},
   blanc: {dot:'#16a34a'},effervescent:{dot:'#64748b'},essence:{dot:'#2563eb'},essences:{dot:'#2563eb'},
 };
 function getRobeDot(robe){return (ROBE_COLORS[(robe||'').toLowerCase()]||{dot:'#9e9890'}).dot;}
 
-function DevisCommandePage({onBack,currentUser,teamMember}){
+function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3}){
   const [mode,setMode]=React.useState(null);
   const [tarif,setTarif]=React.useState([]);
   const [loadingTarif,setLoadingTarif]=React.useState(true);
@@ -3949,13 +3949,20 @@ function DevisCommandePage({onBack,currentUser,teamMember}){
     const ref=genRef();
     await setDoc(doc(db,'devis_commandes',ref),{ref,mode,societe,contact,factAddr,expAddr:sameAddr?factAddr:expAddr,infoLivraison,message,lignes,totalHT,totalTVA,totalTTC,createdAt:Date.now(),createdBy:currentUser?.email});
     try{
-      await emailjs.send(EMAILJS_SERVICE,'template_devis',{
+      const htmlContent=buildHTML(ref);
+      const msgBody=mode==='devis'
+        ?`Bonjour,\n\nSuite à nos échanges, voici le chiffrage détaillé :\n\n${htmlContent}\n\nTrès belle fin de journée !\n${teamMember?.prenom||'Oé'} — Oé`
+        :`Bonjour,\n\nUne nouvelle commande a été enregistrée par ${teamMember?.prenom||'Oé'}.\n\n${htmlContent}\n\nLa bise.\n${teamMember?.prenom||'Oé'}`;
+      await emailjs.send(EMAILJS_SERVICE,EMAILJS_TEMPLATE_DEVIS,{
         to_email:mode==='devis'?factAddr.email:'pro@oeforgood.com',
         cc_email:mode==='commande'?currentUser?.email:'',
         to_name:mode==='devis'?societe:'Équipe pro',
         from_name:teamMember?.prenom||'Oé',
+        name:teamMember?.prenom||'Oé',
+        email:currentUser?.email||'',
+        reply_to:currentUser?.email||'fx@oeforgood.com',
         subject:mode==='devis'?`Devis ${ref} — Oé`:`Commande ${ref} — Oé`,
-        ref,html_content:buildHTML(ref),
+        ref,html_content:msgBody,
       },EMAILJS_KEY);
     }catch(e){console.log('EmailJS',e);}
     setSending(false);setSent(true);
@@ -3968,7 +3975,7 @@ function DevisCommandePage({onBack,currentUser,teamMember}){
   const SECT={background:'#fff',borderRadius:12,padding:'20px',marginBottom:16,border:'1px solid #e2ddd6'};
 
   if(sent)return <div style={{minHeight:'100vh',background:'#f5f3ef',fontFamily:'system-ui,sans-serif'}}>
-    <TopBar onBack={onBack} title={mode==='devis'?'📄 Devis':'📦 Commande'}/>
+    <AppNav current="devis" onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3} onGoDevis={()=>{}}/>
     <div style={{maxWidth:500,margin:'80px auto',textAlign:'center',padding:'0 16px'}}>
       <div style={{fontSize:48,marginBottom:12}}>✅</div>
       <div style={{fontSize:18,fontWeight:700,marginBottom:8}}>{mode==='devis'?'Devis envoyé !':'Commande enregistrée !'}</div>
@@ -3978,22 +3985,24 @@ function DevisCommandePage({onBack,currentUser,teamMember}){
   </div>;
 
   return <div style={{minHeight:'100vh',background:'#f5f3ef',fontFamily:'system-ui,sans-serif'}}>
-    <TopBar onBack={onBack} title="📄 Devis / Commande"/>
+    <AppNav current="devis" onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3} onGoDevis={()=>{}}/>
     <div style={{maxWidth:900,margin:'0 auto',padding:'20px 16px 60px'}}>
 
-      {!mode&&<div style={{...SECT,textAlign:'center',padding:'48px'}}>
-        <div style={{fontSize:16,fontWeight:700,marginBottom:24}}>Que souhaitez-vous faire ?</div>
-        <div style={{display:'flex',gap:16,justifyContent:'center',flexWrap:'wrap'}}>
-          <button onClick={()=>setMode('devis')} style={{padding:'20px 28px',borderRadius:12,border:'2px solid #2d6a4f',background:'#f0fdf4',cursor:'pointer',fontSize:14,fontWeight:700,color:'#2d6a4f'}}>📄 Faire et envoyer un devis</button>
-          <button onClick={()=>setMode('commande')} style={{padding:'20px 28px',borderRadius:12,border:'2px solid #b5680f',background:'#fef9f0',cursor:'pointer',fontSize:14,fontWeight:700,color:'#b5680f'}}>📦 Enregistrer une commande confirmée</button>
-        </div>
-      </div>}
+      {/* Mode toggle - BSv3 style */}
+      <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
+        {[{k:'devis',l:'📄 Faire et envoyer un devis'},{k:'commande',l:'📦 Enregistrer une commande'}].map(t=>
+          <button key={t.k} onClick={()=>setMode(t.k)}
+            style={{padding:'9px 20px',borderRadius:10,border:'none',fontSize:13,fontWeight:600,cursor:'pointer',transition:'all .15s',
+              background:mode===t.k?'#2d6a4f':'#fff',
+              color:mode===t.k?'#fff':'#6b6560',
+              boxShadow:mode===t.k?'none':'0 1px 3px rgba(0,0,0,.08)'}}>
+            {t.l}
+          </button>
+        )}
+      </div>
 
       {mode&&<>
-        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
-          <span style={{padding:'4px 12px',borderRadius:20,fontSize:12,fontWeight:700,background:mode==='devis'?'#f0fdf4':'#fef9f0',color:mode==='devis'?'#2d6a4f':'#b5680f',border:`1px solid ${mode==='devis'?'#2d6a4f':'#b5680f'}`}}>{mode==='devis'?'📄 Devis':'📦 Commande confirmée'}</span>
-          <button onClick={()=>setMode(null)} style={{fontSize:11,color:'#9e9890',background:'none',border:'none',cursor:'pointer'}}>Changer</button>
-        </div>
+
 
         <div style={SECT}>
           <div style={{fontSize:13,fontWeight:700,marginBottom:14}}>👤 Informations client</div>
@@ -4835,12 +4844,13 @@ function ImportObjModal({allSeasons,currentSeasonKey,people,onClose,onImport}){
 }
 
 // ─── OKR PAGE ─────────────────────────────────────────────────────────────────
-function AppNav({current,onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3}){
+function AppNav({current,onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis}){
   const tabs=[
     {k:'okr',l:'🎯 OKR',fn:onGoOKR},
     {k:'update',l:'✍️ Mes Updates',fn:onGoUpdate},
     {k:'reporting',l:'📈 Reporting',fn:onGoReporting},
     {k:'bsv3',l:'📊 Base Sales v3',fn:onGoBsv3},
+    {k:'devis',l:'📄 Devis/Commande',fn:onGoDevis},
   ];
   return <div style={{background:'#fff',borderBottom:'1px solid #e2ddd6',display:'flex',alignItems:'center',height:44,flexShrink:0,paddingLeft:12}}>
     <span onClick={onBack} style={{fontSize:14,fontWeight:700,color:'#2d6a4f',cursor:'pointer',whiteSpace:'nowrap',paddingRight:16}}>🌼 Calendula</span>
@@ -7167,7 +7177,7 @@ export default function App(){
   if(page==="update")return <UpdatePage onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} okrData={okrData} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers}/>;
   if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels} savedCanalMargin={savedCanalMargin} currentUser={authUser}/>;
   if(page==="bsv3")return <Bsv3Page onBack={()=>setPage('dashboard')} onGoOKR={()=>setPage('okr')} onGoUpdate={()=>setPage('update')} onGoReporting={()=>setPage('reporting')} onGoBsv3={()=>setPage('bsv3')} currentUser={authUser} onUpdatePuce={updatePuceInFirebase}/>;
-  if(page==="devis")return <DevisCommandePage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMember={currentTeamMember}/>;
+  if(page==="devis")return <DevisCommandePage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMember={currentTeamMember} onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} onGoDevis={()=>setPage("devis")}/>;
   if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels} savedCanalMargin={savedCanalMargin} onSaveCanalMargin={handleSaveCanalMargin} onSendMessage={handleSendMessage} onSaveBsv3={handleSaveBsv3} onUpdatePuce={updatePuceInFirebase} onUploadReporting={handleUploadReporting}/>;
 
   return <Dashboard
