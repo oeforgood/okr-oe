@@ -4396,7 +4396,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
                   {m.email===OWNER_EMAIL
                     ?<span style={{fontSize:12,color:"#9e9890"}}>Propriétaire</span>
                     :<select value={m.role||"teammate"} onChange={e=>setRole(m.email,e.target.value)} style={{...INP,fontSize:12}}>
-                      <option value="admin">Admin</option><option value="teammate">Teammate actif</option><option value="inactive">Teammate inactif</option>
+                      <option value="admin">Admin</option><option value="teammate">actif</option><option value="inactive">Fini</option>
                     </select>}
                 </td>
                 <td style={{padding:"10px 14px"}}>
@@ -5016,10 +5016,10 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cur
   const season=allSeasons[seasonKey]||allSeasons["printemps_2026"];
   const{objectives,subobjectives,keyresults}=season;
   // Use active team members from Firebase instead of static season people
-  // Only show team members who own at least one KR this season
+  // Only show members who own at least one KR this season (regardless of active status)
   const krOwners=new Set((keyresults||[]).map(k=>k.owner).filter(Boolean));
   const people=teamMembers.length>0
-    ? teamMembers.filter(m=>m.role!=="inactive"&&krOwners.has(m.prenom)).map(m=>m.prenom).sort()
+    ? teamMembers.filter(m=>krOwners.has(m.prenom)).map(m=>m.prenom).sort()
     : (season.people||[]).filter(p=>krOwners.has(p));
 
   useEffect(()=>{
