@@ -6384,6 +6384,27 @@ function Bsv3CommandesTable({rows, importedAt, activeLetters, activeAppelations=
             ))}
           </tr></thead>
           <tbody>
+            {(()=>{
+              const allR=validRows.filter(r=>sortedProds.includes(r['Contenant+Appelation/Robe']));
+              const tdT={padding:'5px 6px',fontSize:11,textAlign:'right',fontFamily:'monospace',fontWeight:800,color:'#2d6a4f',background:'#e8f4f0',borderBottom:'2px solid #2d6a4f'};
+              return <tr style={{background:'#e8f4f0'}}>
+                <td style={{padding:'6px 8px',fontSize:11,fontWeight:800,color:'#2d6a4f',textAlign:'left',position:'sticky',left:0,background:'#e8f4f0',borderBottom:'2px solid #2d6a4f'}}>TOTAL</td>
+                <td style={{...tdT,background:'#d1fae5'}}>{fmtQ(get12M(allR,lastM,lastY))}</td>
+                <td style={{...tdT,background:'#d1fae5'}}>{fmtQ(getPrev12M(allR))}</td>
+                <td style={tdT}>{fmtQ(getYTD(allR,lastY))}</td>
+                {!collapsedYears['ytd']&&months.filter(x=>x.y===lastY).map(({m:mo,y:yr})=>(
+                  <td key={'t'+mo+yr} style={tdT}>{fmtQ(getQty(allR,mo,yr))}</td>
+                ))}
+                {years.filter(yr=>yr!==lastY).map(yr=>(
+                  <React.Fragment key={'ty'+yr}>
+                    <td style={tdT}>{fmtQ(months.filter(x=>x.y===yr).reduce((s,{m:mo})=>s+getQty(allR,mo,yr),0))}</td>
+                    {!collapsedYears[yr]&&months.filter(x=>x.y===yr).map(({m:mo})=>(
+                      <td key={'t'+mo+yr} style={tdT}>{fmtQ(getQty(allR,mo,yr))}</td>
+                    ))}
+                  </React.Fragment>
+                ))}
+              </tr>;
+            })()}
             {sortedProds.map(prod=>{
               const prodRows=validRows.filter(r=>r['Contenant+Appelation/Robe']===prod);
               const isExp=expandedProds[prod];
@@ -6432,27 +6453,7 @@ function Bsv3CommandesTable({rows, importedAt, activeLetters, activeAppelations=
                 })()}
               </React.Fragment>;
             })}
-          <tfoot>{(()=>{
-            const allR=validRows.filter(r=>sortedProds.includes(r['Contenant+Appelation/Robe']));
-            const tdS={padding:'5px 6px',fontSize:11,textAlign:'right',fontFamily:'monospace',fontWeight:700,color:'#1a1814',borderTop:'2px solid #2d6a4f'};
-            return <tr style={{background:'#f0ede8'}}>
-              <td style={{padding:'6px 8px',fontSize:11,fontWeight:800,color:'#2d6a4f',textAlign:'left',position:'sticky',left:0,background:'#f0ede8',borderTop:'2px solid #2d6a4f'}}>TOTAL</td>
-              <td style={{...tdS,background:'#d1fae5',fontWeight:800}}>{fmtQ(get12M(allR,lastM,lastY))}</td>
-              <td style={{...tdS,background:'#d1fae5'}}>{fmtQ(getPrev12M(allR))}</td>
-              <td style={{...tdS,background:'#b7e4d8',fontWeight:800}}>{fmtQ(getYTD(allR,lastY))}</td>
-              {!collapsedYears['ytd']&&months.filter(x=>x.y===lastY).map(({m:mo,y:yr})=>(
-                <td key={'tot_'+mo+'_'+yr} style={tdS}>{fmtQ(getQty(allR,mo,yr))}</td>
-              ))}
-              {years.filter(yr=>yr!==lastY).map(yr=>(
-                <React.Fragment key={'tot_yr_'+yr}>
-                  <td style={{...tdS,background:'#b7e4d8',fontWeight:800}}>{fmtQ(months.filter(x=>x.y===yr).reduce((s,{m:mo})=>s+getQty(allR,mo,yr),0))}</td>
-                  {!collapsedYears[yr]&&months.filter(x=>x.y===yr).map(({m:mo})=>(
-                    <td key={'tot_'+mo+'_'+yr} style={tdS}>{fmtQ(getQty(allR,mo,yr))}</td>
-                  ))}
-                </React.Fragment>
-              ))}
-            </tr>;
-          })()}</tfoot>
+          
           </tbody>
         </table>
       </div>
