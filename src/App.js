@@ -6432,31 +6432,28 @@ function Bsv3CommandesTable({rows, importedAt, activeLetters, activeAppelations=
                 })()}
               </React.Fragment>;
             })}
-          <tfoot>
-            <tr style={{background:'#f0ede8',borderTop:'2px solid #2d6a4f'}}>
+          <tfoot>{(()=>{
+            const allR=validRows.filter(r=>sortedProds.includes(r['Contenant+Appelation/Robe']));
+            const tdS={padding:'5px 6px',fontSize:11,textAlign:'right',fontFamily:'monospace',fontWeight:700,color:'#2d6a4f'};
+            const totCells=[
+              <td key="tot12m" style={{...tdS,background:'#d1fae5'}}>{fmtQ(get12M(allR,lastM,lastY))}</td>,
+              <td key="totprev" style={{...tdS,background:'#d1fae5'}}>{fmtQ(getPrev12M(allR))}</td>,
+              <td key="totytd" style={{...tdS,background:'#b7e4d8'}}>{fmtQ(getYTD(allR,lastY))}</td>,
+              ...(!collapsedYears['ytd']?months.filter(x=>x.y===lastY).map(({m:mo,y:yr})=>
+                <td key={'tt'+mo+'_'+yr} style={tdS}>{fmtQ(getQty(allR,mo,yr))}</td>
+              ):[]),
+              ...years.filter(yr=>yr!==lastY).flatMap(yr=>[
+                <td key={'ttyr'+yr} style={{...tdS,background:'#b7e4d8'}}>{fmtQ(getYTD(allR,yr))}</td>,
+                ...(!collapsedYears[yr]?months.filter(x=>x.y===yr).map(({m:mo})=>
+                  <td key={'tt'+mo+'_'+yr} style={tdS}>{fmtQ(getQty(allR,mo,yr))}</td>
+                ):[]),
+              ]),
+            ];
+            return <tr style={{background:'#f0ede8',borderTop:'2px solid #2d6a4f'}}>
               <td style={{padding:'6px 8px',fontSize:11,fontWeight:800,color:'#2d6a4f',textAlign:'left',position:'sticky',left:0,background:'#f0ede8'}}>TOTAL</td>
-              {(()=>{
-                const tdS={padding:'5px 6px',fontSize:11,textAlign:'right',fontFamily:'monospace',fontWeight:700,color:'#2d6a4f'};
-                const allR=validRows.filter(r=>sortedProds.includes(r['Contenant+Appelation/Robe']));
-                return <>
-                  <td style={{...tdS,background:'#d1fae5'}}>{fmtQ(get12M(allR,lastM,lastY))}</td>
-                  <td style={{...tdS,background:'#d1fae5'}}>{fmtQ(getPrev12M(allR))}</td>
-                  <td style={{...tdS,background:'#b7e4d8'}}>{fmtQ(getYTD(allR,lastY))}</td>
-                  {!collapsedYears['ytd']&&months.filter(x=>x.y===lastY).map(({m:mo,y:yr})=>(
-                    <td key={'tot_'+mo+'_'+yr} style={{...tdS}}>{fmtQ(getQty(allR,mo,yr))}</td>
-                  ))}
-                  {years.filter(yr=>yr!==lastY).map(yr=>(
-                    <React.Fragment key={'tot_yr_'+yr}>
-                      <td style={{...tdS,background:'#b7e4d8'}}>{fmtQ(getYTD(allR,yr))}</td>
-                      {!collapsedYears[yr]&&months.filter(x=>x.y===yr).map(({m:mo})=>(
-                        <td key={'tot_'+mo+'_'+yr} style={{...tdS}}>{fmtQ(getQty(allR,mo,yr))}</td>
-                      ))}
-                    </React.Fragment>
-                  ))}
-                </>;
-              })()}
-            </tr>
-          </tfoot>
+              {totCells}
+            </tr>;
+          })()}</tfoot>
           </tbody>
         </table>
       </div>
