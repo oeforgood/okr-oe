@@ -5554,13 +5554,18 @@ function FactureModal({rows, onClose, currentUser, onPuceClick, getPuce, puceCol
     return email.split('@')[0];
   }
 
+  const PUCE_EMOJI={grey:'⚫',green:'🟢',orange:'🟠',red:'🔴'};
+  const FX_EMAIL='fx@oeforgood.com';
+  const FIONA_EMAIL='fiona@oeforgood.com';
+
   async function saveComment(){
     if(!commentText.trim()||!canComment)return;
     setSavingComment(true);
     const prenom=getPrenomFromEmail(currentUser.email);
+    const commentTxt=commentText.trim();
     const newComment={
       id:Date.now()+'_'+Math.random().toString(36).slice(2),
-      text:commentText.trim(),
+      text:commentTxt,
       email:currentUser.email,
       prenom,
       ts:Date.now(),
@@ -5575,6 +5580,29 @@ function FactureModal({rows, onClose, currentUser, onPuceClick, getPuce, puceCol
     }
     setCommentText('');
     setSavingComment(false);
+    // Send notification to the other person (Fx↔Fiona) after 30s
+    const myEmail=currentUser.email;
+    const toEmail=myEmail===FX_EMAIL?FIONA_EMAIL:FX_EMAIL;
+    const clientName=rows[0]?.['Client PL']||rows[0]?.['Tiers']||'';
+    setTimeout(async()=>{
+      // Read puce color 30s later
+      let puceColor='grey';
+      try{
+        const bsv3Snap=await getDoc(doc(db,'bsv3_comments',factureNum));
+        // Read puce from bsv3_data via getPuce
+        puceColor=getPuce?getPuce(factureNum):'grey';
+      }catch(e){}
+      const puceEmoji=PUCE_EMOJI[puceColor]||'⚫';
+      const title=`🌼 ${prenom} a écrit un commentaire concernant la facture ${factureNum} pour ${clientName}`;
+      const message=`${puceEmoji} Commentaire : ${commentTxt}`;
+      const notifId=`comment_${factureNum}_${Date.now()}`;
+      await setDoc(doc(db,'teammate_notifications',notifId),{
+        toEmail,fromPrenom:prenom,fromEmail:myEmail,
+        title,message,createdAt:Date.now(),read:false,
+        factureNum,clientName,
+      });
+      sendNotifEmail(toEmail,getPrenomFromEmail(toEmail),title);
+    },30000);
   }
 
   async function toggleCommentPublic(commentId){
