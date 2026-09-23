@@ -4031,10 +4031,22 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
       return `<tr><td style="padding:4px 10px;border-bottom:1px solid #eee;font-family:monospace">${l.code||''}</td><td style="padding:4px 10px;border-bottom:1px solid #eee">${l.libelle||''}</td><td style="padding:4px 10px;border-bottom:1px solid #eee;text-align:right;font-family:monospace">${qty}</td><td style="padding:4px 10px;border-bottom:1px solid #eee;text-align:right;font-family:monospace">${echantillons?'offert':fmtE(pu)}</td><td style="padding:4px 10px;border-bottom:1px solid #eee;text-align:right;font-family:monospace">${echantillons?'offert':fmtE(totalHT2)}</td><td style="padding:4px 10px;border-bottom:1px solid #eee;font-size:11px">${echantillons?'offert':tvaRate>0?(tvaRate+'%: '+fmtE(tvaVal)):'0%'}</td></tr>`;
     }).join('');
     const htmlTable=`<table style="border-collapse:collapse;width:100%;font-size:13px"><thead><tr style="background:#f0ede8"><th style="padding:6px 10px;text-align:left">Code</th><th style="padding:6px 10px;text-align:left">Produit</th><th style="padding:6px 10px;text-align:right">Qté</th><th style="padding:6px 10px;text-align:right">P.U. HT</th><th style="padding:6px 10px;text-align:right">Total HT</th><th style="padding:6px 10px">TVA</th></tr></thead><tbody>${prodRows}</tbody><tfoot><tr style="background:#f8f7f5;font-weight:bold"><td colspan="4" style="padding:6px 10px">Total</td><td style="padding:6px 10px;text-align:right;font-family:monospace">${echantillons?'offert':fmtE(totalHT)}</td><td style="padding:6px 10px;font-size:11px">TVA: ${echantillons?'offert':fmtE(totalTVA)}</td></tr><tr style="background:#e8f4f0;font-weight:800"><td colspan="4" style="padding:6px 10px;color:#2d6a4f">TOTAL TTC</td><td colspan="2" style="padding:6px 10px;color:#2d6a4f;font-size:15px">${echantillons?'OFFERT — Échantillons gratuits':fmtE(totalTTC)}</td></tr></tfoot></table>`;
-    const clientInfo=`Client : ${societe} — ${contact}\nFacturation : ${factAddr.addr}, ${factAddr.cp} ${factAddr.ville}${factAddr.email?'\n'+factAddr.email:''}\nLivraison : ${retraitLoft?'Retrait au Loft Oé - 10bis rue Bellicard, 69003 Lyon':sameAddr?factAddr.addr+', '+factAddr.cp+' '+factAddr.ville:expAddr.addr+', '+expAddr.cp+' '+expAddr.ville}\nPréparation : ${prepLabel}${message?'\nMessage : '+message:''}${echantillons?'\n\n⚠️ ÉCHANTILLONS GRATUITS — Justification : '+echantillonsRaison:''}`;
-    const msgBody=mode==='devis'
-      ?`Bonjour,\n\nSuite à nos échanges, voici le chiffrage détaillé :\n\n${clientInfo}\n\n${htmlTable}\n\nTrès belle fin de journée !\n${prenom} — Oé`
-      :`Bonjour,\n\nUne nouvelle commande a été enregistrée par ${prenom}.\n\n${clientInfo}\n\n${htmlTable}\n\nLa bise.\n${prenom}`;
+    const livrInfo=retraitLoft?'Retrait au Loft Oé - 10bis rue Bellicard, 69003 Lyon':sameAddr?(factAddr.addr+', '+factAddr.cp+' '+factAddr.ville):(expAddr.addr+', '+expAddr.cp+' '+expAddr.ville);
+    const clientInfoHtml='<table style="font-size:13px;margin-bottom:16px;border-collapse:collapse">'+
+      '<tr><td style="padding:3px 16px 3px 0;color:#9e9890;font-size:11px;white-space:nowrap;vertical-align:top">CLIENT</td><td style="padding:3px 0"><strong>'+societe+'</strong> — '+contact+'</td></tr>'+
+      '<tr><td style="padding:3px 16px 3px 0;color:#9e9890;font-size:11px;white-space:nowrap;vertical-align:top">FACTURATION</td><td style="padding:3px 0">'+factAddr.addr+(factAddr.addr2?' '+factAddr.addr2:'')+', '+factAddr.cp+' '+factAddr.ville+(factAddr.email?' — '+factAddr.email:'')+'</td></tr>'+
+      '<tr><td style="padding:3px 16px 3px 0;color:#9e9890;font-size:11px;white-space:nowrap;vertical-align:top">LIVRAISON</td><td style="padding:3px 0">'+livrInfo+'</td></tr>'+
+      '<tr><td style="padding:3px 16px 3px 0;color:#9e9890;font-size:11px;white-space:nowrap;vertical-align:top">PRÉPARATION</td><td style="padding:3px 0">'+prepLabel+'</td></tr>'+
+      (message?'<tr><td style="padding:3px 16px 3px 0;color:#9e9890;font-size:11px;white-space:nowrap;vertical-align:top">MESSAGE</td><td style="padding:3px 0;font-style:italic">'+message+'</td></tr>':'')+
+      (echantillons?'<tr><td style="padding:3px 16px 3px 0;color:#c0392b;font-size:11px;white-space:nowrap;vertical-align:top">ÉCHANTILLONS</td><td style="padding:3px 0;color:#c0392b;font-weight:600">⚠️ Gratuits — '+echantillonsRaison+'</td></tr>':'')+
+      '</table>';
+    const intro=mode==='devis'
+      ?'<p>Bonjour,</p><p>Suite à nos échanges, voici le chiffrage détaillé :</p>'
+      :'<p>Bonjour,</p><p>Une nouvelle commande a été enregistrée par <strong>'+prenom+'</strong>.</p>';
+    const outro=mode==='devis'
+      ?'<p>Très belle fin de journée !<br><strong>'+prenom+' — Oé</strong></p>'
+      :'<p>La bise.<br><strong>'+prenom+'</strong></p>';
+    const msgBody=intro+clientInfoHtml+htmlTable+outro;
     await setDoc(doc(db,'devis_commandes',ref),{ref,mode,societe,contact,factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,preparation,infoLivraison,message,lignes:displayLignes,totalHT,totalTVA,totalTTC,createdAt:Date.now(),createdBy:currentUser?.email});
     try{
       await emailjs.send(EMAILJS_SERVICE,EMAILJS_TEMPLATE_DEVIS,{
@@ -4468,6 +4480,10 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
     setBsv3Uploading(false);
   }
   const [qs,setQs]=useState(questions||DEFAULT_QUESTIONS);
+  // Sync qs when questions prop loads from Firebase
+  useEffect(()=>{
+    if(questions&&questions.length>0)setQs(questions);
+  },[questions]);
   const [saved,setSaved]=useState(false);
 
   function addMember(){
