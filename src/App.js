@@ -3895,12 +3895,12 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     });
   },[]);
 
-  const selectedCodes=new Set(coreLignes.map(l=>l.code));
   const filteredTarif=React.useMemo(()=>{
-    const base=tarif.filter(p=>p.code&&![CASIER_CODE,COIFFE_CODE,'CONTENANT BOUTEILLE'].includes(p.code)&&!selectedCodes.has(p.code));
+    const selCodes=new Set(lignes.filter(l=>l.qtyMode!=='auto').map(l=>l.code));
+    const base=tarif.filter(p=>p.code&&![CASIER_CODE,COIFFE_CODE,'CONTENANT BOUTEILLE'].includes(p.code)&&!selCodes.has(p.code));
     if(isCasierPrep)return base.filter(p=>(p.code||'')[1]==='E');
     return base;
-  },[tarif,isCasierPrep,selectedCodes]);
+  },[tarif,isCasierPrep,lignes]);
 
   const coreLignes=lignes.filter(l=>l.qtyMode!=='auto');
   const totalBouteilles=coreLignes.reduce((s,l)=>s+parseInt(l.qty||0),0);
@@ -4287,8 +4287,8 @@ function TarifTab({db}){
   const [saving,setSaving]=React.useState(false);
   const [msg,setMsg]=React.useState('');
   const fileRef=React.useRef();
-  const COLS=['code','libelle','robe','contenant','prix24','prix120','prix240','prix360','prix600','prixPalette','pcb','eq75','qpalette','tva'];
-  const COL_LABELS={'code':'Code','libelle':'Libellé','robe':'Robe','contenant':'Contenant','prix24':'Prix/24','prix120':'Prix/120','prix240':'Prix/240','prix360':'Prix/360','prix600':'Prix/600','prixPalette':'Prix palette','pcb':'PCB','eq75':'Éq.75','qpalette':'Q.palette','tva':'TVA'};
+  const COLS=['code','libelle','robe','contenant','tariEvents','prix24','prix120','prix240','prix360','prix600','prixPalette','pcb','eq75','qpalette','tva'];
+  const COL_LABELS={'code':'Code','libelle':'Libellé','robe':'Robe','contenant':'Contenant','tariEvents':'Tarif Events','prix24':'Prix/24','prix120':'Prix/120','prix240':'Prix/240','prix360':'Prix/360','prix600':'Prix/600','prixPalette':'Prix palette','pcb':'PCB','eq75':'Éq.75','qpalette':'Q.palette','tva':'TVA'};
 
   React.useEffect(()=>{
     if(!db)return;
@@ -4369,6 +4369,16 @@ function TarifTab({db}){
         style={{padding:'7px 16px',background:'#2d6a4f',color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>
         📥 Importer un tarif (.csv)
       </button>
+      {tarif.length>0&&<button onClick={()=>{
+        const headers=COLS.map(c=>COL_LABELS[c]||c).join(';');
+        const rows=tarif.map(r=>COLS.map(c=>(r[c]||'').toString().replace(/;/g,',')).join(';')).join('\n');
+        const csv=headers+'\n'+rows;
+        const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+        const url=URL.createObjectURL(blob);
+        const a=document.createElement('a');a.href=url;a.download='tarif_oe.csv';a.click();URL.revokeObjectURL(url);
+      }} style={{padding:'7px 16px',background:'#f0fdf4',color:'#2d6a4f',border:'1px solid #2d6a4f',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>
+        📤 Exporter en .csv
+      </button>}
       <input ref={fileRef} type="file" accept=".csv" style={{display:'none'}} onChange={handleImport}/>
       {msg&&<span style={{fontSize:12,color:msg.startsWith('❌')?'#c0392b':'#2d6a4f'}}>{msg}</span>}
       {saving&&<span style={{fontSize:11,color:'#9e9890'}}>Enregistrement...</span>}
