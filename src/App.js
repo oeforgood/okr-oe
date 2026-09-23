@@ -3855,16 +3855,34 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   const [loadingTarif,setLoadingTarif]=React.useState(true);
   const [sending,setSending]=React.useState(false);
   const [sent,setSent]=React.useState(false);
-  const [step,setStep]=React.useState('coords'); // 'coords' | 'produits'
+  const [sentRecap,setSentRecap]=React.useState('');
+  const [step,setStep]=React.useState('coords');
   const [societe,setSociete]=React.useState('');
   const [contact,setContact]=React.useState('');
   const [factAddr,setFactAddr]=React.useState({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});
   const [expAddr,setExpAddr]=React.useState({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});
   const [sameAddr,setSameAddr]=React.useState(false);
+  const [retraitLoft,setRetraitLoft]=React.useState(false);
   const [infoLivraison,setInfoLivraison]=React.useState('');
   const [message,setMessage]=React.useState('');
+  const [preparation,setPreparation]=React.useState('');
   const [lignes,setLignes]=React.useState([]);
   const [selectedProd,setSelectedProd]=React.useState('');
+
+  const PREP_OPTIONS=[
+    {k:'palette_casier_coiffe',l:'Palette de casiers avec coiffe consign\u00e9e',loftOnly:false},
+    {k:'palette_casier_sans_coiffe',l:'Palette de casiers sans coiffe',loftOnly:false},
+    {k:'palette_cartons',l:'Palette de cartons',loftOnly:false},
+    {k:'coffret_ups',l:'Coffret UPS',loftOnly:false},
+    {k:'carton_sans_palette',l:'Carton sans palette',loftOnly:true},
+    {k:'casier_sans_palette',l:'Casier sans palette',loftOnly:true},
+  ];
+  const isCasierPrep=['palette_casier_coiffe','palette_casier_sans_coiffe','casier_sans_palette'].includes(preparation);
+  const isPalettePrep=['palette_casier_coiffe','palette_casier_sans_coiffe','palette_cartons'].includes(preparation);
+  const isCoiffePrep=preparation==='palette_casier_coiffe';
+  const effectivePCB=isPalettePrep?12:1;
+  const CASIER_CODE='CASIER-OE';const COIFFE_CODE='COIFFE-OE';
+  const CASIER_PRIX=10;const COIFFE_PRIX=120;
 
   React.useEffect(()=>{
     getDocs(collection(db,'tarif')).then(snap=>{
@@ -3874,15 +3892,23 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     });
   },[]);
 
-  const totalEq75=lignes.reduce((s,l)=>{
+  const filteredTarif=React.useMemo(()=>{
+    const base=tarif.filter(p=>p.code&&![CASIER_CODE,COIFFE_CODE,'CONTENANT BOUTEILLE'].includes(p.code));
+    if(isCasierPrep)return base.filter(p=>(p.code||'')[1]==='E');
+    return base;
+  },[tarif,isCasierPrep]);
+
+  const coreLignes=lignes.filter(l=>l.qtyMode!=='auto');
+  const totalBouteilles=coreLignes.reduce((s,l)=>s+parseInt(l.qty||0),0);
+  const totalEq75=coreLignes.reduce((s,l)=>{
     const p=tarif.find(t=>t.code===l.code);
     return s+(parseFloat(p?.eq75||0)*parseInt(l.qty||0));
   },0);
 
   function getPU(prod,qty){
-    const qtyN=parseInt(qty||0);
+    const q=parseInt(qty||0);
     const qpal=parseInt(prod.qpalette||0);
-    if(qpal>0&&qtyN>0&&qtyN%qpal===0&&totalEq75>=600)return parseFloat(prod.prixPalette||0);
+    if(qpal>0&&q>0&&q%qpal===0&&totalEq75>=600)return parseFloat(prod.prixPalette||0);
     if(totalEq75>=600)return parseFloat(prod.prix600||0);
     if(totalEq75>=360)return parseFloat(prod.prix360||0);
     if(totalEq75>=240)return parseFloat(prod.prix240||0);
@@ -3890,19 +3916,43 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     return parseFloat(prod.prix24||0);
   }
 
+  function getDisplayLignes(){
+    const result=[...coreLignes];
+    if(isCasierPrep){const n=Math.ceil(totalBouteilles/12);if(n>0)result.push({code:CASIER_CODE,libelle:'Casier consign\u00e9',robe:'',pcb:1,eq75:0,tva:'0',qty:n,qtyMode:'auto',prix:CASIER_PRIX});}
+    if(isCoiffePrep){const n=Math.floor(totalBouteilles/120);if(n>0)result.push({code:COIFFE_CODE,libelle:'Coiffe consign\u00e9e',robe:'',pcb:1,eq75:0,tva:'0',qty:n,qtyMode:'auto',prix:COIFFE_PRIX});}
+    return result;
+  }
+
   function addProduit(code){
     const prod=tarif.find(t=>t.code===code);if(!prod)return;
-    const pcb=parseInt(prod.pcb||1);
-    setLignes(p=>[...p,{code:prod.code,libelle:prod.libelle,robe:prod.robe,pcb,eq75:prod.eq75,tva:prod.tva,qty:pcb,qtyMode:'select'}]);
+    const pcb=effectivePCB;
+    setLignes(p=>[...p,{code:prod.code,libelle:prod.libelle,robe:prod.robe,pcb,eq75:prod.eq75,tva:prod.tva,qty:pcb,qtyMode:pcb>1?'select':'free'}]);
     setSelectedProd('');
   }
   function updLigne(i,f,v){setLignes(p=>p.map((l,j)=>j===i?{...l,[f]:v}:l));}
   function remLigne(i){setLignes(p=>p.filter((_,j)=>j!==i));}
 
-  const totalHT=lignes.reduce((s,l)=>{const p=tarif.find(t=>t.code===l.code);return s+(p?getPU(p,l.qty)*parseInt(l.qty||0):0);},0);
-  const totalTVA=lignes.reduce((s,l)=>{const p=tarif.find(t=>t.code===l.code);if(!p)return s;return s+getPU(p,l.qty)*parseInt(l.qty||0)*(parseFloat(l.tva||0)/100);},0);
+  function handlePrepChange(newPrep){
+    const newIsCasier=['palette_casier_coiffe','palette_casier_sans_coiffe','casier_sans_palette'].includes(newPrep);
+    if(newIsCasier){
+      const bad=coreLignes.some(l=>(l.code||'')[1]!=='E');
+      if(bad){alert('Supprimez d\'abord les produits autres que 75cl.');return;}
+    }
+    const newIsPalette=['palette_casier_coiffe','palette_casier_sans_coiffe','palette_cartons'].includes(newPrep);
+    const newPCB=newIsPalette?12:1;
+    setLignes(p=>p.filter(l=>l.qtyMode!=='auto').map(l=>({...l,pcb:newPCB,qty:newPCB>1?Math.max(newPCB,Math.ceil((parseInt(l.qty||newPCB))/newPCB)*newPCB):parseInt(l.qty||1),qtyMode:newPCB>1?'select':'free'})));
+    setPreparation(newPrep);
+  }
+
+  const displayLignes=getDisplayLignes();
+  function getLinePU(l){return l.prix!==undefined?l.prix:(()=>{const p=tarif.find(t=>t.code===l.code);return p?getPU(p,l.qty):0;})();}
+  const totalHT=displayLignes.reduce((s,l)=>s+getLinePU(l)*parseInt(l.qty||0),0);
+  const totalTVA=displayLignes.reduce((s,l)=>s+getLinePU(l)*parseInt(l.qty||0)*(parseFloat(l.tva||0)/100),0);
   const totalTTC=totalHT+totalTVA;
   function fmtE(v){return Number(v).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' \u20ac';}
+  const prepLabel=PREP_OPTIONS.find(p=>p.k===preparation)?.l||'';
+  const expA=sameAddr||retraitLoft?factAddr:expAddr;
+  const coiffeOk=!isCoiffePrep||totalBouteilles===0||totalBouteilles%120===0;
 
   function genRef(){
     const d=new Date();
@@ -3910,214 +3960,245 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   }
 
   function buildText(ref){
-    const expA=sameAddr?factAddr:expAddr;
-    const sep='─'.repeat(50);
-    const lignesText=lignes.map(l=>{
-      const p=tarif.find(t=>t.code===l.code);const pu=p?getPU(p,l.qty):0;
-      return `  ${l.code} | ${l.libelle}\n  Qté : ${l.qty}  |  P.U. : ${fmtE(pu)}  |  Total : ${fmtE(pu*parseInt(l.qty||0))}`;
-    }).join('\n\n');
+    const sep='\u2500'.repeat(55);
+    function col(s,w){return String(s||'').padEnd(w).slice(0,w);}
+    function colR(s,w){return String(s||'').padStart(w).slice(-w);}
+    const header=col('Code + Produit',36)+colR('Qt\u00e9',5)+colR('P.U.HT',10)+colR('Total HT',12);
+    const lignesText=displayLignes.map(l=>{
+      const pu=getLinePU(l);
+      const label=(l.code||'')+(l.libelle?' - '+l.libelle:'');
+      return col(label,36)+colR(String(l.qty),5)+colR(fmtE(pu),10)+colR(fmtE(pu*parseInt(l.qty||0)),12);
+    }).join('\n');
+    const expInfo=retraitLoft?'Retrait au Loft O\u00e9':sameAddr?`${factAddr.addr}, ${factAddr.cp} ${factAddr.ville}`:`${expAddr.addr}, ${expAddr.cp} ${expAddr.ville}`;
     return [
-      `Oé — ${mode==='devis'?'DEVIS':'BON DE COMMANDE'}`,
-      `Réf : ${ref}  ·  ${new Date().toLocaleDateString('fr-FR')}`,
+      `O\u00e9 - ${mode==='devis'?'DEVIS':'BON DE COMMANDE'}`,
+      `R\u00e9f : ${ref}  -  ${new Date().toLocaleDateString('fr-FR')}`,
       sep,
       `CLIENT : ${societe}  |  ${contact}`,
-      `${factAddr.addr}${factAddr.addr2?' '+factAddr.addr2:''}  ${factAddr.cp} ${factAddr.ville} — ${factAddr.pays}`,
-      factAddr.tel?`Tél : ${factAddr.tel}`:'',
+      `Fact. : ${factAddr.addr}${factAddr.addr2?' '+factAddr.addr2:''}  ${factAddr.cp} ${factAddr.ville} - ${factAddr.pays}`,
       factAddr.email?`Email : ${factAddr.email}`:'',
-      sep,
-      `LIVRAISON : ${expA.addr}${expA.addr2?' '+expA.addr2:''}  ${expA.cp} ${expA.ville}`,
+      `Livr. : ${expInfo}`,
       infoLivraison?`Info livraison : ${infoLivraison}`:'',
-      message?`\nMESSAGE : ${message}`:'',
       sep,
+      `PREPARATION : ${prepLabel}`,
+      message?`MESSAGE : ${message}`:'',
+      sep,
+      header,
+      '\u2500'.repeat(63),
       lignesText,
       sep,
-      `Total HT  : ${fmtE(totalHT)}`,
-      `TVA       : ${fmtE(totalTVA)}`,
-      `TOTAL TTC : ${fmtE(totalTTC)}`,
+      `${''.padEnd(44)}Total HT  : ${colR(fmtE(totalHT),12)}`,
+      `${''.padEnd(44)}TVA       : ${colR(fmtE(totalTVA),12)}`,
+      `${''.padEnd(44)}TOTAL TTC : ${colR(fmtE(totalTTC),12)}`,
       sep,
-      `Oé — contact@oeforgood.com`,
+      `O\u00e9 - contact@oeforgood.com`,
     ].filter(l=>l!=='').join('\n');
   }
 
   async function saveCoords(){
-    // Save client coords to Firebase for later reuse
-    await setDoc(doc(db,'devis_clients',societe.trim()||'_'),{
-      societe,contact,factAddr,expAddr:sameAddr?factAddr:expAddr,infoLivraison,updatedAt:Date.now(),
-    });
+    await setDoc(doc(db,'devis_clients',societe.trim()||'_'),{societe,contact,factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,infoLivraison,updatedAt:Date.now()});
     setStep('produits');
   }
 
   async function handleEnvoyer(){
-    if(!lignes.length){alert('Ajoutez au moins un produit.');return;}
-    if(mode==='devis'&&!factAddr.email){alert('Email de facturation requis.');return;}
+    if(!coreLignes.length){alert('Ajoutez au moins un produit.');return;}
+    if(!preparation){alert('Choisissez un mode de pr\u00e9paration.');return;}
+    if(!coiffeOk){alert(`Le nombre de bouteilles (${totalBouteilles}) doit \u00eatre un multiple de 120.`);return;}
     setSending(true);
     const ref=genRef();
     const textContent=buildText(ref);
-    const prenom=teamMember?.prenom||'Oé';
+    const prenom=teamMember?.prenom||'O\u00e9';
     const msgBody=mode==='devis'
-      ?`Bonjour,\n\nSuite à nos échanges, voici le chiffrage détaillé :\n\n${textContent}\n\nTrès belle fin de journée !\n${prenom} — Oé`
-      :`Bonjour,\n\nUne nouvelle commande a été enregistrée par ${prenom}.\n\n${textContent}\n\nLa bise.\n${prenom}`;
-    await setDoc(doc(db,'devis_commandes',ref),{ref,mode,societe,contact,factAddr,expAddr:sameAddr?factAddr:expAddr,infoLivraison,message,lignes,totalHT,totalTVA,totalTTC,createdAt:Date.now(),createdBy:currentUser?.email});
+      ?`Bonjour,\n\nSuite \u00e0 nos \u00e9changes, voici le chiffrage d\u00e9taill\u00e9 :\n\n${textContent}\n\nTr\u00e8s belle fin de journ\u00e9e !\n${prenom} - O\u00e9`
+      :`Bonjour,\n\nUne nouvelle commande a \u00e9t\u00e9 enregistr\u00e9e par ${prenom}.\n\n${textContent}\n\nLa bise.\n${prenom}`;
+    await setDoc(doc(db,'devis_commandes',ref),{ref,mode,societe,contact,factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,preparation,infoLivraison,message,lignes:displayLignes,totalHT,totalTVA,totalTTC,createdAt:Date.now(),createdBy:currentUser?.email});
     try{
       await emailjs.send(EMAILJS_SERVICE,EMAILJS_TEMPLATE_DEVIS,{
-        to_email:mode==='devis'?factAddr.email:'pro@oeforgood.com',
-        cc_email:mode==='commande'?currentUser?.email:'',
-        to_name:mode==='devis'?societe:'Équipe pro',
-        from_name:prenom,name:prenom,
-        email:currentUser?.email||'',
-        reply_to:currentUser?.email||'fx@oeforgood.com',
-        subject:mode==='devis'?`Devis ${ref} — Oé`:`Commande ${ref} — Oé`,
+        to_email:'',cc_email:'fx@oeforgood.com',
+        to_name:prenom,from_name:prenom,name:prenom,
+        email:currentUser?.email||'',reply_to:currentUser?.email||'fx@oeforgood.com',
+        subject:`${mode==='devis'?`Devis ${ref} - O\u00e9`:`Commande ${ref} - O\u00e9`}`,
         ref,html_content:msgBody,message:msgBody,
       },EMAILJS_KEY);
-    }catch(e){console.error('EmailJS error:',e);}
-    setSending(false);setSent(true);
+    }catch(e){console.error('EmailJS:',e);}
+    setSentRecap(textContent);setSending(false);setSent(true);
   }
 
-  function resetForm(){setSent(false);setStep('coords');setLignes([]);setSociete('');setContact('');setFactAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setExpAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setMessage('');setInfoLivraison('');}
+  function resetForm(){setSent(false);setSentRecap('');setStep('coords');setLignes([]);setPreparation('');setSociete('');setContact('');setFactAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setExpAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setSameAddr(false);setRetraitLoft(false);setMessage('');setInfoLivraison('');}
 
   const INP=(w='100%')=>({fontSize:13,padding:'7px 10px',borderRadius:7,border:'1px solid #e2ddd6',outline:'none',fontFamily:'inherit',width:w,boxSizing:'border-box'});
   const LBL={fontSize:11,fontWeight:600,color:'#6b6560',marginBottom:3,display:'block'};
   const SECT={background:'#fff',borderRadius:12,padding:'20px',marginBottom:16,border:'1px solid #e2ddd6'};
 
-  const expA=sameAddr?factAddr:expAddr;
-
   if(sent)return <div style={{minHeight:'100vh',background:'#f5f3ef',fontFamily:'system-ui,sans-serif'}}>
     <AppNav current="devis" onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3} onGoDevis={()=>{}}/>
-    <div style={{maxWidth:500,margin:'80px auto',textAlign:'center',padding:'0 16px'}}>
-      <div style={{fontSize:48,marginBottom:12}}>✅</div>
-      <div style={{fontSize:18,fontWeight:700,marginBottom:8}}>{mode==='devis'?'Devis envoyé !':'Commande enregistrée !'}</div>
-      <div style={{fontSize:13,color:'#6b6560',marginBottom:24}}>{mode==='devis'?`Envoyé à ${factAddr.email}`:'Envoyé à pro@oeforgood.com'}</div>
-      <button onClick={resetForm} style={{padding:'10px 24px',background:'#2d6a4f',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:600,cursor:'pointer'}}>Nouveau devis / commande</button>
+    <div style={{maxWidth:700,margin:'20px auto',padding:'0 16px 60px'}}>
+      <div style={{background:'#f0fdf4',border:'1px solid #86efac',borderRadius:12,padding:'20px',marginBottom:16,textAlign:'center'}}>
+        <div style={{fontSize:36,marginBottom:8}}>&#x2705;</div>
+        <div style={{fontSize:16,fontWeight:700,marginBottom:4}}>{mode==='devis'?'Devis envoy\u00e9 !':'Commande enregistr\u00e9e !'}</div>
+        <div style={{fontSize:12,color:'#6b6560',marginBottom:16}}>Un mail de confirmation vous a \u00e9t\u00e9 envoy\u00e9 en CCi.</div>
+        <button onClick={resetForm} style={{padding:'8px 20px',background:'#2d6a4f',color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>Nouveau devis / commande</button>
+      </div>
+      <div style={{background:'#fff',borderRadius:12,border:'1px solid #e2ddd6',padding:'20px'}}>
+        <div style={{fontSize:12,fontWeight:700,color:'#6b6560',marginBottom:12,textTransform:'uppercase',letterSpacing:.5}}>R\u00e9capitulatif</div>
+        <pre style={{fontSize:11,fontFamily:'monospace',color:'#1a1814',whiteSpace:'pre-wrap',lineHeight:1.6,margin:0}}>{sentRecap}</pre>
+      </div>
     </div>
   </div>;
 
   return <div style={{minHeight:'100vh',background:'#f5f3ef',fontFamily:'system-ui,sans-serif'}}>
     <AppNav current="devis" onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3} onGoDevis={()=>{}}/>
     <div style={{maxWidth:900,margin:'0 auto',padding:'20px 16px 60px'}}>
-
-      {/* Mode toggle */}
       <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
-        {[{k:'commande',l:'📦 Enregistrer une commande'},{k:'devis',l:'📄 Faire et envoyer un devis'}].map(t=>
+        {[{k:'commande',l:'Enregistrer une commande'},{k:'devis',l:'Faire et envoyer un devis'}].map(t=>
           <button key={t.k} onClick={()=>setMode(t.k)}
             style={{padding:'8px 18px',borderRadius:8,border:`1px solid ${mode===t.k?'#2d6a4f':'#e2ddd6'}`,
-              background:mode===t.k?'#2d6a4f':'#fff',color:mode===t.k?'#fff':'#6b6560',
-              fontSize:13,fontWeight:500,cursor:'pointer'}}>
+              background:mode===t.k?'#2d6a4f':'#fff',color:mode===t.k?'#fff':'#6b6560',fontSize:13,fontWeight:500,cursor:'pointer'}}>
             {t.l}
           </button>
         )}
       </div>
 
-      {/* STEP 1: Coordinates */}
       {step==='coords'&&<>
         <div style={SECT}>
-          <div style={{fontSize:13,fontWeight:700,marginBottom:14}}>👤 Informations client</div>
+          <div style={{fontSize:13,fontWeight:700,marginBottom:14}}>Informations client</div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:14}}>
-            <div><label style={LBL}>Nom de la société *</label><input value={societe} onChange={e=>setSociete(e.target.value)} style={INP()}/></div>
-            <div><label style={LBL}>Prénom et Nom du contact</label><input value={contact} onChange={e=>setContact(e.target.value)} style={INP()}/></div>
+            <div><label style={LBL}>Nom de la soci\u00e9t\u00e9 *</label><input value={societe} onChange={e=>setSociete(e.target.value)} style={INP()}/></div>
+            <div><label style={LBL}>Pr\u00e9nom et Nom du contact</label><input value={contact} onChange={e=>setContact(e.target.value)} style={INP()}/></div>
           </div>
           <div style={{fontSize:12,fontWeight:700,color:'#6b6560',marginBottom:8}}>Adresse de facturation</div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:14}}>
             <div><label style={LBL}>Adresse</label><input value={factAddr.addr} onChange={e=>setFactAddr(p=>({...p,addr:e.target.value}))} style={INP()}/></div>
-            <div><label style={LBL}>Complément</label><input value={factAddr.addr2} onChange={e=>setFactAddr(p=>({...p,addr2:e.target.value}))} style={INP()}/></div>
+            <div><label style={LBL}>Compl\u00e9ment</label><input value={factAddr.addr2} onChange={e=>setFactAddr(p=>({...p,addr2:e.target.value}))} style={INP()}/></div>
             <div><label style={LBL}>Code postal</label><input value={factAddr.cp} onChange={e=>setFactAddr(p=>({...p,cp:e.target.value}))} style={INP()}/></div>
             <div><label style={LBL}>Ville</label><input value={factAddr.ville} onChange={e=>setFactAddr(p=>({...p,ville:e.target.value}))} style={INP()}/></div>
             <div><label style={LBL}>Pays</label><input value={factAddr.pays} onChange={e=>setFactAddr(p=>({...p,pays:e.target.value}))} style={INP()}/></div>
-            <div><label style={LBL}>Téléphone</label><input value={factAddr.tel} onChange={e=>setFactAddr(p=>({...p,tel:e.target.value}))} style={INP()}/></div>
+            <div><label style={LBL}>T\u00e9l\u00e9phone</label><input value={factAddr.tel} onChange={e=>setFactAddr(p=>({...p,tel:e.target.value}))} style={INP()}/></div>
             <div style={{gridColumn:'1/-1'}}><label style={LBL}>Email{mode==='devis'?' *':''}</label><input value={factAddr.email} onChange={e=>setFactAddr(p=>({...p,email:e.target.value}))} style={INP()}/></div>
           </div>
-          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
-            <div style={{fontSize:12,fontWeight:700,color:'#6b6560'}}>Adresse d'expédition</div>
-            <label style={{display:'flex',alignItems:'center',gap:4,fontSize:11,color:'#9e9890',cursor:'pointer'}}>
-              <input type="checkbox" checked={sameAddr} onChange={e=>setSameAddr(e.target.checked)}/> Identique à la facturation
+          <div style={{fontSize:12,fontWeight:700,color:'#6b6560',marginBottom:8}}>Adresse d\u2019exp\u00e9dition</div>
+          <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:10}}>
+            <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer'}}>
+              <input type="checkbox" checked={sameAddr} onChange={e=>{setSameAddr(e.target.checked);if(e.target.checked)setRetraitLoft(false);}}/> Identique \u00e0 la facturation
+            </label>
+            <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer'}}>
+              <input type="checkbox" checked={retraitLoft} onChange={e=>{setRetraitLoft(e.target.checked);if(e.target.checked)setSameAddr(false);}}/> Retrait par le client au Loft O\u00e9
             </label>
           </div>
-          {!sameAddr&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
+          {!sameAddr&&!retraitLoft&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
             <div><label style={LBL}>Adresse</label><input value={expAddr.addr} onChange={e=>setExpAddr(p=>({...p,addr:e.target.value}))} style={INP()}/></div>
-            <div><label style={LBL}>Complément</label><input value={expAddr.addr2} onChange={e=>setExpAddr(p=>({...p,addr2:e.target.value}))} style={INP()}/></div>
+            <div><label style={LBL}>Compl\u00e9ment</label><input value={expAddr.addr2} onChange={e=>setExpAddr(p=>({...p,addr2:e.target.value}))} style={INP()}/></div>
             <div><label style={LBL}>Code postal</label><input value={expAddr.cp} onChange={e=>setExpAddr(p=>({...p,cp:e.target.value}))} style={INP()}/></div>
             <div><label style={LBL}>Ville</label><input value={expAddr.ville} onChange={e=>setExpAddr(p=>({...p,ville:e.target.value}))} style={INP()}/></div>
             <div><label style={LBL}>Pays</label><input value={expAddr.pays} onChange={e=>setExpAddr(p=>({...p,pays:e.target.value}))} style={INP()}/></div>
-            <div><label style={LBL}>Téléphone</label><input value={expAddr.tel} onChange={e=>setExpAddr(p=>({...p,tel:e.target.value}))} style={INP()}/></div>
+            <div><label style={LBL}>T\u00e9l\u00e9phone</label><input value={expAddr.tel} onChange={e=>setExpAddr(p=>({...p,tel:e.target.value}))} style={INP()}/></div>
             <div style={{gridColumn:'1/-1'}}><label style={LBL}>Email</label><input value={expAddr.email} onChange={e=>setExpAddr(p=>({...p,email:e.target.value}))} style={INP()}/></div>
           </div>}
-          <div style={{marginTop:8}}><label style={LBL}>Informations de livraison</label><input value={infoLivraison} onChange={e=>setInfoLivraison(e.target.value)} style={INP()}/></div>
-          <div style={{marginTop:10}}><label style={LBL}>{mode==='devis'?'Message pour le client':'Message pour la supply'}</label>
-            <textarea value={message} onChange={e=>setMessage(e.target.value)} rows={3} style={{...INP(),resize:'vertical'}}/></div>
+          {retraitLoft&&<div style={{background:'#f0fdf4',border:'1px solid #86efac',borderRadius:8,padding:'10px 14px',fontSize:12,color:'#2d6a4f'}}>
+            Retrait au Loft O\u00e9 - 19 rue de Gerland, 69007 Lyon
+          </div>}
         </div>
         <div style={{display:'flex',justifyContent:'flex-end'}}>
           <button onClick={saveCoords} disabled={!societe.trim()}
-            style={{padding:'11px 28px',background:societe.trim()?'#2d6a4f':'#e2ddd6',color:societe.trim()?'#fff':'#9e9890',
-              border:'none',borderRadius:10,fontSize:14,fontWeight:700,cursor:societe.trim()?'pointer':'default'}}>
-            Enregistrer les coordonnées →
+            style={{padding:'11px 28px',background:societe.trim()?'#2d6a4f':'#e2ddd6',color:societe.trim()?'#fff':'#9e9890',border:'none',borderRadius:10,fontSize:14,fontWeight:700,cursor:societe.trim()?'pointer':'default'}}>
+            Enregistrer les coordonn\u00e9es
           </button>
         </div>
       </>}
 
-      {/* STEP 2: Products - show client summary + product form */}
       {step==='produits'&&<>
-        {/* Client summary */}
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
           <div style={{background:'#fff',borderRadius:10,padding:'14px 16px',border:'1px solid #e2ddd6'}}>
-            <div style={{fontSize:10,fontWeight:700,color:'#9e9890',textTransform:'uppercase',letterSpacing:.5,marginBottom:6}}>Livraison</div>
-            <div style={{fontSize:13,fontWeight:700,color:'#1a1814'}}>{societe}</div>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
+              <div style={{fontSize:10,fontWeight:700,color:'#9e9890',textTransform:'uppercase',letterSpacing:.5}}>Livraison</div>
+              <button onClick={()=>setStep('coords')} style={{fontSize:10,color:'#2d6a4f',background:'none',border:'none',cursor:'pointer',padding:0}}>Modifier</button>
+            </div>
+            <div style={{fontSize:13,fontWeight:700}}>{societe}</div>
             <div style={{fontSize:12,color:'#6b6560'}}>{contact}</div>
-            <div style={{fontSize:12,color:'#6b6560',marginTop:2}}>{expA.addr}{expA.addr2?' '+expA.addr2:''}</div>
-            <div style={{fontSize:12,color:'#6b6560'}}>{expA.cp} {expA.ville} — {expA.pays}</div>
-            {infoLivraison&&<div style={{fontSize:11,color:'#b5680f',marginTop:4,fontStyle:'italic'}}>{infoLivraison}</div>}
+            {retraitLoft
+              ?<div style={{fontSize:12,color:'#2d6a4f',marginTop:2}}>Retrait au Loft O\u00e9</div>
+              :<><div style={{fontSize:12,color:'#6b6560',marginTop:2}}>{expA.addr}</div><div style={{fontSize:12,color:'#6b6560'}}>{expA.cp} {expA.ville}</div></>}
+            {infoLivraison&&<div style={{fontSize:11,color:'#b5680f',marginTop:3,fontStyle:'italic'}}>{infoLivraison}</div>}
           </div>
           <div style={{background:'#fff',borderRadius:10,padding:'14px 16px',border:'1px solid #e2ddd6'}}>
-            <div style={{fontSize:10,fontWeight:700,color:'#9e9890',textTransform:'uppercase',letterSpacing:.5,marginBottom:6}}>Facturation</div>
-            <div style={{fontSize:13,fontWeight:700,color:'#1a1814'}}>{societe}</div>
-            <div style={{fontSize:12,color:'#6b6560'}}>{factAddr.addr}{factAddr.addr2?' '+factAddr.addr2:''}</div>
-            <div style={{fontSize:12,color:'#6b6560'}}>{factAddr.cp} {factAddr.ville} — {factAddr.pays}</div>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
+              <div style={{fontSize:10,fontWeight:700,color:'#9e9890',textTransform:'uppercase',letterSpacing:.5}}>Facturation</div>
+              <button onClick={()=>setStep('coords')} style={{fontSize:10,color:'#2d6a4f',background:'none',border:'none',cursor:'pointer',padding:0}}>Modifier</button>
+            </div>
+            <div style={{fontSize:13,fontWeight:700}}>{societe}</div>
+            <div style={{fontSize:12,color:'#6b6560'}}>{factAddr.addr}</div>
+            <div style={{fontSize:12,color:'#6b6560'}}>{factAddr.cp} {factAddr.ville}</div>
             <div style={{fontSize:12,color:'#6b6560'}}>{factAddr.email}</div>
-            <button onClick={()=>setStep('coords')} style={{fontSize:10,color:'#2d6a4f',background:'none',border:'none',cursor:'pointer',padding:0,marginTop:4}}>✏️ Modifier</button>
           </div>
         </div>
 
-        {message&&<div style={{background:'#f8f7f5',borderRadius:8,padding:'10px 14px',marginBottom:12,fontSize:12,color:'#6b6560',fontStyle:'italic',border:'1px solid #e2ddd6'}}>💬 {message}</div>}
-
-        {/* Products */}
         <div style={SECT}>
-          <div style={{fontSize:13,fontWeight:700,marginBottom:14}}>🍷 Produits</div>
-          {loadingTarif?<div style={{color:'#9e9890',fontSize:13}}>Chargement du tarif...</div>
-          :tarif.length===0?<div style={{color:'#9e9890',fontSize:13}}>Aucun tarif chargé.</div>
+          <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>Mode de pr\u00e9paration *</div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+            {PREP_OPTIONS.filter(p=>!p.loftOnly||retraitLoft).map(p=>
+              <button key={p.k} onClick={()=>handlePrepChange(p.k)}
+                style={{padding:'7px 14px',borderRadius:8,fontSize:12,fontWeight:500,cursor:'pointer',
+                  border:`1px solid ${preparation===p.k?'#2d6a4f':'#e2ddd6'}`,
+                  background:preparation===p.k?'#2d6a4f':'#fff',
+                  color:preparation===p.k?'#fff':'#6b6560'}}>
+                {p.l}
+              </button>
+            )}
+          </div>
+          {isCoiffePrep&&totalBouteilles>0&&!coiffeOk&&<div style={{marginTop:10,fontSize:12,color:'#c0392b',fontWeight:600}}>
+            {totalBouteilles} bouteilles - doit \u00eatre un multiple de 120 pour valider.
+          </div>}
+        </div>
+
+        {preparation&&<div style={SECT}>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+            <div><label style={LBL}>Informations de livraison</label><input value={infoLivraison} onChange={e=>setInfoLivraison(e.target.value)} style={INP()}/></div>
+            <div><label style={LBL}>{mode==='devis'?'Message pour le client':'Message pour la supply'}</label><input value={message} onChange={e=>setMessage(e.target.value)} style={INP()}/></div>
+          </div>
+        </div>}
+
+        {preparation&&<div style={SECT}>
+          <div style={{fontSize:13,fontWeight:700,marginBottom:14}}>Produits{isCasierPrep?' (75cl uniquement)':''}</div>
+          {loadingTarif?<div style={{color:'#9e9890',fontSize:13}}>Chargement...</div>
           :<>
             <select value={selectedProd} onChange={e=>{if(e.target.value)addProduit(e.target.value);}}
               style={{...INP(),marginBottom:16,color:selectedProd?'#1a1814':'#9e9890'}}>
-              <option value=''>— Ajouter un produit —</option>
-              {tarif.filter(p=>p.code).map(p=><option key={p.code} value={p.code}>{p.code} — {p.libelle} ({p.robe})</option>)}
+              <option value=''>Ajouter un produit</option>
+              {filteredTarif.map(p=><option key={p.code} value={p.code}>{p.code} - {p.libelle} ({p.robe})</option>)}
             </select>
-            {lignes.length>0&&<>
+            {displayLignes.length>0&&<>
               <table style={{width:'100%',borderCollapse:'collapse'}}>
                 <thead><tr style={{background:'#f8f7f5'}}>
-                  {['Code','Produit','Quantité','P.U. HT','Total HT',''].map((h,i)=><th key={i} style={{padding:'6px 8px',fontSize:11,color:'#6b6560',textAlign:i>=2&&i<5?'right':'left',fontWeight:700}}>{h}</th>)}
+                  {['Code','Produit','Quantit\u00e9','P.U. HT','Total HT',''].map((h,i)=>
+                    <th key={i} style={{padding:'6px 8px',fontSize:11,color:'#6b6560',textAlign:i>=2&&i<5?'right':'left',fontWeight:700}}>{h}</th>)}
                 </tr></thead>
-                <tbody>{lignes.map((l,i)=>{
-                  const p=tarif.find(t=>t.code===l.code);
-                  const pcb=parseInt(l.pcb||1);
-                  const pu=p?getPU(p,l.qty):0;
-                  const qtyOpts=Array.from({length:12},(_,k)=>(k+1)*pcb);
-                  return <tr key={i} style={{borderBottom:'1px solid #f0ede8'}}>
+                <tbody>{displayLignes.map((l,i)=>{
+                  const isAuto=l.qtyMode==='auto';
+                  const pu=getLinePU(l);
+                  const qtyOpts=Array.from({length:12},(_,k)=>(k+1)*effectivePCB);
+                  return <tr key={i} style={{borderBottom:'1px solid #f0ede8',background:isAuto?'#fafaf8':'#fff'}}>
                     <td style={{padding:'8px',fontSize:12,color:'#6b6560'}}>{l.code}</td>
                     <td style={{padding:'8px',fontSize:12}}>
-                      <span style={{display:'inline-block',width:9,height:9,borderRadius:'50%',background:getRobeDot(l.robe),marginRight:6,verticalAlign:'middle'}}/>
-                      {l.libelle}
+                      {l.robe&&<span style={{display:'inline-block',width:9,height:9,borderRadius:'50%',background:getRobeDot(l.robe),marginRight:6,verticalAlign:'middle'}}/>}
+                      {l.libelle}{isAuto&&<span style={{fontSize:10,color:'#9e9890',marginLeft:5}}>(auto)</span>}
                     </td>
                     <td style={{padding:'8px',textAlign:'right'}}>
-                      {l.qtyMode==='select'
+                      {isAuto?<span style={{fontSize:12,color:'#6b6560'}}>{l.qty}</span>
+                      :effectivePCB>1
                         ?<select value={l.qty} onChange={e=>e.target.value==='plus'?updLigne(i,'qtyMode','free'):updLigne(i,'qty',parseInt(e.target.value))}
                           style={{fontSize:12,padding:'3px 6px',borderRadius:6,border:'1px solid #e2ddd6'}}>
                           {qtyOpts.map(q=><option key={q} value={q}>{q}</option>)}
                           <option value="plus">Plus...</option>
                         </select>
-                        :<input type="number" value={l.qty} min={pcb} step={pcb}
-                          onChange={e=>updLigne(i,'qty',Math.max(pcb,Math.ceil((parseInt(e.target.value)||pcb)/pcb)*pcb))}
+                        :<input type="number" value={l.qty} min={1} step={1}
+                          onChange={e=>updLigne(i,'qty',Math.max(1,parseInt(e.target.value)||1))}
                           style={{width:70,fontSize:12,padding:'3px 6px',borderRadius:6,border:'1px solid #e2ddd6',textAlign:'right'}}/>}
                     </td>
                     <td style={{padding:'8px',fontSize:12,textAlign:'right',color:'#6b6560'}}>{fmtE(pu)}</td>
                     <td style={{padding:'8px',fontSize:12,textAlign:'right',fontWeight:600}}>{fmtE(pu*parseInt(l.qty||0))}</td>
-                    <td style={{padding:'4px',textAlign:'center'}}><button onClick={()=>remLigne(i)} style={{border:'none',background:'none',color:'#c0392b',cursor:'pointer',fontSize:14,padding:'2px 6px'}}>✕</button></td>
+                    <td style={{padding:'4px',textAlign:'center'}}>
+                      {!isAuto&&<button onClick={()=>remLigne(i)} style={{border:'none',background:'none',color:'#c0392b',cursor:'pointer',fontSize:14,padding:'2px 6px'}}>x</button>}
+                    </td>
                   </tr>;
                 })}</tbody>
               </table>
@@ -4128,14 +4209,18 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
               </div>
             </>}
           </>}
-        </div>
+        </div>}
 
-        <div style={{display:'flex',justifyContent:'flex-end'}}>
-          <button onClick={handleEnvoyer} disabled={sending||!lignes.length}
-            style={{padding:'12px 32px',background:sending||!lignes.length?'#e2ddd6':'#2d6a4f',color:sending||!lignes.length?'#9e9890':'#fff',border:'none',borderRadius:10,fontSize:15,fontWeight:700,cursor:sending||!lignes.length?'default':'pointer'}}>
-            {sending?'Envoi...':(mode==='devis'?'📤 Envoyer le devis':'📦 Enregistrer la commande')}
+        {preparation&&<div style={{display:'flex',justifyContent:'flex-end'}}>
+          <button onClick={handleEnvoyer}
+            disabled={sending||!coreLignes.length||!coiffeOk}
+            style={{padding:'12px 32px',
+              background:sending||!coreLignes.length||!coiffeOk?'#e2ddd6':'#2d6a4f',
+              color:sending||!coreLignes.length||!coiffeOk?'#9e9890':'#fff',
+              border:'none',borderRadius:10,fontSize:15,fontWeight:700,cursor:'pointer'}}>
+            {sending?'Envoi en cours...':(mode==='devis'?'Envoyer le devis':'Enregistrer la commande')}
           </button>
-        </div>
+        </div>}
       </>}
     </div>
   </div>;
