@@ -3963,11 +3963,16 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     const sep='\u2500'.repeat(55);
     function col(s,w){return String(s||'').padEnd(w).slice(0,w);}
     function colR(s,w){return String(s||'').padStart(w).slice(-w);}
-    const header=col('Code + Produit',36)+colR('Qt\u00e9',5)+colR('P.U.HT',10)+colR('Total HT',12);
+    const header=col('Code + Produit',30)+colR('Qté',4)+colR('P.U.HT',10)+colR('Total HT',11)+'  TVA';
     const lignesText=displayLignes.map(l=>{
       const pu=getLinePU(l);
+      const qty=parseInt(l.qty||0);
+      const totalLigneHT=pu*qty;
+      const tvaRate=parseFloat(l.tva||0);
+      const tvaVal=totalLigneHT*(tvaRate/100);
       const label=(l.code||'')+(l.libelle?' - '+l.libelle:'');
-      return col(label,36)+colR(String(l.qty),5)+colR(fmtE(pu),10)+colR(fmtE(pu*parseInt(l.qty||0)),12);
+      const tvaPct=tvaRate>0?`TVA ${tvaRate}%: ${fmtE(tvaVal)}`:'TVA 0%';
+      return col(label,30)+colR(String(qty),4)+colR(fmtE(pu),10)+colR(fmtE(totalLigneHT),11)+'  '+tvaPct;
     }).join('\n');
     const expInfo=retraitLoft?'Retrait au Loft O\u00e9':sameAddr?`${factAddr.addr}, ${factAddr.cp} ${factAddr.ville}`:`${expAddr.addr}, ${expAddr.cp} ${expAddr.ville}`;
     return [
@@ -3978,7 +3983,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
       `Fact. : ${factAddr.addr}${factAddr.addr2?' '+factAddr.addr2:''}  ${factAddr.cp} ${factAddr.ville} - ${factAddr.pays}`,
       factAddr.email?`Email : ${factAddr.email}`:'',
       `Livr. : ${expInfo}`,
-      infoLivraison?`Info livraison : ${infoLivraison}`:'',
+      
       sep,
       `PREPARATION : ${prepLabel}`,
       message?`MESSAGE : ${message}`:'',
@@ -4134,27 +4139,21 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
 
         <div style={SECT}>
           <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>Mode de pr\u00e9paration *</div>
-          <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+          <select value={preparation} onChange={e=>handlePrepChange(e.target.value)}
+            style={{...INP(),maxWidth:400,color:preparation?'#1a1814':'#9e9890'}}>
+            <option value=''>-- Choisir un mode de préparation --</option>
             {PREP_OPTIONS.filter(p=>!p.loftOnly||retraitLoft).map(p=>
-              <button key={p.k} onClick={()=>handlePrepChange(p.k)}
-                style={{padding:'7px 14px',borderRadius:8,fontSize:12,fontWeight:500,cursor:'pointer',
-                  border:`1px solid ${preparation===p.k?'#2d6a4f':'#e2ddd6'}`,
-                  background:preparation===p.k?'#2d6a4f':'#fff',
-                  color:preparation===p.k?'#fff':'#6b6560'}}>
-                {p.l}
-              </button>
+              <option key={p.k} value={p.k}>{p.l}</option>
             )}
-          </div>
+          </select>
           {isCoiffePrep&&totalBouteilles>0&&!coiffeOk&&<div style={{marginTop:10,fontSize:12,color:'#c0392b',fontWeight:600}}>
             {totalBouteilles} bouteilles - doit \u00eatre un multiple de 120 pour valider.
           </div>}
         </div>
 
         {preparation&&<div style={SECT}>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-            <div><label style={LBL}>Informations de livraison</label><input value={infoLivraison} onChange={e=>setInfoLivraison(e.target.value)} style={INP()}/></div>
-            <div><label style={LBL}>{mode==='devis'?'Message pour le client':'Message pour la supply'}</label><input value={message} onChange={e=>setMessage(e.target.value)} style={INP()}/></div>
-          </div>
+          <label style={LBL}>{mode==='devis'?'Message pour le client':'Message pour la supply'}</label>
+          <input value={message} onChange={e=>setMessage(e.target.value)} style={INP()}/>
         </div>}
 
         {preparation&&<div style={SECT}>
@@ -4448,7 +4447,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
     <TopBar onBack={onBack} title="⚙️ Paramètres"/>
     <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
       <div style={{display:"flex",gap:10,marginBottom:20}}>
-        {([{k:"members",l:"👥 Membres & rôles"},...(currentUser?.email===OWNER_EMAIL?[{k:"questions",l:"❓ Questions Update"},{k:"history",l:"📋 Historique Updates"},{k:"feedback",l:"💡 Feedback"},{k:"reporting_params",l:"⚙️ Reporting"},{k:"bsv3",l:"📊 Base Sales v3"},{k:"tarif",l:"💰 Tarif"}]:[])]).map(t=><button key={t.k} onClick={()=>setTab(t.k)}
+        {([{k:"members",l:"👥 Membres & rôles"},{k:"absences",l:"🌴 Absences"},...(currentUser?.email===OWNER_EMAIL?[{k:"questions",l:"❓ Questions Update"},{k:"history",l:"📋 Historique Updates"},{k:"feedback",l:"💡 Feedback"},{k:"reporting_params",l:"⚙️ Reporting"},{k:"bsv3",l:"📊 Base Sales v3"},{k:"tarif",l:"💰 Tarif"}]:[])]).map(t=><button key={t.k} onClick={()=>setTab(t.k)}
           style={{padding:"8px 16px",borderRadius:8,border:`1px solid ${tab===t.k?"#2d6a4f":"#e2ddd6"}`,background:tab===t.k?"#2d6a4f":"#fff",color:tab===t.k?"#fff":"#6b6560",cursor:"pointer",fontSize:13,fontWeight:500}}>
           {t.l}
         </button>)}
@@ -4509,13 +4508,10 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
 
         </div>{/* end left col */}
 
-        {/* RIGHT COL: Absences */}
-        <div>
-          <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"16px 20px"}}>
-            <div style={{fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",marginBottom:14}}>🌴 Absences déclarées</div>
-            <AbsencesTab teamMembers={members}/>
-          </div>
-        </div>
+      </div>}
+
+      {tab==="absences"&&<div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"16px 20px"}}>
+        <AbsencesTab teamMembers={members}/>
       </div>}
 
       {tab==="questions"&&<QuestionsEditor qs={qs} onSave={newQs=>{setQs(newQs);onSaveQuestions&&onSaveQuestions(newQs);}}/> }
