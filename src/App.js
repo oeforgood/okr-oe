@@ -4339,6 +4339,10 @@ function TarifTab({db}){
 function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions,catTypes,onSaveCatTypes,codeMap,onSaveCodeMap,customSubcatLabels,onSaveCustomSubcatLabels,savedCanalMargin,onSaveCanalMargin,onSendMessage,onSaveBsv3,onUploadReporting}){
   const [members,setMembers]=useState(teamMembers.map(m=>({...m})));
   const [allHsOwners,setAllHsOwners]=useState([]);
+  // Sync members when prop updates (e.g. after Firebase load)
+  React.useEffect(()=>{
+    setMembers(teamMembers.map(m=>({...m})));
+  },[teamMembers]);
   React.useEffect(()=>{
     getDocs(collection(db,'bsv3_data')).then(snap=>{
       const owners=new Set();
@@ -4427,6 +4431,11 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
     setMembers(updated);
     onSaveMembers&&onSaveMembers(updated);
   }
+  function setHsOwner(email,hsOwner){
+    const updated=members.map(m=>m.email===email?{...m,hsOwner}:m);
+    setMembers(updated);
+    onSaveMembers&&onSaveMembers(updated);
+  }
   function toggleForce(email,field){
     const updated=members.map(m=>m.email===email?{...m,[field]:!m[field]}:m);
     setMembers(updated);
@@ -4453,7 +4462,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
         </button>)}
       </div>
 
-      {tab==="members"&&<div style={{display:"grid",gridTemplateColumns:"3fr 2fr",gap:16,alignItems:"start"}}>
+      {tab==="members"&&<div>
         <div>{/* LEFT COL */}
         <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"18px 20px",marginBottom:16}}>
           <div style={{fontSize:13,fontWeight:600,marginBottom:14}}>Ajouter un membre</div>
@@ -4492,7 +4501,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
                     </select>}
                 </td>
                 <td style={{padding:"10px 14px"}}>
-                  <select value={m.hsOwner||""} onChange={e=>setHsOwner(m.email,e.target.value)} style={{...INP,fontSize:11,maxWidth:160}}>
+                  <select value={m.hsOwner||""} onChange={e=>setHsOwner(m.email,e.target.value)} style={{...INP,fontSize:12,width:'100%'}}>
                     <option value="">— Aucun —</option>
                     {allHsOwners.map(o=><option key={o} value={o}>{o}</option>)}
                   </select>
