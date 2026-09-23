@@ -3870,7 +3870,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   const [selectedProd,setSelectedProd]=React.useState('');
 
   const PREP_OPTIONS=[
-    {k:'palette_casier_coiffe',l:'Palette de casiers avec coiffe consign\u00e9e',loftOnly:false},
+    {k:'palette_casier_coiffe',l:'Palette de casiers avec coiffe consignée',loftOnly:false},
     {k:'palette_casier_sans_coiffe',l:'Palette de casiers sans coiffe',loftOnly:false},
     {k:'palette_cartons',l:'Palette de cartons',loftOnly:false},
     {k:'coffret_ups',l:'Coffret UPS',loftOnly:false},
@@ -3918,8 +3918,8 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
 
   function getDisplayLignes(){
     const result=[...coreLignes];
-    if(isCasierPrep){const n=Math.ceil(totalBouteilles/12);if(n>0)result.push({code:CASIER_CODE,libelle:'Casier consign\u00e9',robe:'',pcb:1,eq75:0,tva:'0',qty:n,qtyMode:'auto',prix:CASIER_PRIX});}
-    if(isCoiffePrep){const n=Math.floor(totalBouteilles/120);if(n>0)result.push({code:COIFFE_CODE,libelle:'Coiffe consign\u00e9e',robe:'',pcb:1,eq75:0,tva:'0',qty:n,qtyMode:'auto',prix:COIFFE_PRIX});}
+    if(isCasierPrep){const n=Math.ceil(totalBouteilles/12);if(n>0)result.push({code:CASIER_CODE,libelle:'Casier consigné',robe:'',pcb:1,eq75:0,tva:'0',qty:n,qtyMode:'auto',prix:CASIER_PRIX});}
+    if(isCoiffePrep){const n=Math.floor(totalBouteilles/120);if(n>0)result.push({code:COIFFE_CODE,libelle:'Coiffe consignée',robe:'',pcb:1,eq75:0,tva:'0',qty:n,qtyMode:'auto',prix:COIFFE_PRIX});}
     return result;
   }
 
@@ -3949,7 +3949,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   const totalHT=displayLignes.reduce((s,l)=>s+getLinePU(l)*parseInt(l.qty||0),0);
   const totalTVA=displayLignes.reduce((s,l)=>s+getLinePU(l)*parseInt(l.qty||0)*(parseFloat(l.tva||0)/100),0);
   const totalTTC=totalHT+totalTVA;
-  function fmtE(v){return Number(v).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' \u20ac';}
+  function fmtE(v){return Number(v).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';}
   const prepLabel=PREP_OPTIONS.find(p=>p.k===preparation)?.l||'';
   const expA=sameAddr||retraitLoft?factAddr:expAddr;
   const coiffeOk=!isCoiffePrep||totalBouteilles===0||totalBouteilles%120===0;
@@ -3960,24 +3960,30 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   }
 
   function buildText(ref){
-    const sep='\u2500'.repeat(55);
+    const sep='─'.repeat(55);
     function col(s,w){return String(s||'').padEnd(w).slice(0,w);}
     function colR(s,w){return String(s||'').padStart(w).slice(-w);}
-    const header=col('Code + Produit',30)+colR('Qté',4)+colR('P.U.HT',10)+colR('Total HT',11)+'  TVA';
     const lignesText=displayLignes.map(l=>{
       const pu=getLinePU(l);
       const qty=parseInt(l.qty||0);
       const totalLigneHT=pu*qty;
       const tvaRate=parseFloat(l.tva||0);
       const tvaVal=totalLigneHT*(tvaRate/100);
-      const label=(l.code||'')+(l.libelle?' - '+l.libelle:'');
-      const tvaPct=tvaRate>0?`TVA ${tvaRate}%: ${fmtE(tvaVal)}`:'TVA 0%';
-      return col(label,30)+colR(String(qty),4)+colR(fmtE(pu),10)+colR(fmtE(totalLigneHT),11)+'  '+tvaPct;
+      const parts=[
+        (l.code||'').padEnd(8),
+        (l.libelle||'').slice(0,28).padEnd(28),
+        String(qty).padStart(6),
+        fmtE(pu).padStart(12),
+        fmtE(totalLigneHT).padStart(12),
+        tvaRate>0?('TVA '+tvaRate+'%: '+fmtE(tvaVal)).padStart(18):'TVA 0%'.padStart(18),
+      ];
+      return parts.join(' ');
     }).join('\n');
-    const expInfo=retraitLoft?'Retrait au Loft O\u00e9':sameAddr?`${factAddr.addr}, ${factAddr.cp} ${factAddr.ville}`:`${expAddr.addr}, ${expAddr.cp} ${expAddr.ville}`;
+    const header='Code    '+'Produit'.padEnd(28)+'   Qté'+'    P.U. HT'+'   Total HT'+'         TVA';
+    const expInfo=retraitLoft?'Retrait au Loft Oé':sameAddr?`${factAddr.addr}, ${factAddr.cp} ${factAddr.ville}`:`${expAddr.addr}, ${expAddr.cp} ${expAddr.ville}`;
     return [
-      `O\u00e9 - ${mode==='devis'?'DEVIS':'BON DE COMMANDE'}`,
-      `R\u00e9f : ${ref}  -  ${new Date().toLocaleDateString('fr-FR')}`,
+      `Oé - ${mode==='devis'?'DEVIS':'BON DE COMMANDE'}`,
+      `Réf : ${ref}  -  ${new Date().toLocaleDateString('fr-FR')}`,
       sep,
       `CLIENT : ${societe}  |  ${contact}`,
       `Fact. : ${factAddr.addr}${factAddr.addr2?' '+factAddr.addr2:''}  ${factAddr.cp} ${factAddr.ville} - ${factAddr.pays}`,
@@ -3989,14 +3995,14 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
       message?`MESSAGE : ${message}`:'',
       sep,
       header,
-      '\u2500'.repeat(63),
+      '─'.repeat(63),
       lignesText,
       sep,
       `${''.padEnd(44)}Total HT  : ${colR(fmtE(totalHT),12)}`,
       `${''.padEnd(44)}TVA       : ${colR(fmtE(totalTVA),12)}`,
       `${''.padEnd(44)}TOTAL TTC : ${colR(fmtE(totalTTC),12)}`,
       sep,
-      `O\u00e9 - contact@oeforgood.com`,
+      `Oé - contact@oeforgood.com`,
     ].filter(l=>l!=='').join('\n');
   }
 
@@ -4007,22 +4013,22 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
 
   async function handleEnvoyer(){
     if(!coreLignes.length){alert('Ajoutez au moins un produit.');return;}
-    if(!preparation){alert('Choisissez un mode de pr\u00e9paration.');return;}
-    if(!coiffeOk){alert(`Le nombre de bouteilles (${totalBouteilles}) doit \u00eatre un multiple de 120.`);return;}
+    if(!preparation){alert('Choisissez un mode de préparation.');return;}
+    if(!coiffeOk){alert(`Le nombre de bouteilles (${totalBouteilles}) doit être un multiple de 120.`);return;}
     setSending(true);
     const ref=genRef();
     const textContent=buildText(ref);
-    const prenom=teamMember?.prenom||'O\u00e9';
+    const prenom=teamMember?.prenom||'Oé';
     const msgBody=mode==='devis'
-      ?`Bonjour,\n\nSuite \u00e0 nos \u00e9changes, voici le chiffrage d\u00e9taill\u00e9 :\n\n${textContent}\n\nTr\u00e8s belle fin de journ\u00e9e !\n${prenom} - O\u00e9`
-      :`Bonjour,\n\nUne nouvelle commande a \u00e9t\u00e9 enregistr\u00e9e par ${prenom}.\n\n${textContent}\n\nLa bise.\n${prenom}`;
+      ?`Bonjour,\n\nSuite à nos échanges, voici le chiffrage détaillé :\n\n${textContent}\n\nTrès belle fin de journée !\n${prenom} - Oé`
+      :`Bonjour,\n\nUne nouvelle commande a été enregistrée par ${prenom}.\n\n${textContent}\n\nLa bise.\n${prenom}`;
     await setDoc(doc(db,'devis_commandes',ref),{ref,mode,societe,contact,factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,preparation,infoLivraison,message,lignes:displayLignes,totalHT,totalTVA,totalTTC,createdAt:Date.now(),createdBy:currentUser?.email});
     try{
       await emailjs.send(EMAILJS_SERVICE,EMAILJS_TEMPLATE_DEVIS,{
-        to_email:'',cc_email:'fx@oeforgood.com',
+        to_email:'fx@oeforgood.com',cc_email:'',
         to_name:prenom,from_name:prenom,name:prenom,
         email:currentUser?.email||'',reply_to:currentUser?.email||'fx@oeforgood.com',
-        subject:`${mode==='devis'?`Devis ${ref} - O\u00e9`:`Commande ${ref} - O\u00e9`}`,
+        subject:`${mode==='devis'?`Devis ${ref} - Oé`:`Commande ${ref} - Oé`}`,
         ref,html_content:msgBody,message:msgBody,
       },EMAILJS_KEY);
     }catch(e){console.error('EmailJS:',e);}
@@ -4040,13 +4046,13 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     <div style={{maxWidth:700,margin:'20px auto',padding:'0 16px 60px'}}>
       <div style={{background:'#f0fdf4',border:'1px solid #86efac',borderRadius:12,padding:'20px',marginBottom:16,textAlign:'center'}}>
         <div style={{fontSize:36,marginBottom:8}}>&#x2705;</div>
-        <div style={{fontSize:16,fontWeight:700,marginBottom:4}}>{mode==='devis'?'Devis envoy\u00e9 !':'Commande enregistr\u00e9e !'}</div>
-        <div style={{fontSize:12,color:'#6b6560',marginBottom:16}}>Un mail de confirmation vous a \u00e9t\u00e9 envoy\u00e9 en CCi.</div>
+        <div style={{fontSize:16,fontWeight:700,marginBottom:4}}>{mode==='devis'?'Devis envoyé !':'Commande enregistrée !'}</div>
+        <div style={{fontSize:12,color:'#6b6560',marginBottom:16}}>Un mail de confirmation vous a été envoyé en CCi.</div>
         <button onClick={resetForm} style={{padding:'8px 20px',background:'#2d6a4f',color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>Nouveau devis / commande</button>
       </div>
       <div style={{background:'#fff',borderRadius:12,border:'1px solid #e2ddd6',padding:'20px'}}>
-        <div style={{fontSize:12,fontWeight:700,color:'#6b6560',marginBottom:12,textTransform:'uppercase',letterSpacing:.5}}>R\u00e9capitulatif</div>
-        <pre style={{fontSize:11,fontFamily:'monospace',color:'#1a1814',whiteSpace:'pre-wrap',lineHeight:1.6,margin:0}}>{sentRecap}</pre>
+        <div style={{fontSize:12,fontWeight:700,color:'#6b6560',marginBottom:12,textTransform:'uppercase',letterSpacing:.5}}>Récapitulatif</div>
+        <pre style={{fontSize:12,fontFamily:'"Courier New",Courier,monospace',color:'#1a1814',whiteSpace:'pre',lineHeight:1.7,margin:0,overflowX:'auto'}}>{sentRecap}</pre>
       </div>
     </div>
   </div>;
@@ -4068,45 +4074,45 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
         <div style={SECT}>
           <div style={{fontSize:13,fontWeight:700,marginBottom:14}}>Informations client</div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:14}}>
-            <div><label style={LBL}>Nom de la soci\u00e9t\u00e9 *</label><input value={societe} onChange={e=>setSociete(e.target.value)} style={INP()}/></div>
-            <div><label style={LBL}>Pr\u00e9nom et Nom du contact</label><input value={contact} onChange={e=>setContact(e.target.value)} style={INP()}/></div>
+            <div><label style={LBL}>Nom de la société *</label><input value={societe} onChange={e=>setSociete(e.target.value)} style={INP()}/></div>
+            <div><label style={LBL}>Prénom et Nom du contact</label><input value={contact} onChange={e=>setContact(e.target.value)} style={INP()}/></div>
           </div>
           <div style={{fontSize:12,fontWeight:700,color:'#6b6560',marginBottom:8}}>Adresse de facturation</div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:14}}>
             <div><label style={LBL}>Adresse</label><input value={factAddr.addr} onChange={e=>setFactAddr(p=>({...p,addr:e.target.value}))} style={INP()}/></div>
-            <div><label style={LBL}>Compl\u00e9ment</label><input value={factAddr.addr2} onChange={e=>setFactAddr(p=>({...p,addr2:e.target.value}))} style={INP()}/></div>
+            <div><label style={LBL}>Complément</label><input value={factAddr.addr2} onChange={e=>setFactAddr(p=>({...p,addr2:e.target.value}))} style={INP()}/></div>
             <div><label style={LBL}>Code postal</label><input value={factAddr.cp} onChange={e=>setFactAddr(p=>({...p,cp:e.target.value}))} style={INP()}/></div>
             <div><label style={LBL}>Ville</label><input value={factAddr.ville} onChange={e=>setFactAddr(p=>({...p,ville:e.target.value}))} style={INP()}/></div>
             <div><label style={LBL}>Pays</label><input value={factAddr.pays} onChange={e=>setFactAddr(p=>({...p,pays:e.target.value}))} style={INP()}/></div>
-            <div><label style={LBL}>T\u00e9l\u00e9phone</label><input value={factAddr.tel} onChange={e=>setFactAddr(p=>({...p,tel:e.target.value}))} style={INP()}/></div>
+            <div><label style={LBL}>Téléphone</label><input value={factAddr.tel} onChange={e=>setFactAddr(p=>({...p,tel:e.target.value}))} style={INP()}/></div>
             <div style={{gridColumn:'1/-1'}}><label style={LBL}>Email{mode==='devis'?' *':''}</label><input value={factAddr.email} onChange={e=>setFactAddr(p=>({...p,email:e.target.value}))} style={INP()}/></div>
           </div>
-          <div style={{fontSize:12,fontWeight:700,color:'#6b6560',marginBottom:8}}>Adresse d\u2019exp\u00e9dition</div>
+          <div style={{fontSize:12,fontWeight:700,color:'#6b6560',marginBottom:8}}>Adresse d'expédition</div>
           <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:10}}>
             <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer'}}>
-              <input type="checkbox" checked={sameAddr} onChange={e=>{setSameAddr(e.target.checked);if(e.target.checked)setRetraitLoft(false);}}/> Identique \u00e0 la facturation
+              <input type="checkbox" checked={sameAddr} onChange={e=>{setSameAddr(e.target.checked);if(e.target.checked)setRetraitLoft(false);}}/> Identique à la facturation
             </label>
             <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer'}}>
-              <input type="checkbox" checked={retraitLoft} onChange={e=>{setRetraitLoft(e.target.checked);if(e.target.checked)setSameAddr(false);}}/> Retrait par le client au Loft O\u00e9
+              <input type="checkbox" checked={retraitLoft} onChange={e=>{setRetraitLoft(e.target.checked);if(e.target.checked)setSameAddr(false);}}/> Retrait par le client au Loft Oé
             </label>
           </div>
           {!sameAddr&&!retraitLoft&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
             <div><label style={LBL}>Adresse</label><input value={expAddr.addr} onChange={e=>setExpAddr(p=>({...p,addr:e.target.value}))} style={INP()}/></div>
-            <div><label style={LBL}>Compl\u00e9ment</label><input value={expAddr.addr2} onChange={e=>setExpAddr(p=>({...p,addr2:e.target.value}))} style={INP()}/></div>
+            <div><label style={LBL}>Complément</label><input value={expAddr.addr2} onChange={e=>setExpAddr(p=>({...p,addr2:e.target.value}))} style={INP()}/></div>
             <div><label style={LBL}>Code postal</label><input value={expAddr.cp} onChange={e=>setExpAddr(p=>({...p,cp:e.target.value}))} style={INP()}/></div>
             <div><label style={LBL}>Ville</label><input value={expAddr.ville} onChange={e=>setExpAddr(p=>({...p,ville:e.target.value}))} style={INP()}/></div>
             <div><label style={LBL}>Pays</label><input value={expAddr.pays} onChange={e=>setExpAddr(p=>({...p,pays:e.target.value}))} style={INP()}/></div>
-            <div><label style={LBL}>T\u00e9l\u00e9phone</label><input value={expAddr.tel} onChange={e=>setExpAddr(p=>({...p,tel:e.target.value}))} style={INP()}/></div>
+            <div><label style={LBL}>Téléphone</label><input value={expAddr.tel} onChange={e=>setExpAddr(p=>({...p,tel:e.target.value}))} style={INP()}/></div>
             <div style={{gridColumn:'1/-1'}}><label style={LBL}>Email</label><input value={expAddr.email} onChange={e=>setExpAddr(p=>({...p,email:e.target.value}))} style={INP()}/></div>
           </div>}
           {retraitLoft&&<div style={{background:'#f0fdf4',border:'1px solid #86efac',borderRadius:8,padding:'10px 14px',fontSize:12,color:'#2d6a4f'}}>
-            Retrait au Loft O\u00e9 - 19 rue de Gerland, 69007 Lyon
+            Retrait au Loft Oé - 10bis rue Bellicard, 69003 Lyon
           </div>}
         </div>
         <div style={{display:'flex',justifyContent:'flex-end'}}>
           <button onClick={saveCoords} disabled={!societe.trim()}
             style={{padding:'11px 28px',background:societe.trim()?'#2d6a4f':'#e2ddd6',color:societe.trim()?'#fff':'#9e9890',border:'none',borderRadius:10,fontSize:14,fontWeight:700,cursor:societe.trim()?'pointer':'default'}}>
-            Enregistrer les coordonn\u00e9es
+            Enregistrer les coordonnées
           </button>
         </div>
       </>}
@@ -4121,7 +4127,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
             <div style={{fontSize:13,fontWeight:700}}>{societe}</div>
             <div style={{fontSize:12,color:'#6b6560'}}>{contact}</div>
             {retraitLoft
-              ?<div style={{fontSize:12,color:'#2d6a4f',marginTop:2}}>Retrait au Loft O\u00e9</div>
+              ?<div style={{fontSize:12,color:'#2d6a4f',marginTop:2}}>Retrait au Loft Oé</div>
               :<><div style={{fontSize:12,color:'#6b6560',marginTop:2}}>{expA.addr}</div><div style={{fontSize:12,color:'#6b6560'}}>{expA.cp} {expA.ville}</div></>}
             {infoLivraison&&<div style={{fontSize:11,color:'#b5680f',marginTop:3,fontStyle:'italic'}}>{infoLivraison}</div>}
           </div>
@@ -4138,7 +4144,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
         </div>
 
         <div style={SECT}>
-          <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>Mode de pr\u00e9paration *</div>
+          <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>Mode de préparation *</div>
           <select value={preparation} onChange={e=>handlePrepChange(e.target.value)}
             style={{...INP(),maxWidth:400,color:preparation?'#1a1814':'#9e9890'}}>
             <option value=''>-- Choisir un mode de préparation --</option>
@@ -4147,7 +4153,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
             )}
           </select>
           {isCoiffePrep&&totalBouteilles>0&&!coiffeOk&&<div style={{marginTop:10,fontSize:12,color:'#c0392b',fontWeight:600}}>
-            {totalBouteilles} bouteilles - doit \u00eatre un multiple de 120 pour valider.
+            {totalBouteilles} bouteilles - doit être un multiple de 120 pour valider.
           </div>}
         </div>
 
@@ -4168,7 +4174,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
             {displayLignes.length>0&&<>
               <table style={{width:'100%',borderCollapse:'collapse'}}>
                 <thead><tr style={{background:'#f8f7f5'}}>
-                  {['Code','Produit','Quantit\u00e9','P.U. HT','Total HT',''].map((h,i)=>
+                  {['Code','Produit','Quantité','P.U. HT','Total HT',''].map((h,i)=>
                     <th key={i} style={{padding:'6px 8px',fontSize:11,color:'#6b6560',textAlign:i>=2&&i<5?'right':'left',fontWeight:700}}>{h}</th>)}
                 </tr></thead>
                 <tbody>{displayLignes.map((l,i)=>{
