@@ -4339,10 +4339,7 @@ function TarifTab({db}){
 function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions,catTypes,onSaveCatTypes,codeMap,onSaveCodeMap,customSubcatLabels,onSaveCustomSubcatLabels,savedCanalMargin,onSaveCanalMargin,onSendMessage,onSaveBsv3,onUploadReporting}){
   const [members,setMembers]=useState(teamMembers.map(m=>({...m})));
   const [allHsOwners,setAllHsOwners]=useState([]);
-  // Sync members when prop updates (e.g. after Firebase load)
-  React.useEffect(()=>{
-    setMembers(teamMembers.map(m=>({...m})));
-  },[teamMembers]);
+
   React.useEffect(()=>{
     getDocs(collection(db,'bsv3_data')).then(snap=>{
       const owners=new Set();
