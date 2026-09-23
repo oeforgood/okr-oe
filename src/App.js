@@ -4254,6 +4254,14 @@ function TarifTab({db}){
 
 function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions,catTypes,onSaveCatTypes,codeMap,onSaveCodeMap,customSubcatLabels,onSaveCustomSubcatLabels,savedCanalMargin,onSaveCanalMargin,onSendMessage,onSaveBsv3,onUploadReporting}){
   const [members,setMembers]=useState(teamMembers.map(m=>({...m})));
+  const [allHsOwners,setAllHsOwners]=useState([]);
+  React.useEffect(()=>{
+    getDocs(collection(db,'bsv3_data')).then(snap=>{
+      const owners=new Set();
+      snap.docs.forEach(d=>(d.data().rows||[]).forEach(r=>{if(r['Propriétaire HS'])owners.add(r['Propriétaire HS']);}));
+      setAllHsOwners([...owners].sort());
+    }).catch(()=>{});
+  },[]);
   const [msgModal,setMsgModal]=useState(null); // {email, prenom}
   const [msgTitle,setMsgTitle]=useState('');
   const [msgBody,setMsgBody]=useState('');
@@ -4377,7 +4385,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
         <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",overflow:"hidden"}}>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
             <thead><tr style={{background:"#f5f3ef"}}>
-              {["Prénom","Email","Manager","Rôle",""].map(h=><th key={h} style={{fontSize:11,fontWeight:600,color:"#9e9890",textTransform:"uppercase",letterSpacing:".05em",padding:"10px 14px",textAlign:"left",borderBottom:"1px solid #e2ddd6"}}>{h}</th>)}
+              {["Prénom","Email","Manager","Rôle","Proprio HS",""].map(h=><th key={h} style={{fontSize:11,fontWeight:600,color:"#9e9890",textTransform:"uppercase",letterSpacing:".05em",padding:"10px 14px",textAlign:"left",borderBottom:"1px solid #e2ddd6"}}>{h}</th>)}
               <th style={{padding:"10px 14px",borderBottom:"1px solid #e2ddd6",textAlign:"center"}}>
                 <button onClick={()=>{setMsgModal({email:'__ALL__',prenom:'tous les teammates'});setMsgTitle('');setMsgBody('');}} style={{fontSize:16,background:"none",border:"none",cursor:"pointer",padding:"0 4px"}} title="Envoyer à tous">✉️</button>
               </th>
@@ -4398,6 +4406,12 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
                     :<select value={m.role||"teammate"} onChange={e=>setRole(m.email,e.target.value)} style={{...INP,fontSize:12}}>
                       <option value="admin">Admin</option><option value="teammate">actif</option><option value="inactive">Fini</option>
                     </select>}
+                </td>
+                <td style={{padding:"10px 14px"}}>
+                  <select value={m.hsOwner||""} onChange={e=>setHsOwner(m.email,e.target.value)} style={{...INP,fontSize:11,maxWidth:160}}>
+                    <option value="">— Aucun —</option>
+                    {allHsOwners.map(o=><option key={o} value={o}>{o}</option>)}
+                  </select>
                 </td>
                 <td style={{padding:"10px 14px"}}>
                   <button onClick={()=>{setMsgModal({email:m.email,prenom:m.prenom});setMsgTitle('');setMsgBody('');}} style={{fontSize:14,background:"none",border:"none",cursor:"pointer",padding:"0 4px",marginRight:4}} title="Envoyer un message">✉️</button>
@@ -5605,12 +5619,35 @@ function FactureModal({rows, onClose, currentUser, onPuceClick, getPuce, puceCol
     },30000);
   }
 
+  const PUCE_EMOJI_MAP={grey:'⚫',green:'🟢',orange:'🟠',red:'🔴'};
   async function toggleCommentPublic(commentId){
     const ref=doc(db,'bsv3_comments',factureNum);
     const snap=await getDoc(ref);
     if(!snap.exists())return;
-    const updated=(snap.data().comments||[]).map(c=>c.id===commentId?{...c,public:!c.public}:c);
+    const comments=snap.data().comments||[];
+    const comment=comments.find(c=>c.id===commentId);
+    const wasPublic=comment?.public||false;
+    const updated=comments.map(c=>c.id===commentId?{...c,public:!c.public}:c);
     await setDoc(ref,{comments:updated});
+    // If comment is now becoming public, notify HS owner
+    if(!wasPublic&&comment){
+      const clientName=rows[0]?.['Client PL']||rows[0]?.['Tiers']||'';
+      const hsOwnerName=rows[0]?.['Propriétaire HS']||'';
+      const puceColor=getPuce?getPuce(factureNum):'grey';
+      const title=`🌼 La facture ${factureNum} pour ${clientName} a reçu un commentaire concernant sa marge`;
+      const message=`👁️ Commentaire : ${comment.text}`;
+      const notifId=`pub_comment_${factureNum}_${Date.now()}`;
+      // Find HS owner email from teamMembers via window._teamMembers
+      const teamMems=window._teamMembers||[];
+      const ownerMember=teamMems.find(m=>m.hsOwner===hsOwnerName);
+      if(ownerMember?.email){
+        await setDoc(doc(db,'teammate_notifications',notifId),{
+          toEmail:ownerMember.email,fromPrenom:comment.prenom,fromEmail:comment.email,
+          title,message,createdAt:Date.now(),read:false,factureNum,clientName,
+        });
+        sendNotifEmail(ownerMember.email,ownerMember.prenom||hsOwnerName,title);
+      }
+    }
   }
 
   async function deleteComment(commentId){
@@ -5984,6 +6021,9 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
       const rr=topLevel==='mois'
         ?validRows.filter(r=>r['Mois Emission']===val)
         :validRows.filter(r=>r[topField]===val);
+      if(effectiveFilterPuce==='commented'){
+        return rr.some(r=>facturesWithComments.has(r['Numéro de facture']));
+      }
       return rr.some(r=>(r.puce||'grey')===effectiveFilterPuce);
     })
     :topSorted;
@@ -6020,10 +6060,10 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
         <tbody>
           {topSortedFiltered.map(val=>{
             const rows=(topLevel==='mois'?validRows.filter(r=>r['Mois Emission']===val):validRows.filter(r=>r[topField]===val))
-              .filter(r=>!effectiveFilterPuce||(r.puce||'grey')===effectiveFilterPuce);
+              .filter(r=>!effectiveFilterPuce||(effectiveFilterPuce==='commented'?facturesWithComments.has(r['Numéro de facture']):(r.puce||'grey')===effectiveFilterPuce));
             const prev=filteredPrev.filter(r=>r[topField]===val)
-              .filter(r=>!effectiveFilterPuce||(r.puce||'grey')===effectiveFilterPuce);
-            const prev2=filteredPrev.filter(r=>r[topField]===val).filter(r=>!effectiveFilterPuce||(r.puce||'grey')===effectiveFilterPuce);
+              .filter(r=>!effectiveFilterPuce||(effectiveFilterPuce==='commented'?facturesWithComments.has(r['Numéro de facture']):(r.puce||'grey')===effectiveFilterPuce));
+            const prev2=filteredPrev.filter(r=>r[topField]===val).filter(r=>!effectiveFilterPuce||(effectiveFilterPuce==='commented'?facturesWithComments.has(r['Numéro de facture']):(r.puce||'grey')===effectiveFilterPuce));
             return <Bsv3DrillRow key={val} label={val} rows={rows} prevRows={prev2}
               contextRows={topLevel==='mois'?allYearRows:rows}
               year={year} levels={levels} levelIdx={0} depth={0}
@@ -6690,13 +6730,17 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cu
                 border:`1px solid ${isAnnee?'#2d6a4f':'#e2ddd6'}`,
                 background:isAnnee?'#2d6a4f':'#fff',color:isAnnee?'#fff':'#9e9890',
                 fontSize:11,fontWeight:600,cursor:isAnnee?'default':'pointer'}}>Année</button>
-            {canEditPuce&&<div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:4}}>
-              {['grey','green','orange','red'].map(c=>{
+            {<div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:4}}>
+              {canEditPuce&&['grey','green','orange','red'].map(c=>{
                 const on=filterPuce===c;
                 return <button key={c} onClick={()=>setFilterPuce(on?null:c)}
                   style={{width:10,height:10,borderRadius:'50%',border:`2px solid ${on?'#1a1814':'transparent'}`,
                     background:PUCE_COLOR_PAGE[c],cursor:'pointer',padding:0,flexShrink:0}}/>;
               })}
+              <button onClick={()=>setFilterPuce(filterPuce==='commented'?null:'commented')}
+                title="Factures avec commentaires publics"
+                style={{fontSize:11,border:`2px solid ${filterPuce==='commented'?'#1a1814':'transparent'}`,
+                  borderRadius:4,background:'none',cursor:'pointer',padding:'0 1px',lineHeight:1,flexShrink:0}}>👁</button>
               {filterPuce&&<button onClick={()=>setFilterPuce(null)} style={{fontSize:9,padding:'1px 5px',borderRadius:4,border:'1px solid #e2ddd6',background:'#fff',color:'#9e9890',cursor:'pointer'}}>✕</button>}
             </div>}
           </div>;
@@ -6869,7 +6913,7 @@ export default function App(){
     const unsub=onSnapshot(doc(db,"app_config","main"),(snap)=>{
       if(snap.exists()){
         const d=snap.data();
-        if(d.teamMembers)setTeamMembers(d.teamMembers);
+        if(d.teamMembers){setTeamMembers(d.teamMembers);window._teamMembers=d.teamMembers;}
         if(d.questions)setQuestions(d.questions);
         if(d.catTypes)setCatTypes(d.catTypes);
         if(d.codeMap)setCodeMap(d.codeMap);
