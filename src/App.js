@@ -3868,6 +3868,9 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   const [preparation,setPreparation]=React.useState('');
   const [lignes,setLignes]=React.useState([]);
   const [selectedProd,setSelectedProd]=React.useState('');
+  const [echantillons,setEchantillons]=React.useState(false);
+  const [echantillonsModal,setEchantillonsModal]=React.useState(false);
+  const [echantillonsRaison,setEchantillonsRaison]=React.useState('');
 
   const PREP_OPTIONS=[
     {k:'palette_casier_coiffe',l:'Palette de casiers avec coiffe consignée',loftOnly:false},
@@ -3892,11 +3895,12 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     });
   },[]);
 
+  const selectedCodes=new Set(coreLignes.map(l=>l.code));
   const filteredTarif=React.useMemo(()=>{
-    const base=tarif.filter(p=>p.code&&![CASIER_CODE,COIFFE_CODE,'CONTENANT BOUTEILLE'].includes(p.code));
+    const base=tarif.filter(p=>p.code&&![CASIER_CODE,COIFFE_CODE,'CONTENANT BOUTEILLE'].includes(p.code)&&!selectedCodes.has(p.code));
     if(isCasierPrep)return base.filter(p=>(p.code||'')[1]==='E');
     return base;
-  },[tarif,isCasierPrep]);
+  },[tarif,isCasierPrep,selectedCodes]);
 
   const coreLignes=lignes.filter(l=>l.qtyMode!=='auto');
   const totalBouteilles=coreLignes.reduce((s,l)=>s+parseInt(l.qty||0),0);
@@ -3905,15 +3909,16 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     return s+(parseFloat(p?.eq75||0)*parseInt(l.qty||0));
   },0);
 
+  function parsePrix(v){return parseFloat(String(v||'0').replace(',','.'))||0;}
   function getPU(prod,qty){
     const q=parseInt(qty||0);
     const qpal=parseInt(prod.qpalette||0);
-    if(qpal>0&&q>0&&q%qpal===0&&totalEq75>=600)return parseFloat(prod.prixPalette||0);
-    if(totalEq75>=600)return parseFloat(prod.prix600||0);
-    if(totalEq75>=360)return parseFloat(prod.prix360||0);
-    if(totalEq75>=240)return parseFloat(prod.prix240||0);
-    if(totalEq75>=120)return parseFloat(prod.prix120||0);
-    return parseFloat(prod.prix24||0);
+    if(qpal>0&&q>0&&q%qpal===0&&totalEq75>=600)return parsePrix(prod.prixPalette);
+    if(totalEq75>=600)return parsePrix(prod.prix600);
+    if(totalEq75>=360)return parsePrix(prod.prix360);
+    if(totalEq75>=240)return parsePrix(prod.prix240);
+    if(totalEq75>=120)return parsePrix(prod.prix120);
+    return parsePrix(prod.prix24);
   }
 
   function getDisplayLignes(){
@@ -3963,23 +3968,20 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     const sep='─'.repeat(55);
     function col(s,w){return String(s||'').padEnd(w).slice(0,w);}
     function colR(s,w){return String(s||'').padStart(w).slice(-w);}
+    const colW=12;
+    function rp(s,w){const str=String(s||'');return str.length>=w?str.slice(0,w):str+' '.repeat(w-str.length);}
+    function lp(s,w){const str=String(s||'');return str.length>=w?str.slice(-w):' '.repeat(w-str.length)+str;}
+    const header=rp('Code',10)+'  '+rp('Produit',32)+'  '+lp('Qté',5)+'  '+lp('P.U. HT',10)+'  '+lp('Total HT',10)+'  TVA';
+    const divider='-'.repeat(90);
     const lignesText=displayLignes.map(l=>{
-      const pu=getLinePU(l);
+      const pu=echantillons?0:getLinePU(l);
       const qty=parseInt(l.qty||0);
       const totalLigneHT=pu*qty;
       const tvaRate=parseFloat(l.tva||0);
       const tvaVal=totalLigneHT*(tvaRate/100);
-      const parts=[
-        (l.code||'').padEnd(8),
-        (l.libelle||'').slice(0,28).padEnd(28),
-        String(qty).padStart(6),
-        fmtE(pu).padStart(12),
-        fmtE(totalLigneHT).padStart(12),
-        tvaRate>0?('TVA '+tvaRate+'%: '+fmtE(tvaVal)).padStart(18):'TVA 0%'.padStart(18),
-      ];
-      return parts.join(' ');
+      const tvaTxt=echantillons?'offert':tvaRate>0?(tvaRate+'%: '+fmtE(tvaVal)):'0%';
+      return rp(l.code||'',10)+'  '+rp(l.libelle||'',32)+'  '+lp(String(qty),5)+'  '+lp(fmtE(pu),10)+'  '+lp(fmtE(totalLigneHT),10)+'  '+tvaTxt;
     }).join('\n');
-    const header='Code    '+'Produit'.padEnd(28)+'   Qté'+'    P.U. HT'+'   Total HT'+'         TVA';
     const expInfo=retraitLoft?'Retrait au Loft Oé':sameAddr?`${factAddr.addr}, ${factAddr.cp} ${factAddr.ville}`:`${expAddr.addr}, ${expAddr.cp} ${expAddr.ville}`;
     return [
       `Oé - ${mode==='devis'?'DEVIS':'BON DE COMMANDE'}`,
@@ -3995,7 +3997,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
       message?`MESSAGE : ${message}`:'',
       sep,
       header,
-      '─'.repeat(63),
+      divider,
       lignesText,
       sep,
       `${''.padEnd(44)}Total HT  : ${colR(fmtE(totalHT),12)}`,
@@ -4019,16 +4021,27 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     const ref=genRef();
     const textContent=buildText(ref);
     const prenom=teamMember?.prenom||'Oé';
+    // Build HTML table for products
+    const prodRows=displayLignes.map(l=>{
+      const pu=echantillons?0:getLinePU(l);
+      const qty=parseInt(l.qty||0);
+      const totalHT2=pu*qty;
+      const tvaRate=parseFloat(l.tva||0);
+      const tvaVal=totalHT2*(tvaRate/100);
+      return `<tr><td style="padding:4px 10px;border-bottom:1px solid #eee;font-family:monospace">${l.code||''}</td><td style="padding:4px 10px;border-bottom:1px solid #eee">${l.libelle||''}</td><td style="padding:4px 10px;border-bottom:1px solid #eee;text-align:right;font-family:monospace">${qty}</td><td style="padding:4px 10px;border-bottom:1px solid #eee;text-align:right;font-family:monospace">${echantillons?'offert':fmtE(pu)}</td><td style="padding:4px 10px;border-bottom:1px solid #eee;text-align:right;font-family:monospace">${echantillons?'offert':fmtE(totalHT2)}</td><td style="padding:4px 10px;border-bottom:1px solid #eee;font-size:11px">${echantillons?'offert':tvaRate>0?(tvaRate+'%: '+fmtE(tvaVal)):'0%'}</td></tr>`;
+    }).join('');
+    const htmlTable=`<table style="border-collapse:collapse;width:100%;font-size:13px"><thead><tr style="background:#f0ede8"><th style="padding:6px 10px;text-align:left">Code</th><th style="padding:6px 10px;text-align:left">Produit</th><th style="padding:6px 10px;text-align:right">Qté</th><th style="padding:6px 10px;text-align:right">P.U. HT</th><th style="padding:6px 10px;text-align:right">Total HT</th><th style="padding:6px 10px">TVA</th></tr></thead><tbody>${prodRows}</tbody><tfoot><tr style="background:#f8f7f5;font-weight:bold"><td colspan="4" style="padding:6px 10px">Total</td><td style="padding:6px 10px;text-align:right;font-family:monospace">${echantillons?'offert':fmtE(totalHT)}</td><td style="padding:6px 10px;font-size:11px">TVA: ${echantillons?'offert':fmtE(totalTVA)}</td></tr><tr style="background:#e8f4f0;font-weight:800"><td colspan="4" style="padding:6px 10px;color:#2d6a4f">TOTAL TTC</td><td colspan="2" style="padding:6px 10px;color:#2d6a4f;font-size:15px">${echantillons?'OFFERT — Échantillons gratuits':fmtE(totalTTC)}</td></tr></tfoot></table>`;
+    const clientInfo=`Client : ${societe} — ${contact}\nFacturation : ${factAddr.addr}, ${factAddr.cp} ${factAddr.ville}${factAddr.email?'\n'+factAddr.email:''}\nLivraison : ${retraitLoft?'Retrait au Loft Oé - 10bis rue Bellicard, 69003 Lyon':sameAddr?factAddr.addr+', '+factAddr.cp+' '+factAddr.ville:expAddr.addr+', '+expAddr.cp+' '+expAddr.ville}\nPréparation : ${prepLabel}${message?'\nMessage : '+message:''}${echantillons?'\n\n⚠️ ÉCHANTILLONS GRATUITS — Justification : '+echantillonsRaison:''}`;
     const msgBody=mode==='devis'
-      ?`Bonjour,\n\nSuite à nos échanges, voici le chiffrage détaillé :\n\n${textContent}\n\nTrès belle fin de journée !\n${prenom} - Oé`
-      :`Bonjour,\n\nUne nouvelle commande a été enregistrée par ${prenom}.\n\n${textContent}\n\nLa bise.\n${prenom}`;
+      ?`Bonjour,\n\nSuite à nos échanges, voici le chiffrage détaillé :\n\n${clientInfo}\n\n${htmlTable}\n\nTrès belle fin de journée !\n${prenom} — Oé`
+      :`Bonjour,\n\nUne nouvelle commande a été enregistrée par ${prenom}.\n\n${clientInfo}\n\n${htmlTable}\n\nLa bise.\n${prenom}`;
     await setDoc(doc(db,'devis_commandes',ref),{ref,mode,societe,contact,factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,preparation,infoLivraison,message,lignes:displayLignes,totalHT,totalTVA,totalTTC,createdAt:Date.now(),createdBy:currentUser?.email});
     try{
       await emailjs.send(EMAILJS_SERVICE,EMAILJS_TEMPLATE_DEVIS,{
         to_email:'fx@oeforgood.com',cc_email:'',
         to_name:prenom,from_name:prenom,name:prenom,
         email:currentUser?.email||'',reply_to:currentUser?.email||'fx@oeforgood.com',
-        subject:`${mode==='devis'?`Devis ${ref} - Oé`:`Commande ${ref} - Oé`}`,
+        subject:`🌼 ${mode==='devis'?`Devis ${ref} - Oé`:`Commande ${ref} - Oé`}`,
         ref,html_content:msgBody,message:msgBody,
       },EMAILJS_KEY);
     }catch(e){console.error('EmailJS:',e);}
@@ -4052,7 +4065,22 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
       </div>
       <div style={{background:'#fff',borderRadius:12,border:'1px solid #e2ddd6',padding:'20px'}}>
         <div style={{fontSize:12,fontWeight:700,color:'#6b6560',marginBottom:12,textTransform:'uppercase',letterSpacing:.5}}>Récapitulatif</div>
-        <pre style={{fontSize:12,fontFamily:'"Courier New",Courier,monospace',color:'#1a1814',whiteSpace:'pre',lineHeight:1.7,margin:0,overflowX:'auto'}}>{sentRecap}</pre>
+        <div style={{fontFamily:'system-ui,sans-serif',fontSize:13,color:'#1a1814',lineHeight:1.6}}>
+          {/* Header info */}
+          {sentRecap.split('\n').map((line,i)=>{
+            const isDivider=line.startsWith('-')&&line.length>10;
+            const isBold=line.startsWith('Oé')&&i<3;
+            return <div key={i} style={{
+              fontFamily:isDivider||i>sentRecap.split('\n').findIndex(l=>l.startsWith('Code'))?'"Courier New",monospace':'inherit',
+              fontSize:isDivider?0:isBold?14:13,
+              height:isDivider?1:undefined,
+              background:isDivider?'#e2ddd6':undefined,
+              margin:isDivider?'6px 0':undefined,
+              fontWeight:isBold?700:undefined,
+              whiteSpace:'pre',
+            }}>{!isDivider&&line}</div>;
+          })}
+        </div>
       </div>
     </div>
   </div>;
@@ -4210,7 +4238,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
               <div style={{marginTop:14,borderTop:'2px solid #e2ddd6',paddingTop:12,textAlign:'right'}}>
                 <div style={{fontSize:13,color:'#6b6560'}}>Total HT : <strong>{fmtE(totalHT)}</strong></div>
                 <div style={{fontSize:13,color:'#6b6560'}}>TVA : <strong>{fmtE(totalTVA)}</strong></div>
-                <div style={{fontSize:16,fontWeight:800,color:'#2d6a4f',marginTop:6}}>Total TTC : {fmtE(totalTTC)}</div>
+                <div style={{fontSize:16,fontWeight:800,color:echantillons?'#b5680f':'#2d6a4f',marginTop:6}}>{echantillons?'OFFERT — Échantillons gratuits':`Total TTC : ${fmtE(totalTTC)}`}</div>
               </div>
             </>}
           </>}
@@ -4228,6 +4256,27 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
         </div>}
       </>}
     </div>
+
+    {/* Échantillons modal */}
+    {echantillonsModal&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}
+      onClick={()=>{setEchantillonsModal(false);setEchantillons(false);}}>
+      <div style={{background:'#fff',borderRadius:14,padding:'24px',width:400,maxWidth:'90vw'}} onClick={e=>e.stopPropagation()}>
+        <div style={{fontSize:15,fontWeight:700,marginBottom:16}}>Échantillons gratuits</div>
+        <div style={{fontSize:13,color:'#6b6560',marginBottom:12}}>Merci d'indiquer la justification pour ces échantillons gratuits :</div>
+        <textarea value={echantillonsRaison} onChange={e=>setEchantillonsRaison(e.target.value)}
+          placeholder="Ex: Prospection nouveau client, Salon XYZ..." rows={3}
+          style={{width:'100%',fontSize:13,padding:'8px 10px',borderRadius:8,border:'1px solid #e2ddd6',outline:'none',resize:'vertical',boxSizing:'border-box'}}/>
+        <div style={{display:'flex',gap:10,marginTop:16,justifyContent:'flex-end'}}>
+          <button onClick={()=>{setEchantillonsModal(false);setEchantillons(false);setEchantillonsRaison('');}}
+            style={{padding:'8px 16px',background:'#f8f7f5',border:'1px solid #e2ddd6',borderRadius:8,fontSize:13,cursor:'pointer'}}>Annuler</button>
+          <button onClick={()=>{if(echantillonsRaison.trim()){setEchantillons(true);setEchantillonsModal(false);}}}
+            disabled={!echantillonsRaison.trim()}
+            style={{padding:'8px 16px',background:echantillonsRaison.trim()?'#2d6a4f':'#e2ddd6',color:echantillonsRaison.trim()?'#fff':'#9e9890',border:'none',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>
+            Valider
+          </button>
+        </div>
+      </div>
+    </div>}
   </div>;
 }
 
