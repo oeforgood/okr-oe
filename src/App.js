@@ -4628,7 +4628,7 @@ function TarifTab({db}){
                 Activer
               </button>}
               {!isActive&&<button onClick={async()=>{
-                if(!window.confirm('Supprimer ce tarif de l'historique ?'))return;
+                if(!window.confirm("Supprimer ce tarif de l'historique ?"))return;
                 // Delete history chunks
                 const snap=await getDocs(collection(db,'tarif'));
                 await Promise.all(snap.docs.filter(d=>d.id.startsWith(entry.id+'_chunk_')).map(d=>deleteDoc(d.ref)));
