@@ -3910,10 +3910,15 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
 
   const filteredTarif=React.useMemo(()=>{
     const selCodes=new Set(lignes.filter(l=>l.qtyMode!=='auto').map(l=>l.code));
-    const base=tarif.filter(p=>p.code&&![CASIER_CODE,COIFFE_CODE,'CONTENANT BOUTEILLE'].includes(p.code)&&!selCodes.has(p.code));
-    if(isCasierPrep)return base.filter(p=>(p.code||'').length>1&&(p.code||'')[1].toUpperCase()==='E');
-    return base;
-  },[tarif,isCasierPrep,lignes]);
+    const casier=['palette_casier_coiffe','palette_casier_sans_coiffe','casier_sans_palette'].includes(preparation);
+    return tarif.filter(p=>{
+      if(!p.code)return false;
+      if([CASIER_CODE,COIFFE_CODE,'CONTENANT BOUTEILLE'].includes(p.code))return false;
+      if(selCodes.has(p.code))return false;
+      if(casier&&(p.code.length<2||(p.code[1]||'').toUpperCase()!=='E'))return false;
+      return true;
+    });
+  },[tarif,preparation,lignes]);
 
   const coreLignes=lignes.filter(l=>l.qtyMode!=='auto');
   const totalBouteilles=coreLignes.reduce((s,l)=>s+parseInt(l.qty||0),0);
@@ -3928,16 +3933,22 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     // Gratuité override (casiers/coiffes keep their price)
     if(gratuite&&prod.code!==CASIER_CODE&&prod.code!==COIFFE_CODE)return 0;
     // Tarif Event override
-    if(tariEvent&&parsePrix(prod.tariEvents)>0){
-      const base=parsePrix(prod.tariEvents);
-      return prixCoutant?Math.round(base*0.85*100)/100:base;
+    if(prixCoutant){
+      // Prix coûtant = prix normal / 0.85
+      if(isPaletteQty&&parsePrix(prod.prixPalette)>0)return Math.round(parsePrix(prod.prixPalette)/0.85*100)/100;
+      if(totalEq75>=600)return Math.round(parsePrix(prod.prix600)/0.85*100)/100;
+      if(totalEq75>=360)return Math.round(parsePrix(prod.prix360)/0.85*100)/100;
+      if(totalEq75>=240)return Math.round(parsePrix(prod.prix240)/0.85*100)/100;
+      if(totalEq75>=120)return Math.round(parsePrix(prod.prix120)/0.85*100)/100;
+      return Math.round(parsePrix(prod.prix24)/0.85*100)/100;
     }
+    if(tariEvent&&parsePrix(prod.tariEvents)>0)return parsePrix(prod.tariEvents);
     // Palette condition
-    const qpal=parseInt(prod.qpalette||0);
+    const qpalRaw=parseInt(String(prod.qpalette||'0').replace(/[^0-9]/g,''))||0;
     const isPaletteCartons=preparation==='palette_cartons';
     const isPaletteCasiers=preparation==='palette_casier_coiffe'||preparation==='palette_casier_sans_coiffe';
-    const isPaletteQty=isPaletteCartons?(qpal>0&&q>0&&q%qpal===0):isPaletteCasiers?(q>0&&q%480===0):false;
-    if(totalEq75>=600&&isPaletteQty)return parsePrix(prod.prixPalette);
+    const isPaletteQty=isPaletteCartons?(qpalRaw>0&&q>0&&q%qpalRaw===0):isPaletteCasiers?(q>=480&&q%480===0):false;
+    if(isPaletteQty&&parsePrix(prod.prixPalette)>0)return parsePrix(prod.prixPalette);
     if(totalEq75>=600)return parsePrix(prod.prix600);
     if(totalEq75>=360)return parsePrix(prod.prix360);
     if(totalEq75>=240)return parsePrix(prod.prix240);
@@ -3954,8 +3965,9 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
 
   function addProduit(code){
     const prod=tarif.find(t=>t.code===code);if(!prod)return;
-    const pcb=preparation==='palette_cartons'?Math.max(1,parseInt(prod.pcb||1)):effectivePCB;
-    const qty=pcb;
+    const rawPcb=parseInt(String(prod.pcb||'').replace(/[^0-9]/g,''))||1;
+    const pcb=preparation==='palette_cartons'?Math.max(1,rawPcb):effectivePCB;
+    const qty=Math.max(1,pcb);
     setLignes(p=>[...p,{code:prod.code,libelle:prod.libelle,robe:prod.robe,pcb,eq75:prod.eq75,tva:prod.tva,qty,qtyMode:pcb>1?'select':'free'}]);
     setSelectedProd('');
   }
@@ -3992,7 +4004,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
 
   function buildText(ref){
     const sep='─'.repeat(70);
-    const tarifLabel=gratuite?('GRATUITÉ — '+gratuiteRaison):prixCoutant?'Tarif Events Prix Coûtant (−15%)':tariEvent?'Tarif Events':totalEq75>=600?'Tarif 600+':totalEq75>=360?'Tarif 360+':totalEq75>=240?'Tarif 240+':totalEq75>=120?'Tarif 120+':'Tarif 24+';
+    const tarifLabel=gratuite?('GRATUITÉ — '+gratuiteRaison):prixCoutant?'Prix Coûtant (prix normal ÷ 0,85)':tariEvent?'Tarif Events':totalEq75>=600?'Tarif 600+':totalEq75>=360?'Tarif 360+':totalEq75>=240?'Tarif 240+':totalEq75>=120?'Tarif 120+':'Tarif 24+';
     function col(s,w){return String(s||'').padEnd(w).slice(0,w);}
     function colR(s,w){return String(s||'').padStart(w).slice(-w);}
     const colW=12;
@@ -4049,17 +4061,17 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     if(!coiffeOk){alert(`Le nombre de bouteilles (${totalBouteilles}) doit être un multiple de 120.`);return;}
     setSending(true);
     const ref=genRef();
-    const tarifLabel=gratuite?('GRATUITÉ — '+gratuiteRaison):prixCoutant?'Tarif Events Prix Coûtant (−15%)':tariEvent?'Tarif Events':totalEq75>=600?'Tarif 600+':totalEq75>=360?'Tarif 360+':totalEq75>=240?'Tarif 240+':totalEq75>=120?'Tarif 120+':'Tarif 24+';
+    const tarifLabel=gratuite?('GRATUITÉ — '+gratuiteRaison):prixCoutant?'Prix Coûtant (prix normal ÷ 0,85)':tariEvent?'Tarif Events':totalEq75>=600?'Tarif 600+':totalEq75>=360?'Tarif 360+':totalEq75>=240?'Tarif 240+':totalEq75>=120?'Tarif 120+':'Tarif 24+';
     const textContent=buildText(ref);
     const prenom=teamMember?.prenom||'Oé';
     // Build HTML table for products
-    const prodRows=displayLignes.map(l=>{
-      const pu=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?0:getLinePU(l);
-      const qty=parseInt(l.qty||0);
+    const prodRows=displayLignes.map(ligne=>{
+      const pu=gratuite&&ligne.code!==CASIER_CODE&&ligne.code!==COIFFE_CODE?0:getLinePU(l);
+      const qty=parseInt(ligne.qty||0);
       const totalHT2=pu*qty;
-      const tvaRate=parseFloat(l.tva||0);
+      const tvaRate=parseFloat(ligne.tva||0);
       const tvaVal=totalHT2*(tvaRate/100);
-      return `<tr><td style="padding:4px 10px;border-bottom:1px solid #eee;font-family:monospace">${l.code||''}</td><td style="padding:4px 10px;border-bottom:1px solid #eee">${l.libelle||''}</td><td style="padding:4px 10px;border-bottom:1px solid #eee;text-align:right;font-family:monospace">${qty}</td><td style="padding:4px 10px;border-bottom:1px solid #eee;text-align:right;font-family:monospace">${gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?'offert':fmtE(pu)}</td><td style="padding:4px 10px;border-bottom:1px solid #eee;text-align:right;font-family:monospace">${gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?'offert':fmtE(totalHT2)}</td><td style="padding:4px 10px;border-bottom:1px solid #eee;font-size:11px">${gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?'offert':tvaRate>0?(tvaRate+'%: '+fmtE(tvaVal)):'0%'}</td></tr>`;
+      return `<tr><td style="padding:4px 10px;border-bottom:1px solid #eee;font-family:monospace">${ligne.code||''}</td><td style="padding:4px 10px;border-bottom:1px solid #eee">${ligne.libelle||''}</td><td style="padding:4px 10px;border-bottom:1px solid #eee;text-align:right;font-family:monospace">${qty}</td><td style="padding:4px 10px;border-bottom:1px solid #eee;text-align:right;font-family:monospace">${gratuite&&ligne.code!==CASIER_CODE&&ligne.code!==COIFFE_CODE?'offert':fmtE(pu)}</td><td style="padding:4px 10px;border-bottom:1px solid #eee;text-align:right;font-family:monospace">${gratuite&&ligne.code!==CASIER_CODE&&ligne.code!==COIFFE_CODE?'offert':fmtE(totalHT2)}</td><td style="padding:4px 10px;border-bottom:1px solid #eee;font-size:11px">${gratuite&&ligne.code!==CASIER_CODE&&ligne.code!==COIFFE_CODE?'offert':tvaRate>0?(tvaRate+'%: '+fmtE(tvaVal)):'0%'}</td></tr>`;
     }).join('');
     const htmlTable=`<table style="border-collapse:collapse;width:100%;font-size:13px"><thead><tr style="background:#f0ede8"><th style="padding:6px 10px;text-align:left">Code</th><th style="padding:6px 10px;text-align:left">Produit</th><th style="padding:6px 10px;text-align:right">Qté</th><th style="padding:6px 10px;text-align:right">P.U. HT</th><th style="padding:6px 10px;text-align:right">Total HT</th><th style="padding:6px 10px">TVA</th></tr></thead><tbody>${prodRows}</tbody><tfoot><tr style="background:#f8f7f5;font-weight:bold"><td colspan="4" style="padding:6px 10px">Total</td><td style="padding:6px 10px;text-align:right;font-family:monospace">${gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?'offert':fmtE(totalHT)}</td><td style="padding:6px 10px;font-size:11px">TVA: ${gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?'offert':fmtE(totalTVA)}</td></tr><tr style="background:#e8f4f0;font-weight:800"><td colspan="4" style="padding:6px 10px;color:#2d6a4f">TOTAL TTC</td><td colspan="2" style="padding:6px 10px;color:#2d6a4f;font-size:15px">${echantillons?'OFFERT — Échantillons gratuits':fmtE(totalTTC)}</td></tr></tfoot></table>`;
     const livrInfo=retraitLoft?'Retrait au Loft Oé - 10bis rue Bellicard, 69003 Lyon':sameAddr?(factAddr.addr+', '+factAddr.cp+' '+factAddr.ville):(expAddr.addr+', '+expAddr.cp+' '+expAddr.ville);
@@ -4237,23 +4249,30 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
           </div>
           <div style={{borderLeft:'1px solid #f0ede8',paddingLeft:16}}>
             <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>Tarification</div>
-            <div style={{display:'flex',flexDirection:'column',gap:10}}>
-              <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',fontWeight:500}}>
-                <input type="checkbox" checked={tariEvent} onChange={e=>{setTariEvent(e.target.checked);if(!e.target.checked)setPrixCoutant(false);}}/>
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',fontWeight:tariEvent&&!prixCoutant&&!gratuite?600:400}}>
+                <input type="checkbox" checked={tariEvent&&!prixCoutant&&!gratuite}
+                  onChange={e=>{setTariEvent(e.target.checked);setPrixCoutant(false);if(e.target.checked){setGratuite(false);setGratuiteRaison('');}}}/>
                 Tarif Events
               </label>
-              {tariEvent&&<label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',fontWeight:500,marginLeft:16,color:'#6b6560'}}>
-                <input type="checkbox" checked={prixCoutant} onChange={e=>setPrixCoutant(e.target.checked)}/>
-                Prix coûtant (Tarif Events −15%)
-              </label>}
-              <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',fontWeight:500,color:gratuite?'#c0392b':'inherit'}}>
-                <input type="checkbox" checked={gratuite} onChange={e=>{
-                  if(e.target.checked)setGratuiteModal(true);
-                  else{setGratuite(false);setGratuiteRaison('');}
-                }}/>
-                Gratuité
+              <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',fontWeight:prixCoutant?600:400}}>
+                <input type="checkbox" checked={prixCoutant}
+                  onChange={e=>{setPrixCoutant(e.target.checked);setTariEvent(false);if(e.target.checked){setGratuite(false);setGratuiteRaison('');}}}/>
+                Prix coûtant
               </label>
-              {gratuite&&gratuiteRaison&&<div style={{fontSize:11,color:'#c0392b',fontStyle:'italic',marginLeft:16}}>{gratuiteRaison}</div>}
+              <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',fontWeight:gratuite?600:400,color:gratuite?'#c0392b':'inherit'}}>
+                <input type="checkbox" checked={gratuite}
+                  onChange={e=>{
+                    if(e.target.checked){setGratuiteModal(true);setTariEvent(false);setPrixCoutant(false);}
+                    else{setGratuite(false);setGratuiteRaison('');}
+                  }}/>
+                {gratuite&&gratuiteRaison
+                  ?<span>Gratuité : <span style={{fontStyle:'italic',cursor:'pointer',textDecoration:'underline dotted'}}
+                      onClick={()=>{setGratuiteModal(true);}} title="Cliquer pour modifier">
+                      {gratuiteRaison}
+                    </span></span>
+                  :'Gratuité'}
+              </label>
             </div>
           </div>
         </div>
@@ -4275,7 +4294,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
             <select value={selectedProd} onChange={e=>{if(e.target.value)addProduit(e.target.value);}}
               style={{...INP(),marginBottom:16,color:selectedProd?'#1a1814':'#9e9890'}}>
               <option value=''>Ajouter un produit</option>
-              {filteredTarif.map(p=><option key={p.code} value={p.code}>{p.code} — {p.libelle}{p.robe?' ('+p.robe+')':''}</option>)}
+              {filteredTarif.map(p=><option key={p.code} value={p.code}>{`${p.code} — ${p.libelle||''}${p.robe?' ('+p.robe+')':''}`}</option>)}
             </select>
             {displayLignes.length>0&&<>
               <table style={{width:'100%',borderCollapse:'collapse'}}>
@@ -4296,9 +4315,8 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
                     <td style={{padding:'8px',textAlign:'right'}}>
                       {isAuto?<span style={{fontSize:12,color:'#6b6560'}}>{l.qty}</span>
                       :l.qtyMode==='free'
-                        ?<input type="number" value={l.qty} min={l.pcb||1} step={l.pcb||1} autoFocus
-                            onChange={e=>updLigne(i,'qty',Math.max(parseInt(l.pcb||1),parseInt(e.target.value)||parseInt(l.pcb||1)))}
-                            onBlur={e=>{if(parseInt(e.target.value)>0)updLigne(i,'qtyMode','select');}}
+                        ?<input type="number" value={l.qty} min={1} step={1}
+                            onChange={e=>{const v=parseInt(e.target.value);if(v>0)updLigne(i,'qty',v);}}
                             style={{width:80,fontSize:12,padding:'3px 6px',borderRadius:6,border:'1px solid #2d6a4f',textAlign:'right'}}/>
                         :effectivePCB>1||l.pcb>1
                           ?<select value={l.qty} onChange={e=>{
@@ -4307,13 +4325,14 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
                             }}
                             style={{fontSize:12,padding:'3px 6px',borderRadius:6,border:'1px solid #e2ddd6'}}>
                             {(()=>{
-                              const pcb=parseInt(l.pcb||1);
+                              const pcb=Math.max(1,parseInt(String(l.pcb||'1').replace(/[^0-9]/g,''))||1);
                               const opts=Array.from({length:12},(_,k)=>(k+1)*pcb);
-                              const qpal=parseInt(tarif.find(t=>t.code===l.code)?.qpalette||0);
-                              const palQty=isPalettePrep?(isCasierPrep?480:qpal):0;
+                              const prodT=tarif.find(t=>t.code===l.code);
+                              const qpal=parseInt(String(prodT?.qpalette||'0').replace(/[^0-9]/g,''))||0;
+                              const palQty=isPalettePrep?(isCasierPrep?480:(qpal>0?qpal:0)):0;
                               if(palQty>0&&!opts.includes(palQty))opts.push(palQty);
                               opts.sort((a,b)=>a-b);
-                              return opts.map(q=><option key={q} value={q}>{q}{q===palQty?' (palette)':''}</option>);
+                              return opts.map(q=><option key={q} value={q}>{q}{palQty>0&&q===palQty?' ★ palette':''}</option>);
                             })()}
                             <option value="libre">Autre quantité...</option>
                           </select>
@@ -4608,6 +4627,16 @@ function TarifTab({db}){
                 style={{padding:'4px 10px',background:'#fff',border:'1px solid #2d6a4f',color:'#2d6a4f',borderRadius:6,fontSize:11,fontWeight:600,cursor:'pointer'}}>
                 Activer
               </button>}
+              {!isActive&&<button onClick={async()=>{
+                if(!window.confirm('Supprimer ce tarif de l'historique ?'))return;
+                // Delete history chunks
+                const snap=await getDocs(collection(db,'tarif'));
+                await Promise.all(snap.docs.filter(d=>d.id.startsWith(entry.id+'_chunk_')).map(d=>deleteDoc(d.ref)));
+                const updated=history.filter(h=>h.id!==entry.id);
+                setHistory(updated);
+                await setDoc(doc(db,'tarif','history_index'),{entries:updated,activeId},{merge:true});
+              }} style={{padding:'4px 8px',background:'#fff',border:'1px solid #e2ddd6',color:'#c0392b',borderRadius:6,fontSize:11,cursor:'pointer'}}
+                title="Supprimer">✕</button>}
             </div>
           </div>;
         })}
