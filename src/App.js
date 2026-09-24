@@ -4437,6 +4437,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     </div>}
   </div>;
 }
+
     const msgColor='#c0392b';
     const msgHtml=message?`<div style="margin:16px 0;padding:12px 16px;background:#fff5f5;border-left:3px solid ${msgColor};border-radius:4px;font-size:13px;color:${msgColor}"><strong>${mode==='commande'?'Message supply':'Message client'} :</strong> ${message}</div>`:'';
     const brandGreen='#2d6a4f';const brandBeige='#f5f3ef';const brandDark='#1a1814';const brandFont='system-ui,-apple-system,Helvetica,sans-serif';
@@ -4500,6 +4501,7 @@ ${msgHtml}
   Oé · contact@oeforgood.com · oeforgood.com
 </div>
 </div>`
+
 
 function TarifTab({db}){
   const [tarif,setTarif]=React.useState([]);
