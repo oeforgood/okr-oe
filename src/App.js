@@ -4071,14 +4071,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     const textContent=buildText(ref);
     const prenom=teamMember?.prenom||'Oé';
     // Build HTML table for products
-    const prodRows=displayLignes.map(ligne=>{
-      const pu=gratuite&&ligne.code!==CASIER_CODE&&ligne.code!==COIFFE_CODE?0:getLinePU(ligne);
-      const qty=parseInt(ligne.qty||0);
-      const totalHT2=pu*qty;
-      const tvaRate=parseFloat(ligne.tva||0);
-      const tvaVal=totalHT2*(tvaRate/100);
-      return `<tr><td style="padding:4px 10px;border-bottom:1px solid #eee;font-family:monospace">${ligne.code||''}</td><td style="padding:4px 10px;border-bottom:1px solid #eee">${ligne.libelle||''}</td><td style="padding:4px 10px;border-bottom:1px solid #eee;text-align:right;font-family:monospace">${qty}</td><td style="padding:4px 10px;border-bottom:1px solid #eee;text-align:right;font-family:monospace">${gratuite&&ligne.code!==CASIER_CODE&&ligne.code!==COIFFE_CODE?'offert':fmtE(pu)}</td><td style="padding:4px 10px;border-bottom:1px solid #eee;text-align:right;font-family:monospace">${gratuite&&ligne.code!==CASIER_CODE&&ligne.code!==COIFFE_CODE?'offert':fmtE(totalHT2)}</td><td style="padding:4px 10px;border-bottom:1px solid #eee;font-size:11px">${gratuite&&ligne.code!==CASIER_CODE&&ligne.code!==COIFFE_CODE?'offert':tvaRate>0?(tvaRate+'%: '+fmtE(tvaVal)):'0%'}</td></tr>`;
-    }).join('');
+    ;
     const htmlTable=`<table style="border-collapse:collapse;width:100%;font-size:13px"><thead><tr style="background:#f0ede8"><th style="padding:6px 10px;text-align:left">Code</th><th style="padding:6px 10px;text-align:left">Produit</th><th style="padding:6px 10px;text-align:right">Qté</th><th style="padding:6px 10px;text-align:right">P.U. HT</th><th style="padding:6px 10px;text-align:right">Total HT</th><th style="padding:6px 10px">TVA</th></tr></thead><tbody>${prodRows}</tbody><tfoot><tr style="background:#f8f7f5;font-weight:bold"><td colspan="4" style="padding:6px 10px">Total</td><td style="padding:6px 10px;text-align:right;font-family:monospace">${gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?'offert':fmtE(totalHT)}</td><td style="padding:6px 10px;font-size:11px">TVA: ${gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?'offert':fmtE(totalTVA)}</td></tr><tr style="background:#e8f4f0;font-weight:800"><td colspan="4" style="padding:6px 10px;color:#2d6a4f">TOTAL TTC</td><td colspan="2" style="padding:6px 10px;color:#2d6a4f;font-size:15px">${echantillons?'OFFERT — Échantillons gratuits':fmtE(totalTTC)}</td></tr></tfoot></table>`;
     const livrInfo=retraitLoft?'Retrait au Loft Oé - 10bis rue Bellicard, 69003 Lyon':sameAddr?(factAddr.addr+', '+factAddr.cp+' '+factAddr.ville):(expAddr.addr+', '+expAddr.cp+' '+expAddr.ville);
     const clientInfoHtml='<table style="font-size:13px;margin-bottom:16px;border-collapse:collapse">'+
@@ -4175,16 +4168,16 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
                     <span style={{...TD,textAlign:'left'}}>{l.libelle}{l.qtyMode==='auto'?<span style={{fontSize:10,color:'#9e9890',marginLeft:4}}>(auto)</span>:null}</span>
                     <span style={TD}>{qty}</span>
                     <span style={TD}>{isOff?'offert':fmtE(pu)}</span>
-                    <span style={TD}>{isOff?'offert':fmtE(htL)}</span>
+                    <span style={{...TD,fontWeight:700}}>{isOff?'offert':fmtE(htL)}</span>
                     <span style={{...TD,fontSize:11,color:'#6b6560'}}>{tvaR>0?tvaR+'%':'0%'}</span>
                     <span style={{...TD,fontWeight:600}}>{isOff?'offert':fmtE(ttcL)}</span>
                   </div>;
                 })}
-                <div style={{display:'grid',gridTemplateColumns:GRD,borderTop:'2px solid #2d6a4f',marginTop:4,paddingTop:6}}>
-                  <span style={{gridColumn:'1/5',fontSize:13,fontWeight:700,color:'#2d6a4f',padding:'6px 6px'}}>TOTAL</span>
-                  <span style={{...TD,borderBottom:'none',fontWeight:800,color:'#1a1814',fontSize:14}}>{gratuite?'OFFERT':fmtE(totalHT)}</span>
-                  <span style={{...TD,borderBottom:'none',fontSize:12,color:'#6b6560'}}>{fmtE(totalTVA)}</span>
-                  <span style={{...TD,borderBottom:'none',fontSize:12,color:'#6b6560'}}>{gratuite?'OFFERT':fmtE(totalTTC)}</span>
+                <div style={{display:'grid',gridTemplateColumns:GRD,borderTop:'2px solid #2d6a4f',marginTop:4,paddingTop:4}}>
+                  <span style={{gridColumn:'1/5',fontSize:12,fontWeight:700,color:'#2d6a4f',padding:'4px 6px'}}>TOTAL</span>
+                  <span style={{...TD,borderBottom:'none',fontWeight:700}}>{gratuite?'OFFERT':fmtE(totalHT)}</span>
+                  <span style={{...TD,borderBottom:'none',fontWeight:400}}>{fmtE(totalTVA)}</span>
+                  <span style={{...TD,borderBottom:'none',fontWeight:400}}>{gratuite?'OFFERT':fmtE(totalTTC)}</span>
                 </div>
               </div>
             </>;
@@ -4444,7 +4437,69 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     </div>}
   </div>;
 }
-
+    const msgColor='#c0392b';
+    const msgHtml=message?`<div style="margin:16px 0;padding:12px 16px;background:#fff5f5;border-left:3px solid ${msgColor};border-radius:4px;font-size:13px;color:${msgColor}"><strong>${mode==='commande'?'Message supply':'Message client'} :</strong> ${message}</div>`:'';
+    const brandGreen='#2d6a4f';const brandBeige='#f5f3ef';const brandDark='#1a1814';const brandFont='system-ui,-apple-system,Helvetica,sans-serif';
+    // prodRows for mail
+    const prodRows=displayLignes.map(ligne=>{
+      const pu=gratuite&&ligne.code!==CASIER_CODE&&ligne.code!==COIFFE_CODE?0:getLinePU(ligne);
+      const qty=parseInt(ligne.qty||0);
+      const totalHT2=pu*qty;
+      const tvaRate=parseFloat(ligne.tva||0);
+      const tvaVal=totalHT2*(tvaRate/100);
+      const ttcLigne=totalHT2+tvaVal;
+      const isOffert=gratuite&&ligne.code!==CASIER_CODE&&ligne.code!==COIFFE_CODE;
+      return `<tr>
+        <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;font-weight:600;letter-spacing:0.3px;width:90px">${ligne.code||''}</td>
+        <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px">${ligne.libelle||''}</td>
+        <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;text-align:right;width:45px">${qty}</td>
+        <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;text-align:right;width:80px">${isOffert?'offert':fmtE(pu)}</td>
+        <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;text-align:right;font-weight:700;width:80px">${isOffert?'offert':fmtE(totalHT2)}</td>
+        <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;text-align:right;color:#6b6560;width:80px">${isOffert?'':tvaRate>0?(tvaRate+'%'):'0%'}</td>
+        <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;text-align:right;width:80px">${isOffert?'offert':fmtE(ttcLigne)}</td>
+      </tr>`;
+    }).join('');
+    const htmlTable=`<div style="font-family:${brandFont};max-width:720px;margin:0 auto;color:${brandDark}">
+<div style="background:${brandGreen};padding:20px 24px;border-radius:8px 8px 0 0">
+  <div style="color:#fff;font-size:20px;font-weight:700;letter-spacing:1px">🌼 Oé</div>
+  <div style="color:rgba(255,255,255,0.8);font-size:12px;margin-top:4px">${mode==='devis'?'Devis':'Commande'} ${ref} · ${new Date().toLocaleDateString('fr-FR')}</div>
+</div>
+<div style="background:${brandBeige};padding:16px 24px;border-bottom:1px solid #e2ddd6">
+  <table style="width:100%;border-collapse:collapse;font-size:12px">
+    <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0;white-space:nowrap">CLIENT</td><td style="font-weight:600">${societe} — ${contact}</td></tr>
+    <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0">FACTURATION</td><td>${factAddr.addr}, ${factAddr.cp} ${factAddr.ville}${factAddr.email?' · '+factAddr.email:''}</td></tr>
+    <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0">LIVRAISON</td><td>${retraitLoft?'Retrait au Loft Oé · 10bis rue Bellicard, 69003 Lyon':sameAddr?factAddr.addr+', '+factAddr.cp+' '+factAddr.ville:expAddr.addr+', '+expAddr.cp+' '+expAddr.ville}</td></tr>
+    <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0">PRÉPARATION</td><td>${prepLabel}</td></tr>
+    <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0">TARIF</td><td>${tarifLabel}</td></tr>
+  </table>
+</div>
+<div style="background:#fff;padding:0">
+  <table style="width:100%;border-collapse:collapse">
+    <thead><tr style="background:${brandBeige}">
+      <th style="padding:8px;text-align:left;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen};width:90px">Code</th>
+      <th style="padding:8px;text-align:left;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen}">Produit</th>
+      <th style="padding:8px;text-align:right;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen};width:45px">Qté</th>
+      <th style="padding:8px;text-align:right;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen};width:80px">P.U. HT</th>
+      <th style="padding:8px;text-align:right;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen};width:80px">Total HT</th>
+      <th style="padding:8px;text-align:right;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen};width:80px">TVA</th>
+      <th style="padding:8px;text-align:right;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen};width:80px">TTC</th>
+    </tr></thead>
+    <tbody>${prodRows}</tbody>
+    <tfoot>
+      <tr style="border-top:2px solid ${brandGreen}">
+        <td colspan="4" style="padding:6px 8px;font-size:12px;font-weight:700;color:${brandGreen}">TOTAL</td>
+        <td style="padding:6px 8px;text-align:right;font-size:12px;font-weight:700">${gratuite?'OFFERT':fmtE(totalHT)}</td>
+        <td style="padding:6px 8px;text-align:right;font-size:12px;font-weight:400;color:#6b6560">${fmtE(totalTVA)}</td>
+        <td style="padding:6px 8px;text-align:right;font-size:12px;font-weight:400">${gratuite?'OFFERT':fmtE(totalTTC)}</td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+${msgHtml}
+<div style="background:${brandBeige};padding:12px 24px;border-radius:0 0 8px 8px;border-top:1px solid #e2ddd6;font-size:11px;color:#6b6560;text-align:center">
+  Oé · contact@oeforgood.com · oeforgood.com
+</div>
+</div>`
 
 function TarifTab({db}){
   const [tarif,setTarif]=React.useState([]);
