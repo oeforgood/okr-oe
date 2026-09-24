@@ -3918,7 +3918,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     return s+(parseFloat(p?.eq75||0)*parseInt(l.qty||0));
   },0);
 
-  function parsePrix(v){return parseFloat(String(v||'0').replace(',','.'))||0;}
+  function parsePrix(v){return parseFloat(String(v||'0').replace(/€/g,'').replace(/\s/g,'').replace(',','.'))||0;}
   function getPU(prod,qty){
     const q=parseInt(qty||0);
     // Tarif Event override
@@ -4354,24 +4354,53 @@ function TarifTab({db}){
   function parseCSV(text){
     const lines=text.split(/\r?\n/).filter(l=>l.trim());
     if(lines.length<2)return[];
-    const sep=lines[0].includes(';')?';':',';
-    const headers=lines[0].split(sep).map(h=>h.trim().replace(/^"|"$/g,'').toLowerCase());
+    // Auto-detect separator: prefer semicolon, else comma
+    const firstLine=lines[0];
+    const semiCount=(firstLine.match(/;/g)||[]).length;
+    const sep=semiCount>0?';':',';
+    const headers=firstLine.split(sep).map(h=>h.trim().replace(/^"|"$/g,'').toLowerCase().trim());
     const colMap={};
-    const CSV_MAP={'code produit':'code','libellé':'libelle','libelle':'libelle','robe':'robe','contenant':'contenant',
-      'prix par 24':'prix24','prix par 120':'prix120','prix par 240':'prix240','prix par 360':'prix360','prix par 600':'prix600',
+    const CSV_MAP={
+      'code':'code','code produit':'code',
+      'libellé':'libelle','libelle':'libelle',
+      'robe':'robe','contenant':'contenant',
+      'tarif events':'tariEvents','tarif event':'tariEvents','tarievents':'tariEvents',
+      'prix/24':'prix24','prix par 24':'prix24',
+      'prix/120':'prix120','prix par 120':'prix120',
+      'prix/240':'prix240','prix par 240':'prix240',
+      'prix/360':'prix360','prix par 360':'prix360',
+      'prix/600':'prix600','prix par 600':'prix600',
+      'prix palette':'prixPalette','prix par palette':'prixPalette',
       'prix par palette complète':'prixPalette','prix par palette complete':'prixPalette',
-      'pcb':'pcb','equivalent75':'eq75','équivalent75':'eq75','eq75':'eq75','eq 75':'eq75',
-      'qpalette':'qpalette','q palette':'qpalette','tva':'tva',
-      'tarif events':'tariEvents','tarif event':'tariEvents','tarievents':'tariEvents'};
+      'pcb':'pcb',
+      'éq.75':'eq75','eq.75':'eq75','equivalent75':'eq75','équivalent75':'eq75','eq75':'eq75','eq 75':'eq75',
+      'q.palette':'qpalette','qpalette':'qpalette','q palette':'qpalette',
+      'tva':'tva'
+    };
     headers.forEach((h,i)=>{const key=CSV_MAP[h];if(key)colMap[key]=i;});
+    // Helper: clean a field value (strip quotes, €, spaces, convert % for TVA)
+    function cleanVal(v,col){
+      let s=(v||'').replace(/^"|"$/g,'').replace(/€/g,'').replace(/\s/g,'').trim();
+      if(col==='tva')s=s.replace('%',''); // "20%" -> "20"
+      return s;
+    }
     return lines.slice(1).filter(l=>l.trim()).map(l=>{
+      // Parse CSV line respecting quoted fields
       const fields=[];let cur='',inQ=false;
-      for(const ch of l){if(ch==='"'){inQ=!inQ;}else if(ch===sep&&!inQ){fields.push(cur.trim());cur='';}else cur+=ch;}
-      fields.push(cur.trim());
+      for(let i=0;i<l.length;i++){
+        const ch=l[i];
+        if(ch==='"'){inQ=!inQ;}
+        else if(ch===sep&&!inQ){fields.push(cur);cur='';}
+        else cur+=ch;
+      }
+      fields.push(cur);
       const row={};
-      COLS.forEach(c=>{if(colMap[c]!==undefined)row[c]=(fields[colMap[c]]||'').replace(/^"|"$/g,'').trim();else row[c]='';});
+      COLS.forEach(c=>{
+        if(colMap[c]!==undefined)row[c]=cleanVal(fields[colMap[c]],c);
+        else row[c]='';
+      });
       return row;
-    }).filter(r=>r.code);
+    }).filter(r=>r.code&&r.code.trim());
   }
 
   async function handleImport(e){
