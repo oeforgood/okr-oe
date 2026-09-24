@@ -4354,10 +4354,14 @@ function TarifTab({db}){
   function parseCSV(text){
     const lines=text.split(/\r?\n/).filter(l=>l.trim());
     if(lines.length<2)return[];
-    // Auto-detect separator: prefer semicolon, else comma
+    // Auto-detect separator by counting columns with each candidate
     const firstLine=lines[0];
-    const semiCount=(firstLine.match(/;/g)||[]).length;
-    const sep=semiCount>0?';':',';
+    const countCols=s=>{
+      let n=1,inQ=false;
+      for(const ch of firstLine){if(ch==='"')inQ=!inQ;else if(ch===s&&!inQ)n++;}
+      return n;
+    };
+    const sep=countCols(';')>=countCols(',')?';':',';
     const headers=firstLine.split(sep).map(h=>h.trim().replace(/^"|"$/g,'').toLowerCase().trim());
     const colMap={};
     const CSV_MAP={
