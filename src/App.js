@@ -4467,16 +4467,10 @@ function TarifTab({db}){
         Importer un tarif (.csv)
       </button>
       <input ref={fileRef} type="file" accept=".csv" style={{display:'none'}} onChange={handleImport}/>
-      {tarif.length>0&&<button onClick={()=>{
-        const headers=COLS.map(c=>COL_LABELS[c]||c).join(';');
-        const rowsData=tarif.map(r=>COLS.map(c=>(r[c]||'').toString().replace(/;/g,',')).join(';'));
-        const csv=[headers,...rowsData].join('\n');
-        const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
-        const url=URL.createObjectURL(blob);
-        const a=document.createElement('a');a.href=url;a.download='tarif_oe.csv';a.click();URL.revokeObjectURL(url);
-      }} style={{padding:'7px 14px',background:'#f0fdf4',color:'#2d6a4f',border:'1px solid #2d6a4f',borderRadius:8,fontSize:12,fontWeight:600,cursor:'pointer'}}>
+      {tarif.length>0&&<button onClick={exportCSV}
+        style={{padding:'7px 14px',background:'#f0fdf4',color:'#2d6a4f',border:'1px solid #2d6a4f',borderRadius:8,fontSize:12,fontWeight:600,cursor:'pointer'}}>
         Exporter en .csv
-      </button>
+      </button>}
       {msg&&<span style={{fontSize:12,color:msg.startsWith('❌')?'#c0392b':'#2d6a4f'}}>{msg}</span>}
       {saving&&<span style={{fontSize:11,color:'#9e9890'}}>Enregistrement...</span>}
     </div>
