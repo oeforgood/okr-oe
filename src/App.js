@@ -3869,6 +3869,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   const [lignes,setLignes]=React.useState([]);
   const [selectedProd,setSelectedProd]=React.useState('');
   const [echantillons,setEchantillons]=React.useState(false);
+  const [tariEvent,setTariEvent]=React.useState(false);
   const [echantillonsModal,setEchantillonsModal]=React.useState(false);
   const [echantillonsRaison,setEchantillonsRaison]=React.useState('');
 
@@ -3912,8 +3913,14 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   function parsePrix(v){return parseFloat(String(v||'0').replace(',','.'))||0;}
   function getPU(prod,qty){
     const q=parseInt(qty||0);
+    // Tarif Event override
+    if(tariEvent&&parsePrix(prod.tariEvents)>0)return parsePrix(prod.tariEvents);
+    // Palette condition
     const qpal=parseInt(prod.qpalette||0);
-    if(qpal>0&&q>0&&q%qpal===0&&totalEq75>=600)return parsePrix(prod.prixPalette);
+    const isPaletteCartons=preparation==='palette_cartons';
+    const isPaletteCasiers=preparation==='palette_casier_coiffe'||preparation==='palette_casier_sans_coiffe';
+    const isPaletteQty=isPaletteCartons?(qpal>0&&q>0&&q%qpal===0):isPaletteCasiers?(q>0&&q%480===0):false;
+    if(totalEq75>=600&&isPaletteQty)return parsePrix(prod.prixPalette);
     if(totalEq75>=600)return parsePrix(prod.prix600);
     if(totalEq75>=360)return parsePrix(prod.prix360);
     if(totalEq75>=240)return parsePrix(prod.prix240);
@@ -4047,7 +4054,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
       ?'<p>Très belle fin de journée !<br><strong>'+prenom+' — Oé</strong></p>'
       :'<p>La bise.<br><strong>'+prenom+'</strong></p>';
     const msgBody=intro+clientInfoHtml+htmlTable+outro;
-    await setDoc(doc(db,'devis_commandes',ref),{ref,mode,societe,contact,factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,preparation,infoLivraison,message,lignes:displayLignes,totalHT,totalTVA,totalTTC,createdAt:Date.now(),createdBy:currentUser?.email});
+    await setDoc(doc(db,'devis_commandes',ref),{ref,mode,societe,contact,factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,preparation,tariEvent,infoLivraison,message,lignes:displayLignes,totalHT,totalTVA,totalTTC,createdAt:Date.now(),createdBy:currentUser?.email});
     try{
       await emailjs.send(EMAILJS_SERVICE,EMAILJS_TEMPLATE_DEVIS,{
         to_email:'fx@oeforgood.com',cc_email:'',
@@ -4192,6 +4199,13 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
               <option key={p.k} value={p.k}>{p.l}</option>
             )}
           </select>
+          <div style={{marginTop:12,display:'flex',alignItems:'center',gap:8}}>
+            <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',fontWeight:600,color:tariEvent?'#b5680f':'#6b6560'}}>
+              <input type="checkbox" checked={tariEvent} onChange={e=>setTariEvent(e.target.checked)}/>
+              Appliquer le Tarif Events
+            </label>
+            {tariEvent&&<span style={{fontSize:11,color:'#b5680f',fontStyle:'italic'}}>Les prix Events s'appliquent quelle que soit la quantité</span>}
+          </div>
           {isCoiffePrep&&totalBouteilles>0&&!coiffeOk&&<div style={{marginTop:10,fontSize:12,color:'#c0392b',fontWeight:600}}>
             {totalBouteilles} bouteilles - doit être un multiple de 120 pour valider.
           </div>}
@@ -4203,7 +4217,12 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
         </div>}
 
         {preparation&&<div style={SECT}>
-          <div style={{fontSize:13,fontWeight:700,marginBottom:14}}>Produits{isCasierPrep?' (75cl uniquement)':''}</div>
+          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
+            <div style={{fontSize:13,fontWeight:700}}>Produits{isCasierPrep?' (75cl uniquement)':''}</div>
+            <div style={{fontSize:11,padding:'2px 8px',borderRadius:10,background:tariEvent?'#fef3c7':totalEq75>=600?'#f0fdf4':totalEq75>=360?'#eff6ff':totalEq75>=240?'#f5f3ff':totalEq75>=120?'#fdf4ff':'#f8f7f5',color:tariEvent?'#92400e':totalEq75>=600?'#2d6a4f':totalEq75>=360?'#1d4ed8':totalEq75>=240?'#6d28d9':totalEq75>=120?'#9333ea':'#6b6560',fontWeight:600}}>
+              {tariEvent?'Tarif Events':totalEq75>=600?`Tarif 600+ (${Math.round(totalEq75)} éq.75)`:totalEq75>=360?`Tarif 360+ (${Math.round(totalEq75)} éq.75)`:totalEq75>=240?`Tarif 240+ (${Math.round(totalEq75)} éq.75)`:totalEq75>=120?`Tarif 120+ (${Math.round(totalEq75)} éq.75)`:`Tarif 24+ (${Math.round(totalEq75)} éq.75)`}
+            </div>
+          </div>
           {loadingTarif?<div style={{color:'#9e9890',fontSize:13}}>Chargement...</div>
           :<>
             <select value={selectedProd} onChange={e=>{if(e.target.value)addProduit(e.target.value);}}
