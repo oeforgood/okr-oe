@@ -4066,7 +4066,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     const prenom=teamMember?.prenom||'Oé';
     // Build HTML table for products
     const prodRows=displayLignes.map(ligne=>{
-      const pu=gratuite&&ligne.code!==CASIER_CODE&&ligne.code!==COIFFE_CODE?0:getLinePU(l);
+      const pu=gratuite&&ligne.code!==CASIER_CODE&&ligne.code!==COIFFE_CODE?0:getLinePU(ligne);
       const qty=parseInt(ligne.qty||0);
       const totalHT2=pu*qty;
       const tvaRate=parseFloat(ligne.tva||0);
@@ -4314,31 +4314,31 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
                     </td>
                     <td style={{padding:'8px',textAlign:'right'}}>
                       {isAuto?<span style={{fontSize:12,color:'#6b6560'}}>{l.qty}</span>
-                      :l.qtyMode==='free'
-                        ?<input type="number" value={l.qty} min={1} step={1}
-                            onChange={e=>{const v=parseInt(e.target.value);if(v>0)updLigne(i,'qty',v);}}
-                            style={{width:80,fontSize:12,padding:'3px 6px',borderRadius:6,border:'1px solid #2d6a4f',textAlign:'right'}}/>
-                        :effectivePCB>1||l.pcb>1
-                          ?<select value={l.qty} onChange={e=>{
+                      :{
+                        const pcb=Math.max(1,parseInt(String(l.pcb||'1').replace(/[^0-9]/g,''))||1);
+                        const prodT=tarif.find(t=>t.code===l.code);
+                        const qpal=parseInt(String(prodT?.qpalette||'0').replace(/[^0-9]/g,''))||0;
+                        const palQty=isPalettePrep?(isCasierPrep?480:(qpal>0?qpal:0)):0;
+                        const opts=Array.from({length:12},(_,k)=>(k+1)*pcb);
+                        if(palQty>0&&!opts.includes(palQty))opts.push(palQty);
+                        opts.sort((a,b)=>a-b);
+                        return l.qtyMode==='free'
+                          ?<div style={{display:'flex',alignItems:'center',gap:4}}>
+                            <input type="number" value={l.qty} min={1} step={pcb}
+                              onChange={e=>{const v=parseInt(e.target.value);if(v>0)updLigne(i,'qty',v);}}
+                              style={{width:70,fontSize:12,padding:'3px 6px',borderRadius:6,border:'1px solid #2d6a4f',textAlign:'right'}}/>
+                            <button onClick={()=>updLigne(i,'qtyMode','select')}
+                              style={{fontSize:11,padding:'3px 6px',border:'1px solid #e2ddd6',borderRadius:6,background:'#f8f7f5',cursor:'pointer'}}>▾</button>
+                          </div>
+                          :<select value={l.qty} onChange={e=>{
                               if(e.target.value==='libre')updLigne(i,'qtyMode','free');
                               else updLigne(i,'qty',parseInt(e.target.value));
                             }}
                             style={{fontSize:12,padding:'3px 6px',borderRadius:6,border:'1px solid #e2ddd6'}}>
-                            {(()=>{
-                              const pcb=Math.max(1,parseInt(String(l.pcb||'1').replace(/[^0-9]/g,''))||1);
-                              const opts=Array.from({length:12},(_,k)=>(k+1)*pcb);
-                              const prodT=tarif.find(t=>t.code===l.code);
-                              const qpal=parseInt(String(prodT?.qpalette||'0').replace(/[^0-9]/g,''))||0;
-                              const palQty=isPalettePrep?(isCasierPrep?480:(qpal>0?qpal:0)):0;
-                              if(palQty>0&&!opts.includes(palQty))opts.push(palQty);
-                              opts.sort((a,b)=>a-b);
-                              return opts.map(q=><option key={q} value={q}>{q}{palQty>0&&q===palQty?' ★ palette':''}</option>);
-                            })()}
+                            {opts.map(q=><option key={q} value={q}>{q}{palQty>0&&q===palQty?' ★ palette':''}</option>)}
                             <option value="libre">Autre quantité...</option>
-                          </select>
-                          :<input type="number" value={l.qty} min={1} step={1}
-                            onChange={e=>updLigne(i,'qty',Math.max(1,parseInt(e.target.value)||1))}
-                            style={{width:80,fontSize:12,padding:'3px 6px',borderRadius:6,border:'1px solid #e2ddd6',textAlign:'right'}}/>}
+                          </select>;
+                      }}
                     </td>
                     <td style={{padding:'8px',fontSize:12,textAlign:'right',color:'#6b6560'}}>{fmtE(pu)}</td>
                     <td style={{padding:'8px',fontSize:12,textAlign:'right',fontWeight:600}}>{fmtE(pu*parseInt(l.qty||0))}</td>
@@ -4422,7 +4422,10 @@ function TarifTab({db}){
     });
     // Load history index
     getDoc(doc(db,'tarif','history_index')).then(snap=>{
-      if(snap.exists())setHistory(snap.data().entries||[]);
+      if(snap.exists()){
+        setHistory(snap.data().entries||[]);
+        if(snap.data().activeId)setActiveId(snap.data().activeId);
+      }
     }).catch(()=>{});
   },[]);
 
@@ -4459,8 +4462,12 @@ function TarifTab({db}){
     headers.forEach((h,i)=>{const key=CSV_MAP[h];if(key)colMap[key]=i;});
     // Helper: clean a field value (strip quotes, €, spaces, convert % for TVA)
     function cleanVal(v,col){
-      let s=(v||'').replace(/^"|"$/g,'').replace(/€/g,'').replace(/\s/g,'').trim();
-      if(col==='tva')s=s.replace('%',''); // "20%" -> "20"
+      let s=(v||'').replace(/^"|"$/g,'').replace(/€/g,'').trim();
+      // Only strip spaces for numeric fields, not text fields
+      if(['prix24','prix120','prix240','prix360','prix600','prixPalette','tariEvents','pcb','eq75','qpalette','tva'].includes(col)){
+        s=s.replace(/\s/g,'');
+      }
+      if(col==='tva')s=s.replace('%','');
       return s;
     }
     return lines.slice(1).filter(l=>l.trim()).map(l=>{
