@@ -3981,7 +3981,12 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     const newIsPalette=['palette_casier_coiffe','palette_casier_sans_coiffe','palette_cartons'].includes(newPrep);
     const newIsPaletteCartons=newPrep==='palette_cartons';
     const newPCB=newIsPalette?(newIsPaletteCartons?'tarif':12):1;
-    setLignes(p=>p.filter(l=>l.qtyMode!=='auto').map(l=>({...l,pcb:newPCB,qty:newPCB>1?Math.max(newPCB,Math.ceil((parseInt(l.qty||newPCB))/newPCB)*newPCB):parseInt(l.qty||1),qtyMode:newPCB>1?'select':'free'})));
+    setLignes(p=>p.filter(l=>l.qtyMode!=='auto').map(l=>{
+      const prodData=tarif.find(t=>t.code===l.code);
+      const pcb=newPCB==='tarif'?Math.max(1,parseInt(String(prodData?.pcb||'1').replace(/[^0-9]/g,''))||1):newPCB;
+      const qty=pcb>1?Math.max(pcb,Math.ceil((parseInt(l.qty||pcb))/pcb)*pcb):parseInt(l.qty||1);
+      return {...l,pcb,qty,qtyMode:'select'};
+    }));
     setPreparation(newPrep);
   }
 
@@ -4081,9 +4086,10 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
       (message?'<tr><td style="padding:3px 16px 3px 0;color:#9e9890;font-size:11px;white-space:nowrap;vertical-align:top">MESSAGE</td><td style="padding:3px 0;font-style:italic">'+message+'</td></tr>':'')+
       (echantillons?'<tr><td style="padding:3px 16px 3px 0;color:#c0392b;font-size:11px;white-space:nowrap;vertical-align:top">ÉCHANTILLONS</td><td style="padding:3px 0;color:#c0392b;font-weight:600">⚠️ Gratuits — '+echantillonsRaison+'</td></tr>':'')+
       '</table>';
+    const fntS='font-family:Georgia,serif;font-size:14px;color:#1a1814;line-height:1.6';
     const intro=mode==='devis'
-      ?'<p style="font-family:Georgia,serif">Bonjour,</p><p style="font-family:Georgia,serif">Suite à nos échanges, voici le chiffrage détaillé :</p>'
-      :'<p style="font-family:Georgia,serif">Bonjour,</p><p style="font-family:Georgia,serif">Une nouvelle commande a été enregistrée par <strong>'+prenom+'</strong>.</p>';
+      ?`<p style="${fntS}">Bonjour,</p><p style="${fntS}">Suite à nos échanges, voici le chiffrage détaillé :</p>`
+      :`<p style="${fntS}">Bonjour,</p><p style="${fntS}">Une nouvelle commande a été enregistrée par <strong>${prenom}</strong>.</p>`;
     const outro=mode==='devis'
       ?'<p>Très belle fin de journée !<br><strong>'+prenom+' — Oé</strong></p>'
       :'<p>La bise.<br><strong>'+prenom+' — Oé</strong></p>';
@@ -4121,48 +4127,66 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
         <div style={{fontFamily:'Georgia,serif',fontSize:13,color:'#1a1814',lineHeight:1.7}}>
           {(()=>{
             const lines=sentRecap.split('\n');
-            // Find product section
-            const headerIdx=lines.findIndex(l=>l.startsWith('Code'));
-            const afterHeaderDivider=lines.findIndex((l,i)=>i>headerIdx&&(l.startsWith('─')||l.startsWith('-')));
-            const prodLines=headerIdx>0?lines.slice(headerIdx+2,afterHeaderDivider>0?afterHeaderDivider:undefined):[];
-            const COLS2=['Code','Produit','Qté','P.U. HT','Total HT','TVA','TTC'];
-            const COLS_W=[80,200,40,80,80,60,80];
-            return lines.map((line,i)=>{
-              if(line.startsWith('─')||line.startsWith('-'))return <div key={i} style={{height:1,background:'#e2ddd6',margin:'5px 0'}}/>;
-              const isTitle=i===0;
-              const isTotal=line.startsWith('Total')||line.startsWith('TVA')||line.startsWith('TOTAL');
-              const isMessage=line.startsWith('>>> ');
-              const isHeader=i===headerIdx;
-              const isProdLine=headerIdx>0&&i>headerIdx&&afterHeaderDivider>0&&i<afterHeaderDivider;
-              if(isHeader)return <div key={i} style={{display:'grid',gridTemplateColumns:'80px 1fr 50px 80px 80px 60px 80px',gap:4,padding:'4px 0',fontWeight:700,fontSize:11,color:'#6b6560',borderBottom:'1px solid #e2ddd6'}}>
-                {COLS2.map(h=><span key={h} style={{overflow:'hidden'}}>{h}</span>)}
-              </div>;
-              if(isProdLine){
-                // Parse the fixed-width line into columns
-                const raw=line;
-                const code=raw.slice(0,10).trim();
-                const lib=raw.slice(12,44).trim();
-                const qty=raw.slice(44,49).trim();
-                const pu=raw.slice(51,61).trim();
-                const totHT=raw.slice(63,73).trim();
-                const tva=raw.slice(75).trim();
-                return <div key={i} style={{display:'grid',gridTemplateColumns:'80px 1fr 50px 80px 80px 60px 80px',gap:4,padding:'2px 0',fontSize:12,borderBottom:'1px solid #f8f7f5'}}>
-                  <span style={{fontFamily:'monospace',fontSize:11}}>{code}</span>
-                  <span>{lib}</span>
-                  <span style={{textAlign:'right'}}>{qty}</span>
-                  <span style={{textAlign:'right'}}>{pu}</span>
-                  <span style={{textAlign:'right'}}>{totHT}</span>
-                  <span style={{textAlign:'right',fontSize:11,color:'#6b6560'}}>{tva}</span>
-                  <span style={{textAlign:'right'}}>—</span>
+            const infoLines=[];let inProd=false;
+            for(const line of lines){
+              if(line.startsWith('─')||line.startsWith('-'))continue;
+              if(line.startsWith('Code '))inProd=true;
+              if(!inProd)infoLines.push(line);
+            }
+            const GRD='70px 1fr 45px 80px 80px 50px 80px';
+            const TH={fontSize:11,fontWeight:700,color:'#6b6560',padding:'4px 6px',textAlign:'right'};
+            const TD={fontSize:12,padding:'3px 6px',textAlign:'right',borderBottom:'1px solid #f5f3ef'};
+            const totTTC=displayLignes.reduce((s,l)=>{
+              const pu=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?0:getLinePU(l);
+              return s+pu*parseInt(l.qty||0)*(1+(parseFloat(l.tva||0)/100));
+            },0);
+            return <>
+              {infoLines.map((line,i)=>{
+                if(!line.trim())return null;
+                const isTitle=i===0;
+                const isMsg=line.startsWith('>>> ');
+                return <div key={i} style={{fontSize:isTitle?15:12,fontWeight:isTitle?700:400,color:isTitle?'#2d6a4f':isMsg?'#c0392b':'#6b6560',marginBottom:isTitle?8:2}}>
+                  {isMsg?line.replace(/^>>> /,'').replace(/ <<<$/,''):line}
                 </div>;
-              }
-              return <div key={i} style={{
-                fontSize:isTitle?15:isTotal?13:12,
-                fontWeight:isTitle||isTotal?700:400,
-                color:isTitle?'#2d6a4f':isMessage?'#c0392b':isTotal&&line.startsWith('TOTAL')?'#2d6a4f':'#1a1814',
-                marginTop:isTitle?0:isTotal?4:0,
-              }}>{isMessage?line.replace('>>> ','').replace(' <<<',''):line}</div>;
-            });
+              })}
+              <div style={{overflowX:'auto',marginTop:12}}>
+                <div style={{display:'grid',gridTemplateColumns:GRD,borderBottom:'2px solid #2d6a4f',paddingBottom:4,marginBottom:2}}>
+                  <span style={{...TH,textAlign:'left'}}>Code</span>
+                  <span style={{...TH,textAlign:'left'}}>Produit</span>
+                  <span style={TH}>Qté</span>
+                  <span style={TH}>P.U. HT</span>
+                  <span style={TH}>Total HT</span>
+                  <span style={TH}>TVA</span>
+                  <span style={TH}>TTC</span>
+                </div>
+                {displayLignes.map((l,i)=>{
+                  const pu=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?0:getLinePU(l);
+                  const qty=parseInt(l.qty||0);
+                  const htL=pu*qty;
+                  const tvaR=parseFloat(l.tva||0);
+                  const tvaV=htL*(tvaR/100);
+                  const ttcL=htL+tvaV;
+                  const isOff=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE;
+                  return <div key={i} style={{display:'grid',gridTemplateColumns:GRD,borderBottom:'1px solid #f5f3ef'}}>
+                    <span style={{...TD,textAlign:'left',fontFamily:'monospace',fontSize:11}}>{l.code}</span>
+                    <span style={{...TD,textAlign:'left'}}>{l.libelle}{l.qtyMode==='auto'?<span style={{fontSize:10,color:'#9e9890',marginLeft:4}}>(auto)</span>:null}</span>
+                    <span style={TD}>{qty}</span>
+                    <span style={TD}>{isOff?'offert':fmtE(pu)}</span>
+                    <span style={TD}>{isOff?'offert':fmtE(htL)}</span>
+                    <span style={{...TD,fontSize:11,color:'#6b6560'}}>{tvaR>0?tvaR+'%':'0%'}</span>
+                    <span style={{...TD,fontWeight:600}}>{isOff?'offert':fmtE(ttcL)}</span>
+                  </div>;
+                })}
+                <div style={{display:'grid',gridTemplateColumns:GRD,borderTop:'2px solid #2d6a4f',marginTop:4,paddingTop:6,fontWeight:700}}>
+                  <span style={{gridColumn:'1/3',fontSize:13,color:'#2d6a4f'}}>TOTAL</span>
+                  <span/>
+                  <span style={{...TD,borderBottom:'none',fontWeight:700}}>{fmtE(totalHT)}</span>
+                  <span style={{...TD,borderBottom:'none',fontWeight:700}}>{fmtE(totalHT)}</span>
+                  <span style={{...TD,borderBottom:'none',fontSize:11}}>{fmtE(totalTVA)}</span>
+                  <span style={{...TD,borderBottom:'none',fontWeight:800,color:'#2d6a4f',fontSize:14}}>{gratuite?'OFFERT':fmtE(totalTTC)}</span>
+                </div>
+              </div>
+            </>;
           })()}
         </div>
       </div>
