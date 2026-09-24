@@ -3878,6 +3878,10 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   const [selectedProd,setSelectedProd]=React.useState('');
   const [echantillons,setEchantillons]=React.useState(false);
   const [tariEvent,setTariEvent]=React.useState(false);
+  const [prixCoutant,setPrixCoutant]=React.useState(false);
+  const [gratuite,setGratuite]=React.useState(false);
+  const [gratuiteModal,setGratuiteModal]=React.useState(false);
+  const [gratuiteRaison,setGratuiteRaison]=React.useState('');
   const [echantillonsModal,setEchantillonsModal]=React.useState(false);
   const [echantillonsRaison,setEchantillonsRaison]=React.useState('');
 
@@ -3907,7 +3911,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   const filteredTarif=React.useMemo(()=>{
     const selCodes=new Set(lignes.filter(l=>l.qtyMode!=='auto').map(l=>l.code));
     const base=tarif.filter(p=>p.code&&![CASIER_CODE,COIFFE_CODE,'CONTENANT BOUTEILLE'].includes(p.code)&&!selCodes.has(p.code));
-    if(isCasierPrep)return base.filter(p=>(p.code||'')[1]==='E');
+    if(isCasierPrep)return base.filter(p=>(p.code||'').length>1&&(p.code||'')[1].toUpperCase()==='E');
     return base;
   },[tarif,isCasierPrep,lignes]);
 
@@ -3921,8 +3925,13 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   function parsePrix(v){return parseFloat(String(v||'0').replace(/€/g,'').replace(/\s/g,'').replace(',','.'))||0;}
   function getPU(prod,qty){
     const q=parseInt(qty||0);
+    // Gratuité override (casiers/coiffes keep their price)
+    if(gratuite&&prod.code!==CASIER_CODE&&prod.code!==COIFFE_CODE)return 0;
     // Tarif Event override
-    if(tariEvent&&parsePrix(prod.tariEvents)>0)return parsePrix(prod.tariEvents);
+    if(tariEvent&&parsePrix(prod.tariEvents)>0){
+      const base=parsePrix(prod.tariEvents);
+      return prixCoutant?Math.round(base*0.85*100)/100:base;
+    }
     // Palette condition
     const qpal=parseInt(prod.qpalette||0);
     const isPaletteCartons=preparation==='palette_cartons';
@@ -3945,8 +3954,9 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
 
   function addProduit(code){
     const prod=tarif.find(t=>t.code===code);if(!prod)return;
-    const pcb=effectivePCB;
-    setLignes(p=>[...p,{code:prod.code,libelle:prod.libelle,robe:prod.robe,pcb,eq75:prod.eq75,tva:prod.tva,qty:pcb,qtyMode:pcb>1?'select':'free'}]);
+    const pcb=preparation==='palette_cartons'?Math.max(1,parseInt(prod.pcb||1)):effectivePCB;
+    const qty=pcb;
+    setLignes(p=>[...p,{code:prod.code,libelle:prod.libelle,robe:prod.robe,pcb,eq75:prod.eq75,tva:prod.tva,qty,qtyMode:pcb>1?'select':'free'}]);
     setSelectedProd('');
   }
   function updLigne(i,f,v){setLignes(p=>p.map((l,j)=>j===i?{...l,[f]:v}:l));}
@@ -3959,7 +3969,8 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
       if(bad){alert('Supprimez d\'abord les produits autres que 75cl.');return;}
     }
     const newIsPalette=['palette_casier_coiffe','palette_casier_sans_coiffe','palette_cartons'].includes(newPrep);
-    const newPCB=newIsPalette?12:1;
+    const newIsPaletteCartons=newPrep==='palette_cartons';
+    const newPCB=newIsPalette?(newIsPaletteCartons?'tarif':12):1;
     setLignes(p=>p.filter(l=>l.qtyMode!=='auto').map(l=>({...l,pcb:newPCB,qty:newPCB>1?Math.max(newPCB,Math.ceil((parseInt(l.qty||newPCB))/newPCB)*newPCB):parseInt(l.qty||1),qtyMode:newPCB>1?'select':'free'})));
     setPreparation(newPrep);
   }
@@ -3980,7 +3991,8 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   }
 
   function buildText(ref){
-    const sep='─'.repeat(55);
+    const sep='─'.repeat(70);
+    const tarifLabel=gratuite?('GRATUITÉ — '+gratuiteRaison):prixCoutant?'Tarif Events Prix Coûtant (−15%)':tariEvent?'Tarif Events':totalEq75>=600?'Tarif 600+':totalEq75>=360?'Tarif 360+':totalEq75>=240?'Tarif 240+':totalEq75>=120?'Tarif 120+':'Tarif 24+';
     function col(s,w){return String(s||'').padEnd(w).slice(0,w);}
     function colR(s,w){return String(s||'').padStart(w).slice(-w);}
     const colW=12;
@@ -3989,12 +4001,12 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     const header=rp('Code',10)+'  '+rp('Produit',32)+'  '+lp('Qté',5)+'  '+lp('P.U. HT',10)+'  '+lp('Total HT',10)+'  TVA';
     const divider='-'.repeat(90);
     const lignesText=displayLignes.map(l=>{
-      const pu=echantillons?0:getLinePU(l);
+      const pu=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?0:getLinePU(l);
       const qty=parseInt(l.qty||0);
       const totalLigneHT=pu*qty;
       const tvaRate=parseFloat(l.tva||0);
       const tvaVal=totalLigneHT*(tvaRate/100);
-      const tvaTxt=echantillons?'offert':tvaRate>0?(tvaRate+'%: '+fmtE(tvaVal)):'0%';
+      const tvaTxt=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?'offert':tvaRate>0?(tvaRate+'%: '+fmtE(tvaVal)):'0%';
       return rp(l.code||'',10)+'  '+rp(l.libelle||'',32)+'  '+lp(String(qty),5)+'  '+lp(fmtE(pu),10)+'  '+lp(fmtE(totalLigneHT),10)+'  '+tvaTxt;
     }).join('\n');
     const expInfo=retraitLoft?'Retrait au Loft Oé':sameAddr?`${factAddr.addr}, ${factAddr.cp} ${factAddr.ville}`:`${expAddr.addr}, ${expAddr.cp} ${expAddr.ville}`;
@@ -4009,6 +4021,9 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
       
       sep,
       `PREPARATION : ${prepLabel}`,
+      `TARIF : ${tarifLabel}`,
+      message?`MESSAGE : ${message}`:'',
+      `TARIF : ${tarifLabel}`,
       message?`MESSAGE : ${message}`:'',
       sep,
       header,
@@ -4034,18 +4049,19 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     if(!coiffeOk){alert(`Le nombre de bouteilles (${totalBouteilles}) doit être un multiple de 120.`);return;}
     setSending(true);
     const ref=genRef();
+    const tarifLabel=gratuite?('GRATUITÉ — '+gratuiteRaison):prixCoutant?'Tarif Events Prix Coûtant (−15%)':tariEvent?'Tarif Events':totalEq75>=600?'Tarif 600+':totalEq75>=360?'Tarif 360+':totalEq75>=240?'Tarif 240+':totalEq75>=120?'Tarif 120+':'Tarif 24+';
     const textContent=buildText(ref);
     const prenom=teamMember?.prenom||'Oé';
     // Build HTML table for products
     const prodRows=displayLignes.map(l=>{
-      const pu=echantillons?0:getLinePU(l);
+      const pu=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?0:getLinePU(l);
       const qty=parseInt(l.qty||0);
       const totalHT2=pu*qty;
       const tvaRate=parseFloat(l.tva||0);
       const tvaVal=totalHT2*(tvaRate/100);
-      return `<tr><td style="padding:4px 10px;border-bottom:1px solid #eee;font-family:monospace">${l.code||''}</td><td style="padding:4px 10px;border-bottom:1px solid #eee">${l.libelle||''}</td><td style="padding:4px 10px;border-bottom:1px solid #eee;text-align:right;font-family:monospace">${qty}</td><td style="padding:4px 10px;border-bottom:1px solid #eee;text-align:right;font-family:monospace">${echantillons?'offert':fmtE(pu)}</td><td style="padding:4px 10px;border-bottom:1px solid #eee;text-align:right;font-family:monospace">${echantillons?'offert':fmtE(totalHT2)}</td><td style="padding:4px 10px;border-bottom:1px solid #eee;font-size:11px">${echantillons?'offert':tvaRate>0?(tvaRate+'%: '+fmtE(tvaVal)):'0%'}</td></tr>`;
+      return `<tr><td style="padding:4px 10px;border-bottom:1px solid #eee;font-family:monospace">${l.code||''}</td><td style="padding:4px 10px;border-bottom:1px solid #eee">${l.libelle||''}</td><td style="padding:4px 10px;border-bottom:1px solid #eee;text-align:right;font-family:monospace">${qty}</td><td style="padding:4px 10px;border-bottom:1px solid #eee;text-align:right;font-family:monospace">${gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?'offert':fmtE(pu)}</td><td style="padding:4px 10px;border-bottom:1px solid #eee;text-align:right;font-family:monospace">${gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?'offert':fmtE(totalHT2)}</td><td style="padding:4px 10px;border-bottom:1px solid #eee;font-size:11px">${gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?'offert':tvaRate>0?(tvaRate+'%: '+fmtE(tvaVal)):'0%'}</td></tr>`;
     }).join('');
-    const htmlTable=`<table style="border-collapse:collapse;width:100%;font-size:13px"><thead><tr style="background:#f0ede8"><th style="padding:6px 10px;text-align:left">Code</th><th style="padding:6px 10px;text-align:left">Produit</th><th style="padding:6px 10px;text-align:right">Qté</th><th style="padding:6px 10px;text-align:right">P.U. HT</th><th style="padding:6px 10px;text-align:right">Total HT</th><th style="padding:6px 10px">TVA</th></tr></thead><tbody>${prodRows}</tbody><tfoot><tr style="background:#f8f7f5;font-weight:bold"><td colspan="4" style="padding:6px 10px">Total</td><td style="padding:6px 10px;text-align:right;font-family:monospace">${echantillons?'offert':fmtE(totalHT)}</td><td style="padding:6px 10px;font-size:11px">TVA: ${echantillons?'offert':fmtE(totalTVA)}</td></tr><tr style="background:#e8f4f0;font-weight:800"><td colspan="4" style="padding:6px 10px;color:#2d6a4f">TOTAL TTC</td><td colspan="2" style="padding:6px 10px;color:#2d6a4f;font-size:15px">${echantillons?'OFFERT — Échantillons gratuits':fmtE(totalTTC)}</td></tr></tfoot></table>`;
+    const htmlTable=`<table style="border-collapse:collapse;width:100%;font-size:13px"><thead><tr style="background:#f0ede8"><th style="padding:6px 10px;text-align:left">Code</th><th style="padding:6px 10px;text-align:left">Produit</th><th style="padding:6px 10px;text-align:right">Qté</th><th style="padding:6px 10px;text-align:right">P.U. HT</th><th style="padding:6px 10px;text-align:right">Total HT</th><th style="padding:6px 10px">TVA</th></tr></thead><tbody>${prodRows}</tbody><tfoot><tr style="background:#f8f7f5;font-weight:bold"><td colspan="4" style="padding:6px 10px">Total</td><td style="padding:6px 10px;text-align:right;font-family:monospace">${gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?'offert':fmtE(totalHT)}</td><td style="padding:6px 10px;font-size:11px">TVA: ${gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?'offert':fmtE(totalTVA)}</td></tr><tr style="background:#e8f4f0;font-weight:800"><td colspan="4" style="padding:6px 10px;color:#2d6a4f">TOTAL TTC</td><td colspan="2" style="padding:6px 10px;color:#2d6a4f;font-size:15px">${echantillons?'OFFERT — Échantillons gratuits':fmtE(totalTTC)}</td></tr></tfoot></table>`;
     const livrInfo=retraitLoft?'Retrait au Loft Oé - 10bis rue Bellicard, 69003 Lyon':sameAddr?(factAddr.addr+', '+factAddr.cp+' '+factAddr.ville):(expAddr.addr+', '+expAddr.cp+' '+expAddr.ville);
     const clientInfoHtml='<table style="font-size:13px;margin-bottom:16px;border-collapse:collapse">'+
       '<tr><td style="padding:3px 16px 3px 0;color:#9e9890;font-size:11px;white-space:nowrap;vertical-align:top">CLIENT</td><td style="padding:3px 0"><strong>'+societe+'</strong> — '+contact+'</td></tr>'+
@@ -4075,7 +4091,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     setSentRecap(textContent);setSending(false);setSent(true);
   }
 
-  function resetForm(){setSent(false);setSentRecap('');setStep('coords');setLignes([]);setPreparation('');setSociete('');setContact('');setFactAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setExpAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setSameAddr(false);setRetraitLoft(false);setMessage('');setInfoLivraison('');}
+  function resetForm(){setSent(false);setSentRecap('');setStep('coords');setLignes([]);setPreparation('');setSociete('');setContact('');setFactAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setExpAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setSameAddr(false);setRetraitLoft(false);setMessage('');setInfoLivraison('');setTariEvent(false);setPrixCoutant(false);setGratuite(false);setGratuiteRaison('');setEchantillons(false);}
 
   const INP=(w='100%')=>({fontSize:13,padding:'7px 10px',borderRadius:7,border:'1px solid #e2ddd6',outline:'none',fontFamily:'inherit',width:w,boxSizing:'border-box'});
   const LBL={fontSize:11,fontWeight:600,color:'#6b6560',marginBottom:3,display:'block'};
@@ -4093,20 +4109,27 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
       <div style={{background:'#fff',borderRadius:12,border:'1px solid #e2ddd6',padding:'20px'}}>
         <div style={{fontSize:12,fontWeight:700,color:'#6b6560',marginBottom:12,textTransform:'uppercase',letterSpacing:.5}}>Récapitulatif</div>
         <div style={{fontFamily:'system-ui,sans-serif',fontSize:13,color:'#1a1814',lineHeight:1.6}}>
-          {/* Header info */}
-          {sentRecap.split('\n').map((line,i)=>{
-            const isDivider=line.startsWith('-')&&line.length>10;
-            const isBold=line.startsWith('Oé')&&i<3;
-            return <div key={i} style={{
-              fontFamily:isDivider||i>sentRecap.split('\n').findIndex(l=>l.startsWith('Code'))?'"Courier New",monospace':'inherit',
-              fontSize:isDivider?0:isBold?14:13,
-              height:isDivider?1:undefined,
-              background:isDivider?'#e2ddd6':undefined,
-              margin:isDivider?'6px 0':undefined,
-              fontWeight:isBold?700:undefined,
-              whiteSpace:'pre',
-            }}>{!isDivider&&line}</div>;
-          })}
+          {(()=>{
+            const lines=sentRecap.split('\n');
+            const headerIdx=lines.findIndex(l=>l.startsWith('Code'));
+            const dividerIdx=lines.findIndex(l=>l.startsWith('───'));
+            return lines.map((line,i)=>{
+              if(line.startsWith('═'))return <div key={i} style={{height:2,background:'#2d6a4f',margin:'8px 0'}}/>;
+              if(line.startsWith('─')||line.startsWith('-'))return <div key={i} style={{height:1,background:'#e2ddd6',margin:'4px 0'}}/>;
+              const isTitle=i===0;
+              const isHeader=i===headerIdx;
+              const isProdLine=headerIdx>0&&i>headerIdx&&i<lines.findIndex((l,j)=>j>headerIdx&&l.startsWith('─'));
+              const isTotal=line.startsWith('Total')||line.startsWith('TVA')||line.startsWith('TOTAL');
+              return <div key={i} style={{
+                fontFamily:isHeader||isProdLine?'"Courier New",Courier,monospace':'system-ui,sans-serif',
+                fontSize:isTitle?15:isTotal?13:12,
+                fontWeight:isTitle||isTotal?700:isHeader?600:400,
+                color:isTitle?'#2d6a4f':isTotal&&line.startsWith('TOTAL')?'#2d6a4f':'#1a1814',
+                padding:isProdLine?'1px 0':'0',
+                whiteSpace:'pre',
+              }}>{line}</div>;
+            });
+          })()}
         </div>
       </div>
     </div>
@@ -4198,25 +4221,41 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
           </div>
         </div>
 
-        <div style={SECT}>
-          <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>Mode de préparation *</div>
-          <select value={preparation} onChange={e=>handlePrepChange(e.target.value)}
-            style={{...INP(),maxWidth:400,color:preparation?'#1a1814':'#9e9890'}}>
-            <option value=''>-- Choisir un mode de préparation --</option>
-            {PREP_OPTIONS.filter(p=>!p.loftOnly||retraitLoft).map(p=>
-              <option key={p.k} value={p.k}>{p.l}</option>
-            )}
-          </select>
-          <div style={{marginTop:12,display:'flex',alignItems:'center',gap:8}}>
-            <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',fontWeight:600,color:tariEvent?'#b5680f':'#6b6560'}}>
-              <input type="checkbox" checked={tariEvent} onChange={e=>setTariEvent(e.target.checked)}/>
-              Appliquer le Tarif Events
-            </label>
-            {tariEvent&&<span style={{fontSize:11,color:'#b5680f',fontStyle:'italic'}}>Les prix Events s'appliquent quelle que soit la quantité</span>}
+        <div style={{...SECT,display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+          <div>
+            <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>Mode de préparation *</div>
+            <select value={preparation} onChange={e=>handlePrepChange(e.target.value)}
+              style={{...INP(),color:preparation?'#1a1814':'#9e9890'}}>
+              <option value=''>-- Choisir un mode de préparation --</option>
+              {PREP_OPTIONS.filter(p=>!p.loftOnly||retraitLoft).map(p=>
+                <option key={p.k} value={p.k}>{p.l}</option>
+              )}
+            </select>
+            {isCoiffePrep&&totalBouteilles>0&&!coiffeOk&&<div style={{marginTop:8,fontSize:12,color:'#c0392b',fontWeight:600}}>
+              {totalBouteilles} bouteilles — doit être un multiple de 120.
+            </div>}
           </div>
-          {isCoiffePrep&&totalBouteilles>0&&!coiffeOk&&<div style={{marginTop:10,fontSize:12,color:'#c0392b',fontWeight:600}}>
-            {totalBouteilles} bouteilles - doit être un multiple de 120 pour valider.
-          </div>}
+          <div style={{borderLeft:'1px solid #f0ede8',paddingLeft:16}}>
+            <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>Tarification</div>
+            <div style={{display:'flex',flexDirection:'column',gap:10}}>
+              <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',fontWeight:500}}>
+                <input type="checkbox" checked={tariEvent} onChange={e=>{setTariEvent(e.target.checked);if(!e.target.checked)setPrixCoutant(false);}}/>
+                Tarif Events
+              </label>
+              {tariEvent&&<label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',fontWeight:500,marginLeft:16,color:'#6b6560'}}>
+                <input type="checkbox" checked={prixCoutant} onChange={e=>setPrixCoutant(e.target.checked)}/>
+                Prix coûtant (Tarif Events −15%)
+              </label>}
+              <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',fontWeight:500,color:gratuite?'#c0392b':'inherit'}}>
+                <input type="checkbox" checked={gratuite} onChange={e=>{
+                  if(e.target.checked)setGratuiteModal(true);
+                  else{setGratuite(false);setGratuiteRaison('');}
+                }}/>
+                Gratuité
+              </label>
+              {gratuite&&gratuiteRaison&&<div style={{fontSize:11,color:'#c0392b',fontStyle:'italic',marginLeft:16}}>{gratuiteRaison}</div>}
+            </div>
+          </div>
         </div>
 
         {preparation&&<div style={SECT}>
@@ -4236,7 +4275,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
             <select value={selectedProd} onChange={e=>{if(e.target.value)addProduit(e.target.value);}}
               style={{...INP(),marginBottom:16,color:selectedProd?'#1a1814':'#9e9890'}}>
               <option value=''>Ajouter un produit</option>
-              {filteredTarif.map(p=><option key={p.code} value={p.code}>{p.code} - {p.libelle} ({p.robe})</option>)}
+              {filteredTarif.map(p=><option key={p.code} value={p.code}>{p.code} — {p.libelle}{p.robe?' ('+p.robe+')':''}</option>)}
             </select>
             {displayLignes.length>0&&<>
               <table style={{width:'100%',borderCollapse:'collapse'}}>
@@ -4256,15 +4295,31 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
                     </td>
                     <td style={{padding:'8px',textAlign:'right'}}>
                       {isAuto?<span style={{fontSize:12,color:'#6b6560'}}>{l.qty}</span>
-                      :effectivePCB>1
-                        ?<select value={l.qty} onChange={e=>e.target.value==='plus'?updLigne(i,'qtyMode','free'):updLigne(i,'qty',parseInt(e.target.value))}
-                          style={{fontSize:12,padding:'3px 6px',borderRadius:6,border:'1px solid #e2ddd6'}}>
-                          {qtyOpts.map(q=><option key={q} value={q}>{q}</option>)}
-                          <option value="plus">Plus...</option>
-                        </select>
-                        :<input type="number" value={l.qty} min={1} step={1}
-                          onChange={e=>updLigne(i,'qty',Math.max(1,parseInt(e.target.value)||1))}
-                          style={{width:70,fontSize:12,padding:'3px 6px',borderRadius:6,border:'1px solid #e2ddd6',textAlign:'right'}}/>}
+                      :l.qtyMode==='free'
+                        ?<input type="number" value={l.qty} min={l.pcb||1} step={l.pcb||1} autoFocus
+                            onChange={e=>updLigne(i,'qty',Math.max(parseInt(l.pcb||1),parseInt(e.target.value)||parseInt(l.pcb||1)))}
+                            onBlur={e=>{if(parseInt(e.target.value)>0)updLigne(i,'qtyMode','select');}}
+                            style={{width:80,fontSize:12,padding:'3px 6px',borderRadius:6,border:'1px solid #2d6a4f',textAlign:'right'}}/>
+                        :effectivePCB>1||l.pcb>1
+                          ?<select value={l.qty} onChange={e=>{
+                              if(e.target.value==='libre')updLigne(i,'qtyMode','free');
+                              else updLigne(i,'qty',parseInt(e.target.value));
+                            }}
+                            style={{fontSize:12,padding:'3px 6px',borderRadius:6,border:'1px solid #e2ddd6'}}>
+                            {(()=>{
+                              const pcb=parseInt(l.pcb||1);
+                              const opts=Array.from({length:12},(_,k)=>(k+1)*pcb);
+                              const qpal=parseInt(tarif.find(t=>t.code===l.code)?.qpalette||0);
+                              const palQty=isPalettePrep?(isCasierPrep?480:qpal):0;
+                              if(palQty>0&&!opts.includes(palQty))opts.push(palQty);
+                              opts.sort((a,b)=>a-b);
+                              return opts.map(q=><option key={q} value={q}>{q}{q===palQty?' (palette)':''}</option>);
+                            })()}
+                            <option value="libre">Autre quantité...</option>
+                          </select>
+                          :<input type="number" value={l.qty} min={1} step={1}
+                            onChange={e=>updLigne(i,'qty',Math.max(1,parseInt(e.target.value)||1))}
+                            style={{width:80,fontSize:12,padding:'3px 6px',borderRadius:6,border:'1px solid #e2ddd6',textAlign:'right'}}/>}
                     </td>
                     <td style={{padding:'8px',fontSize:12,textAlign:'right',color:'#6b6560'}}>{fmtE(pu)}</td>
                     <td style={{padding:'8px',fontSize:12,textAlign:'right',fontWeight:600}}>{fmtE(pu*parseInt(l.qty||0))}</td>
@@ -4277,7 +4332,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
               <div style={{marginTop:14,borderTop:'2px solid #e2ddd6',paddingTop:12,textAlign:'right'}}>
                 <div style={{fontSize:13,color:'#6b6560'}}>Total HT : <strong>{fmtE(totalHT)}</strong></div>
                 <div style={{fontSize:13,color:'#6b6560'}}>TVA : <strong>{fmtE(totalTVA)}</strong></div>
-                <div style={{fontSize:16,fontWeight:800,color:echantillons?'#b5680f':'#2d6a4f',marginTop:6}}>{echantillons?'OFFERT — Échantillons gratuits':`Total TTC : ${fmtE(totalTTC)}`}</div>
+                <div style={{fontSize:16,fontWeight:800,color:gratuite?'#c0392b':'#2d6a4f',marginTop:6}}>{gratuite?'OFFERT — Gratuité':`Total TTC : ${fmtE(totalTTC)}`}</div>
               </div>
             </>}
           </>}
@@ -4296,21 +4351,20 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
       </>}
     </div>
 
-    {/* Échantillons modal */}
-    {echantillonsModal&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}
-      onClick={()=>{setEchantillonsModal(false);setEchantillons(false);}}>
-      <div style={{background:'#fff',borderRadius:14,padding:'24px',width:400,maxWidth:'90vw'}} onClick={e=>e.stopPropagation()}>
-        <div style={{fontSize:15,fontWeight:700,marginBottom:16}}>Échantillons gratuits</div>
-        <div style={{fontSize:13,color:'#6b6560',marginBottom:12}}>Merci d'indiquer la justification pour ces échantillons gratuits :</div>
-        <textarea value={echantillonsRaison} onChange={e=>setEchantillonsRaison(e.target.value)}
-          placeholder="Ex: Prospection nouveau client, Salon XYZ..." rows={3}
+    {gratuiteModal&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}
+      onClick={()=>{setGratuiteModal(false);setGratuite(false);}}>
+      <div style={{background:'#fff',borderRadius:14,padding:'24px',width:420,maxWidth:'90vw'}} onClick={e=>e.stopPropagation()}>
+        <div style={{fontSize:15,fontWeight:700,marginBottom:16}}>Gratuité</div>
+        <div style={{fontSize:13,color:'#6b6560',marginBottom:12}}>Pourquoi ces produits sont offerts ?</div>
+        <textarea value={gratuiteRaison} onChange={e=>setGratuiteRaison(e.target.value)}
+          placeholder="Ex: Prospection, Geste commercial, Salon XYZ..." rows={3} autoFocus
           style={{width:'100%',fontSize:13,padding:'8px 10px',borderRadius:8,border:'1px solid #e2ddd6',outline:'none',resize:'vertical',boxSizing:'border-box'}}/>
         <div style={{display:'flex',gap:10,marginTop:16,justifyContent:'flex-end'}}>
-          <button onClick={()=>{setEchantillonsModal(false);setEchantillons(false);setEchantillonsRaison('');}}
+          <button onClick={()=>{setGratuiteModal(false);setGratuite(false);setGratuiteRaison('');}}
             style={{padding:'8px 16px',background:'#f8f7f5',border:'1px solid #e2ddd6',borderRadius:8,fontSize:13,cursor:'pointer'}}>Annuler</button>
-          <button onClick={()=>{if(echantillonsRaison.trim()){setEchantillons(true);setEchantillonsModal(false);}}}
-            disabled={!echantillonsRaison.trim()}
-            style={{padding:'8px 16px',background:echantillonsRaison.trim()?'#2d6a4f':'#e2ddd6',color:echantillonsRaison.trim()?'#fff':'#9e9890',border:'none',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>
+          <button onClick={()=>{if(gratuiteRaison.trim()){setGratuite(true);setGratuiteModal(false);}}}
+            disabled={!gratuiteRaison.trim()}
+            style={{padding:'8px 16px',background:gratuiteRaison.trim()?'#2d6a4f':'#e2ddd6',color:gratuiteRaison.trim()?'#fff':'#9e9890',border:'none',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>
             Valider
           </button>
         </div>
@@ -4327,6 +4381,8 @@ function TarifTab({db}){
   const [msg,setMsg]=React.useState('');
   const [history,setHistory]=React.useState([]);
   const [activeId,setActiveId]=React.useState('current');
+  const [editingId,setEditingId]=React.useState(null);
+  const [editName,setEditName]=React.useState('');
   const fileRef=React.useRef();
   const COLS=['code','libelle','robe','contenant','tariEvents','prix24','prix120','prix240','prix360','prix600','prixPalette','pcb','eq75','qpalette','tva'];
   const COL_LABELS={'code':'Code','libelle':'Libellé','robe':'Robe','contenant':'Contenant','tariEvents':'Tarif Events','prix24':'Prix/24','prix120':'Prix/120','prix240':'Prix/240','prix360':'Prix/360','prix600':'Prix/600','prixPalette':'Prix palette','pcb':'PCB','eq75':'Éq.75','qpalette':'Q.palette','tva':'TVA'};
@@ -4430,7 +4486,8 @@ function TarifTab({db}){
       await setDoc(doc(db,'tarif',`${histId}_chunk_${Math.floor(i/CHUNK)}`),{rows:rows.slice(i,i+CHUNK)});
     }
     // Update history index
-    const newHistory=[histEntry,...history].slice(0,20); // keep last 20
+    const newHistory=[histEntry,...history.filter(h=>h.keep||true)].slice(0,20);
+    // Keep-forever entries are never evicted beyond the 20 limit logic (handled on rename)
     await setDoc(doc(db,'tarif','history_index'),{entries:newHistory,activeId:histId});
     setHistory(newHistory);
     setActiveId(histId);
@@ -4514,19 +4571,44 @@ function TarifTab({db}){
       <div style={{display:'flex',flexDirection:'column',gap:6}}>
         {history.map((entry,i)=>{
           const isActive=entry.id===activeId;
-          return <div key={entry.id} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',borderRadius:8,
-            background:isActive?'#f0fdf4':'#fff',border:`1px solid ${isActive?'#2d6a4f':'#e2ddd6'}`}}>
+          const displayName=entry.name||entry.filename;
+          return <div key={entry.id} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',borderRadius:8,
+            background:isActive?'#f0fdf4':entry.keep?'#fffbeb':'#fff',border:`1px solid ${isActive?'#2d6a4f':entry.keep?'#f59e0b':'#e2ddd6'}`}}>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:12,fontWeight:isActive?700:400,color:'#1a1814',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-                {isActive&&<span style={{fontSize:10,background:'#2d6a4f',color:'#fff',borderRadius:10,padding:'1px 6px',marginRight:6}}>Actif</span>}
-                {entry.filename}
+              <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:2}}>
+                {isActive&&<span style={{fontSize:10,background:'#2d6a4f',color:'#fff',borderRadius:10,padding:'1px 6px',flexShrink:0}}>Actif</span>}
+                {entry.keep&&<span style={{fontSize:10,background:'#f59e0b',color:'#fff',borderRadius:10,padding:'1px 6px',flexShrink:0}}>★ Gardé</span>}
               </div>
+              {editingId===entry.id
+                ?<input autoFocus value={editName} onChange={e=>setEditName(e.target.value)}
+                  onBlur={async()=>{
+                    const updated=history.map(h=>h.id===entry.id?{...h,name:editName}:h);
+                    setHistory(updated);setEditingId(null);
+                    await setDoc(doc(db,'tarif','history_index'),{entries:updated,activeId},{merge:true});
+                  }}
+                  onKeyDown={e=>{if(e.key==='Enter')e.target.blur();if(e.key==='Escape')setEditingId(null);}}
+                  style={{fontSize:12,fontWeight:600,border:'1px solid #2d6a4f',borderRadius:4,padding:'2px 6px',width:'100%'}}/>
+                :<div style={{fontSize:12,fontWeight:isActive?700:400,color:'#1a1814',cursor:'pointer'}}
+                  onDoubleClick={()=>{setEditingId(entry.id);setEditName(displayName);}}
+                  title="Double-cliquer pour renommer">
+                  {displayName}
+                </div>}
               <div style={{fontSize:10,color:'#9e9890'}}>{fmtDate(entry.importedAt)} — {entry.count} produits</div>
             </div>
-            {!isActive&&<button onClick={()=>activateTarif(entry)}
-              style={{padding:'5px 12px',background:'#fff',border:'1px solid #2d6a4f',color:'#2d6a4f',borderRadius:6,fontSize:11,fontWeight:600,cursor:'pointer',flexShrink:0}}>
-              Activer
-            </button>}
+            <div style={{display:'flex',gap:4,flexShrink:0}}>
+              <button onClick={async()=>{
+                const updated=history.map(h=>h.id===entry.id?{...h,keep:!h.keep}:h);
+                setHistory(updated);
+                await setDoc(doc(db,'tarif','history_index'),{entries:updated,activeId},{merge:true});
+              }} title={entry.keep?'Ne plus garder éternellement':'Garder éternellement'}
+                style={{padding:'4px 8px',background:entry.keep?'#fef3c7':'#f8f7f5',border:`1px solid ${entry.keep?'#f59e0b':'#e2ddd6'}`,borderRadius:6,fontSize:11,cursor:'pointer'}}>
+                {entry.keep?'★':'☆'}
+              </button>
+              {!isActive&&<button onClick={()=>activateTarif(entry)}
+                style={{padding:'4px 10px',background:'#fff',border:'1px solid #2d6a4f',color:'#2d6a4f',borderRadius:6,fontSize:11,fontWeight:600,cursor:'pointer'}}>
+                Activer
+              </button>}
+            </div>
           </div>;
         })}
       </div>
