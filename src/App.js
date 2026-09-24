@@ -4314,7 +4314,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
                     </td>
                     <td style={{padding:'8px',textAlign:'right'}}>
                       {isAuto?<span style={{fontSize:12,color:'#6b6560'}}>{l.qty}</span>
-                      :{(()=>{
+                      :(()=>{
                         const pcb=Math.max(1,parseInt(String(l.pcb||'1').replace(/[^0-9]/g,''))||1);
                         const prodT=tarif.find(t=>t.code===l.code);
                         const qpal=parseInt(String(prodT?.qpalette||'0').replace(/[^0-9]/g,''))||0;
@@ -4338,7 +4338,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
                             {opts.map(q=><option key={q} value={q}>{q}{palQty>0&&q===palQty?' ★ palette':''}</option>)}
                             <option value="libre">Autre quantité...</option>
                           </select>;
-                      })()}}
+                      })()}
                     </td>
                     <td style={{padding:'8px',fontSize:12,textAlign:'right',color:'#6b6560'}}>{fmtE(pu)}</td>
                     <td style={{padding:'8px',fontSize:12,textAlign:'right',fontWeight:600}}>{fmtE(pu*parseInt(l.qty||0))}</td>
