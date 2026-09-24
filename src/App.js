@@ -3909,16 +3909,14 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   },[]);
 
   const filteredTarif=React.useMemo(()=>{
-    const selCodes=new Set(lignes.filter(l=>l.qtyMode!=='auto').map(l=>l.code));
     const casier=['palette_casier_coiffe','palette_casier_sans_coiffe','casier_sans_palette'].includes(preparation);
     return tarif.filter(p=>{
       if(!p.code)return false;
       if([CASIER_CODE,COIFFE_CODE,'CONTENANT BOUTEILLE'].includes(p.code))return false;
-      if(selCodes.has(p.code))return false;
       if(casier&&(p.code.length<2||(p.code[1]||'').toUpperCase()!=='E'))return false;
       return true;
     });
-  },[tarif,preparation,lignes]);
+  },[tarif,preparation]);
 
   const coreLignes=lignes.filter(l=>l.qtyMode!=='auto');
   const totalBouteilles=coreLignes.reduce((s,l)=>s+parseInt(l.qty||0),0);
@@ -3959,7 +3957,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   function getDisplayLignes(){
     const result=[...coreLignes];
     if(isCasierPrep){const n=Math.ceil(totalBouteilles/12);if(n>0)result.push({code:CASIER_CODE,libelle:'Casier consigné',robe:'',pcb:1,eq75:0,tva:'0',qty:n,qtyMode:'auto',prix:CASIER_PRIX});}
-    if(isCoiffePrep){const n=Math.floor(totalBouteilles/120);if(n>0)result.push({code:COIFFE_CODE,libelle:'Coiffe consignée',robe:'',pcb:1,eq75:0,tva:'0',qty:n,qtyMode:'auto',prix:COIFFE_PRIX});}
+    if(isCoiffePrep){const nbCasiers=Math.ceil(totalBouteilles/12);const n=Math.ceil(nbCasiers/40);if(n>0)result.push({code:COIFFE_CODE,libelle:'Coiffe consignée',robe:'',pcb:1,eq75:0,tva:'0',qty:n,qtyMode:'auto',prix:COIFFE_PRIX});}
     return result;
   }
 
@@ -4036,7 +4034,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
       `TARIF : ${tarifLabel}`,
       message?`MESSAGE : ${message}`:'',
       `TARIF : ${tarifLabel}`,
-      message?`MESSAGE : ${message}`:'',
+      message?`>>> ${mode==='commande'?'SUPPLY':'CLIENT'} : ${message} <<<`:'',
       sep,
       header,
       divider,
@@ -4084,11 +4082,11 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
       (echantillons?'<tr><td style="padding:3px 16px 3px 0;color:#c0392b;font-size:11px;white-space:nowrap;vertical-align:top">ÉCHANTILLONS</td><td style="padding:3px 0;color:#c0392b;font-weight:600">⚠️ Gratuits — '+echantillonsRaison+'</td></tr>':'')+
       '</table>';
     const intro=mode==='devis'
-      ?'<p>Bonjour,</p><p>Suite à nos échanges, voici le chiffrage détaillé :</p>'
-      :'<p>Bonjour,</p><p>Une nouvelle commande a été enregistrée par <strong>'+prenom+'</strong>.</p>';
+      ?'<p style="font-family:Georgia,serif">Bonjour,</p><p style="font-family:Georgia,serif">Suite à nos échanges, voici le chiffrage détaillé :</p>'
+      :'<p style="font-family:Georgia,serif">Bonjour,</p><p style="font-family:Georgia,serif">Une nouvelle commande a été enregistrée par <strong>'+prenom+'</strong>.</p>';
     const outro=mode==='devis'
       ?'<p>Très belle fin de journée !<br><strong>'+prenom+' — Oé</strong></p>'
-      :'<p>La bise.<br><strong>'+prenom+'</strong></p>';
+      :'<p>La bise.<br><strong>'+prenom+' — Oé</strong></p>';
     const msgBody=intro+clientInfoHtml+htmlTable+outro;
     await setDoc(doc(db,'devis_commandes',ref),{ref,mode,societe,contact,factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,preparation,tariEvent,infoLivraison,message,lignes:displayLignes,totalHT,totalTVA,totalTTC,createdAt:Date.now(),createdBy:currentUser?.email});
     try{
@@ -4096,7 +4094,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
         to_email:'fx@oeforgood.com',cc_email:'',
         to_name:prenom,from_name:prenom,name:prenom,
         email:currentUser?.email||'',reply_to:currentUser?.email||'fx@oeforgood.com',
-        subject:`🌼 ${mode==='devis'?`Devis ${ref} - Oé`:`Commande ${ref} - Oé`}`,
+        subject:`🌼 ${mode==='devis'?`Devis ${ref} - Oé`:`Commande ${ref} passée par ${prenom}`}`,
         ref,html_content:msgBody,message:msgBody,
       },EMAILJS_KEY);
     }catch(e){console.error('EmailJS:',e);}
@@ -4120,26 +4118,50 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
       </div>
       <div style={{background:'#fff',borderRadius:12,border:'1px solid #e2ddd6',padding:'20px'}}>
         <div style={{fontSize:12,fontWeight:700,color:'#6b6560',marginBottom:12,textTransform:'uppercase',letterSpacing:.5}}>Récapitulatif</div>
-        <div style={{fontFamily:'system-ui,sans-serif',fontSize:13,color:'#1a1814',lineHeight:1.6}}>
+        <div style={{fontFamily:'Georgia,serif',fontSize:13,color:'#1a1814',lineHeight:1.7}}>
           {(()=>{
             const lines=sentRecap.split('\n');
+            // Find product section
             const headerIdx=lines.findIndex(l=>l.startsWith('Code'));
-            const dividerIdx=lines.findIndex(l=>l.startsWith('───'));
+            const afterHeaderDivider=lines.findIndex((l,i)=>i>headerIdx&&(l.startsWith('─')||l.startsWith('-')));
+            const prodLines=headerIdx>0?lines.slice(headerIdx+2,afterHeaderDivider>0?afterHeaderDivider:undefined):[];
+            const COLS2=['Code','Produit','Qté','P.U. HT','Total HT','TVA','TTC'];
+            const COLS_W=[80,200,40,80,80,60,80];
             return lines.map((line,i)=>{
-              if(line.startsWith('═'))return <div key={i} style={{height:2,background:'#2d6a4f',margin:'8px 0'}}/>;
-              if(line.startsWith('─')||line.startsWith('-'))return <div key={i} style={{height:1,background:'#e2ddd6',margin:'4px 0'}}/>;
+              if(line.startsWith('─')||line.startsWith('-'))return <div key={i} style={{height:1,background:'#e2ddd6',margin:'5px 0'}}/>;
               const isTitle=i===0;
-              const isHeader=i===headerIdx;
-              const isProdLine=headerIdx>0&&i>headerIdx&&i<lines.findIndex((l,j)=>j>headerIdx&&l.startsWith('─'));
               const isTotal=line.startsWith('Total')||line.startsWith('TVA')||line.startsWith('TOTAL');
+              const isMessage=line.startsWith('>>> ');
+              const isHeader=i===headerIdx;
+              const isProdLine=headerIdx>0&&i>headerIdx&&afterHeaderDivider>0&&i<afterHeaderDivider;
+              if(isHeader)return <div key={i} style={{display:'grid',gridTemplateColumns:'80px 1fr 50px 80px 80px 60px 80px',gap:4,padding:'4px 0',fontWeight:700,fontSize:11,color:'#6b6560',borderBottom:'1px solid #e2ddd6'}}>
+                {COLS2.map(h=><span key={h} style={{overflow:'hidden'}}>{h}</span>)}
+              </div>;
+              if(isProdLine){
+                // Parse the fixed-width line into columns
+                const raw=line;
+                const code=raw.slice(0,10).trim();
+                const lib=raw.slice(12,44).trim();
+                const qty=raw.slice(44,49).trim();
+                const pu=raw.slice(51,61).trim();
+                const totHT=raw.slice(63,73).trim();
+                const tva=raw.slice(75).trim();
+                return <div key={i} style={{display:'grid',gridTemplateColumns:'80px 1fr 50px 80px 80px 60px 80px',gap:4,padding:'2px 0',fontSize:12,borderBottom:'1px solid #f8f7f5'}}>
+                  <span style={{fontFamily:'monospace',fontSize:11}}>{code}</span>
+                  <span>{lib}</span>
+                  <span style={{textAlign:'right'}}>{qty}</span>
+                  <span style={{textAlign:'right'}}>{pu}</span>
+                  <span style={{textAlign:'right'}}>{totHT}</span>
+                  <span style={{textAlign:'right',fontSize:11,color:'#6b6560'}}>{tva}</span>
+                  <span style={{textAlign:'right'}}>—</span>
+                </div>;
+              }
               return <div key={i} style={{
-                fontFamily:isHeader||isProdLine?'"Courier New",Courier,monospace':'system-ui,sans-serif',
                 fontSize:isTitle?15:isTotal?13:12,
-                fontWeight:isTitle||isTotal?700:isHeader?600:400,
-                color:isTitle?'#2d6a4f':isTotal&&line.startsWith('TOTAL')?'#2d6a4f':'#1a1814',
-                padding:isProdLine?'1px 0':'0',
-                whiteSpace:'pre',
-              }}>{line}</div>;
+                fontWeight:isTitle||isTotal?700:400,
+                color:isTitle?'#2d6a4f':isMessage?'#c0392b':isTotal&&line.startsWith('TOTAL')?'#2d6a4f':'#1a1814',
+                marginTop:isTitle?0:isTotal?4:0,
+              }}>{isMessage?line.replace('>>> ','').replace(' <<<',''):line}</div>;
             });
           })()}
         </div>
@@ -4319,24 +4341,16 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
                         const prodT=tarif.find(t=>t.code===l.code);
                         const qpal=parseInt(String(prodT?.qpalette||'0').replace(/[^0-9]/g,''))||0;
                         const palQty=isPalettePrep?(isCasierPrep?480:(qpal>0?qpal:0)):0;
-                        const opts=Array.from({length:12},(_,k)=>(k+1)*pcb);
-                        if(palQty>0&&!opts.includes(palQty))opts.push(palQty);
-                        opts.sort((a,b)=>a-b);
-                        return l.qtyMode==='free'
-                          ?<div style={{display:'flex',alignItems:'center',gap:4}}>
-                            <input type="number" value={l.qty} min={1} step={pcb}
-                              onChange={e=>{const v=parseInt(e.target.value);if(v>0)updLigne(i,'qty',v);}}
-                              style={{width:70,fontSize:12,padding:'3px 6px',borderRadius:6,border:'1px solid #2d6a4f',textAlign:'right'}}/>
-                            <button onClick={()=>updLigne(i,'qtyMode','select')}
-                              style={{fontSize:11,padding:'3px 6px',border:'1px solid #e2ddd6',borderRadius:6,background:'#f8f7f5',cursor:'pointer'}}>▾</button>
-                          </div>
-                          :<select value={l.qty} onChange={e=>{
-                              if(e.target.value==='libre')updLigne(i,'qtyMode','free');
-                              else updLigne(i,'qty',parseInt(e.target.value));
-                            }}
+                        // Build options: palettes first, then 1x..100x PCB
+                        const palOpts=palQty>0?Array.from({length:10},(_,k)=>(k+1)*palQty):[];
+                        const pcbOpts=Array.from({length:100},(_,k)=>(k+1)*pcb);
+                        // Merge, deduplicate, sort
+                        const allOpts=[...new Set([...palOpts,...pcbOpts])].sort((a,b)=>a-b);
+                        return <select value={l.qty} onChange={e=>updLigne(i,'qty',parseInt(e.target.value))}
                             style={{fontSize:12,padding:'3px 6px',borderRadius:6,border:'1px solid #e2ddd6'}}>
-                            {opts.map(q=><option key={q} value={q}>{q}{palQty>0&&q===palQty?' ★ palette':''}</option>)}
-                            <option value="libre">Autre quantité...</option>
+                            {allOpts.map(q=><option key={q} value={q}>
+                              {palQty>0&&q%palQty===0?`${q/palQty} palette${q/palQty>1?'s':''} (${q})`:`${q}`}
+                            </option>)}
                           </select>;
                       })()}
                     </td>
