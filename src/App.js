@@ -4136,7 +4136,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
               if(line.startsWith('Code '))inProd=true;
               if(!inProd)infoLines.push(line);
             }
-            const GRD='70px 1fr 45px 80px 80px 50px 80px';
+            const GRD='70px 1fr 45px 100px 100px 100px 100px';
             const TH={fontSize:11,fontWeight:700,color:'#6b6560',padding:'4px 6px',textAlign:'right'};
             const TD={fontSize:12,padding:'3px 6px',textAlign:'right',borderBottom:'1px solid #f5f3ef'};
             const totTTC=displayLignes.reduce((s,l)=>{
@@ -4180,13 +4180,12 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
                     <span style={{...TD,fontWeight:600}}>{isOff?'offert':fmtE(ttcL)}</span>
                   </div>;
                 })}
-                <div style={{display:'grid',gridTemplateColumns:GRD,borderTop:'2px solid #2d6a4f',marginTop:4,paddingTop:6,fontWeight:700}}>
-                  <span style={{gridColumn:'1/3',fontSize:13,color:'#2d6a4f'}}>TOTAL</span>
-                  <span/>
-                  <span style={{...TD,borderBottom:'none',fontWeight:700}}>{fmtE(totalHT)}</span>
-                  <span style={{...TD,borderBottom:'none',fontWeight:700}}>{fmtE(totalHT)}</span>
-                  <span style={{...TD,borderBottom:'none',fontSize:11}}>{fmtE(totalTVA)}</span>
-                  <span style={{...TD,borderBottom:'none',fontWeight:800,color:'#2d6a4f',fontSize:14}}>{gratuite?'OFFERT':fmtE(totalTTC)}</span>
+                <div style={{display:'grid',gridTemplateColumns:GRD,borderTop:'2px solid #2d6a4f',marginTop:4,paddingTop:6}}>
+                  <span style={{gridColumn:'1/3',fontSize:13,fontWeight:700,color:'#2d6a4f',padding:'4px 6px'}}>TOTAL</span>
+                  <span style={{padding:'4px 6px'}}/>
+                  <span style={{...TD,borderBottom:'none',fontWeight:800,color:'#1a1814'}}>{gratuite?'OFFERT':fmtE(totalHT)}</span>
+                  <span style={{...TD,borderBottom:'none',fontSize:11,color:'#6b6560'}}>{fmtE(totalTVA)}</span>
+                  <span style={{...TD,borderBottom:'none',color:'#6b6560'}}>{gratuite?'OFFERT':fmtE(totalTTC)}</span>
                 </div>
               </div>
             </>;
