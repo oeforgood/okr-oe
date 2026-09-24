@@ -4071,8 +4071,6 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     const textContent=buildText(ref);
     const prenom=teamMember?.prenom||'Oé';
     // Build HTML table for products
-    ;
-    
     const livrInfo=retraitLoft?'Retrait au Loft Oé - 10bis rue Bellicard, 69003 Lyon':sameAddr?(factAddr.addr+', '+factAddr.cp+' '+factAddr.ville):(expAddr.addr+', '+expAddr.cp+' '+expAddr.ville);
     const clientInfoHtml='<table style="font-size:13px;margin-bottom:16px;border-collapse:collapse">'+
       '<tr><td style="padding:3px 16px 3px 0;color:#9e9890;font-size:11px;white-space:nowrap;vertical-align:top">CLIENT</td><td style="padding:3px 0"><strong>'+societe+'</strong> — '+contact+'</td></tr>'+
