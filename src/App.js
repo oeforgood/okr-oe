@@ -4344,9 +4344,7 @@ function TarifTab({db}){
   },[]);
 
   function parseCSV(text){
-    const lines=text.split(/
-?
-/).filter(l=>l.trim());
+    const lines=text.split(/\r?\n/).filter(l=>l.trim());
     if(lines.length<2)return[];
     const sep=lines[0].includes(';')?';':',';
     const headers=lines[0].split(sep).map(h=>h.trim().replace(/^"|"$/g,'').toLowerCase());
