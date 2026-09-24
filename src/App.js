@@ -4317,35 +4317,46 @@ function TarifTab({db}){
   const [loading,setLoading]=React.useState(true);
   const [saving,setSaving]=React.useState(false);
   const [msg,setMsg]=React.useState('');
+  const [history,setHistory]=React.useState([]);
+  const [activeId,setActiveId]=React.useState('current');
   const fileRef=React.useRef();
   const COLS=['code','libelle','robe','contenant','tariEvents','prix24','prix120','prix240','prix360','prix600','prixPalette','pcb','eq75','qpalette','tva'];
   const COL_LABELS={'code':'Code','libelle':'Libellé','robe':'Robe','contenant':'Contenant','tariEvents':'Tarif Events','prix24':'Prix/24','prix120':'Prix/120','prix240':'Prix/240','prix360':'Prix/360','prix600':'Prix/600','prixPalette':'Prix palette','pcb':'PCB','eq75':'Éq.75','qpalette':'Q.palette','tva':'TVA'};
 
+  // Load active tarif + history
   React.useEffect(()=>{
     if(!db)return;
+    // Load active tarif
     getDocs(collection(db,'tarif')).then(snap=>{
       if(!snap.empty){
         const rows=[];
-        snap.docs.sort((a,b)=>a.id.localeCompare(b.id)).forEach(d=>rows.push(...(d.data().rows||[])));
+        snap.docs.sort((a,b)=>a.id.localeCompare(b.id)).forEach(d=>{
+          if(!d.id.startsWith('history_'))rows.push(...(d.data().rows||[]));
+        });
         setTarif(rows);
       }
       setLoading(false);
     });
+    // Load history index
+    getDoc(doc(db,'tarif','history_index')).then(snap=>{
+      if(snap.exists())setHistory(snap.data().entries||[]);
+    }).catch(()=>{});
   },[]);
 
   function parseCSV(text){
-    const lines=text.split(/\r?\n/).filter(l=>l.trim());
+    const lines=text.split(/
+?
+/).filter(l=>l.trim());
     if(lines.length<2)return[];
-    // Detect separator
     const sep=lines[0].includes(';')?';':',';
     const headers=lines[0].split(sep).map(h=>h.trim().replace(/^"|"$/g,'').toLowerCase());
-    // Map CSV headers to our columns
     const colMap={};
     const CSV_MAP={'code produit':'code','libellé':'libelle','libelle':'libelle','robe':'robe','contenant':'contenant',
       'prix par 24':'prix24','prix par 120':'prix120','prix par 240':'prix240','prix par 360':'prix360','prix par 600':'prix600',
       'prix par palette complète':'prixPalette','prix par palette complete':'prixPalette',
       'pcb':'pcb','equivalent75':'eq75','équivalent75':'eq75','eq75':'eq75','eq 75':'eq75',
-      'qpalette':'qpalette','q palette':'qpalette','tva':'tva'};
+      'qpalette':'qpalette','q palette':'qpalette','tva':'tva',
+      'tarif events':'tariEvents','tarif event':'tariEvents','tarievents':'tariEvents'};
     headers.forEach((h,i)=>{const key=CSV_MAP[h];if(key)colMap[key]=i;});
     return lines.slice(1).filter(l=>l.trim()).map(l=>{
       const fields=[];let cur='',inQ=false;
@@ -4364,22 +4375,56 @@ function TarifTab({db}){
     const rows=parseCSV(text);
     if(!rows.length){setMsg('❌ Aucune ligne valide trouvée');return;}
     setSaving(true);setMsg('Enregistrement...');
-    // Save in chunks of 100
     const CHUNK=100;
+    const now=Date.now();
+    const histId='history_'+now;
+    const histEntry={id:histId,filename:file.name,importedAt:now,count:rows.length};
+
+    // Save as new active tarif (chunks)
     const oldSnap=await getDocs(collection(db,'tarif'));
-    await Promise.all(oldSnap.docs.map(d=>deleteDoc(d.ref)));
+    await Promise.all(oldSnap.docs.filter(d=>!d.id.startsWith('history_')).map(d=>deleteDoc(d.ref)));
     for(let i=0;i<rows.length;i+=CHUNK){
-      await setDoc(doc(db,'tarif',`chunk_${Math.floor(i/CHUNK)}`),{rows:rows.slice(i,i+CHUNK)});
+      await setDoc(doc(db,'tarif',`chunk_${Math.floor(i/CHUNK)}`),{rows:rows.slice(i,i+CHUNK),importedAt:now,filename:file.name});
     }
+    // Save history snapshot (chunks prefixed with histId)
+    for(let i=0;i<rows.length;i+=CHUNK){
+      await setDoc(doc(db,'tarif',`${histId}_chunk_${Math.floor(i/CHUNK)}`),{rows:rows.slice(i,i+CHUNK)});
+    }
+    // Update history index
+    const newHistory=[histEntry,...history].slice(0,20); // keep last 20
+    await setDoc(doc(db,'tarif','history_index'),{entries:newHistory,activeId:histId});
+    setHistory(newHistory);
+    setActiveId(histId);
     setTarif(rows);setSaving(false);
-    setMsg(`✅ ${rows.length} produits importés`);
+    setMsg(`✅ ${rows.length} produits importés — ${file.name}`);
     e.target.value='';
+  }
+
+  async function activateTarif(entry){
+    if(entry.id===activeId)return;
+    setSaving(true);setMsg('Chargement...');
+    // Load historical chunks
+    const snap=await getDocs(collection(db,'tarif'));
+    const histChunks=snap.docs.filter(d=>d.id.startsWith(entry.id+'_chunk_')).sort((a,b)=>a.id.localeCompare(b.id));
+    const rows=[];
+    histChunks.forEach(d=>rows.push(...(d.data().rows||[])));
+    if(!rows.length){setMsg('❌ Historique introuvable');setSaving(false);return;}
+    // Replace active tarif
+    const CHUNK=100;
+    const now=Date.now();
+    await Promise.all(snap.docs.filter(d=>!d.id.startsWith('history_')).map(d=>deleteDoc(d.ref)));
+    for(let i=0;i<rows.length;i+=CHUNK){
+      await setDoc(doc(db,'tarif',`chunk_${Math.floor(i/CHUNK)}`),{rows:rows.slice(i,i+CHUNK),importedAt:entry.importedAt,filename:entry.filename,activatedAt:now});
+    }
+    await updateDoc(doc(db,'tarif','history_index'),{activeId:entry.id});
+    setActiveId(entry.id);
+    setTarif(rows);setSaving(false);
+    setMsg(`✅ Tarif "${entry.filename}" activé (${entry.count} produits)`);
   }
 
   async function updateCell(rowIdx,col,val){
     const next=tarif.map((r,i)=>i===rowIdx?{...r,[col]:val}:r);
     setTarif(next);
-    // Debounced save
     clearTimeout(window._tarifSaveTimer);
     window._tarifSaveTimer=setTimeout(async()=>{
       const CHUNK=100;
@@ -4389,34 +4434,67 @@ function TarifTab({db}){
     },1500);
   }
 
+  function fmtDate(ts){
+    if(!ts)return '';
+    const d=new Date(ts);
+    return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'})+' à '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  }
+
   const th={padding:'5px 8px',fontSize:10,fontWeight:700,color:'#6b6560',textAlign:'left',borderBottom:'2px solid #e2ddd6',background:'#f8f7f5',whiteSpace:'nowrap',position:'sticky',top:0};
   const td={padding:'4px 6px',fontSize:11,borderBottom:'1px solid #f0ede8'};
   const inp={width:'100%',fontSize:11,border:'1px solid transparent',borderRadius:4,padding:'2px 4px',background:'transparent',outline:'none',fontFamily:'inherit'};
 
   return <div style={{padding:'16px 0'}}>
-    <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20}}>
-      <div style={{fontSize:15,fontWeight:700}}>💰 Tarif produits</div>
+    {/* Header actions */}
+    <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:20,flexWrap:'wrap'}}>
+      <div style={{fontSize:15,fontWeight:700}}>Tarif produits</div>
       <button onClick={()=>fileRef.current.click()}
-        style={{padding:'7px 16px',background:'#2d6a4f',color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>
-        📥 Importer un tarif (.csv)
+        style={{padding:'7px 14px',background:'#2d6a4f',color:'#fff',border:'none',borderRadius:8,fontSize:12,fontWeight:600,cursor:'pointer'}}>
+        Importer un tarif (.csv)
       </button>
+      <input ref={fileRef} type="file" accept=".csv" style={{display:'none'}} onChange={handleImport}/>
       {tarif.length>0&&<button onClick={()=>{
         const headers=COLS.map(c=>COL_LABELS[c]||c).join(';');
-        const rows=tarif.map(r=>COLS.map(c=>(r[c]||'').toString().replace(/;/g,',')).join(';')).join('\n');
-        const csv=headers+'\n'+rows;
+        const rowsData=tarif.map(r=>COLS.map(c=>(r[c]||'').toString().replace(/;/g,',')).join(';'));
+        const csv=[headers,...rowsData].join('\n');
         const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
         const url=URL.createObjectURL(blob);
         const a=document.createElement('a');a.href=url;a.download='tarif_oe.csv';a.click();URL.revokeObjectURL(url);
-      }} style={{padding:'7px 16px',background:'#f0fdf4',color:'#2d6a4f',border:'1px solid #2d6a4f',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>
-        📤 Exporter en .csv
-      </button>}
-      <input ref={fileRef} type="file" accept=".csv" style={{display:'none'}} onChange={handleImport}/>
+      }} style={{padding:'7px 14px',background:'#f0fdf4',color:'#2d6a4f',border:'1px solid #2d6a4f',borderRadius:8,fontSize:12,fontWeight:600,cursor:'pointer'}}>
+        Exporter en .csv
+      </button>
       {msg&&<span style={{fontSize:12,color:msg.startsWith('❌')?'#c0392b':'#2d6a4f'}}>{msg}</span>}
       {saving&&<span style={{fontSize:11,color:'#9e9890'}}>Enregistrement...</span>}
     </div>
+
+    {/* History */}
+    {history.length>0&&<div style={{marginBottom:20,background:'#f8f7f5',borderRadius:10,padding:'14px 16px',border:'1px solid #e2ddd6'}}>
+      <div style={{fontSize:11,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:.5,marginBottom:10}}>Historique des tarifs importés</div>
+      <div style={{display:'flex',flexDirection:'column',gap:6}}>
+        {history.map((entry,i)=>{
+          const isActive=entry.id===activeId;
+          return <div key={entry.id} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',borderRadius:8,
+            background:isActive?'#f0fdf4':'#fff',border:`1px solid ${isActive?'#2d6a4f':'#e2ddd6'}`}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:12,fontWeight:isActive?700:400,color:'#1a1814',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                {isActive&&<span style={{fontSize:10,background:'#2d6a4f',color:'#fff',borderRadius:10,padding:'1px 6px',marginRight:6}}>Actif</span>}
+                {entry.filename}
+              </div>
+              <div style={{fontSize:10,color:'#9e9890'}}>{fmtDate(entry.importedAt)} — {entry.count} produits</div>
+            </div>
+            {!isActive&&<button onClick={()=>activateTarif(entry)}
+              style={{padding:'5px 12px',background:'#fff',border:'1px solid #2d6a4f',color:'#2d6a4f',borderRadius:6,fontSize:11,fontWeight:600,cursor:'pointer',flexShrink:0}}>
+              Activer
+            </button>}
+          </div>;
+        })}
+      </div>
+    </div>}
+
+    {/* Tarif table */}
     {loading?<div style={{color:'#9e9890',fontSize:13}}>Chargement...</div>
     :tarif.length===0?<div style={{color:'#9e9890',fontSize:13}}>Aucun tarif chargé. Importez un fichier CSV.</div>
-    :<div style={{overflowX:'auto',maxHeight:'70vh',overflowY:'auto',border:'1px solid #e2ddd6',borderRadius:8}}>
+    :<div style={{overflowX:'auto',maxHeight:'60vh',overflowY:'auto',border:'1px solid #e2ddd6',borderRadius:8}}>
       <table style={{borderCollapse:'collapse',minWidth:'100%'}}>
         <thead><tr>{COLS.map(c=><th key={c} style={th}>{COL_LABELS[c]}</th>)}</tr></thead>
         <tbody>{tarif.map((row,i)=><tr key={i} style={{background:i%2===0?'#fff':'#fafaf8'}}>
@@ -4431,6 +4509,7 @@ function TarifTab({db}){
     </div>}
   </div>;
 }
+
 
 function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions,catTypes,onSaveCatTypes,codeMap,onSaveCodeMap,customSubcatLabels,onSaveCustomSubcatLabels,savedCanalMargin,onSaveCanalMargin,onSendMessage,onSaveBsv3,onUploadReporting}){
   const [members,setMembers]=useState(teamMembers.map(m=>({...m})));
