@@ -4100,6 +4100,69 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
         ref,html_content:msgBody,message:msgBody,
       },EMAILJS_KEY);
     }catch(e){console.error('EmailJS:',e);}
+const msgColor='#c0392b';
+    const msgHtml=message?`<div style="margin:16px 0;padding:12px 16px;background:#fff5f5;border-left:3px solid ${msgColor};border-radius:4px;font-size:13px;color:${msgColor}"><strong>${mode==='commande'?'Message supply':'Message client'} :</strong> ${message}</div>`:'';
+    const brandGreen='#2d6a4f';const brandBeige='#f5f3ef';const brandDark='#1a1814';const brandFont='system-ui,-apple-system,Helvetica,sans-serif';
+    // prodRows for mail
+    const prodRows=displayLignes.map(ligne=>{
+      const pu=gratuite&&ligne.code!==CASIER_CODE&&ligne.code!==COIFFE_CODE?0:getLinePU(ligne);
+      const qty=parseInt(ligne.qty||0);
+      const totalHT2=pu*qty;
+      const tvaRate=parseFloat(ligne.tva||0);
+      const tvaVal=totalHT2*(tvaRate/100);
+      const ttcLigne=totalHT2+tvaVal;
+      const isOffert=gratuite&&ligne.code!==CASIER_CODE&&ligne.code!==COIFFE_CODE;
+      return `<tr>
+        <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;font-weight:600;letter-spacing:0.3px;width:90px">${ligne.code||''}</td>
+        <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px">${ligne.libelle||''}</td>
+        <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;text-align:right;width:45px">${qty}</td>
+        <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;text-align:right;width:80px">${isOffert?'offert':fmtE(pu)}</td>
+        <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;text-align:right;font-weight:700;width:80px">${isOffert?'offert':fmtE(totalHT2)}</td>
+        <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;text-align:right;color:#6b6560;width:80px">${isOffert?'':tvaRate>0?(tvaRate+'%'):'0%'}</td>
+        <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;text-align:right;width:80px">${isOffert?'offert':fmtE(ttcLigne)}</td>
+      </tr>`;
+    }).join('');
+    const htmlTable=`<div style="font-family:${brandFont};max-width:720px;margin:0 auto;color:${brandDark}">
+<div style="background:${brandGreen};padding:20px 24px;border-radius:8px 8px 0 0">
+  <div style="color:#fff;font-size:20px;font-weight:700;letter-spacing:1px">🌼 Oé</div>
+  <div style="color:rgba(255,255,255,0.8);font-size:12px;margin-top:4px">${mode==='devis'?'Devis':'Commande'} ${ref} · ${new Date().toLocaleDateString('fr-FR')}</div>
+</div>
+<div style="background:${brandBeige};padding:16px 24px;border-bottom:1px solid #e2ddd6">
+  <table style="width:100%;border-collapse:collapse;font-size:12px">
+    <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0;white-space:nowrap">CLIENT</td><td style="font-weight:600">${societe} — ${contact}</td></tr>
+    <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0">FACTURATION</td><td>${factAddr.addr}, ${factAddr.cp} ${factAddr.ville}${factAddr.email?' · '+factAddr.email:''}</td></tr>
+    <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0">LIVRAISON</td><td>${retraitLoft?'Retrait au Loft Oé · 10bis rue Bellicard, 69003 Lyon':sameAddr?factAddr.addr+', '+factAddr.cp+' '+factAddr.ville:expAddr.addr+', '+expAddr.cp+' '+expAddr.ville}</td></tr>
+    <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0">PRÉPARATION</td><td>${prepLabel}</td></tr>
+    <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0">TARIF</td><td>${tarifLabel}</td></tr>
+  </table>
+</div>
+<div style="background:#fff;padding:0">
+  <table style="width:100%;border-collapse:collapse">
+    <thead><tr style="background:${brandBeige}">
+      <th style="padding:8px;text-align:left;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen};width:90px">Code</th>
+      <th style="padding:8px;text-align:left;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen}">Produit</th>
+      <th style="padding:8px;text-align:right;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen};width:45px">Qté</th>
+      <th style="padding:8px;text-align:right;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen};width:80px">P.U. HT</th>
+      <th style="padding:8px;text-align:right;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen};width:80px">Total HT</th>
+      <th style="padding:8px;text-align:right;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen};width:80px">TVA</th>
+      <th style="padding:8px;text-align:right;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen};width:80px">TTC</th>
+    </tr></thead>
+    <tbody>${prodRows}</tbody>
+    <tfoot>
+      <tr style="border-top:2px solid ${brandGreen}">
+        <td colspan="4" style="padding:6px 8px;font-size:12px;font-weight:700;color:${brandGreen}">TOTAL</td>
+        <td style="padding:6px 8px;text-align:right;font-size:12px;font-weight:700">${gratuite?'OFFERT':fmtE(totalHT)}</td>
+        <td style="padding:6px 8px;text-align:right;font-size:12px;font-weight:400;color:#6b6560">${fmtE(totalTVA)}</td>
+        <td style="padding:6px 8px;text-align:right;font-size:12px;font-weight:400">${gratuite?'OFFERT':fmtE(totalTTC)}</td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+${msgHtml}
+<div style="background:${brandBeige};padding:12px 24px;border-radius:0 0 8px 8px;border-top:1px solid #e2ddd6;font-size:11px;color:#6b6560;text-align:center">
+  Oé · contact@oeforgood.com · oeforgood.com
+</div>
+</div>`
     setSentRecap(textContent);setSending(false);setSent(true);
   }
 
@@ -4437,71 +4500,6 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     </div>}
   </div>;
 }
-
-    const msgColor='#c0392b';
-    const msgHtml=message?`<div style="margin:16px 0;padding:12px 16px;background:#fff5f5;border-left:3px solid ${msgColor};border-radius:4px;font-size:13px;color:${msgColor}"><strong>${mode==='commande'?'Message supply':'Message client'} :</strong> ${message}</div>`:'';
-    const brandGreen='#2d6a4f';const brandBeige='#f5f3ef';const brandDark='#1a1814';const brandFont='system-ui,-apple-system,Helvetica,sans-serif';
-    // prodRows for mail
-    const prodRows=displayLignes.map(ligne=>{
-      const pu=gratuite&&ligne.code!==CASIER_CODE&&ligne.code!==COIFFE_CODE?0:getLinePU(ligne);
-      const qty=parseInt(ligne.qty||0);
-      const totalHT2=pu*qty;
-      const tvaRate=parseFloat(ligne.tva||0);
-      const tvaVal=totalHT2*(tvaRate/100);
-      const ttcLigne=totalHT2+tvaVal;
-      const isOffert=gratuite&&ligne.code!==CASIER_CODE&&ligne.code!==COIFFE_CODE;
-      return `<tr>
-        <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;font-weight:600;letter-spacing:0.3px;width:90px">${ligne.code||''}</td>
-        <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px">${ligne.libelle||''}</td>
-        <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;text-align:right;width:45px">${qty}</td>
-        <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;text-align:right;width:80px">${isOffert?'offert':fmtE(pu)}</td>
-        <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;text-align:right;font-weight:700;width:80px">${isOffert?'offert':fmtE(totalHT2)}</td>
-        <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;text-align:right;color:#6b6560;width:80px">${isOffert?'':tvaRate>0?(tvaRate+'%'):'0%'}</td>
-        <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;text-align:right;width:80px">${isOffert?'offert':fmtE(ttcLigne)}</td>
-      </tr>`;
-    }).join('');
-    const htmlTable=`<div style="font-family:${brandFont};max-width:720px;margin:0 auto;color:${brandDark}">
-<div style="background:${brandGreen};padding:20px 24px;border-radius:8px 8px 0 0">
-  <div style="color:#fff;font-size:20px;font-weight:700;letter-spacing:1px">🌼 Oé</div>
-  <div style="color:rgba(255,255,255,0.8);font-size:12px;margin-top:4px">${mode==='devis'?'Devis':'Commande'} ${ref} · ${new Date().toLocaleDateString('fr-FR')}</div>
-</div>
-<div style="background:${brandBeige};padding:16px 24px;border-bottom:1px solid #e2ddd6">
-  <table style="width:100%;border-collapse:collapse;font-size:12px">
-    <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0;white-space:nowrap">CLIENT</td><td style="font-weight:600">${societe} — ${contact}</td></tr>
-    <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0">FACTURATION</td><td>${factAddr.addr}, ${factAddr.cp} ${factAddr.ville}${factAddr.email?' · '+factAddr.email:''}</td></tr>
-    <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0">LIVRAISON</td><td>${retraitLoft?'Retrait au Loft Oé · 10bis rue Bellicard, 69003 Lyon':sameAddr?factAddr.addr+', '+factAddr.cp+' '+factAddr.ville:expAddr.addr+', '+expAddr.cp+' '+expAddr.ville}</td></tr>
-    <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0">PRÉPARATION</td><td>${prepLabel}</td></tr>
-    <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0">TARIF</td><td>${tarifLabel}</td></tr>
-  </table>
-</div>
-<div style="background:#fff;padding:0">
-  <table style="width:100%;border-collapse:collapse">
-    <thead><tr style="background:${brandBeige}">
-      <th style="padding:8px;text-align:left;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen};width:90px">Code</th>
-      <th style="padding:8px;text-align:left;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen}">Produit</th>
-      <th style="padding:8px;text-align:right;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen};width:45px">Qté</th>
-      <th style="padding:8px;text-align:right;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen};width:80px">P.U. HT</th>
-      <th style="padding:8px;text-align:right;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen};width:80px">Total HT</th>
-      <th style="padding:8px;text-align:right;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen};width:80px">TVA</th>
-      <th style="padding:8px;text-align:right;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen};width:80px">TTC</th>
-    </tr></thead>
-    <tbody>${prodRows}</tbody>
-    <tfoot>
-      <tr style="border-top:2px solid ${brandGreen}">
-        <td colspan="4" style="padding:6px 8px;font-size:12px;font-weight:700;color:${brandGreen}">TOTAL</td>
-        <td style="padding:6px 8px;text-align:right;font-size:12px;font-weight:700">${gratuite?'OFFERT':fmtE(totalHT)}</td>
-        <td style="padding:6px 8px;text-align:right;font-size:12px;font-weight:400;color:#6b6560">${fmtE(totalTVA)}</td>
-        <td style="padding:6px 8px;text-align:right;font-size:12px;font-weight:400">${gratuite?'OFFERT':fmtE(totalTTC)}</td>
-      </tr>
-    </tfoot>
-  </table>
-</div>
-${msgHtml}
-<div style="background:${brandBeige};padding:12px 24px;border-radius:0 0 8px 8px;border-top:1px solid #e2ddd6;font-size:11px;color:#6b6560;text-align:center">
-  Oé · contact@oeforgood.com · oeforgood.com
-</div>
-</div>`
-
 
 function TarifTab({db}){
   const [tarif,setTarif]=React.useState([]);
