@@ -1128,6 +1128,14 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
     return (v<0?'−':'')+s+' €';
   }
   function fmtPct(v){return v===null||v===undefined?'—':((v*100).toFixed(1).replace('.',','))+'%';}
+  function exportCSV(){
+    const headers=COLS.map(c=>COL_LABELS[c]||c).join(';');
+    const rowsData=tarif.map(r=>COLS.map(c=>(r[c]||'').toString().replace(/;/g,',')).join(';'));
+    const csv=[headers,...rowsData].join('\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download='tarif_oe.csv';a.click();URL.revokeObjectURL(url);
+  }
   function fmtDate(ts){if(!ts)return '';const d=new Date(ts);return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'});}
 
   const card={background:'#fff',borderRadius:14,padding:'16px',marginBottom:12,boxShadow:'0 1px 4px rgba(0,0,0,.06)'};
@@ -4432,6 +4440,14 @@ function TarifTab({db}){
     },1500);
   }
 
+  function exportCSV(){
+    const headers=COLS.map(c=>COL_LABELS[c]||c).join(';');
+    const rowsData=tarif.map(r=>COLS.map(c=>(r[c]||'').toString().replace(/;/g,',')).join(';'));
+    const csv=[headers,...rowsData].join('\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download='tarif_oe.csv';a.click();URL.revokeObjectURL(url);
+  }
   function fmtDate(ts){
     if(!ts)return '';
     const d=new Date(ts);
