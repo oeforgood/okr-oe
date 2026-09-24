@@ -3903,7 +3903,10 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   React.useEffect(()=>{
     getDocs(collection(db,'tarif')).then(snap=>{
       const rows=[];
-      snap.docs.sort((a,b)=>a.id.localeCompare(b.id)).forEach(d=>rows.push(...(d.data().rows||[])));
+      snap.docs
+        .filter(d=>!d.id.startsWith('history_')&&d.id!=='history_index')
+        .sort((a,b)=>a.id.localeCompare(b.id))
+        .forEach(d=>rows.push(...(d.data().rows||[])));
       setTarif(rows);setLoadingTarif(false);
     });
   },[]);
@@ -4086,7 +4089,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
       (message?'<tr><td style="padding:3px 16px 3px 0;color:#9e9890;font-size:11px;white-space:nowrap;vertical-align:top">MESSAGE</td><td style="padding:3px 0;font-style:italic">'+message+'</td></tr>':'')+
       (echantillons?'<tr><td style="padding:3px 16px 3px 0;color:#c0392b;font-size:11px;white-space:nowrap;vertical-align:top">ÉCHANTILLONS</td><td style="padding:3px 0;color:#c0392b;font-weight:600">⚠️ Gratuits — '+echantillonsRaison+'</td></tr>':'')+
       '</table>';
-    const fntS='font-family:Georgia,serif;font-size:14px;color:#1a1814;line-height:1.6';
+    const fntS='font-family:'+brandFont+';font-size:14px;color:#1a1814;line-height:1.6';
     const intro=mode==='devis'
       ?`<p style="${fntS}">Bonjour,</p><p style="${fntS}">Suite à nos échanges, voici le chiffrage détaillé :</p>`
       :`<p style="${fntS}">Bonjour,</p><p style="${fntS}">Une nouvelle commande a été enregistrée par <strong>${prenom}</strong>.</p>`;
@@ -4115,16 +4118,16 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
 
   if(sent)return <div style={{minHeight:'100vh',background:'#f5f3ef',fontFamily:'system-ui,sans-serif'}}>
     <AppNav current="devis" onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3} onGoDevis={()=>{}}/>
-    <div style={{maxWidth:700,margin:'20px auto',padding:'0 16px 60px'}}>
+    <div style={{maxWidth:960,margin:'20px auto',padding:'0 24px 60px'}}>
       <div style={{background:'#f0fdf4',border:'1px solid #86efac',borderRadius:12,padding:'20px',marginBottom:16,textAlign:'center'}}>
         <div style={{fontSize:36,marginBottom:8}}>&#x2705;</div>
         <div style={{fontSize:16,fontWeight:700,marginBottom:4}}>{mode==='devis'?'Devis envoyé !':'Commande enregistrée !'}</div>
-        <div style={{fontSize:12,color:'#6b6560',marginBottom:16}}>Un mail de confirmation vous a été envoyé en CCi.</div>
+        <div style={{fontSize:12,color:'#6b6560',marginBottom:16}}>Un mail de confirmation vous a été envoyé en CC.</div>
         <button onClick={resetForm} style={{padding:'8px 20px',background:'#2d6a4f',color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>Nouveau devis / commande</button>
       </div>
       <div style={{background:'#fff',borderRadius:12,border:'1px solid #e2ddd6',padding:'20px'}}>
         <div style={{fontSize:12,fontWeight:700,color:'#6b6560',marginBottom:12,textTransform:'uppercase',letterSpacing:.5}}>Récapitulatif</div>
-        <div style={{fontFamily:'Georgia,serif',fontSize:13,color:'#1a1814',lineHeight:1.7}}>
+        <div style={{fontFamily:'system-ui,-apple-system,sans-serif',fontSize:13,color:'#1a1814',lineHeight:1.7}}>
           {(()=>{
             const lines=sentRecap.split('\n');
             const infoLines=[];let inProd=false;
@@ -4366,15 +4369,29 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
                         const qpal=parseInt(String(prodT?.qpalette||'0').replace(/[^0-9]/g,''))||0;
                         const palQty=isPalettePrep?(isCasierPrep?480:(qpal>0?qpal:0)):0;
                         // Build options: palettes first, then 1x..100x PCB
-                        const palOpts=palQty>0?Array.from({length:10},(_,k)=>(k+1)*palQty):[];
-                        const pcbOpts=Array.from({length:100},(_,k)=>(k+1)*pcb);
-                        // Merge, deduplicate, sort
-                        const allOpts=[...new Set([...palOpts,...pcbOpts])].sort((a,b)=>a-b);
+                        // Build options based on preparation type
+                        let allOpts=[];
+                        if(isCasierPrep){
+                          // 12 to 480 by 12, then 960,1440,...,9600 (palettes)
+                          const byPCB=Array.from({length:40},(_,k)=>(k+1)*12); // 12..480
+                          const byPal=Array.from({length:19},(_,k)=>(k+2)*480); // 960..9600
+                          allOpts=[...byPCB,...byPal];
+                        } else if(isPalettePrep&&palQty>0){
+                          // PCB to Qpalette, then 2*Qpalette..20*Qpalette
+                          const byPCB=[];for(let q=pcb;q<=palQty;q+=pcb)byPCB.push(q);
+                          const byPal=Array.from({length:19},(_,k)=>(k+2)*palQty);
+                          allOpts=[...byPCB,...byPal];
+                        } else {
+                          allOpts=Array.from({length:100},(_,k)=>(k+1)*Math.max(1,pcb));
+                        }
+                        const palQtyEff=isCasierPrep?480:palQty;
                         return <select value={l.qty} onChange={e=>updLigne(i,'qty',parseInt(e.target.value))}
                             style={{fontSize:12,padding:'3px 6px',borderRadius:6,border:'1px solid #e2ddd6'}}>
-                            {allOpts.map(q=><option key={q} value={q}>
-                              {palQty>0&&q%palQty===0?`${q/palQty} palette${q/palQty>1?'s':''} (${q})`:`${q}`}
-                            </option>)}
+                            {allOpts.map(q=>{
+                              const isPalMult=palQtyEff>0&&q%palQtyEff===0;
+                              const palNum=isPalMult?q/palQtyEff:0;
+                              return <option key={q} value={q}>{isPalMult?`${palNum} palette${palNum>1?'s':''} (${q})`:String(q)}</option>;
+                            })}
                           </select>;
                       })()}
                     </td>
