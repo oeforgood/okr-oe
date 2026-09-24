@@ -4136,7 +4136,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
               if(line.startsWith('Code '))inProd=true;
               if(!inProd)infoLines.push(line);
             }
-            const GRD='70px 1fr 45px 100px 100px 100px 100px';
+            const GRD='90px 1fr 45px 80px 80px 80px 80px';
             const TH={fontSize:11,fontWeight:700,color:'#6b6560',padding:'4px 6px',textAlign:'right'};
             const TD={fontSize:12,padding:'3px 6px',textAlign:'right',borderBottom:'1px solid #f5f3ef'};
             const totTTC=displayLignes.reduce((s,l)=>{
@@ -4171,7 +4171,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
                   const ttcL=htL+tvaV;
                   const isOff=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE;
                   return <div key={i} style={{display:'grid',gridTemplateColumns:GRD,borderBottom:'1px solid #f5f3ef'}}>
-                    <span style={{...TD,textAlign:'left',fontFamily:'monospace',fontSize:11}}>{l.code}</span>
+                    <span style={{...TD,textAlign:'left',fontFamily:'system-ui,sans-serif',fontSize:12,fontWeight:600,letterSpacing:0.3}}>{l.code}</span>
                     <span style={{...TD,textAlign:'left'}}>{l.libelle}{l.qtyMode==='auto'?<span style={{fontSize:10,color:'#9e9890',marginLeft:4}}>(auto)</span>:null}</span>
                     <span style={TD}>{qty}</span>
                     <span style={TD}>{isOff?'offert':fmtE(pu)}</span>
@@ -4181,11 +4181,10 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
                   </div>;
                 })}
                 <div style={{display:'grid',gridTemplateColumns:GRD,borderTop:'2px solid #2d6a4f',marginTop:4,paddingTop:6}}>
-                  <span style={{gridColumn:'1/3',fontSize:13,fontWeight:700,color:'#2d6a4f',padding:'4px 6px'}}>TOTAL</span>
-                  <span style={{padding:'4px 6px'}}/>
-                  <span style={{...TD,borderBottom:'none',fontWeight:800,color:'#1a1814'}}>{gratuite?'OFFERT':fmtE(totalHT)}</span>
-                  <span style={{...TD,borderBottom:'none',fontSize:11,color:'#6b6560'}}>{fmtE(totalTVA)}</span>
-                  <span style={{...TD,borderBottom:'none',color:'#6b6560'}}>{gratuite?'OFFERT':fmtE(totalTTC)}</span>
+                  <span style={{gridColumn:'1/5',fontSize:13,fontWeight:700,color:'#2d6a4f',padding:'6px 6px'}}>TOTAL</span>
+                  <span style={{...TD,borderBottom:'none',fontWeight:800,color:'#1a1814',fontSize:14}}>{gratuite?'OFFERT':fmtE(totalHT)}</span>
+                  <span style={{...TD,borderBottom:'none',fontSize:12,color:'#6b6560'}}>{fmtE(totalTVA)}</span>
+                  <span style={{...TD,borderBottom:'none',fontSize:12,color:'#6b6560'}}>{gratuite?'OFFERT':fmtE(totalTTC)}</span>
                 </div>
               </div>
             </>;
