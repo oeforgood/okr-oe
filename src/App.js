@@ -3877,7 +3877,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   React.useEffect(()=>{
     if(mode==='devis'&&!message){
       const prenom=teamMember?.prenom||'';
-      setMessage(`Bonjour,\nSuite à nos échanges, voici le chiffrage détaillé.\nTrès belle fin de journée !\n${prenom}`);
+      setMessage('Bonjour,\nSuite à nos échanges, voici le chiffrage détaillé.\nTrès belle fin de journée !\n'+(teamMember?.prenom||''));
     }
     if(mode==='commande')setMessage('');
   },[mode]);
@@ -4019,9 +4019,15 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   function getLineTarifLabel(l){
     if(l.qtyMode==='auto')return '';
     if(gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE)return 'Gratuit';
-    if(tariEvent&&prixCoutant)return 'Events Coûtant';
+    if(tariEvent&&prixCoutant)return ['Events','Coûtant'];
     if(tariEvent)return 'Events';
-    if(prixCoutant)return 'Coûtant';
+    if(prixCoutant){
+      if(totalEq75>=600)return ['600+','Coûtant'];
+      if(totalEq75>=360)return ['360+','Coûtant'];
+      if(totalEq75>=240)return ['240+','Coûtant'];
+      if(totalEq75>=120)return ['120+','Coûtant'];
+      return ['24+','Coûtant'];
+    }
     const prod=tarif.find(t=>t.code===l.code);
     if(!prod)return '';
     const q=parseInt(l.qty||0);
@@ -4122,7 +4128,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
       '</table>';
 
     const msgColor='#c0392b';
-    const msgHtml=message?`<div style="margin:16px 0;padding:12px 16px;background:#fff5f5;border-left:3px solid ${msgColor};border-radius:4px;font-size:13px;color:${msgColor}"><strong>${mode==='commande'?'Message supply':'Message client'} :</strong> ${message}</div>`:'';
+    const msgHtml=message&&mode==='commande'?`<div style="margin:16px 0;padding:12px 16px;background:#fff5f5;border-left:3px solid ${msgColor};border-radius:4px;font-size:13px;color:${msgColor}"><strong>Message supply :</strong> ${message}</div>`:'';
     const brandGreen='#2d6a4f';const brandBeige='#f5f3ef';const brandDark='#1a1814';const brandFont='system-ui,-apple-system,Helvetica,sans-serif';
     // prodRows for mail
     const prodRows=displayLignes.map(ligne=>{
@@ -4192,7 +4198,7 @@ ${msgHtml}
       ?message.split('\n').map(line=>`<p style="${fntS2}">${line||'&nbsp;'}</p>`).join('')
       :`<p style="${fntS}">Bonjour,</p><p style="${fntS}">Une nouvelle commande a été passée par <strong>${prenom}</strong> pour le compte de <strong>${societe}</strong>.</p><p style="${fntS}">La bise.</p>`;
     const outro='';
-    const msgBody=intro+htmlTable;
+    const msgBody=intro+'<br><br>'+htmlTable;
     await setDoc(doc(db,'devis_commandes',ref),{ref,mode,societe,contact,factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,preparation,tariEvent,infoLivraison,message,lignes:displayLignes,totalHT,totalTVA,totalTTC,createdAt:Date.now(),createdBy:currentUser?.email});
     try{
       await emailjs.send(EMAILJS_SERVICE,EMAILJS_TEMPLATE_DEVIS,{
@@ -4231,7 +4237,7 @@ ${msgHtml}
               if(line.startsWith('Code '))inProd=true;
               if(!inProd)infoLines.push(line);
             }
-            const GRD='90px 1fr 80px 60px 80px 80px 80px 80px';
+            const GRD='90px 1fr 80px 100px 80px 80px 80px 80px';
             const TH={fontSize:11,fontWeight:700,color:'#6b6560',padding:'4px 6px',textAlign:'right'};
             const TD={fontSize:12,padding:'3px 6px',textAlign:'right',borderBottom:'1px solid #f5f3ef'};
             const totTTC=displayLignes.reduce((s,l)=>{
@@ -4244,7 +4250,7 @@ ${msgHtml}
               <div style={{fontSize:12,color:'#6b6560',marginBottom:2}}>Client : {contact}</div>
               <div style={{fontSize:12,color:'#6b6560',marginBottom:2}}>Préparation : {prepLabel}</div>
               <div style={{fontSize:12,color:'#2d6a4f',fontWeight:600,marginBottom:2}}>Tarif : {tarifLabelComputed}</div>
-              {message&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600,marginBottom:2}}>{mode==='commande'?'Supply':'Client'} : {message}</div>}
+              {message&&mode==='commande'&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600,marginBottom:2}}>Supply : {message}</div>}
               <div style={{overflowX:'auto',marginTop:12}}>
                 <div style={{display:'grid',gridTemplateColumns:GRD,borderBottom:'2px solid #2d6a4f',paddingBottom:4,marginBottom:2}}>
                   <span style={{...TH,textAlign:'left'}}>Code</span>
@@ -4271,8 +4277,8 @@ ${msgHtml}
                     <span style={{...TD,textAlign:'center'}}>{(()=>{
                       const lbl=getLineTarifLabel(l);
                       const colors={Gratuit:['#fef2f2','#c0392b'],Coûtant:['#fefce8','#92400e'],Events:['#fef3c7','#92400e'],Palette:['#f0fdf4','#2d6a4f'],'600+':['#f0fdf4','#2d6a4f'],'360+':['#eff6ff','#1d4ed8'],'240+':['#f5f3ff','#6d28d9'],'120+':['#fdf4ff','#9333ea'],'24+':['#f8f7f5','#6b6560']};
-                      const [bg,fg]=colors[lbl]||['#f8f7f5','#6b6560'];
-                      return lbl?<span style={{fontSize:10,padding:'1px 5px',borderRadius:8,background:bg,color:fg,fontWeight:600}}>{lbl}</span>:null;
+                      const lbls=Array.isArray(lbl)?lbl:(lbl?[lbl]:[]);
+                      return lbls.length?<span style={{display:'flex',gap:2,justifyContent:'center',flexWrap:'nowrap'}}>{lbls.map((lb,i)=>{const[bg,fg]=colors[lb]||['#f8f7f5','#6b6560'];return<span key={i} style={{fontSize:9,padding:'1px 4px',borderRadius:6,background:bg,color:fg,fontWeight:600,whiteSpace:'nowrap'}}>{lb}</span>;})}</span>:null;
                     })()}</span>
                     <span style={TD}>{isOff?'offert':fmtE(pu)}</span>
                     <span style={{...TD,fontWeight:700}}>{isOff?'offert':fmtE(htL)}</span>
