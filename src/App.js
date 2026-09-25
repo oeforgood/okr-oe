@@ -3968,9 +3968,15 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     // Gratuité override (casiers/coiffes keep their price)
     if(gratuite&&prod.code!==CASIER_CODE&&prod.code!==COIFFE_CODE)return 0;
     // Tarif Event override
+    if(prixCoutant&&tariEvent&&parsePrix(prod.tariEvents)>0){
+      return Math.round(parsePrix(prod.tariEvents)*0.85*100)/100;
+    }
     if(prixCoutant){
-      // Prix coûtant = prix normal / 0.85
-      if(isPaletteQty&&parsePrix(prod.prixPalette)>0)return Math.round(parsePrix(prod.prixPalette)/0.85*100)/100;
+      const qpalPU=parseInt(String(prod.qpalette||'0').replace(/[^0-9]/g,''))||0;
+      const isPalCartonsPU=preparation==='palette_cartons';
+      const isPalCasiersPU=preparation==='palette_casier_coiffe'||preparation==='palette_casier_sans_coiffe';
+      const isPaletteQtyPU=isPalCartonsPU?(qpalPU>0&&q%qpalPU===0):isPalCasiersPU?(q>=480&&q%480===0):false;
+      if(isPaletteQtyPU&&parsePrix(prod.prixPalette)>0)return Math.round(parsePrix(prod.prixPalette)*0.85*100)/100;
       if(totalEq75>=600)return Math.round(parsePrix(prod.prix600)/0.85*100)/100;
       if(totalEq75>=360)return Math.round(parsePrix(prod.prix360)/0.85*100)/100;
       if(totalEq75>=240)return Math.round(parsePrix(prod.prix240)/0.85*100)/100;
@@ -3983,7 +3989,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     const isPaletteCartons=preparation==='palette_cartons';
     const isPaletteCasiers=preparation==='palette_casier_coiffe'||preparation==='palette_casier_sans_coiffe';
     const isPaletteQty=isPaletteCartons?(qpalRaw>0&&q>0&&q%qpalRaw===0):isPaletteCasiers?(q>=480&&q%480===0):false;
-    if(isPaletteQty&&parsePrix(prod.prixPalette)>0)return parsePrix(prod.prixPalette);
+    {const qpalPU2=parseInt(String(prod.qpalette||'0').replace(/[^0-9]/g,''))||0;const isPalC=preparation==='palette_cartons';const isPalCas=preparation==='palette_casier_coiffe'||preparation==='palette_casier_sans_coiffe';const isPalQ=isPalC?(qpalPU2>0&&q%qpalPU2===0):isPalCas?(q>=480&&q%480===0):false;if(isPalQ&&parsePrix(prod.prixPalette)>0)return parsePrix(prod.prixPalette);}
     if(totalEq75>=600)return parsePrix(prod.prix600);
     if(totalEq75>=360)return parsePrix(prod.prix360);
     if(totalEq75>=240)return parsePrix(prod.prix240);
