@@ -3993,6 +3993,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     setPreparation(newPrep);
   }
 
+  const tarifLabelComputed=gratuite?('GRATUITÉ — '+gratuiteRaison):prixCoutant?'Prix Coûtant (prix normal ÷ 0,85)':tariEvent?'Tarif Events':totalEq75>=600?'Tarif 600+':totalEq75>=360?'Tarif 360+':totalEq75>=240?'Tarif 240+':totalEq75>=120?'Tarif 120+':'Tarif 24+';
   const displayLignes=getDisplayLignes();
   function getLinePU(l){return l.prix!==undefined?l.prix:(()=>{const p=tarif.find(t=>t.code===l.code);return p?getPU(p,l.qty):0;})();}
   const totalHT=displayLignes.reduce((s,l)=>s+getLinePU(l)*parseInt(l.qty||0),0);
@@ -4010,7 +4011,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
 
   function buildText(ref){
     const sep='─'.repeat(70);
-    const tarifLabel=gratuite?('GRATUITÉ — '+gratuiteRaison):prixCoutant?'Prix Coûtant (prix normal ÷ 0,85)':tariEvent?'Tarif Events':totalEq75>=600?'Tarif 600+':totalEq75>=360?'Tarif 360+':totalEq75>=240?'Tarif 240+':totalEq75>=120?'Tarif 120+':'Tarif 24+';
+    const tarifLabel=tarifLabelComputed;
     function col(s,w){return String(s||'').padEnd(w).slice(0,w);}
     function colR(s,w){return String(s||'').padStart(w).slice(-w);}
     const colW=12;
@@ -4039,9 +4040,9 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
       
       sep,
       `PREPARATION : ${prepLabel}`,
-      `TARIF : ${tarifLabel}`,
+      `TARIF : ${tarifLabelComputed}`,
       message?`MESSAGE : ${message}`:'',
-      `TARIF : ${tarifLabel}`,
+      `TARIF : ${tarifLabelComputed}`,
       message?`>>> ${mode==='commande'?'SUPPLY':'CLIENT'} : ${message} <<<`:'',
       sep,
       header,
@@ -4067,7 +4068,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     if(!coiffeOk){alert(`Le nombre de bouteilles (${totalBouteilles}) doit être un multiple de 120.`);return;}
     setSending(true);
     const ref=genRef();
-    const tarifLabel=gratuite?('GRATUITÉ — '+gratuiteRaison):prixCoutant?'Prix Coûtant (prix normal ÷ 0,85)':tariEvent?'Tarif Events':totalEq75>=600?'Tarif 600+':totalEq75>=360?'Tarif 360+':totalEq75>=240?'Tarif 240+':totalEq75>=120?'Tarif 120+':'Tarif 24+';
+    const tarifLabel=tarifLabelComputed;
     const textContent=buildText(ref);
     const prenom=teamMember?.prenom||'Oé';
     // Build HTML table for products
@@ -4387,7 +4388,7 @@ ${msgHtml}
           <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
             <div style={{fontSize:13,fontWeight:700}}>Produits{isCasierPrep?' (75cl uniquement)':''}</div>
             <div style={{fontSize:11,padding:'2px 8px',borderRadius:10,background:tariEvent?'#fef3c7':totalEq75>=600?'#f0fdf4':totalEq75>=360?'#eff6ff':totalEq75>=240?'#f5f3ff':totalEq75>=120?'#fdf4ff':'#f8f7f5',color:tariEvent?'#92400e':totalEq75>=600?'#2d6a4f':totalEq75>=360?'#1d4ed8':totalEq75>=240?'#6d28d9':totalEq75>=120?'#9333ea':'#6b6560',fontWeight:600}}>
-              {tariEvent?'Tarif Events':totalEq75>=600?`Tarif 600+ (${Math.round(totalEq75)} éq.75)`:totalEq75>=360?`Tarif 360+ (${Math.round(totalEq75)} éq.75)`:totalEq75>=240?`Tarif 240+ (${Math.round(totalEq75)} éq.75)`:totalEq75>=120?`Tarif 120+ (${Math.round(totalEq75)} éq.75)`:`Tarif 24+ (${Math.round(totalEq75)} éq.75)`}
+              {tarifLabelComputed+' ('+(Math.round(totalEq75))+' éq.75)' === tarifLabelComputed?tarifLabelComputed:(tarifLabelComputed+' ('+Math.round(totalEq75)+' éq.75)'):totalEq75>=360?`Tarif 360+ (${Math.round(totalEq75)} éq.75)`:totalEq75>=240?`Tarif 240+ (${Math.round(totalEq75)} éq.75)`:totalEq75>=120?`Tarif 120+ (${Math.round(totalEq75)} éq.75)`:`Tarif 24+ (${Math.round(totalEq75)} éq.75)`}
             </div>
           </div>
           {loadingTarif?<div style={{color:'#9e9890',fontSize:13}}>Chargement...</div>
