@@ -4076,6 +4076,9 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   const prepLabel=PREP_OPTIONS.find(p=>p.k===preparation)?.l||'';
   const expA=sameAddr||retraitLoft?factAddr:expAddr;
   const coiffeOk=!isCoiffePrep||totalBouteilles===0||totalBouteilles%120===0;
+  const minQtyOk=gratuite||(tariEvent?totalEq75>=6:totalEq75>=24);
+  const minQtyMsg=!gratuite&&!minQtyOk?(tariEvent?'Il faut au moins 6 bouteilles ou équivalent bouteilles.':'Il faut au moins 24 bouteilles ou équivalent bouteilles (ou choisir le tarif Events).'):'';
+
 
   function genRef(){
     const d=new Date();
@@ -4494,7 +4497,6 @@ ${msgHtml}
         {preparation&&<div style={SECT}>
           <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
             <div style={{fontSize:13,fontWeight:700}}>Produits{isCasierPrep?' (75cl uniquement)':''}</div>
-            {gratuite&&<span style={{fontSize:12,fontWeight:700,color:'#c0392b',background:'#fef2f2',padding:'2px 8px',borderRadius:8}}>Gratuité</span>}
             <div style={{fontSize:11,padding:'2px 8px',borderRadius:10,background:tariEvent?'#fef3c7':totalEq75>=600?'#f0fdf4':totalEq75>=360?'#eff6ff':totalEq75>=240?'#f5f3ff':totalEq75>=120?'#fdf4ff':'#f8f7f5',color:tariEvent?'#92400e':totalEq75>=600?'#2d6a4f':totalEq75>=360?'#1d4ed8':totalEq75>=240?'#6d28d9':totalEq75>=120?'#9333ea':'#6b6560',fontWeight:600}}>
               {tariEvent?'Tarif Events':totalEq75>=600?`Tarif 600+ (${Math.round(totalEq75)} éq.75)`:totalEq75>=360?`Tarif 360+ (${Math.round(totalEq75)} éq.75)`:totalEq75>=240?`Tarif 240+ (${Math.round(totalEq75)} éq.75)`:totalEq75>=120?`Tarif 120+ (${Math.round(totalEq75)} éq.75)`:`Tarif 24+ (${Math.round(totalEq75)} éq.75)`}
             </div>
@@ -4578,11 +4580,12 @@ ${msgHtml}
 
         {preparation&&<div style={{display:'flex',justifyContent:'flex-end',alignItems:'center',gap:12}}>
           {isCoiffePrep&&totalBouteilles>0&&!coiffeOk&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600}}>⚠️ {totalBouteilles} bouteilles — multiple de 120 requis</div>}
+          {minQtyMsg&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600}}>⚠️ {minQtyMsg}</div>}
           <button onClick={handleEnvoyer}
-            disabled={sending||!coreLignes.length||!coiffeOk}
+            disabled={sending||!coreLignes.length||!coiffeOk||!minQtyOk}
             style={{padding:'12px 32px',
-              background:sending||!coreLignes.length||!coiffeOk?'#e2ddd6':'#2d6a4f',
-              color:sending||!coreLignes.length||!coiffeOk?'#9e9890':'#fff',
+              background:sending||!coreLignes.length||!coiffeOk||!minQtyOk?'#e2ddd6':'#2d6a4f',
+              color:sending||!coreLignes.length||!coiffeOk||!minQtyOk?'#9e9890':'#fff',
               border:'none',borderRadius:10,fontSize:15,fontWeight:700,cursor:'pointer'}}>
             {sending?'Envoi en cours...':(mode==='devis'?'Envoyer le devis':'Enregistrer la commande')}
           </button>
