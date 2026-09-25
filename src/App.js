@@ -3996,6 +3996,25 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   const tarifLabelComputed=gratuite?('GRATUITÉ — '+gratuiteRaison):prixCoutant?'Prix Coûtant (prix normal ÷ 0,85)':tariEvent?'Tarif Events':totalEq75>=600?'Tarif 600+':totalEq75>=360?'Tarif 360+':totalEq75>=240?'Tarif 240+':totalEq75>=120?'Tarif 120+':'Tarif 24+';
   const displayLignes=getDisplayLignes();
   function getLinePU(l){return l.prix!==undefined?l.prix:(()=>{const p=tarif.find(t=>t.code===l.code);return p?getPU(p,l.qty):0;})();}
+  function getLineTarifLabel(l){
+    if(l.qtyMode==='auto')return '';
+    if(gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE)return 'Gratuit';
+    if(prixCoutant)return 'Coûtant';
+    if(tariEvent)return 'Events';
+    const prod=tarif.find(t=>t.code===l.code);
+    if(!prod)return '';
+    const q=parseInt(l.qty||0);
+    const qpalRaw=parseInt(String(prod.qpalette||'0').replace(/[^0-9]/g,''))||0;
+    const isPaletteCartons=preparation==='palette_cartons';
+    const isPaletteCasiers=preparation==='palette_casier_coiffe'||preparation==='palette_casier_sans_coiffe';
+    const isPalQty=isPaletteCartons?(qpalRaw>0&&q%qpalRaw===0):isPaletteCasiers?(q>=480&&q%480===0):false;
+    if(isPalQty)return 'Palette';
+    if(totalEq75>=600)return '600+';
+    if(totalEq75>=360)return '360+';
+    if(totalEq75>=240)return '240+';
+    if(totalEq75>=120)return '120+';
+    return '24+';
+  }
   const totalHT=displayLignes.reduce((s,l)=>s+getLinePU(l)*parseInt(l.qty||0),0);
   const totalTVA=displayLignes.reduce((s,l)=>s+getLinePU(l)*parseInt(l.qty||0)*(parseFloat(l.tva||0)/100),0);
   const totalTTC=totalHT+totalTVA;
@@ -4081,25 +4100,8 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
       (message?'<tr><td style="padding:3px 16px 3px 0;color:#9e9890;font-size:11px;white-space:nowrap;vertical-align:top">MESSAGE</td><td style="padding:3px 0;font-style:italic">'+message+'</td></tr>':'')+
       (echantillons?'<tr><td style="padding:3px 16px 3px 0;color:#c0392b;font-size:11px;white-space:nowrap;vertical-align:top">ÉCHANTILLONS</td><td style="padding:3px 0;color:#c0392b;font-weight:600">⚠️ Gratuits — '+echantillonsRaison+'</td></tr>':'')+
       '</table>';
-    const fntS='font-family:${brandFont};font-size:14px;color:#1a1814;line-height:1.6';
-    const intro=mode==='devis'
-      ?`<p style="${fntS}">Bonjour,</p><p style="${fntS}">Suite à nos échanges, voici le chiffrage détaillé :</p>`
-      :`<p style="${fntS}">Bonjour,</p><p style="${fntS}">Une nouvelle commande a été enregistrée par <strong>${prenom}</strong>.</p>`;
-    const outro=mode==='devis'
-      ?'<p>Très belle fin de journée !<br><strong>'+prenom+' — Oé</strong></p>'
-      :'<p>La bise.<br><strong>'+prenom+' — Oé</strong></p>';
-    const msgBody=intro+clientInfoHtml+htmlTable+outro;
-    await setDoc(doc(db,'devis_commandes',ref),{ref,mode,societe,contact,factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,preparation,tariEvent,infoLivraison,message,lignes:displayLignes,totalHT,totalTVA,totalTTC,createdAt:Date.now(),createdBy:currentUser?.email});
-    try{
-      await emailjs.send(EMAILJS_SERVICE,EMAILJS_TEMPLATE_DEVIS,{
-        to_email:'fx@oeforgood.com',cc_email:'',
-        to_name:prenom,from_name:prenom,name:prenom,
-        email:currentUser?.email||'',reply_to:currentUser?.email||'fx@oeforgood.com',
-        subject:`🌼 ${mode==='devis'?`Devis ${ref} - Oé`:`Commande ${ref} passée par ${prenom}`}`,
-        ref,html_content:msgBody,message:msgBody,
-      },EMAILJS_KEY);
-    }catch(e){console.error('EmailJS:',e);}
-const msgColor='#c0392b';
+
+    const msgColor='#c0392b';
     const msgHtml=message?`<div style="margin:16px 0;padding:12px 16px;background:#fff5f5;border-left:3px solid ${msgColor};border-radius:4px;font-size:13px;color:${msgColor}"><strong>${mode==='commande'?'Message supply':'Message client'} :</strong> ${message}</div>`:'';
     const brandGreen='#2d6a4f';const brandBeige='#f5f3ef';const brandDark='#1a1814';const brandFont='system-ui,-apple-system,Helvetica,sans-serif';
     // prodRows for mail
@@ -4162,7 +4164,24 @@ ${msgHtml}
   Oé · contact@oeforgood.com · oeforgood.com
 </div>
 </div>`
-    setSentRecap(textContent);setSending(false);setSent(true);
+    const fntS='font-family:${brandFont};font-size:14px;color:#1a1814;line-height:1.6';
+    const intro=mode==='devis'
+      ?`<p style="${fntS}">Bonjour,</p><p style="${fntS}">Suite à nos échanges, voici le chiffrage détaillé :</p>`
+      :`<p style="${fntS}">Bonjour,</p><p style="${fntS}">Une nouvelle commande a été enregistrée par <strong>${prenom}</strong>.</p>`;
+    const outro=mode==='devis'
+      ?'<p>Très belle fin de journée !<br><strong>'+prenom+' — Oé</strong></p>'
+      :'<p>La bise.<br><strong>'+prenom+' — Oé</strong></p>';
+    const msgBody=intro+clientInfoHtml+htmlTable+outro;
+    await setDoc(doc(db,'devis_commandes',ref),{ref,mode,societe,contact,factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,preparation,tariEvent,infoLivraison,message,lignes:displayLignes,totalHT,totalTVA,totalTTC,createdAt:Date.now(),createdBy:currentUser?.email});
+    try{
+      await emailjs.send(EMAILJS_SERVICE,EMAILJS_TEMPLATE_DEVIS,{
+        to_email:'fx@oeforgood.com',cc_email:'',
+        to_name:prenom,from_name:prenom,name:prenom,
+        email:currentUser?.email||'',reply_to:currentUser?.email||'fx@oeforgood.com',
+        subject:`🌼 ${mode==='devis'?`Devis ${ref} - Oé`:`Commande ${ref} passée par ${prenom}`}`,
+        ref,html_content:msgBody,message:msgBody,
+      },EMAILJS_KEY);
+    }catch(e){console.error('EmailJS:',e);}    setSentRecap(textContent);setSending(false);setSent(true);
   }
 
   function resetForm(){setSent(false);setSentRecap('');setStep('coords');setLignes([]);setPreparation('');setSociete('');setContact('');setFactAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setExpAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setSameAddr(false);setRetraitLoft(false);setMessage('');setInfoLivraison('');setTariEvent(false);setPrixCoutant(false);setGratuite(false);setGratuiteRaison('');setEchantillons(false);}
@@ -4387,9 +4406,7 @@ ${msgHtml}
         {preparation&&<div style={SECT}>
           <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
             <div style={{fontSize:13,fontWeight:700}}>Produits{isCasierPrep?' (75cl uniquement)':''}</div>
-            <div style={{fontSize:11,padding:'2px 8px',borderRadius:10,background:tariEvent?'#fef3c7':totalEq75>=600?'#f0fdf4':totalEq75>=360?'#eff6ff':totalEq75>=240?'#f5f3ff':totalEq75>=120?'#fdf4ff':'#f8f7f5',color:tariEvent?'#92400e':totalEq75>=600?'#2d6a4f':totalEq75>=360?'#1d4ed8':totalEq75>=240?'#6d28d9':totalEq75>=120?'#9333ea':'#6b6560',fontWeight:600}}>
-              {tarifLabelComputed}{totalEq75>0&&` (${Math.round(totalEq75)} éq.75)`}
-            </div>
+
           </div>
           {loadingTarif?<div style={{color:'#9e9890',fontSize:13}}>Chargement...</div>
           :<>
@@ -4401,7 +4418,7 @@ ${msgHtml}
             {displayLignes.length>0&&<>
               <table style={{width:'100%',borderCollapse:'collapse'}}>
                 <thead><tr style={{background:'#f8f7f5'}}>
-                  {['Code','Produit','Quantité','P.U. HT','Total HT',''].map((h,i)=>
+                  {['Code','Produit','Tarif','Quantité','P.U. HT','Total HT',''].map((h,i)=>
                     <th key={i} style={{padding:'6px 8px',fontSize:11,color:'#6b6560',textAlign:i>=2&&i<5?'right':'left',fontWeight:700}}>{h}</th>)}
                 </tr></thead>
                 <tbody>{displayLignes.map((l,i)=>{
@@ -4413,6 +4430,14 @@ ${msgHtml}
                     <td style={{padding:'8px',fontSize:12}}>
                       {l.robe&&<span style={{display:'inline-block',width:9,height:9,borderRadius:'50%',background:getRobeDot(l.robe),marginRight:6,verticalAlign:'middle'}}/>}
                       {l.libelle}{isAuto&&<span style={{fontSize:10,color:'#9e9890',marginLeft:5}}>(auto)</span>}
+                    </td>
+                    <td style={{padding:'8px',textAlign:'center',whiteSpace:'nowrap'}}>
+                      {!isAuto&&(()=>{
+                        const lbl=getLineTarifLabel(l);
+                        const colors={Gratuit:['#fef2f2','#c0392b'],Coûtant:['#fefce8','#92400e'],Events:['#fef3c7','#92400e'],Palette:['#f0fdf4','#2d6a4f'],'600+':['#f0fdf4','#2d6a4f'],'360+':['#eff6ff','#1d4ed8'],'240+':['#f5f3ff','#6d28d9'],'120+':['#fdf4ff','#9333ea'],'24+':['#f8f7f5','#6b6560']};
+                        const [bg,fg]=colors[lbl]||['#f8f7f5','#6b6560'];
+                        return lbl?<span style={{fontSize:10,padding:'1px 6px',borderRadius:8,background:bg,color:fg,fontWeight:600}}>{lbl}</span>:null;
+                      })()}
                     </td>
                     <td style={{padding:'8px',textAlign:'right'}}>
                       {isAuto?<span style={{fontSize:12,color:'#6b6560'}}>{l.qty}</span>
