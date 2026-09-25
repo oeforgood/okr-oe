@@ -4250,6 +4250,12 @@ ${msgHtml}
                     <span style={{...TD,textAlign:'left',fontFamily:'system-ui,sans-serif',fontSize:12,fontWeight:600,letterSpacing:0.3}}>{l.code}</span>
                     <span style={{...TD,textAlign:'left'}}>{l.libelle}{l.qtyMode==='auto'?<span style={{fontSize:10,color:'#9e9890',marginLeft:4}}>(auto)</span>:null}</span>
                     <span style={TD}>{qty}</span>
+                    <span style={{...TD,textAlign:'center'}}>{(()=>{
+                      const lbl=getLineTarifLabel(l);
+                      const colors={Gratuit:['#fef2f2','#c0392b'],Coûtant:['#fefce8','#92400e'],Events:['#fef3c7','#92400e'],Palette:['#f0fdf4','#2d6a4f'],'600+':['#f0fdf4','#2d6a4f'],'360+':['#eff6ff','#1d4ed8'],'240+':['#f5f3ff','#6d28d9'],'120+':['#fdf4ff','#9333ea'],'24+':['#f8f7f5','#6b6560']};
+                      const [bg,fg]=colors[lbl]||['#f8f7f5','#6b6560'];
+                      return lbl?<span style={{fontSize:10,padding:'1px 5px',borderRadius:8,background:bg,color:fg,fontWeight:600}}>{lbl}</span>:null;
+                    })()}</span>
                     <span style={TD}>{isOff?'offert':fmtE(pu)}</span>
                     <span style={{...TD,fontWeight:700}}>{isOff?'offert':fmtE(htL)}</span>
                     <span style={{...TD,fontSize:11,color:'#6b6560'}}>{tvaR>0?tvaR+'%':'0%'}</span>
