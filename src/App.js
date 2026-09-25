@@ -2086,8 +2086,14 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,onGoOKR,onGoU
               const seasonKey=okrData?.seasonKey||'';
               const checkedIds=answers[q.id]?.krIds||[];
               function toggleKR(id){
-                const next=checkedIds.includes(id)?checkedIds.filter(x=>x!==id):[...checkedIds,id];
-                upd(q.id,{seasonKey,krIds:next});
+                if(id==='__aucun__'){
+                  upd(q.id,{seasonKey,krIds:checkedIds.includes('__aucun__')?[]:['__aucun__']});
+                } else {
+                  const next=checkedIds.includes(id)
+                    ?checkedIds.filter(x=>x!==id)
+                    :[...checkedIds.filter(x=>x!=='__aucun__'),id];
+                  upd(q.id,{seasonKey,krIds:next});
+                }
               }
               return <div key={q.id} style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"14px 16px"}}>
                 <div style={{fontSize:13,fontWeight:500,color:"#1a1814",marginBottom:12}}>{q.text}</div>
@@ -2107,6 +2113,12 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,onGoOKR,onGoU
                       </div>
                     </label>;
                   })}
+                  <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",padding:"6px 8px",borderRadius:6,background:checkedIds.includes("__aucun__")?"#fef9c3":"#f8f7f5",border:`1px solid ${checkedIds.includes("__aucun__")?"#fbbf24":"#e2ddd6"}`}}>
+                    <input type="checkbox" checked={checkedIds.includes("__aucun__")} onChange={()=>toggleKR("__aucun__")} style={{accentColor:"#b45309",marginTop:2,flexShrink:0}}/>
+                    <div style={{flex:1}}>
+                      <span style={{fontSize:12,fontWeight:600,color:"#b45309"}}>Aucun OKR cette semaine</span>
+                    </div>
+                  </label>
                 </div>}
               </div>;
             }
