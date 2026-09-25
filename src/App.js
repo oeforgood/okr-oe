@@ -3883,6 +3883,17 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   const [recallClient,setRecallClient]=React.useState('');
   const [recallMode,setRecallMode]=React.useState('commande');
   const [recallRef,setRecallRef]=React.useState('');
+  React.useEffect(()=>{
+    if(mode==='devis'){
+      const prenom=teamMember?.prenom||'';
+      setMessage('Bonjour,
+Suite à nos échanges, voici le chiffrage détaillé.
+Très belle fin de journée !
+'+prenom);
+    } else {
+      setMessage('');
+    }
+  },[mode]);
   const [echantillons,setEchantillons]=React.useState(false);
   const [tariEvent,setTariEvent]=React.useState(false);
   const [prixCoutant,setPrixCoutant]=React.useState(false);
@@ -3908,6 +3919,14 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   const CASIER_PRIX=10;const COIFFE_PRIX=120;
 
   React.useEffect(()=>{
+    // Default message for devis
+    if(mode==='devis'){
+      const prenom=teamMember?.prenom||'';
+      setMessage('Bonjour,
+Suite à nos échanges, voici le chiffrage détaillé.
+Très belle fin de journée !
+'+prenom);
+    }
     getDocs(collection(db,'devis_clients')).then(snap=>{setSavedClients(snap.docs.map(d=>({key:d.id,...d.data()})).sort((a,b)=>(a.societe||'').localeCompare(b.societe||'')));});
     getDocs(collection(db,'devis_commandes')).then(snap=>{setSavedOrders(snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)));});
     getDocs(collection(db,'tarif')).then(snap=>{
@@ -4181,7 +4200,7 @@ ${msgHtml}
     setSentRecap(textContent);setSending(false);setSent(true);
   }
 
-  function resetForm(){setSent(false);setSentRecap('');setStep('coords');setLignes([]);setPreparation('');setSociete('');setContact('');setFactAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setExpAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setSameAddr(false);setRetraitLoft(false);setMessage('');setInfoLivraison('');setTariEvent(false);setPrixCoutant(false);setGratuite(false);setGratuiteRaison('');setEchantillons(false);}
+  function resetForm(){setSent(false);setSentRecap('');setStep('coords');setLignes([]);setPreparation('');setSociete('');setContact('');setFactAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setExpAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setSameAddr(false);setRetraitLoft(false);setMessage('');setInfoLivraison('');setTariEvent(false);setPrixCoutant(false);setGratuite(false);setGratuiteRaison('');}
 
   const INP=(w='100%')=>({fontSize:13,padding:'7px 10px',borderRadius:7,border:'1px solid #e2ddd6',outline:'none',fontFamily:'inherit',width:w,boxSizing:'border-box'});
   const LBL={fontSize:11,fontWeight:600,color:'#6b6560',marginBottom:3,display:'block'};
@@ -4451,7 +4470,7 @@ ${msgHtml}
             {displayLignes.length>0&&<>
               <table style={{width:'100%',borderCollapse:'collapse'}}>
                 <thead><tr style={{background:'#f8f7f5'}}>
-                  {['Code','Produit','Quantité','P.U. HT','Total HT',''].map((h,i)=>
+                  {['Code','Produit','Tarif','Quantité','P.U. HT','Total HT',''].map((h,i)=>
                     <th key={i} style={{padding:'6px 8px',fontSize:11,color:'#6b6560',textAlign:i>=2&&i<5?'right':'left',fontWeight:700}}>{h}</th>)}
                 </tr></thead>
                 <tbody>{displayLignes.map((l,i)=>{
@@ -4463,6 +4482,9 @@ ${msgHtml}
                     <td style={{padding:'8px',fontSize:12}}>
                       {l.robe&&<span style={{display:'inline-block',width:9,height:9,borderRadius:'50%',background:getRobeDot(l.robe),marginRight:6,verticalAlign:'middle'}}/>}
                       {l.libelle}{isAuto&&<span style={{fontSize:10,color:'#9e9890',marginLeft:5}}>(auto)</span>}
+                    </td>
+                    <td style={{padding:'4px 8px',textAlign:'center',whiteSpace:'nowrap'}}>
+                      {!isAuto&&renderTarifBadges(getLineTarifLabel(l))}
                     </td>
                     <td style={{padding:'8px',textAlign:'right'}}>
                       {isAuto?<span style={{fontSize:12,color:'#6b6560'}}>{l.qty}</span>
