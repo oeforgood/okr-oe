@@ -4063,8 +4063,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
       
       sep,
       `PREPARATION : ${prepLabel}`,
-
-      message?`MESSAGE : ${message}`:'',
+      `TARIF : ${tarifLabelComputed}`,
 
       message?`>>> ${mode==='commande'?'SUPPLY':'CLIENT'} : ${message} <<<`:'',
       sep,
@@ -4214,7 +4213,7 @@ ${msgHtml}
               if(line.startsWith('Code '))inProd=true;
               if(!inProd)infoLines.push(line);
             }
-            const GRD='90px 1fr 45px 60px 80px 80px 80px 80px';
+            const GRD='90px 1fr 80px 60px 80px 80px 80px 80px';
             const TH={fontSize:11,fontWeight:700,color:'#6b6560',padding:'4px 6px',textAlign:'right'};
             const TD={fontSize:12,padding:'3px 6px',textAlign:'right',borderBottom:'1px solid #f5f3ef'};
             const totTTC=displayLignes.reduce((s,l)=>{
