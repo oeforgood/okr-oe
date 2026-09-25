@@ -4193,7 +4193,7 @@ ${msgHtml}
 </div>
 </div>`
     const fntS='font-family:${brandFont};font-size:14px;color:#1a1814;line-height:1.6';
-    const fntS2=`font-family:${brandFont};font-size:14px;color:#1a1814;line-height:1.4;margin:0 0 4px 0`;
+    const fntS2=`font-family:${brandFont};font-size:14px;color:#1a1814;line-height:1.1;margin:0 0 4px 0`;
     const intro=mode==='devis'
       ?message.split('\n').map(line=>`<p style="${fntS2}">${line||'&nbsp;'}</p>`).join('')
       :`<p style="${fntS}">Bonjour,</p><p style="${fntS}">Une nouvelle commande a été passée par <strong>${prenom}</strong> pour le compte de <strong>${societe}</strong>.</p><p style="${fntS}">La bise.</p>`;
@@ -4276,20 +4276,20 @@ ${msgHtml}
                     <span style={TD}>{qty}</span>
                     <span style={{...TD,textAlign:'center'}}>{(()=>{
                       const lbl=getLineTarifLabel(l);
-                      const colors={Gratuit:['#fef2f2','#c0392b'],Coûtant:['#fefce8','#92400e'],Events:['#fef3c7','#92400e'],Palette:['#f0fdf4','#2d6a4f'],'600+':['#f0fdf4','#2d6a4f'],'360+':['#eff6ff','#1d4ed8'],'240+':['#f5f3ff','#6d28d9'],'120+':['#fdf4ff','#9333ea'],'24+':['#f8f7f5','#6b6560']};
+                      const colors={Gratuit:['#fef2f2','#c0392b'],Coûtant:['#ea580c','#fff'],Events:['#fef3c7','#92400e'],Palette:['#f0fdf4','#2d6a4f'],'600+':['#f0fdf4','#2d6a4f'],'360+':['#eff6ff','#1d4ed8'],'240+':['#f5f3ff','#6d28d9'],'120+':['#fdf4ff','#9333ea'],'24+':['#f8f7f5','#6b6560']};
                       const lbls=Array.isArray(lbl)?lbl:(lbl?[lbl]:[]);
                       return lbls.length?<span style={{display:'flex',gap:2,justifyContent:'center',flexWrap:'nowrap'}}>{lbls.map((lb,i)=>{const[bg,fg]=colors[lb]||['#f8f7f5','#6b6560'];return<span key={i} style={{fontSize:9,padding:'1px 4px',borderRadius:6,background:bg,color:fg,fontWeight:600,whiteSpace:'nowrap'}}>{lb}</span>;})}</span>:null;
                     })()}</span>
                     <span style={TD}>{isOff?'offert':fmtE(pu)}</span>
                     <span style={{...TD,fontWeight:700}}>{isOff?'offert':fmtE(htL)}</span>
                     <span style={{...TD,fontSize:11,color:'#6b6560'}}>{tvaR>0?tvaR+'%':'0%'}</span>
-                    <span style={{...TD,fontWeight:600}}>{isOff?'offert':fmtE(ttcL)}</span>
+                    <span style={TD}/>
                   </div>;
                 })}
                 <div style={{display:'grid',gridTemplateColumns:GRD,borderTop:'2px solid #2d6a4f',marginTop:4,paddingTop:4}}>
-                  <span style={{gridColumn:'1/5',fontSize:12,fontWeight:700,color:'#2d6a4f',padding:'4px 6px'}}>TOTAL</span>
-                  <span style={{...TD,borderBottom:'none',fontWeight:700}}>{gratuite?'OFFERT':fmtE(totalHT)}</span>
-                  <span style={{...TD,borderBottom:'none',fontWeight:400}}>{fmtE(totalTVA)}</span>
+                  <span style={{gridColumn:'1/6',fontSize:12,fontWeight:700,color:'#2d6a4f',padding:'4px 6px'}}>TOTAL</span>
+                  <span style={{...TD,borderBottom:'none',fontWeight:800}}>{gratuite?'OFFERT':fmtE(totalHT)}</span>
+                  <span style={{...TD,borderBottom:'none',fontWeight:400,color:'#6b6560'}}>{fmtE(totalTVA)}</span>
                   <span style={{...TD,borderBottom:'none',fontWeight:400}}>{gratuite?'OFFERT':fmtE(totalTTC)}</span>
                 </div>
               </div>
@@ -4466,7 +4466,7 @@ ${msgHtml}
                     <td style={{padding:'8px',textAlign:'center',whiteSpace:'nowrap'}}>
                       {!isAuto&&(()=>{
                         const lbl=getLineTarifLabel(l);
-                        const colors={Gratuit:['#fef2f2','#c0392b'],Coûtant:['#fefce8','#92400e'],Events:['#fef3c7','#92400e'],Palette:['#f0fdf4','#2d6a4f'],'600+':['#f0fdf4','#2d6a4f'],'360+':['#eff6ff','#1d4ed8'],'240+':['#f5f3ff','#6d28d9'],'120+':['#fdf4ff','#9333ea'],'24+':['#f8f7f5','#6b6560']};
+                        const colors={Gratuit:['#fef2f2','#c0392b'],Coûtant:['#ea580c','#fff'],Events:['#fef3c7','#92400e'],Palette:['#f0fdf4','#2d6a4f'],'600+':['#f0fdf4','#2d6a4f'],'360+':['#eff6ff','#1d4ed8'],'240+':['#f5f3ff','#6d28d9'],'120+':['#fdf4ff','#9333ea'],'24+':['#f8f7f5','#6b6560']};
                         const [bg,fg]=colors[lbl]||['#f8f7f5','#6b6560'];
                         return lbl?<span style={{fontSize:10,padding:'1px 6px',borderRadius:8,background:bg,color:fg,fontWeight:600}}>{lbl}</span>:null;
                       })()}
