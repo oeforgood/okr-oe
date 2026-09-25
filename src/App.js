@@ -3931,12 +3931,16 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   function parsePrix(v){return parseFloat(String(v||'0').replace(/€/g,'').replace(/\s/g,'').replace(',','.'))||0;}
   function getPU(prod,qty){
     const q=parseInt(qty||0);
+    // Compute palette condition first (needed by prixCoutant)
+    const qpalRawPU=parseInt(String(prod.qpalette||'0').replace(/[^0-9]/g,''))||0;
+    const isPalCartonsPU=preparation==='palette_cartons';
+    const isPalCasiersPU=preparation==='palette_casier_coiffe'||preparation==='palette_casier_sans_coiffe';
+    const isPaletteQtyPU=isPalCartonsPU?(qpalRawPU>0&&q>0&&q%qpalRawPU===0):isPalCasiersPU?(q>=480&&q%480===0):false;
     // Gratuité override (casiers/coiffes keep their price)
     if(gratuite&&prod.code!==CASIER_CODE&&prod.code!==COIFFE_CODE)return 0;
-    // Tarif Event override
+    // Prix coûtant = prix normal / 0.85
     if(prixCoutant){
-      // Prix coûtant = prix normal / 0.85
-      if(isPaletteQty&&parsePrix(prod.prixPalette)>0)return Math.round(parsePrix(prod.prixPalette)/0.85*100)/100;
+      if(isPaletteQtyPU&&parsePrix(prod.prixPalette)>0)return Math.round(parsePrix(prod.prixPalette)/0.85*100)/100;
       if(totalEq75>=600)return Math.round(parsePrix(prod.prix600)/0.85*100)/100;
       if(totalEq75>=360)return Math.round(parsePrix(prod.prix360)/0.85*100)/100;
       if(totalEq75>=240)return Math.round(parsePrix(prod.prix240)/0.85*100)/100;
@@ -3949,7 +3953,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     const isPaletteCartons=preparation==='palette_cartons';
     const isPaletteCasiers=preparation==='palette_casier_coiffe'||preparation==='palette_casier_sans_coiffe';
     const isPaletteQty=isPaletteCartons?(qpalRaw>0&&q>0&&q%qpalRaw===0):isPaletteCasiers?(q>=480&&q%480===0):false;
-    if(isPaletteQty&&parsePrix(prod.prixPalette)>0)return parsePrix(prod.prixPalette);
+    if(isPaletteQtyPU&&parsePrix(prod.prixPalette)>0)return parsePrix(prod.prixPalette);
     if(totalEq75>=600)return parsePrix(prod.prix600);
     if(totalEq75>=360)return parsePrix(prod.prix360);
     if(totalEq75>=240)return parsePrix(prod.prix240);
@@ -4153,7 +4157,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     <tbody>${prodRows}</tbody>
     <tfoot>
       <tr style="border-top:2px solid ${brandGreen}">
-        <td colspan="4" style="padding:6px 8px;font-size:12px;font-weight:700;color:${brandGreen}">TOTAL</td>
+        <td colspan="5" style="padding:6px 8px;font-size:12px;font-weight:700;color:${brandGreen}">TOTAL</td>
         <td style="padding:6px 8px;text-align:right;font-size:12px;font-weight:700">${gratuite?'OFFERT':fmtE(totalHT)}</td>
         <td style="padding:6px 8px;text-align:right;font-size:12px;font-weight:400;color:#6b6560">${fmtE(totalTVA)}</td>
         <td style="padding:6px 8px;text-align:right;font-size:12px;font-weight:400">${gratuite?'OFFERT':fmtE(totalTTC)}</td>
@@ -4171,7 +4175,7 @@ ${msgHtml}
       ?`<p style="${fntS}">Bonjour,</p><p style="${fntS}">Suite à nos échanges, voici le chiffrage détaillé.</p><p style="${fntS}">Très belle fin de journée !<br><strong>${prenom}</strong></p>`
       :`<p style="${fntS}">Bonjour,</p><p style="${fntS}">Une nouvelle commande a été passée par <strong>${prenom}</strong> pour le compte de <strong>${societe}</strong>.</p><p style="${fntS}">La bise.</p>`;
     const outro='';
-    const msgBody=intro+clientInfoHtml+htmlTable+outro;
+    const msgBody=intro+htmlTable;
     await setDoc(doc(db,'devis_commandes',ref),{ref,mode,societe,contact,factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,preparation,tariEvent,infoLivraison,message,lignes:displayLignes,totalHT,totalTVA,totalTTC,createdAt:Date.now(),createdBy:currentUser?.email});
     try{
       await emailjs.send(EMAILJS_SERVICE,EMAILJS_TEMPLATE_DEVIS,{
@@ -4210,7 +4214,7 @@ ${msgHtml}
               if(line.startsWith('Code '))inProd=true;
               if(!inProd)infoLines.push(line);
             }
-            const GRD='90px 1fr 60px 45px 80px 80px 80px 80px';
+            const GRD='90px 1fr 45px 60px 80px 80px 80px 80px';
             const TH={fontSize:11,fontWeight:700,color:'#6b6560',padding:'4px 6px',textAlign:'right'};
             const TD={fontSize:12,padding:'3px 6px',textAlign:'right',borderBottom:'1px solid #f5f3ef'};
             const totTTC=displayLignes.reduce((s,l)=>{
@@ -4230,8 +4234,8 @@ ${msgHtml}
                 <div style={{display:'grid',gridTemplateColumns:GRD,borderBottom:'2px solid #2d6a4f',paddingBottom:4,marginBottom:2}}>
                   <span style={{...TH,textAlign:'left'}}>Code</span>
                   <span style={{...TH,textAlign:'left'}}>Produit</span>
-                  <span style={{...TH,textAlign:'center'}}>Tarif</span>
                   <span style={TH}>Qté</span>
+                  <span style={{...TH,textAlign:'center'}}>Tarif</span>
                   <span style={TH}>P.U. HT</span>
                   <span style={TH}>Total HT</span>
                   <span style={TH}>TVA</span>
