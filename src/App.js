@@ -4059,9 +4059,9 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
       
       sep,
       `PREPARATION : ${prepLabel}`,
-      `TARIF : ${tarifLabelComputed}`,
+
       message?`MESSAGE : ${message}`:'',
-      `TARIF : ${tarifLabelComputed}`,
+
       message?`>>> ${mode==='commande'?'SUPPLY':'CLIENT'} : ${message} <<<`:'',
       sep,
       header,
@@ -4116,6 +4116,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
       return `<tr>
         <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;font-weight:600;letter-spacing:0.3px;width:90px">${ligne.code||''}</td>
         <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px">${ligne.libelle||''}</td>
+        <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;text-align:center;width:60px">${(()=>{const lbl=getLineTarifLabel(ligne);return lbl?'<span style=\'font-size:10px;padding:1px 5px;border-radius:8px;background:#f0fdf4;color:#2d6a4f;font-weight:600\'>'+lbl+'</span>':''})()}</td>
         <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;text-align:right;width:45px">${qty}</td>
         <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;text-align:right;width:80px">${isOffert?'offert':fmtE(pu)}</td>
         <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;text-align:right;font-weight:700;width:80px">${isOffert?'offert':fmtE(totalHT2)}</td>
@@ -4123,7 +4124,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
         <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;text-align:right;width:80px">${isOffert?'offert':fmtE(ttcLigne)}</td>
       </tr>`;
     }).join('');
-    const htmlTable=`<div style="font-family:${brandFont};max-width:720px;margin:0 auto;color:${brandDark}">
+    const htmlTable=`<div style="font-family:${brandFont};max-width:860px;margin:0 auto;color:${brandDark}">
 <div style="background:${brandGreen};padding:20px 24px;border-radius:8px 8px 0 0">
   <div style="color:#fff;font-size:20px;font-weight:700;letter-spacing:1px">🌼 Oé</div>
   <div style="color:rgba(255,255,255,0.8);font-size:12px;margin-top:4px">${mode==='devis'?'Devis':'Commande'} ${ref} · ${new Date().toLocaleDateString('fr-FR')}</div>
@@ -4134,7 +4135,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0">FACTURATION</td><td>${factAddr.addr}, ${factAddr.cp} ${factAddr.ville}${factAddr.email?' · '+factAddr.email:''}</td></tr>
     <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0">LIVRAISON</td><td>${retraitLoft?'Retrait au Loft Oé · 10bis rue Bellicard, 69003 Lyon':sameAddr?factAddr.addr+', '+factAddr.cp+' '+factAddr.ville:expAddr.addr+', '+expAddr.cp+' '+expAddr.ville}</td></tr>
     <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0">PRÉPARATION</td><td>${prepLabel}</td></tr>
-    <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0">TARIF</td><td>${tarifLabel}</td></tr>
+    <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0">TEAMMATE</td><td>${prenom}</td></tr>
   </table>
 </div>
 <div style="background:#fff;padding:0">
@@ -4142,6 +4143,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     <thead><tr style="background:${brandBeige}">
       <th style="padding:8px;text-align:left;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen};width:90px">Code</th>
       <th style="padding:8px;text-align:left;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen}">Produit</th>
+      <th style="padding:8px;text-align:center;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen};width:60px">Tarif</th>
       <th style="padding:8px;text-align:right;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen};width:45px">Qté</th>
       <th style="padding:8px;text-align:right;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen};width:80px">P.U. HT</th>
       <th style="padding:8px;text-align:right;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen};width:80px">Total HT</th>
@@ -4161,16 +4163,14 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
 </div>
 ${msgHtml}
 <div style="background:${brandBeige};padding:12px 24px;border-radius:0 0 8px 8px;border-top:1px solid #e2ddd6;font-size:11px;color:#6b6560;text-align:center">
-  Oé · contact@oeforgood.com · oeforgood.com
+  Oé · ${currentUser?.email||'contact@oeforgood.com'} · oeforgood.com
 </div>
 </div>`
     const fntS='font-family:${brandFont};font-size:14px;color:#1a1814;line-height:1.6';
     const intro=mode==='devis'
-      ?`<p style="${fntS}">Bonjour,</p><p style="${fntS}">Suite à nos échanges, voici le chiffrage détaillé :</p>`
-      :`<p style="${fntS}">Bonjour,</p><p style="${fntS}">Une nouvelle commande a été enregistrée par <strong>${prenom}</strong>.</p>`;
-    const outro=mode==='devis'
-      ?'<p>Très belle fin de journée !<br><strong>'+prenom+' — Oé</strong></p>'
-      :'<p>La bise.<br><strong>'+prenom+' — Oé</strong></p>';
+      ?`<p style="${fntS}">Bonjour,</p><p style="${fntS}">Suite à nos échanges, voici le chiffrage détaillé.</p><p style="${fntS}">Très belle fin de journée !<br><strong>${prenom}</strong></p>`
+      :`<p style="${fntS}">Bonjour,</p><p style="${fntS}">Une nouvelle commande a été passée par <strong>${prenom}</strong> pour le compte de <strong>${societe}</strong>.</p><p style="${fntS}">La bise.</p>`;
+    const outro='';
     const msgBody=intro+clientInfoHtml+htmlTable+outro;
     await setDoc(doc(db,'devis_commandes',ref),{ref,mode,societe,contact,factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,preparation,tariEvent,infoLivraison,message,lignes:displayLignes,totalHT,totalTVA,totalTTC,createdAt:Date.now(),createdBy:currentUser?.email});
     try{
@@ -4210,7 +4210,7 @@ ${msgHtml}
               if(line.startsWith('Code '))inProd=true;
               if(!inProd)infoLines.push(line);
             }
-            const GRD='90px 1fr 45px 80px 80px 80px 80px';
+            const GRD='90px 1fr 60px 45px 80px 80px 80px 80px';
             const TH={fontSize:11,fontWeight:700,color:'#6b6560',padding:'4px 6px',textAlign:'right'};
             const TD={fontSize:12,padding:'3px 6px',textAlign:'right',borderBottom:'1px solid #f5f3ef'};
             const totTTC=displayLignes.reduce((s,l)=>{
@@ -4230,6 +4230,7 @@ ${msgHtml}
                 <div style={{display:'grid',gridTemplateColumns:GRD,borderBottom:'2px solid #2d6a4f',paddingBottom:4,marginBottom:2}}>
                   <span style={{...TH,textAlign:'left'}}>Code</span>
                   <span style={{...TH,textAlign:'left'}}>Produit</span>
+                  <span style={{...TH,textAlign:'center'}}>Tarif</span>
                   <span style={TH}>Qté</span>
                   <span style={TH}>P.U. HT</span>
                   <span style={TH}>Total HT</span>
