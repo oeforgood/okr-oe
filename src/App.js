@@ -4080,9 +4080,6 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   const minQtyOk=gratuite||(tariEvent?totalEq75>=6:totalEq75>=24);
   const minQtyMsg=!gratuite&&!minQtyOk?(tariEvent?'Il faut au moins 6 bouteilles ou équivalent.':'Il faut au moins 24 bouteilles ou équivalent (ou choisir le tarif Events).'):'';
 
-  const minQtyOk=gratuite||(tariEvent?totalEq75>=6:totalEq75>=24);
-  const minQtyMsg=!gratuite&&!minQtyOk?(tariEvent?'Il faut au moins 6 bouteilles ou équivalent bouteilles.':'Il faut au moins 24 bouteilles ou équivalent bouteilles (ou choisir le tarif Events).'):'';
-
 
   function genRef(){
     const d=new Date();
