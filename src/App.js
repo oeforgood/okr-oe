@@ -4084,7 +4084,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
 
   function buildText(ref){
     const sep='─'.repeat(70);
-    const tarifLabel=gratuite?('GRATUITÉ — '+gratuiteRaison):prixCoutant?'Prix Coûtant (prix normal ÷ 0,85)':tariEvent?'Tarif Events':totalEq75>=600?'Tarif 600+':totalEq75>=360?'Tarif 360+':totalEq75>=240?'Tarif 240+':totalEq75>=120?'Tarif 120+':'Tarif 24+';
+    const tarifLabel=tarifLabelComputed;
     function col(s,w){return String(s||'').padEnd(w).slice(0,w);}
     function colR(s,w){return String(s||'').padStart(w).slice(-w);}
     const colW=12;
@@ -4141,7 +4141,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     if(!coiffeOk){alert(`Le nombre de bouteilles (${totalBouteilles}) doit être un multiple de 120.`);return;}
     setSending(true);
     const ref=genRef();
-    const tarifLabel=gratuite?('GRATUITÉ — '+gratuiteRaison):prixCoutant?'Prix Coûtant (prix normal ÷ 0,85)':tariEvent?'Tarif Events':totalEq75>=600?'Tarif 600+':totalEq75>=360?'Tarif 360+':totalEq75>=240?'Tarif 240+':totalEq75>=120?'Tarif 120+':'Tarif 24+';
+    const tarifLabel=tarifLabelComputed;
     const textContent=buildText(ref);
     const prenom=teamMember?.prenom||'Oé';
     // Build HTML table for products
@@ -4458,14 +4458,14 @@ ${msgHtml}
           <div style={{borderLeft:'1px solid #f0ede8',paddingLeft:16}}>
             <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>Tarification</div>
             <div style={{display:'flex',flexDirection:'column',gap:8}}>
-              <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',fontWeight:tariEvent&&!prixCoutant&&!gratuite?600:400}}>
-                <input type="checkbox" checked={tariEvent&&!prixCoutant&&!gratuite}
-                  onChange={e=>{setTariEvent(e.target.checked);setPrixCoutant(false);if(e.target.checked){setGratuite(false);setGratuiteRaison('');}}}/>
+              <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',fontWeight:tariEvent?600:400}}>
+                <input type="checkbox" checked={tariEvent}
+                  onChange={e=>{setTariEvent(e.target.checked);if(e.target.checked){setGratuite(false);setGratuiteRaison('');}}}/>
                 Tarif Events
               </label>
               <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',fontWeight:prixCoutant?600:400}}>
                 <input type="checkbox" checked={prixCoutant}
-                  onChange={e=>{setPrixCoutant(e.target.checked);setTariEvent(false);if(e.target.checked){setGratuite(false);setGratuiteRaison('');}}}/>
+                  onChange={e=>{setPrixCoutant(e.target.checked);if(e.target.checked){setGratuite(false);setGratuiteRaison('');}}}/>
                 Prix coûtant
               </label>
               <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',fontWeight:gratuite?600:400,color:gratuite?'#c0392b':'inherit'}}>
@@ -4494,6 +4494,7 @@ ${msgHtml}
         {preparation&&<div style={SECT}>
           <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
             <div style={{fontSize:13,fontWeight:700}}>Produits{isCasierPrep?' (75cl uniquement)':''}</div>
+            {gratuite&&<span style={{fontSize:12,fontWeight:700,color:'#c0392b',background:'#fef2f2',padding:'2px 8px',borderRadius:8}}>Gratuité</span>}
             <div style={{fontSize:11,padding:'2px 8px',borderRadius:10,background:tariEvent?'#fef3c7':totalEq75>=600?'#f0fdf4':totalEq75>=360?'#eff6ff':totalEq75>=240?'#f5f3ff':totalEq75>=120?'#fdf4ff':'#f8f7f5',color:tariEvent?'#92400e':totalEq75>=600?'#2d6a4f':totalEq75>=360?'#1d4ed8':totalEq75>=240?'#6d28d9':totalEq75>=120?'#9333ea':'#6b6560',fontWeight:600}}>
               {tariEvent?'Tarif Events':totalEq75>=600?`Tarif 600+ (${Math.round(totalEq75)} éq.75)`:totalEq75>=360?`Tarif 360+ (${Math.round(totalEq75)} éq.75)`:totalEq75>=240?`Tarif 240+ (${Math.round(totalEq75)} éq.75)`:totalEq75>=120?`Tarif 120+ (${Math.round(totalEq75)} éq.75)`:`Tarif 24+ (${Math.round(totalEq75)} éq.75)`}
             </div>
