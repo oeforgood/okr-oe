@@ -4537,7 +4537,8 @@ ${msgHtml}
           </>}
         </div>}
 
-        {preparation&&<div style={{display:'flex',justifyContent:'flex-end'}}>
+        {preparation&&<div style={{display:'flex',justifyContent:'flex-end',alignItems:'center',gap:12}}>
+          {isCoiffePrep&&totalBouteilles>0&&!coiffeOk&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600}}>⚠️ {totalBouteilles} bouteilles — multiple de 120 requis</div>}
           <button onClick={handleEnvoyer}
             disabled={sending||!coreLignes.length||!coiffeOk}
             style={{padding:'12px 32px',
