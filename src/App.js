@@ -3874,20 +3874,12 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   const [infoLivraison,setInfoLivraison]=React.useState('');
   const [message,setMessage]=React.useState('');
   const [preparation,setPreparation]=React.useState('');
-  React.useEffect(()=>{
-    if(mode==='devis'&&!message){
-      const prenom=teamMember?.prenom||'';
-      setMessage('Bonjour,\nSuite à nos échanges, voici le chiffrage détaillé.\nTrès belle fin de journée !\n'+(teamMember?.prenom||''));
-    }
-    if(mode==='commande')setMessage('');
-  },[mode]);
   const [lignes,setLignes]=React.useState([]);
   const [selectedProd,setSelectedProd]=React.useState('');
   const [savedClients,setSavedClients]=React.useState([]);
   const [selectedClientKey,setSelectedClientKey]=React.useState('');
   const [savedOrders,setSavedOrders]=React.useState([]);
-  // Recall filters
-  const [recallTeammate,setRecallTeammate]=React.useState(teamMember?.prenom||'');
+  const [recallTeammate,setRecallTeammate]=React.useState(currentUser?.email||'');
   const [recallClient,setRecallClient]=React.useState('');
   const [recallMode,setRecallMode]=React.useState('commande');
   const [recallRef,setRecallRef]=React.useState('');
@@ -3916,6 +3908,8 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   const CASIER_PRIX=10;const COIFFE_PRIX=120;
 
   React.useEffect(()=>{
+    getDocs(collection(db,'devis_clients')).then(snap=>{setSavedClients(snap.docs.map(d=>({key:d.id,...d.data()})).sort((a,b)=>(a.societe||'').localeCompare(b.societe||'')));});
+    getDocs(collection(db,'devis_commandes')).then(snap=>{setSavedOrders(snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)));});
     getDocs(collection(db,'tarif')).then(snap=>{
       const rows=[];
       snap.docs
@@ -3923,14 +3917,6 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
         .sort((a,b)=>a.id.localeCompare(b.id))
         .forEach(d=>rows.push(...(d.data().rows||[])));
       setTarif(rows);setLoadingTarif(false);
-    });
-    // Load saved clients
-    getDocs(collection(db,'devis_clients')).then(snap=>{
-      setSavedClients(snap.docs.map(d=>({key:d.id,...d.data()})).sort((a,b)=>(a.societe||'').localeCompare(b.societe||'')));
-    });
-    // Load saved orders/quotes
-    getDocs(collection(db,'devis_commandes')).then(snap=>{
-      setSavedOrders(snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)));
     });
   },[]);
 
@@ -3954,34 +3940,25 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   function parsePrix(v){return parseFloat(String(v||'0').replace(/€/g,'').replace(/\s/g,'').replace(',','.'))||0;}
   function getPU(prod,qty){
     const q=parseInt(qty||0);
-    // Compute palette condition first (needed by prixCoutant)
-    const qpalRawPU=parseInt(String(prod.qpalette||'0').replace(/[^0-9]/g,''))||0;
-    const isPalCartonsPU=preparation==='palette_cartons';
-    const isPalCasiersPU=preparation==='palette_casier_coiffe'||preparation==='palette_casier_sans_coiffe';
-    const isPaletteQtyPU=isPalCartonsPU?(qpalRawPU>0&&q>0&&q%qpalRawPU===0):isPalCasiersPU?(q>=480&&q%480===0):false;
     // Gratuité override (casiers/coiffes keep their price)
     if(gratuite&&prod.code!==CASIER_CODE&&prod.code!==COIFFE_CODE)return 0;
-    // Prix coûtant = prix normal / 0.85
-    if(prixCoutant&&tariEvent&&parsePrix(prod.tariEvents)>0){
-      // Events - 15%
-      return Math.round(parsePrix(prod.tariEvents)*0.85*100)/100;
-    }
+    // Tarif Event override
     if(prixCoutant){
-      // Normal price - 15%
-      if(isPaletteQtyPU&&parsePrix(prod.prixPalette)>0)return Math.round(parsePrix(prod.prixPalette)*0.85*100)/100;
-      if(totalEq75>=600)return Math.round(parsePrix(prod.prix600)*0.85*100)/100;
-      if(totalEq75>=360)return Math.round(parsePrix(prod.prix360)*0.85*100)/100;
-      if(totalEq75>=240)return Math.round(parsePrix(prod.prix240)*0.85*100)/100;
-      if(totalEq75>=120)return Math.round(parsePrix(prod.prix120)*0.85*100)/100;
+      // Prix coûtant = prix normal / 0.85
+      if(isPaletteQty&&parsePrix(prod.prixPalette)>0)return Math.round(parsePrix(prod.prixPalette)/0.85*100)/100;
+      if(totalEq75>=600)return Math.round(parsePrix(prod.prix600)/0.85*100)/100;
+      if(totalEq75>=360)return Math.round(parsePrix(prod.prix360)/0.85*100)/100;
+      if(totalEq75>=240)return Math.round(parsePrix(prod.prix240)/0.85*100)/100;
+      if(totalEq75>=120)return Math.round(parsePrix(prod.prix120)/0.85*100)/100;
       return Math.round(parsePrix(prod.prix24)/0.85*100)/100;
     }
-    if(tariEvent&&!prixCoutant&&parsePrix(prod.tariEvents)>0)return parsePrix(prod.tariEvents);
+    if(tariEvent&&parsePrix(prod.tariEvents)>0)return parsePrix(prod.tariEvents);
     // Palette condition
     const qpalRaw=parseInt(String(prod.qpalette||'0').replace(/[^0-9]/g,''))||0;
     const isPaletteCartons=preparation==='palette_cartons';
     const isPaletteCasiers=preparation==='palette_casier_coiffe'||preparation==='palette_casier_sans_coiffe';
     const isPaletteQty=isPaletteCartons?(qpalRaw>0&&q>0&&q%qpalRaw===0):isPaletteCasiers?(q>=480&&q%480===0):false;
-    if(isPaletteQtyPU&&parsePrix(prod.prixPalette)>0)return parsePrix(prod.prixPalette);
+    if(isPaletteQty&&parsePrix(prod.prixPalette)>0)return parsePrix(prod.prixPalette);
     if(totalEq75>=600)return parsePrix(prod.prix600);
     if(totalEq75>=360)return parsePrix(prod.prix360);
     if(totalEq75>=240)return parsePrix(prod.prix240);
@@ -4025,47 +4002,16 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     setPreparation(newPrep);
   }
 
-  const tarifLabelComputed=gratuite?('GRATUITÉ — '+gratuiteRaison)
-    :(()=>{
-      const base=tariEvent?'Events':(totalEq75>=600?'600+':totalEq75>=360?'360+':totalEq75>=240?'240+':totalEq75>=120?'120+':'24+');
-      return prixCoutant?base+' Coûtant':base;
-    })();
   const displayLignes=getDisplayLignes();
   const TARIF_COLORS={Gratuit:['#fef2f2','#c0392b'],Coûtant:['#ea580c','#fff'],Events:['#fef3c7','#92400e'],Palette:['#f0fdf4','#2d6a4f'],'600+':['#f0fdf4','#2d6a4f'],'360+':['#eff6ff','#1d4ed8'],'240+':['#f5f3ff','#6d28d9'],'120+':['#fdf4ff','#9333ea'],'24+':['#f8f7f5','#6b6560']};
   function renderTarifBadges(lbl){
     const lbls=Array.isArray(lbl)?lbl:(lbl?[lbl]:[]);
     if(!lbls.length)return null;
     return <span style={{display:'flex',gap:2,justifyContent:'center',flexWrap:'nowrap',alignItems:'center'}}>
-      {lbls.map((lb,i)=>{const[bg,fg]=TARIF_COLORS[lb]||['#f8f7f5','#6b6560'];return<span key={i} style={{fontSize:9,padding:'1px 4px',borderRadius:6,background:bg,color:fg,fontWeight:600,whiteSpace:'nowrap'}}>{lb}</span>;})}
+      {lbls.map((lb,i)=>{const[bg,fg]=TARIF_COLORS[lb]||['#f8f7f5','#6b6560'];return<span key={i} style={{fontSize:9,padding:'1px 4px',borderRadius:6,background:bg,color:fg,fontWeight:700,whiteSpace:'nowrap'}}>{lb}</span>;})}
     </span>;
   }
   function getLinePU(l){return l.prix!==undefined?l.prix:(()=>{const p=tarif.find(t=>t.code===l.code);return p?getPU(p,l.qty):0;})();}
-  function getLineTarifLabel(l){
-    if(l.qtyMode==='auto')return '';
-    if(gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE)return 'Gratuit';
-    if(tariEvent&&prixCoutant)return ['Events','Coûtant'];
-    if(tariEvent)return 'Events';
-    if(prixCoutant){
-      if(totalEq75>=600)return ['600+','Coûtant'];
-      if(totalEq75>=360)return ['360+','Coûtant'];
-      if(totalEq75>=240)return ['240+','Coûtant'];
-      if(totalEq75>=120)return ['120+','Coûtant'];
-      return ['24+','Coûtant'];
-    }
-    const prod=tarif.find(t=>t.code===l.code);
-    if(!prod)return '';
-    const q=parseInt(l.qty||0);
-    const qpalRaw=parseInt(String(prod.qpalette||'0').replace(/[^0-9]/g,''))||0;
-    const isPaletteCartons=preparation==='palette_cartons';
-    const isPaletteCasiers=preparation==='palette_casier_coiffe'||preparation==='palette_casier_sans_coiffe';
-    const isPalQty=isPaletteCartons?(qpalRaw>0&&q%qpalRaw===0):isPaletteCasiers?(q>=480&&q%480===0):false;
-    if(isPalQty)return 'Palette';
-    if(totalEq75>=600)return '600+';
-    if(totalEq75>=360)return '360+';
-    if(totalEq75>=240)return '240+';
-    if(totalEq75>=120)return '120+';
-    return '24+';
-  }
   const totalHT=displayLignes.reduce((s,l)=>s+getLinePU(l)*parseInt(l.qty||0),0);
   const totalTVA=displayLignes.reduce((s,l)=>s+getLinePU(l)*parseInt(l.qty||0)*(parseFloat(l.tva||0)/100),0);
   const totalTTC=totalHT+totalTVA;
@@ -4081,7 +4027,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
 
   function buildText(ref){
     const sep='─'.repeat(70);
-    const tarifLabel=tarifLabelComputed;
+    const tarifLabel=gratuite?('GRATUITÉ — '+gratuiteRaison):prixCoutant?'Prix Coûtant (prix normal ÷ 0,85)':tariEvent?'Tarif Events':totalEq75>=600?'Tarif 600+':totalEq75>=360?'Tarif 360+':totalEq75>=240?'Tarif 240+':totalEq75>=120?'Tarif 120+':'Tarif 24+';
     function col(s,w){return String(s||'').padEnd(w).slice(0,w);}
     function colR(s,w){return String(s||'').padStart(w).slice(-w);}
     const colW=12;
@@ -4110,8 +4056,9 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
       
       sep,
       `PREPARATION : ${prepLabel}`,
-      `TARIF : ${tarifLabelComputed}`,
-
+      `TARIF : ${tarifLabel}`,
+      message?`MESSAGE : ${message}`:'',
+      `TARIF : ${tarifLabel}`,
       message?`>>> ${mode==='commande'?'SUPPLY':'CLIENT'} : ${message} <<<`:'',
       sep,
       header,
@@ -4127,10 +4074,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   }
 
   async function saveCoords(){
-    const key=societe.trim()||'_';
-    await setDoc(doc(db,'devis_clients',key),{societe,contact,factAddr,updatedAt:Date.now()});
-    setSavedClients(p=>{const exists=p.find(x=>x.key===key);if(exists)return p.map(x=>x.key===key?{...x,societe,contact,factAddr}:x);return [...p,{key,societe,contact,factAddr}].sort((a,b)=>(a.societe||'').localeCompare(b.societe||''));});
-    setSelectedClientKey(key);
+    await setDoc(doc(db,'devis_clients',societe.trim()||'_'),{societe,contact,factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,infoLivraison,updatedAt:Date.now()});
     setStep('produits');
   }
 
@@ -4140,7 +4084,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     if(!coiffeOk){alert(`Le nombre de bouteilles (${totalBouteilles}) doit être un multiple de 120.`);return;}
     setSending(true);
     const ref=genRef();
-    const tarifLabel=tarifLabelComputed;
+    const tarifLabel=gratuite?('GRATUITÉ — '+gratuiteRaison):prixCoutant?'Prix Coûtant (prix normal ÷ 0,85)':tariEvent?'Tarif Events':totalEq75>=600?'Tarif 600+':totalEq75>=360?'Tarif 360+':totalEq75>=240?'Tarif 240+':totalEq75>=120?'Tarif 120+':'Tarif 24+';
     const textContent=buildText(ref);
     const prenom=teamMember?.prenom||'Oé';
     // Build HTML table for products
@@ -4153,9 +4097,26 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
       (message?'<tr><td style="padding:3px 16px 3px 0;color:#9e9890;font-size:11px;white-space:nowrap;vertical-align:top">MESSAGE</td><td style="padding:3px 0;font-style:italic">'+message+'</td></tr>':'')+
       (echantillons?'<tr><td style="padding:3px 16px 3px 0;color:#c0392b;font-size:11px;white-space:nowrap;vertical-align:top">ÉCHANTILLONS</td><td style="padding:3px 0;color:#c0392b;font-weight:600">⚠️ Gratuits — '+echantillonsRaison+'</td></tr>':'')+
       '</table>';
-
-    const msgColor='#c0392b';
-    const msgHtml=message&&mode==='commande'?`<div style="margin:16px 0;padding:12px 16px;background:#fff5f5;border-left:3px solid ${msgColor};border-radius:4px;font-size:13px;color:${msgColor}"><strong>Message supply :</strong> ${message}</div>`:'';
+    const fntS='font-family:${brandFont};font-size:14px;color:#1a1814;line-height:1.6';
+    const intro=mode==='devis'
+      ?`<p style="${fntS}">Bonjour,</p><p style="${fntS}">Suite à nos échanges, voici le chiffrage détaillé :</p>`
+      :`<p style="${fntS}">Bonjour,</p><p style="${fntS}">Une nouvelle commande a été enregistrée par <strong>${prenom}</strong>.</p>`;
+    const outro=mode==='devis'
+      ?'<p>Très belle fin de journée !<br><strong>'+prenom+' — Oé</strong></p>'
+      :'<p>La bise.<br><strong>'+prenom+' — Oé</strong></p>';
+    const msgBody=intro+clientInfoHtml+htmlTable+outro;
+    await setDoc(doc(db,'devis_commandes',ref),{ref,mode,societe,contact,factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,preparation,tariEvent,infoLivraison,message,lignes:displayLignes,totalHT,totalTVA,totalTTC,createdAt:Date.now(),createdBy:currentUser?.email});
+    try{
+      await emailjs.send(EMAILJS_SERVICE,EMAILJS_TEMPLATE_DEVIS,{
+        to_email:'fx@oeforgood.com',cc_email:'',
+        to_name:prenom,from_name:prenom,name:prenom,
+        email:currentUser?.email||'',reply_to:currentUser?.email||'fx@oeforgood.com',
+        subject:`🌼 ${mode==='devis'?`Devis ${ref} - Oé`:`Commande ${ref} passée par ${prenom}`}`,
+        ref,html_content:msgBody,message:msgBody,
+      },EMAILJS_KEY);
+    }catch(e){console.error('EmailJS:',e);}
+const msgColor='#c0392b';
+    const msgHtml=message?`<div style="margin:16px 0;padding:12px 16px;background:#fff5f5;border-left:3px solid ${msgColor};border-radius:4px;font-size:13px;color:${msgColor}"><strong>${mode==='commande'?'Message supply':'Message client'} :</strong> ${message}</div>`:'';
     const brandGreen='#2d6a4f';const brandBeige='#f5f3ef';const brandDark='#1a1814';const brandFont='system-ui,-apple-system,Helvetica,sans-serif';
     // prodRows for mail
     const prodRows=displayLignes.map(ligne=>{
@@ -4169,7 +4130,6 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
       return `<tr>
         <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;font-weight:600;letter-spacing:0.3px;width:90px">${ligne.code||''}</td>
         <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px">${ligne.libelle||''}</td>
-        <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;text-align:center;width:60px">${(()=>{const lbl=getLineTarifLabel(ligne);return lbl?'<span style=\'font-size:10px;padding:1px 5px;border-radius:8px;background:#f0fdf4;color:#2d6a4f;font-weight:600\'>'+lbl+'</span>':''})()}</td>
         <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;text-align:right;width:45px">${qty}</td>
         <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;text-align:right;width:80px">${isOffert?'offert':fmtE(pu)}</td>
         <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;text-align:right;font-weight:700;width:80px">${isOffert?'offert':fmtE(totalHT2)}</td>
@@ -4177,7 +4137,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
         <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;text-align:right;width:80px">${isOffert?'offert':fmtE(ttcLigne)}</td>
       </tr>`;
     }).join('');
-    const htmlTable=`<div style="font-family:${brandFont};max-width:860px;margin:0 auto;color:${brandDark}">
+    const htmlTable=`<div style="font-family:${brandFont};max-width:720px;margin:0 auto;color:${brandDark}">
 <div style="background:${brandGreen};padding:20px 24px;border-radius:8px 8px 0 0">
   <div style="color:#fff;font-size:20px;font-weight:700;letter-spacing:1px">🌼 Oé</div>
   <div style="color:rgba(255,255,255,0.8);font-size:12px;margin-top:4px">${mode==='devis'?'Devis':'Commande'} ${ref} · ${new Date().toLocaleDateString('fr-FR')}</div>
@@ -4188,7 +4148,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0">FACTURATION</td><td>${factAddr.addr}, ${factAddr.cp} ${factAddr.ville}${factAddr.email?' · '+factAddr.email:''}</td></tr>
     <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0">LIVRAISON</td><td>${retraitLoft?'Retrait au Loft Oé · 10bis rue Bellicard, 69003 Lyon':sameAddr?factAddr.addr+', '+factAddr.cp+' '+factAddr.ville:expAddr.addr+', '+expAddr.cp+' '+expAddr.ville}</td></tr>
     <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0">PRÉPARATION</td><td>${prepLabel}</td></tr>
-    <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0">TEAMMATE</td><td>${prenom}</td></tr>
+    <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0">TARIF</td><td>${tarifLabel}</td></tr>
   </table>
 </div>
 <div style="background:#fff;padding:0">
@@ -4196,7 +4156,6 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     <thead><tr style="background:${brandBeige}">
       <th style="padding:8px;text-align:left;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen};width:90px">Code</th>
       <th style="padding:8px;text-align:left;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen}">Produit</th>
-      <th style="padding:8px;text-align:center;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen};width:60px">Tarif</th>
       <th style="padding:8px;text-align:right;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen};width:45px">Qté</th>
       <th style="padding:8px;text-align:right;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen};width:80px">P.U. HT</th>
       <th style="padding:8px;text-align:right;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen};width:80px">Total HT</th>
@@ -4206,7 +4165,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     <tbody>${prodRows}</tbody>
     <tfoot>
       <tr style="border-top:2px solid ${brandGreen}">
-        <td colspan="5" style="padding:6px 8px;font-size:12px;font-weight:700;color:${brandGreen}">TOTAL</td>
+        <td colspan="4" style="padding:6px 8px;font-size:12px;font-weight:700;color:${brandGreen}">TOTAL</td>
         <td style="padding:6px 8px;text-align:right;font-size:12px;font-weight:700">${gratuite?'OFFERT':fmtE(totalHT)}</td>
         <td style="padding:6px 8px;text-align:right;font-size:12px;font-weight:400;color:#6b6560">${fmtE(totalTVA)}</td>
         <td style="padding:6px 8px;text-align:right;font-size:12px;font-weight:400">${gratuite?'OFFERT':fmtE(totalTTC)}</td>
@@ -4216,26 +4175,10 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
 </div>
 ${msgHtml}
 <div style="background:${brandBeige};padding:12px 24px;border-radius:0 0 8px 8px;border-top:1px solid #e2ddd6;font-size:11px;color:#6b6560;text-align:center">
-  Oé · ${currentUser?.email||'contact@oeforgood.com'} · oeforgood.com
+  Oé · contact@oeforgood.com · oeforgood.com
 </div>
 </div>`
-    const fntS='font-family:${brandFont};font-size:14px;color:#1a1814;line-height:1.6';
-    const fntS2=`font-family:${brandFont};font-size:14px;color:#1a1814;line-height:1.1;margin:0 0 4px 0`;
-    const intro=mode==='devis'
-      ?message.split('\n').map(line=>`<p style="${fntS2}">${line||'&nbsp;'}</p>`).join('')
-      :`<p style="${fntS}">Bonjour,</p><p style="${fntS}">Une nouvelle commande a été passée par <strong>${prenom}</strong> pour le compte de <strong>${societe}</strong>.</p><p style="${fntS}">La bise.</p>`;
-    const outro='';
-    const msgBody=intro+'<br><br>'+htmlTable;
-    await setDoc(doc(db,'devis_commandes',ref),{ref,mode,societe,contact,factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,preparation,tariEvent,infoLivraison,message,lignes:displayLignes,totalHT,totalTVA,totalTTC,createdAt:Date.now(),createdBy:currentUser?.email});
-    try{
-      await emailjs.send(EMAILJS_SERVICE,EMAILJS_TEMPLATE_DEVIS,{
-        to_email:'fx@oeforgood.com',cc_email:'',
-        to_name:prenom,from_name:prenom,name:prenom,
-        email:currentUser?.email||'',reply_to:currentUser?.email||'fx@oeforgood.com',
-        subject:`🌼 ${mode==='devis'?`Devis ${ref} - Oé`:`Commande ${ref} passée par ${prenom}`}`,
-        ref,html_content:msgBody,message:msgBody,
-      },EMAILJS_KEY);
-    }catch(e){console.error('EmailJS:',e);}    setSentRecap(textContent);setSending(false);setSent(true);
+    setSentRecap(textContent);setSending(false);setSent(true);
   }
 
   function resetForm(){setSent(false);setSentRecap('');setStep('coords');setLignes([]);setPreparation('');setSociete('');setContact('');setFactAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setExpAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setSameAddr(false);setRetraitLoft(false);setMessage('');setInfoLivraison('');setTariEvent(false);setPrixCoutant(false);setGratuite(false);setGratuiteRaison('');setEchantillons(false);}
@@ -4264,7 +4207,7 @@ ${msgHtml}
               if(line.startsWith('Code '))inProd=true;
               if(!inProd)infoLines.push(line);
             }
-            const GRD='90px 1fr 80px 100px 80px 80px 80px 80px';
+            const GRD='90px 1fr 45px 80px 80px 80px 80px';
             const TH={fontSize:11,fontWeight:700,color:'#6b6560',padding:'4px 6px',textAlign:'right'};
             const TD={fontSize:12,padding:'3px 6px',textAlign:'right',borderBottom:'1px solid #f5f3ef'};
             const totTTC=displayLignes.reduce((s,l)=>{
@@ -4272,18 +4215,19 @@ ${msgHtml}
               return s+pu*parseInt(l.qty||0)*(1+(parseFloat(l.tva||0)/100));
             },0);
             return <>
-              {/* Render key info directly from state */}
-              <div style={{fontSize:15,fontWeight:700,color:'#2d6a4f',marginBottom:6}}>{mode==='devis'?'Devis':'Commande'} — {societe}</div>
-              <div style={{fontSize:12,color:'#6b6560',marginBottom:2}}>Client : {contact}</div>
-              <div style={{fontSize:12,color:'#6b6560',marginBottom:2}}>Préparation : {prepLabel}</div>
-              <div style={{fontSize:12,color:'#2d6a4f',fontWeight:600,marginBottom:2}}>Tarif : {tarifLabelComputed}</div>
-              {message&&mode==='commande'&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600,marginBottom:2}}>Supply : {message}</div>}
+              {infoLines.map((line,i)=>{
+                if(!line.trim())return null;
+                const isTitle=i===0;
+                const isMsg=line.startsWith('>>> ');
+                return <div key={i} style={{fontSize:isTitle?15:12,fontWeight:isTitle?700:400,color:isTitle?'#2d6a4f':isMsg?'#c0392b':'#6b6560',marginBottom:isTitle?8:2}}>
+                  {isMsg?line.replace(/^>>> /,'').replace(/ <<<$/,''):line}
+                </div>;
+              })}
               <div style={{overflowX:'auto',marginTop:12}}>
                 <div style={{display:'grid',gridTemplateColumns:GRD,borderBottom:'2px solid #2d6a4f',paddingBottom:4,marginBottom:2}}>
                   <span style={{...TH,textAlign:'left'}}>Code</span>
                   <span style={{...TH,textAlign:'left'}}>Produit</span>
                   <span style={TH}>Qté</span>
-                  <span style={{...TH,textAlign:'center'}}>Tarif</span>
                   <span style={TH}>P.U. HT</span>
                   <span style={TH}>Total HT</span>
                   <span style={TH}>TVA</span>
@@ -4301,22 +4245,16 @@ ${msgHtml}
                     <span style={{...TD,textAlign:'left',fontFamily:'system-ui,sans-serif',fontSize:12,fontWeight:600,letterSpacing:0.3}}>{l.code}</span>
                     <span style={{...TD,textAlign:'left'}}>{l.libelle}{l.qtyMode==='auto'?<span style={{fontSize:10,color:'#9e9890',marginLeft:4}}>(auto)</span>:null}</span>
                     <span style={TD}>{qty}</span>
-                    <span style={{...TD,textAlign:'center'}}>{(()=>{
-                      const lbl=getLineTarifLabel(l);
-                      const colors={Gratuit:['#fef2f2','#c0392b'],Coûtant:['#ea580c','#fff'],Events:['#fef3c7','#92400e'],Palette:['#f0fdf4','#2d6a4f'],'600+':['#f0fdf4','#2d6a4f'],'360+':['#eff6ff','#1d4ed8'],'240+':['#f5f3ff','#6d28d9'],'120+':['#fdf4ff','#9333ea'],'24+':['#f8f7f5','#6b6560']};
-                      const lbls=Array.isArray(lbl)?lbl:(lbl?[lbl]:[]);
-                      return lbls.length?<span style={{display:'flex',gap:2,justifyContent:'center',flexWrap:'nowrap'}}>{lbls.map((lb,i)=>{const[bg,fg]=colors[lb]||['#f8f7f5','#6b6560'];return<span key={i} style={{fontSize:9,padding:'1px 4px',borderRadius:6,background:bg,color:fg,fontWeight:600,whiteSpace:'nowrap'}}>{lb}</span>;})}</span>:null;
-                    })()}</span>
                     <span style={TD}>{isOff?'offert':fmtE(pu)}</span>
                     <span style={{...TD,fontWeight:700}}>{isOff?'offert':fmtE(htL)}</span>
                     <span style={{...TD,fontSize:11,color:'#6b6560'}}>{tvaR>0?tvaR+'%':'0%'}</span>
-                    <span style={TD}/>
+                    <span style={{...TD,fontWeight:600}}>{isOff?'offert':fmtE(ttcL)}</span>
                   </div>;
                 })}
                 <div style={{display:'grid',gridTemplateColumns:GRD,borderTop:'2px solid #2d6a4f',marginTop:4,paddingTop:4}}>
-                  <span style={{gridColumn:'1/6',fontSize:12,fontWeight:700,color:'#2d6a4f',padding:'4px 6px'}}>TOTAL</span>
-                  <span style={{...TD,borderBottom:'none',fontWeight:800}}>{gratuite?'OFFERT':fmtE(totalHT)}</span>
-                  <span style={{...TD,borderBottom:'none',fontWeight:400,color:'#6b6560'}}>{fmtE(totalTVA)}</span>
+                  <span style={{gridColumn:'1/5',fontSize:12,fontWeight:700,color:'#2d6a4f',padding:'4px 6px'}}>TOTAL</span>
+                  <span style={{...TD,borderBottom:'none',fontWeight:700}}>{gratuite?'OFFERT':fmtE(totalHT)}</span>
+                  <span style={{...TD,borderBottom:'none',fontWeight:400}}>{fmtE(totalTVA)}</span>
                   <span style={{...TD,borderBottom:'none',fontWeight:400}}>{gratuite?'OFFERT':fmtE(totalTTC)}</span>
                 </div>
               </div>
@@ -4346,25 +4284,14 @@ ${msgHtml}
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:14}}>
             <div style={{gridColumn:'1/-1',marginBottom:4}}>
             <label style={LBL}>Clients sauvegardés</label>
-            <div style={{display:'flex',gap:8,alignItems:'center'}}>
-              <select value={selectedClientKey} onChange={e=>{
-                const key=e.target.value;
-                setSelectedClientKey(key);
-                if(!key)return;
-                const cl=savedClients.find(x=>x.key===key);
-                if(!cl)return;
-                setSociete(cl.societe||'');setContact(cl.contact||'');
-                setFactAddr(cl.factAddr||{addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});
-              }} style={{...INP(),flex:1,color:selectedClientKey?'#1a1814':'#9e9890'}}>
-                <option value=''>— Choisir un client sauvegardé —</option>
+            <div style={{display:'flex',gap:8}}>
+              <select value={selectedClientKey} onChange={e=>{const key=e.target.value;setSelectedClientKey(key);if(!key)return;const cl=savedClients.find(x=>x.key===key);if(!cl)return;setSociete(cl.societe||'');setContact(cl.contact||'');setFactAddr(cl.factAddr||{addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''}); }}
+                style={{...INP(),flex:1,color:selectedClientKey?'#1a1814':'#9e9890'}}>
+                <option value=''>— Choisir un client —</option>
                 {savedClients.map(cl=><option key={cl.key} value={cl.key}>{cl.societe}</option>)}
               </select>
-              {selectedClientKey&&<button onClick={async()=>{
-                if(!window.confirm('Supprimer ce client ?'))return;
-                await deleteDoc(doc(db,'devis_clients',selectedClientKey));
-                setSavedClients(p=>p.filter(x=>x.key!==selectedClientKey));
-                setSelectedClientKey('');
-              }} style={{padding:'6px 10px',background:'#fff',border:'1px solid #e2ddd6',borderRadius:7,fontSize:12,color:'#c0392b',cursor:'pointer',flexShrink:0}}>Supprimer</button>}
+              {selectedClientKey&&<button onClick={async()=>{if(!window.confirm('Supprimer ce client ?'))return;await deleteDoc(doc(db,'devis_clients',selectedClientKey));setSavedClients(p=>p.filter(x=>x.key!==selectedClientKey));setSelectedClientKey('');}}
+                style={{padding:'6px 10px',background:'#fff',border:'1px solid #e2ddd6',borderRadius:7,fontSize:12,color:'#c0392b',cursor:'pointer',flexShrink:0}}>Supprimer</button>}
               <button onClick={()=>{setSociete('');setContact('');setFactAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setSelectedClientKey('');}}
                 style={{padding:'6px 10px',background:'#f8f7f5',border:'1px solid #e2ddd6',borderRadius:7,fontSize:12,cursor:'pointer',flexShrink:0}}>Effacer</button>
             </div>
@@ -4438,107 +4365,6 @@ ${msgHtml}
           </div>
         </div>
 
-        {/* Recall panel */}
-        <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'14px 16px',marginBottom:16}}>
-          <div style={{fontSize:11,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:.5,marginBottom:10}}>Rappeler un devis ou une commande</div>
-          <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
-            <select value={recallTeammate} onChange={e=>{setRecallTeammate(e.target.value);setRecallClient('');setRecallRef('');}}
-              style={{...INP('auto'),minWidth:120,fontSize:12}}>
-              <option value=''>Tous</option>
-              {[...new Set(savedOrders.map(o=>o.createdBy||'').filter(Boolean))].map(email=>{
-                const tm=(window._teamMembers||[]).find(m=>m.email===email);
-                return <option key={email} value={email}>{tm?.prenom||email}</option>;
-              })}
-            </select>
-            <select value={recallClient} onChange={e=>{setRecallClient(e.target.value);setRecallRef('');}}
-              style={{...INP('auto'),minWidth:150,fontSize:12}}>
-              <option value=''>— Client —</option>
-              {[...new Set(savedOrders.filter(o=>!recallTeammate||o.createdBy===recallTeammate).map(o=>o.societe||'').filter(Boolean))].sort().map(s=><option key={s} value={s}>{s}</option>)}
-            </select>
-            <div style={{display:'flex',gap:4}}>
-              {['commande','devis'].map(m=><button key={m} onClick={()=>{setRecallMode(m);setRecallRef('');}}
-                style={{padding:'5px 10px',borderRadius:6,fontSize:11,fontWeight:500,cursor:'pointer',
-                  border:`1px solid ${recallMode===m?'#2d6a4f':'#e2ddd6'}`,
-                  background:recallMode===m?'#2d6a4f':'#fff',color:recallMode===m?'#fff':'#6b6560'}}>
-                {m==='commande'?'Commande':'Devis'}
-              </button>)}
-            </div>
-            <select value={recallRef} onChange={e=>{
-              const ref=e.target.value;setRecallRef(ref);
-              if(!ref)return;
-              const order=savedOrders.find(o=>o.ref===ref);
-              if(!order)return;
-              // Prefill everything
-              setSociete(order.societe||'');setContact(order.contact||'');
-              setFactAddr(order.factAddr||{addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});
-              setExpAddr(order.expAddr||{addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});
-              setSameAddr(false);setRetraitLoft(order.retraitLoft||false);
-              setPreparation(order.preparation||'');
-              setMessage(order.message||'');
-              setTariEvent(order.tariEvent||false);setPrixCoutant(false);setGratuite(false);setGratuiteRaison('');
-              setLignes((order.lignes||[]).filter(l=>l.qtyMode!=='auto').map(l=>({...l,qtyMode:'select'})));
-            }} style={{...INP('auto'),minWidth:200,fontSize:11,color:recallRef?'#1a1814':'#9e9890'}}>
-              <option value=''>— Choisir —</option>
-              {savedOrders.filter(o=>
-                (!recallTeammate||o.createdBy===recallTeammate)&&
-                (!recallClient||o.societe===recallClient)&&
-                o.mode===recallMode
-              ).map(o=>{
-                const d=o.createdAt?new Date(o.createdAt).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'';
-                const tm=(window._teamMembers||[]).find(m=>m.email===o.createdBy);
-                return <option key={o.ref} value={o.ref}>{o.ref} — {d}{tm?' ('+tm.prenom+')':''}</option>;
-              })}
-            </select>
-          </div>
-        </div>
-        {/* Recall panel */}
-        <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'14px 16px',marginBottom:16}}>
-          <div style={{fontSize:11,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:.5,marginBottom:10}}>Rappeler un devis ou une commande</div>
-          <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
-            <select value={recallTeammate} onChange={e=>{setRecallTeammate(e.target.value);setRecallClient('');setRecallRef('');}}
-              style={{...INP('auto'),minWidth:120,fontSize:12}}>
-              <option value=''>Tous</option>
-              {[...new Set(savedOrders.map(o=>o.createdBy||'').filter(Boolean))].map(email=>{
-                const tm=(window._teamMembers||[]).find(m=>m.email===email);
-                return <option key={email} value={email}>{tm?.prenom||email}</option>;
-              })}
-            </select>
-            <select value={recallClient} onChange={e=>{setRecallClient(e.target.value);setRecallRef('');}}
-              style={{...INP('auto'),minWidth:150,fontSize:12}}>
-              <option value=''>— Client —</option>
-              {[...new Set(savedOrders.filter(o=>!recallTeammate||o.createdBy===recallTeammate).map(o=>o.societe||'').filter(Boolean))].sort().map(s=><option key={s} value={s}>{s}</option>)}
-            </select>
-            <div style={{display:'flex',gap:4}}>
-              {['commande','devis'].map(m=><button key={m} onClick={()=>{setRecallMode(m);setRecallRef('');}}
-                style={{padding:'5px 10px',borderRadius:6,fontSize:11,fontWeight:500,cursor:'pointer',
-                  border:`1px solid ${recallMode===m?'#2d6a4f':'#e2ddd6'}`,
-                  background:recallMode===m?'#2d6a4f':'#fff',color:recallMode===m?'#fff':'#6b6560'}}>
-                {m==='commande'?'Commande':'Devis'}
-              </button>)}
-            </div>
-            <select value={recallRef} onChange={e=>{
-              const ref=e.target.value;setRecallRef(ref);
-              if(!ref)return;
-              const order=savedOrders.find(o=>o.ref===ref);
-              if(!order)return;
-              setSociete(order.societe||'');setContact(order.contact||'');
-              setFactAddr(order.factAddr||{addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});
-              setExpAddr(order.expAddr||{addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});
-              setSameAddr(false);setRetraitLoft(order.retraitLoft||false);
-              setPreparation(order.preparation||'');
-              setMessage(order.message||'');
-              setTariEvent(order.tariEvent||false);setPrixCoutant(false);setGratuite(false);setGratuiteRaison('');
-              setLignes((order.lignes||[]).filter(l=>l.qtyMode!=='auto').map(l=>({...l,qtyMode:'select'})));
-            }} style={{...INP('auto'),flex:1,minWidth:200,fontSize:11,color:recallRef?'#1a1814':'#9e9890'}}>
-              <option value=''>— Choisir un devis ou une commande —</option>
-              {savedOrders.filter(o=>(!recallTeammate||o.createdBy===recallTeammate)&&(!recallClient||o.societe===recallClient)&&o.mode===recallMode).map(o=>{
-                const d=o.createdAt?new Date(o.createdAt).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'';
-                const tm=(window._teamMembers||[]).find(m=>m.email===o.createdBy);
-                return <option key={o.ref} value={o.ref}>{o.ref} — {o.societe} — {d}{tm?' ('+tm.prenom+')':''}</option>;
-              })}
-            </select>
-          </div>
-        </div>
         <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'14px 16px',marginBottom:16}}>
           <div style={{fontSize:11,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:.5,marginBottom:10}}>Rappeler un devis ou une commande</div>
           <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
@@ -4548,25 +4374,13 @@ ${msgHtml}
             </select>
             <select value={recallClient} onChange={e=>{setRecallClient(e.target.value);setRecallRef('');}} style={{fontSize:12,padding:'5px 8px',borderRadius:7,border:'1px solid #e2ddd6',minWidth:140}}>
               <option value=''>— Client —</option>
-              {[...new Set(savedOrders.filter(o=>!recallTeammate||o.createdBy===recallTeammate).map(o=>o.societe||'').filter(Boolean))].sort().map(s=><option key={s} value={s}>{s}</option>)}
+              {[...new Set(savedOrders.filter(o=>!recallTeammate||o.createdBy===recallTeammate).map(o=>o.societe||'').filter(s=>s&&savedClients.some(sc=>sc.societe===s)))].sort().map(s=><option key={s} value={s}>{s}</option>)}
             </select>
             {['commande','devis'].map(m=><button key={m} onClick={()=>{setRecallMode(m);setRecallRef('');}} style={{padding:'5px 10px',borderRadius:6,fontSize:11,fontWeight:500,cursor:'pointer',border:`1px solid ${recallMode===m?'#2d6a4f':'#e2ddd6'}`,background:recallMode===m?'#2d6a4f':'#fff',color:recallMode===m?'#fff':'#6b6560'}}>{m==='commande'?'Commande':'Devis'}</button>)}
-            <select value={recallRef} onChange={e=>{
-              const ref=e.target.value;setRecallRef(ref);if(!ref)return;
-              const o=savedOrders.find(x=>x.ref===ref);if(!o)return;
-              setSociete(o.societe||'');setContact(o.contact||'');
-              setFactAddr(o.factAddr||{addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});
-              setExpAddr(o.expAddr||{addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});
-              setSameAddr(false);setRetraitLoft(o.retraitLoft||false);setPreparation(o.preparation||'');
-              setMessage(o.message||'');setTariEvent(o.tariEvent||false);setPrixCoutant(false);setGratuite(false);setGratuiteRaison('');
-              setLignes((o.lignes||[]).filter(l=>l.qtyMode!=='auto').map(l=>({...l,qtyMode:'select'})));
-            }} style={{flex:1,fontSize:11,padding:'5px 8px',borderRadius:7,border:'1px solid #e2ddd6',minWidth:200,color:recallRef?'#1a1814':'#9e9890'}}>
+            <select value={recallRef} onChange={e=>{const ref=e.target.value;setRecallRef(ref);if(!ref)return;const o=savedOrders.find(x=>x.ref===ref);if(!o)return;setSociete(o.societe||'');setContact(o.contact||'');setFactAddr(o.factAddr||{addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setExpAddr(o.expAddr||{addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setSameAddr(false);setRetraitLoft(o.retraitLoft||false);setPreparation(o.preparation||'');setMessage(o.message||'');setTariEvent(o.tariEvent||false);setPrixCoutant(false);setGratuite(false);setGratuiteRaison('');setLignes((o.lignes||[]).filter(l=>l.qtyMode!=='auto').map(l=>({...l,qtyMode:'select'})));}}
+              style={{flex:1,fontSize:11,padding:'5px 8px',borderRadius:7,border:'1px solid #e2ddd6',minWidth:200,color:recallRef?'#1a1814':'#9e9890'}}>
               <option value=''>— Choisir —</option>
-              {savedOrders.filter(o=>(!recallTeammate||o.createdBy===recallTeammate)&&(!recallClient||o.societe===recallClient)&&o.mode===recallMode).map(o=>{
-                const d=o.createdAt?new Date(o.createdAt).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'';
-                const tm=(window._teamMembers||[]).find(m=>m.email===o.createdBy);
-                return<option key={o.ref} value={o.ref}>{o.ref} · {o.societe} · {d}{tm?' ('+tm.prenom+')':''}</option>;
-              })}
+              {savedOrders.filter(o=>(!recallTeammate||o.createdBy===recallTeammate)&&(!recallClient||o.societe===recallClient)&&o.mode===recallMode).map(o=>{const d=o.createdAt?new Date(o.createdAt).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'';const tm=(window._teamMembers||[]).find(m=>m.email===o.createdBy);return<option key={o.ref} value={o.ref}>{o.ref} · {o.societe} · {d}{tm?' ('+tm.prenom+')':''}</option>;})}
             </select>
           </div>
         </div>
@@ -4580,19 +4394,21 @@ ${msgHtml}
                 <option key={p.k} value={p.k}>{p.l}</option>
               )}
             </select>
-
+            {isCoiffePrep&&totalBouteilles>0&&!coiffeOk&&<div style={{marginTop:8,fontSize:12,color:'#c0392b',fontWeight:600}}>
+              {totalBouteilles} bouteilles — doit être un multiple de 120.
+            </div>}
           </div>
           <div style={{borderLeft:'1px solid #f0ede8',paddingLeft:16}}>
             <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>Tarification</div>
             <div style={{display:'flex',flexDirection:'column',gap:8}}>
-              <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',fontWeight:tariEvent?600:400}}>
-                <input type="checkbox" checked={tariEvent}
-                  onChange={e=>{setTariEvent(e.target.checked);if(e.target.checked){setGratuite(false);setGratuiteRaison('');}}}/>
+              <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',fontWeight:tariEvent&&!prixCoutant&&!gratuite?600:400}}>
+                <input type="checkbox" checked={tariEvent&&!prixCoutant&&!gratuite}
+                  onChange={e=>{setTariEvent(e.target.checked);setPrixCoutant(false);if(e.target.checked){setGratuite(false);setGratuiteRaison('');}}}/>
                 Tarif Events
               </label>
               <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',fontWeight:prixCoutant?600:400}}>
                 <input type="checkbox" checked={prixCoutant}
-                  onChange={e=>{setPrixCoutant(e.target.checked);if(e.target.checked){setGratuite(false);setGratuiteRaison('');}}}/>
+                  onChange={e=>{setPrixCoutant(e.target.checked);setTariEvent(false);if(e.target.checked){setGratuite(false);setGratuiteRaison('');}}}/>
                 Prix coûtant
               </label>
               <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',fontWeight:gratuite?600:400,color:gratuite?'#c0392b':'inherit'}}>
@@ -4614,13 +4430,16 @@ ${msgHtml}
 
         {preparation&&<div style={SECT}>
           <label style={LBL}>{mode==='devis'?'Message pour le client':'Message pour la supply'}</label>
-          <input value={message} onChange={e=>setMessage(e.target.value)} style={INP()}/>
+          <textarea value={message} onChange={e=>setMessage(e.target.value)} rows={mode==='devis'?5:2}
+            style={{...INP(),fontFamily:'inherit',lineHeight:1.5,resize:'vertical'}}/>
         </div>}
 
         {preparation&&<div style={SECT}>
           <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
             <div style={{fontSize:13,fontWeight:700}}>Produits{isCasierPrep?' (75cl uniquement)':''}</div>
-
+            <div style={{fontSize:11,padding:'2px 8px',borderRadius:10,background:tariEvent?'#fef3c7':totalEq75>=600?'#f0fdf4':totalEq75>=360?'#eff6ff':totalEq75>=240?'#f5f3ff':totalEq75>=120?'#fdf4ff':'#f8f7f5',color:tariEvent?'#92400e':totalEq75>=600?'#2d6a4f':totalEq75>=360?'#1d4ed8':totalEq75>=240?'#6d28d9':totalEq75>=120?'#9333ea':'#6b6560',fontWeight:600}}>
+              {tariEvent?'Tarif Events':totalEq75>=600?`Tarif 600+ (${Math.round(totalEq75)} éq.75)`:totalEq75>=360?`Tarif 360+ (${Math.round(totalEq75)} éq.75)`:totalEq75>=240?`Tarif 240+ (${Math.round(totalEq75)} éq.75)`:totalEq75>=120?`Tarif 120+ (${Math.round(totalEq75)} éq.75)`:`Tarif 24+ (${Math.round(totalEq75)} éq.75)`}
+            </div>
           </div>
           {loadingTarif?<div style={{color:'#9e9890',fontSize:13}}>Chargement...</div>
           :<>
@@ -4632,7 +4451,7 @@ ${msgHtml}
             {displayLignes.length>0&&<>
               <table style={{width:'100%',borderCollapse:'collapse'}}>
                 <thead><tr style={{background:'#f8f7f5'}}>
-                  {['Code','Produit','Tarif','Quantité','P.U. HT','Total HT',''].map((h,i)=>
+                  {['Code','Produit','Quantité','P.U. HT','Total HT',''].map((h,i)=>
                     <th key={i} style={{padding:'6px 8px',fontSize:11,color:'#6b6560',textAlign:i>=2&&i<5?'right':'left',fontWeight:700}}>{h}</th>)}
                 </tr></thead>
                 <tbody>{displayLignes.map((l,i)=>{
@@ -4644,14 +4463,6 @@ ${msgHtml}
                     <td style={{padding:'8px',fontSize:12}}>
                       {l.robe&&<span style={{display:'inline-block',width:9,height:9,borderRadius:'50%',background:getRobeDot(l.robe),marginRight:6,verticalAlign:'middle'}}/>}
                       {l.libelle}{isAuto&&<span style={{fontSize:10,color:'#9e9890',marginLeft:5}}>(auto)</span>}
-                    </td>
-                    <td style={{padding:'8px',textAlign:'center',whiteSpace:'nowrap'}}>
-                      {!isAuto&&(()=>{
-                        const lbl=getLineTarifLabel(l);
-                        const colors={Gratuit:['#fef2f2','#c0392b'],Coûtant:['#ea580c','#fff'],Events:['#fef3c7','#92400e'],Palette:['#f0fdf4','#2d6a4f'],'600+':['#f0fdf4','#2d6a4f'],'360+':['#eff6ff','#1d4ed8'],'240+':['#f5f3ff','#6d28d9'],'120+':['#fdf4ff','#9333ea'],'24+':['#f8f7f5','#6b6560']};
-                        const [bg,fg]=colors[lbl]||['#f8f7f5','#6b6560'];
-                        return lbl?<span style={{fontSize:10,padding:'1px 6px',borderRadius:8,background:bg,color:fg,fontWeight:600}}>{lbl}</span>:null;
-                      })()}
                     </td>
                     <td style={{padding:'8px',textAlign:'right'}}>
                       {isAuto?<span style={{fontSize:12,color:'#6b6560'}}>{l.qty}</span>
@@ -4704,10 +4515,7 @@ ${msgHtml}
           </>}
         </div>}
 
-        {preparation&&<div style={{display:'flex',justifyContent:'flex-end',alignItems:'center',gap:12}}>
-          {isCoiffePrep&&totalBouteilles>0&&!coiffeOk&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600}}>
-            ⚠️ {totalBouteilles} bouteilles — multiple de 120 requis
-          </div>}
+        {preparation&&<div style={{display:'flex',justifyContent:'flex-end'}}>
           <button onClick={handleEnvoyer}
             disabled={sending||!coreLignes.length||!coiffeOk}
             style={{padding:'12px 32px',
