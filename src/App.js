@@ -3886,10 +3886,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   React.useEffect(()=>{
     if(mode==='devis'){
       const prenom=teamMember?.prenom||'';
-      setMessage('Bonjour,
-Suite à nos échanges, voici le chiffrage détaillé.
-Très belle fin de journée !
-'+prenom);
+      setMessage('Bonjour,\nSuite à nos échanges, voici le chiffrage détaillé.\nTrès belle fin de journée !\n'+prenom);
     } else {
       setMessage('');
     }
@@ -3922,10 +3919,7 @@ Très belle fin de journée !
     // Default message for devis
     if(mode==='devis'){
       const prenom=teamMember?.prenom||'';
-      setMessage('Bonjour,
-Suite à nos échanges, voici le chiffrage détaillé.
-Très belle fin de journée !
-'+prenom);
+      setMessage('Bonjour,\nSuite à nos échanges, voici le chiffrage détaillé.\nTrès belle fin de journée !\n'+prenom);
     }
     getDocs(collection(db,'devis_clients')).then(snap=>{setSavedClients(snap.docs.map(d=>({key:d.id,...d.data()})).sort((a,b)=>(a.societe||'').localeCompare(b.societe||'')));});
     getDocs(collection(db,'devis_commandes')).then(snap=>{setSavedOrders(snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)));});
