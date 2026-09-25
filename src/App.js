@@ -4221,14 +4221,12 @@ ${msgHtml}
               return s+pu*parseInt(l.qty||0)*(1+(parseFloat(l.tva||0)/100));
             },0);
             return <>
-              {infoLines.map((line,i)=>{
-                if(!line.trim())return null;
-                const isTitle=i===0;
-                const isMsg=line.startsWith('>>> ');
-                return <div key={i} style={{fontSize:isTitle?15:12,fontWeight:isTitle?700:400,color:isTitle?'#2d6a4f':isMsg?'#c0392b':'#6b6560',marginBottom:isTitle?8:2}}>
-                  {isMsg?line.replace(/^>>> /,'').replace(/ <<<$/,''):line}
-                </div>;
-              })}
+              {/* Render key info directly from state */}
+              <div style={{fontSize:15,fontWeight:700,color:'#2d6a4f',marginBottom:6}}>{mode==='devis'?'Devis':'Commande'} — {societe}</div>
+              <div style={{fontSize:12,color:'#6b6560',marginBottom:2}}>Client : {contact}</div>
+              <div style={{fontSize:12,color:'#6b6560',marginBottom:2}}>Préparation : {prepLabel}</div>
+              <div style={{fontSize:12,color:'#2d6a4f',fontWeight:600,marginBottom:2}}>Tarif : {tarifLabelComputed}</div>
+              {message&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600,marginBottom:2}}>{mode==='commande'?'Supply':'Client'} : {message}</div>}
               <div style={{overflowX:'auto',marginTop:12}}>
                 <div style={{display:'grid',gridTemplateColumns:GRD,borderBottom:'2px solid #2d6a4f',paddingBottom:4,marginBottom:2}}>
                   <span style={{...TH,textAlign:'left'}}>Code</span>
