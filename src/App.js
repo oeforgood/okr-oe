@@ -3959,7 +3959,8 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   const totalBouteilles=coreLignes.reduce((s,l)=>s+parseInt(l.qty||0),0);
   const totalEq75=coreLignes.reduce((s,l)=>{
     const p=tarif.find(t=>t.code===l.code);
-    return s+(parseFloat(p?.eq75||0)*parseInt(l.qty||0));
+    const eq=parseFloat(String(p?.eq75||'0').replace(',','.').replace(/[^0-9.]/g,''))||0;
+    return s+(eq*parseInt(l.qty||0));
   },0);
 
   function parsePrix(v){return parseFloat(String(v||'0').replace(/€/g,'').replace(/\s/g,'').replace(',','.'))||0;}
@@ -3977,11 +3978,11 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
       const isPalCasiersPU=preparation==='palette_casier_coiffe'||preparation==='palette_casier_sans_coiffe';
       const isPaletteQtyPU=isPalCartonsPU?(qpalPU>0&&q%qpalPU===0):isPalCasiersPU?(q>=480&&q%480===0):false;
       if(isPaletteQtyPU&&parsePrix(prod.prixPalette)>0)return Math.round(parsePrix(prod.prixPalette)*0.85*100)/100;
-      if(totalEq75>=600)return Math.round(parsePrix(prod.prix600)/0.85*100)/100;
-      if(totalEq75>=360)return Math.round(parsePrix(prod.prix360)/0.85*100)/100;
-      if(totalEq75>=240)return Math.round(parsePrix(prod.prix240)/0.85*100)/100;
-      if(totalEq75>=120)return Math.round(parsePrix(prod.prix120)/0.85*100)/100;
-      return Math.round(parsePrix(prod.prix24)/0.85*100)/100;
+      if(totalEq75>=600)return Math.round(parsePrix(prod.prix600)*0.85*100)/100;
+      if(totalEq75>=360)return Math.round(parsePrix(prod.prix360)*0.85*100)/100;
+      if(totalEq75>=240)return Math.round(parsePrix(prod.prix240)*0.85*100)/100;
+      if(totalEq75>=120)return Math.round(parsePrix(prod.prix120)*0.85*100)/100;
+      return Math.round(parsePrix(prod.prix24)*0.85*100)/100;
     }
     if(tariEvent&&parsePrix(prod.tariEvents)>0)return parsePrix(prod.tariEvents);
     // Palette condition
@@ -4076,6 +4077,9 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   const prepLabel=PREP_OPTIONS.find(p=>p.k===preparation)?.l||'';
   const expA=sameAddr||retraitLoft?factAddr:expAddr;
   const coiffeOk=!isCoiffePrep||totalBouteilles===0||totalBouteilles%120===0;
+  const minQtyOk=gratuite||(tariEvent?totalEq75>=6:totalEq75>=24);
+  const minQtyMsg=!gratuite&&!minQtyOk?(tariEvent?'Il faut au moins 6 bouteilles ou équivalent.':'Il faut au moins 24 bouteilles ou équivalent (ou choisir le tarif Events).'):'';
+
   const minQtyOk=gratuite||(tariEvent?totalEq75>=6:totalEq75>=24);
   const minQtyMsg=!gratuite&&!minQtyOk?(tariEvent?'Il faut au moins 6 bouteilles ou équivalent bouteilles.':'Il faut au moins 24 bouteilles ou équivalent bouteilles (ou choisir le tarif Events).'):'';
 
@@ -4581,11 +4585,12 @@ ${msgHtml}
         {preparation&&<div style={{display:'flex',justifyContent:'flex-end',alignItems:'center',gap:12}}>
           {isCoiffePrep&&totalBouteilles>0&&!coiffeOk&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600}}>⚠️ {totalBouteilles} bouteilles — multiple de 120 requis</div>}
           {minQtyMsg&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600}}>⚠️ {minQtyMsg}</div>}
+          {minQtyMsg&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600}}>⚠️ {minQtyMsg}</div>}
           <button onClick={handleEnvoyer}
-            disabled={sending||!coreLignes.length||!coiffeOk||!minQtyOk}
+            disabled={sending||!coreLignes.length||!coiffeOk||!minQtyOk||(gratuite&&!gratuiteRaison)}
             style={{padding:'12px 32px',
-              background:sending||!coreLignes.length||!coiffeOk||!minQtyOk?'#e2ddd6':'#2d6a4f',
-              color:sending||!coreLignes.length||!coiffeOk||!minQtyOk?'#9e9890':'#fff',
+              background:sending||!coreLignes.length||!coiffeOk||!minQtyOk||(gratuite&&!gratuiteRaison)?'#e2ddd6':'#2d6a4f',
+              color:sending||!coreLignes.length||!coiffeOk||!minQtyOk||(gratuite&&!gratuiteRaison)?'#9e9890':'#fff',
               border:'none',borderRadius:10,fontSize:15,fontWeight:700,cursor:'pointer'}}>
             {sending?'Envoi en cours...':(mode==='devis'?'Envoyer le devis':'Enregistrer la commande')}
           </button>
