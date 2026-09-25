@@ -3874,6 +3874,13 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   const [infoLivraison,setInfoLivraison]=React.useState('');
   const [message,setMessage]=React.useState('');
   const [preparation,setPreparation]=React.useState('');
+  React.useEffect(()=>{
+    if(mode==='devis'&&!message){
+      const prenom=teamMember?.prenom||'';
+      setMessage(`Bonjour,\nSuite à nos échanges, voici le chiffrage détaillé.\nTrès belle fin de journée !\n${prenom}`);
+    }
+    if(mode==='commande')setMessage('');
+  },[mode]);
   const [lignes,setLignes]=React.useState([]);
   const [selectedProd,setSelectedProd]=React.useState('');
   const [echantillons,setEchantillons]=React.useState(false);
@@ -3939,15 +3946,20 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     // Gratuité override (casiers/coiffes keep their price)
     if(gratuite&&prod.code!==CASIER_CODE&&prod.code!==COIFFE_CODE)return 0;
     // Prix coûtant = prix normal / 0.85
+    if(prixCoutant&&tariEvent&&parsePrix(prod.tariEvents)>0){
+      // Events - 15%
+      return Math.round(parsePrix(prod.tariEvents)*0.85*100)/100;
+    }
     if(prixCoutant){
-      if(isPaletteQtyPU&&parsePrix(prod.prixPalette)>0)return Math.round(parsePrix(prod.prixPalette)/0.85*100)/100;
-      if(totalEq75>=600)return Math.round(parsePrix(prod.prix600)/0.85*100)/100;
-      if(totalEq75>=360)return Math.round(parsePrix(prod.prix360)/0.85*100)/100;
-      if(totalEq75>=240)return Math.round(parsePrix(prod.prix240)/0.85*100)/100;
-      if(totalEq75>=120)return Math.round(parsePrix(prod.prix120)/0.85*100)/100;
+      // Normal price - 15%
+      if(isPaletteQtyPU&&parsePrix(prod.prixPalette)>0)return Math.round(parsePrix(prod.prixPalette)*0.85*100)/100;
+      if(totalEq75>=600)return Math.round(parsePrix(prod.prix600)*0.85*100)/100;
+      if(totalEq75>=360)return Math.round(parsePrix(prod.prix360)*0.85*100)/100;
+      if(totalEq75>=240)return Math.round(parsePrix(prod.prix240)*0.85*100)/100;
+      if(totalEq75>=120)return Math.round(parsePrix(prod.prix120)*0.85*100)/100;
       return Math.round(parsePrix(prod.prix24)/0.85*100)/100;
     }
-    if(tariEvent&&parsePrix(prod.tariEvents)>0)return parsePrix(prod.tariEvents);
+    if(tariEvent&&!prixCoutant&&parsePrix(prod.tariEvents)>0)return parsePrix(prod.tariEvents);
     // Palette condition
     const qpalRaw=parseInt(String(prod.qpalette||'0').replace(/[^0-9]/g,''))||0;
     const isPaletteCartons=preparation==='palette_cartons';
@@ -3997,14 +4009,19 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     setPreparation(newPrep);
   }
 
-  const tarifLabelComputed=gratuite?('GRATUITÉ — '+gratuiteRaison):prixCoutant?'Prix Coûtant (prix normal ÷ 0,85)':tariEvent?'Tarif Events':totalEq75>=600?'Tarif 600+':totalEq75>=360?'Tarif 360+':totalEq75>=240?'Tarif 240+':totalEq75>=120?'Tarif 120+':'Tarif 24+';
+  const tarifLabelComputed=gratuite?('GRATUITÉ — '+gratuiteRaison)
+    :(()=>{
+      const base=tariEvent?'Events':(totalEq75>=600?'600+':totalEq75>=360?'360+':totalEq75>=240?'240+':totalEq75>=120?'120+':'24+');
+      return prixCoutant?base+' Coûtant':base;
+    })();
   const displayLignes=getDisplayLignes();
   function getLinePU(l){return l.prix!==undefined?l.prix:(()=>{const p=tarif.find(t=>t.code===l.code);return p?getPU(p,l.qty):0;})();}
   function getLineTarifLabel(l){
     if(l.qtyMode==='auto')return '';
     if(gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE)return 'Gratuit';
-    if(prixCoutant)return 'Coûtant';
+    if(tariEvent&&prixCoutant)return 'Events Coûtant';
     if(tariEvent)return 'Events';
+    if(prixCoutant)return 'Coûtant';
     const prod=tarif.find(t=>t.code===l.code);
     if(!prod)return '';
     const q=parseInt(l.qty||0);
@@ -4170,8 +4187,9 @@ ${msgHtml}
 </div>
 </div>`
     const fntS='font-family:${brandFont};font-size:14px;color:#1a1814;line-height:1.6';
+    const fntS2=`font-family:${brandFont};font-size:14px;color:#1a1814;line-height:1.4;margin:0 0 4px 0`;
     const intro=mode==='devis'
-      ?`<p style="${fntS}">Bonjour,</p><p style="${fntS}">Suite à nos échanges, voici le chiffrage détaillé.</p><p style="${fntS}">Très belle fin de journée !<br><strong>${prenom}</strong></p>`
+      ?message.split('\n').map(line=>`<p style="${fntS2}">${line||'&nbsp;'}</p>`).join('')
       :`<p style="${fntS}">Bonjour,</p><p style="${fntS}">Une nouvelle commande a été passée par <strong>${prenom}</strong> pour le compte de <strong>${societe}</strong>.</p><p style="${fntS}">La bise.</p>`;
     const outro='';
     const msgBody=intro+htmlTable;
@@ -4379,14 +4397,14 @@ ${msgHtml}
           <div style={{borderLeft:'1px solid #f0ede8',paddingLeft:16}}>
             <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>Tarification</div>
             <div style={{display:'flex',flexDirection:'column',gap:8}}>
-              <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',fontWeight:tariEvent&&!prixCoutant&&!gratuite?600:400}}>
-                <input type="checkbox" checked={tariEvent&&!prixCoutant&&!gratuite}
-                  onChange={e=>{setTariEvent(e.target.checked);setPrixCoutant(false);if(e.target.checked){setGratuite(false);setGratuiteRaison('');}}}/>
+              <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',fontWeight:tariEvent?600:400}}>
+                <input type="checkbox" checked={tariEvent}
+                  onChange={e=>{setTariEvent(e.target.checked);if(e.target.checked){setGratuite(false);setGratuiteRaison('');}}}/>
                 Tarif Events
               </label>
               <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',fontWeight:prixCoutant?600:400}}>
                 <input type="checkbox" checked={prixCoutant}
-                  onChange={e=>{setPrixCoutant(e.target.checked);setTariEvent(false);if(e.target.checked){setGratuite(false);setGratuiteRaison('');}}}/>
+                  onChange={e=>{setPrixCoutant(e.target.checked);if(e.target.checked){setGratuite(false);setGratuiteRaison('');}}}/>
                 Prix coûtant
               </label>
               <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',fontWeight:gratuite?600:400,color:gratuite?'#c0392b':'inherit'}}>
