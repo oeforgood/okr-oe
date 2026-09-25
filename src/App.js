@@ -4024,6 +4024,32 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
       {lbls.map((lb,i)=>{const[bg,fg]=TARIF_COLORS[lb]||['#f8f7f5','#6b6560'];return<span key={i} style={{fontSize:9,padding:'1px 4px',borderRadius:6,background:bg,color:fg,fontWeight:700,whiteSpace:'nowrap'}}>{lb}</span>;})}
     </span>;
   }
+  function getLineTarifLabel(l){
+    if(l.qtyMode==='auto')return '';
+    if(gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE)return 'Gratuit';
+    if(tariEvent&&prixCoutant)return ['Events','Coûtant'];
+    if(tariEvent)return 'Events';
+    if(prixCoutant){
+      if(totalEq75>=600)return ['600+','Coûtant'];
+      if(totalEq75>=360)return ['360+','Coûtant'];
+      if(totalEq75>=240)return ['240+','Coûtant'];
+      if(totalEq75>=120)return ['120+','Coûtant'];
+      return ['24+','Coûtant'];
+    }
+    const prod=tarif.find(t=>t.code===l.code);
+    if(!prod)return '';
+    const q=parseInt(l.qty||0);
+    const qpalRaw=parseInt(String(prod.qpalette||'0').replace(/[^0-9]/g,''))||0;
+    const isPalCartons=preparation==='palette_cartons';
+    const isPalCasiers=preparation==='palette_casier_coiffe'||preparation==='palette_casier_sans_coiffe';
+    const isPalQty=isPalCartons?(qpalRaw>0&&q%qpalRaw===0):isPalCasiers?(q>=480&&q%480===0):false;
+    if(isPalQty)return 'Palette';
+    if(totalEq75>=600)return '600+';
+    if(totalEq75>=360)return '360+';
+    if(totalEq75>=240)return '240+';
+    if(totalEq75>=120)return '120+';
+    return '24+';
+  }
   function getLinePU(l){return l.prix!==undefined?l.prix:(()=>{const p=tarif.find(t=>t.code===l.code);return p?getPU(p,l.qty):0;})();}
   const totalHT=displayLignes.reduce((s,l)=>s+getLinePU(l)*parseInt(l.qty||0),0);
   const totalTVA=displayLignes.reduce((s,l)=>s+getLinePU(l)*parseInt(l.qty||0)*(parseFloat(l.tva||0)/100),0);
