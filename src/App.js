@@ -3883,6 +3883,14 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   },[mode]);
   const [lignes,setLignes]=React.useState([]);
   const [selectedProd,setSelectedProd]=React.useState('');
+  const [savedClients,setSavedClients]=React.useState([]);
+  const [selectedClientKey,setSelectedClientKey]=React.useState('');
+  const [savedOrders,setSavedOrders]=React.useState([]);
+  // Recall filters
+  const [recallTeammate,setRecallTeammate]=React.useState(teamMember?.prenom||'');
+  const [recallClient,setRecallClient]=React.useState('');
+  const [recallMode,setRecallMode]=React.useState('commande');
+  const [recallRef,setRecallRef]=React.useState('');
   const [echantillons,setEchantillons]=React.useState(false);
   const [tariEvent,setTariEvent]=React.useState(false);
   const [prixCoutant,setPrixCoutant]=React.useState(false);
@@ -3915,6 +3923,14 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
         .sort((a,b)=>a.id.localeCompare(b.id))
         .forEach(d=>rows.push(...(d.data().rows||[])));
       setTarif(rows);setLoadingTarif(false);
+    });
+    // Load saved clients
+    getDocs(collection(db,'devis_clients')).then(snap=>{
+      setSavedClients(snap.docs.map(d=>({key:d.id,...d.data()})).sort((a,b)=>(a.societe||'').localeCompare(b.societe||'')));
+    });
+    // Load saved orders/quotes
+    getDocs(collection(db,'devis_commandes')).then(snap=>{
+      setSavedOrders(snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)));
     });
   },[]);
 
@@ -4015,6 +4031,14 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
       return prixCoutant?base+' Coûtant':base;
     })();
   const displayLignes=getDisplayLignes();
+  const TARIF_COLORS={Gratuit:['#fef2f2','#c0392b'],Coûtant:['#ea580c','#fff'],Events:['#fef3c7','#92400e'],Palette:['#f0fdf4','#2d6a4f'],'600+':['#f0fdf4','#2d6a4f'],'360+':['#eff6ff','#1d4ed8'],'240+':['#f5f3ff','#6d28d9'],'120+':['#fdf4ff','#9333ea'],'24+':['#f8f7f5','#6b6560']};
+  function renderTarifBadges(lbl){
+    const lbls=Array.isArray(lbl)?lbl:(lbl?[lbl]:[]);
+    if(!lbls.length)return null;
+    return <span style={{display:'flex',gap:2,justifyContent:'center',flexWrap:'nowrap',alignItems:'center'}}>
+      {lbls.map((lb,i)=>{const[bg,fg]=TARIF_COLORS[lb]||['#f8f7f5','#6b6560'];return<span key={i} style={{fontSize:9,padding:'1px 4px',borderRadius:6,background:bg,color:fg,fontWeight:600,whiteSpace:'nowrap'}}>{lb}</span>;})}
+    </span>;
+  }
   function getLinePU(l){return l.prix!==undefined?l.prix:(()=>{const p=tarif.find(t=>t.code===l.code);return p?getPU(p,l.qty):0;})();}
   function getLineTarifLabel(l){
     if(l.qtyMode==='auto')return '';
@@ -4103,7 +4127,10 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   }
 
   async function saveCoords(){
-    await setDoc(doc(db,'devis_clients',societe.trim()||'_'),{societe,contact,factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,infoLivraison,updatedAt:Date.now()});
+    const key=societe.trim()||'_';
+    await setDoc(doc(db,'devis_clients',key),{societe,contact,factAddr,updatedAt:Date.now()});
+    setSavedClients(p=>{const exists=p.find(x=>x.key===key);if(exists)return p.map(x=>x.key===key?{...x,societe,contact,factAddr}:x);return [...p,{key,societe,contact,factAddr}].sort((a,b)=>(a.societe||'').localeCompare(b.societe||''));});
+    setSelectedClientKey(key);
     setStep('produits');
   }
 
@@ -4317,7 +4344,32 @@ ${msgHtml}
         <div style={SECT}>
           <div style={{fontSize:13,fontWeight:700,marginBottom:14}}>Informations client</div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:14}}>
-            <div><label style={LBL}>Nom de la société *</label><input value={societe} onChange={e=>setSociete(e.target.value)} style={INP()}/></div>
+            <div style={{gridColumn:'1/-1',marginBottom:4}}>
+            <label style={LBL}>Clients sauvegardés</label>
+            <div style={{display:'flex',gap:8,alignItems:'center'}}>
+              <select value={selectedClientKey} onChange={e=>{
+                const key=e.target.value;
+                setSelectedClientKey(key);
+                if(!key)return;
+                const cl=savedClients.find(x=>x.key===key);
+                if(!cl)return;
+                setSociete(cl.societe||'');setContact(cl.contact||'');
+                setFactAddr(cl.factAddr||{addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});
+              }} style={{...INP(),flex:1,color:selectedClientKey?'#1a1814':'#9e9890'}}>
+                <option value=''>— Choisir un client sauvegardé —</option>
+                {savedClients.map(cl=><option key={cl.key} value={cl.key}>{cl.societe}</option>)}
+              </select>
+              {selectedClientKey&&<button onClick={async()=>{
+                if(!window.confirm('Supprimer ce client ?'))return;
+                await deleteDoc(doc(db,'devis_clients',selectedClientKey));
+                setSavedClients(p=>p.filter(x=>x.key!==selectedClientKey));
+                setSelectedClientKey('');
+              }} style={{padding:'6px 10px',background:'#fff',border:'1px solid #e2ddd6',borderRadius:7,fontSize:12,color:'#c0392b',cursor:'pointer',flexShrink:0}}>Supprimer</button>}
+              <button onClick={()=>{setSociete('');setContact('');setFactAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setSelectedClientKey('');}}
+                style={{padding:'6px 10px',background:'#f8f7f5',border:'1px solid #e2ddd6',borderRadius:7,fontSize:12,cursor:'pointer',flexShrink:0}}>Effacer</button>
+            </div>
+          </div>
+          <div><label style={LBL}>Nom de la société *</label><input value={societe} onChange={e=>{setSociete(e.target.value);setSelectedClientKey('');}} style={INP()}/></div>
             <div><label style={LBL}>Prénom et Nom du contact</label><input value={contact} onChange={e=>setContact(e.target.value)} style={INP()}/></div>
           </div>
           <div style={{fontSize:12,fontWeight:700,color:'#6b6560',marginBottom:8}}>Adresse de facturation</div>
@@ -4386,7 +4438,139 @@ ${msgHtml}
           </div>
         </div>
 
-        <div style={{...SECT,display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+        {/* Recall panel */}
+        <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'14px 16px',marginBottom:16}}>
+          <div style={{fontSize:11,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:.5,marginBottom:10}}>Rappeler un devis ou une commande</div>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
+            <select value={recallTeammate} onChange={e=>{setRecallTeammate(e.target.value);setRecallClient('');setRecallRef('');}}
+              style={{...INP('auto'),minWidth:120,fontSize:12}}>
+              <option value=''>Tous</option>
+              {[...new Set(savedOrders.map(o=>o.createdBy||'').filter(Boolean))].map(email=>{
+                const tm=(window._teamMembers||[]).find(m=>m.email===email);
+                return <option key={email} value={email}>{tm?.prenom||email}</option>;
+              })}
+            </select>
+            <select value={recallClient} onChange={e=>{setRecallClient(e.target.value);setRecallRef('');}}
+              style={{...INP('auto'),minWidth:150,fontSize:12}}>
+              <option value=''>— Client —</option>
+              {[...new Set(savedOrders.filter(o=>!recallTeammate||o.createdBy===recallTeammate).map(o=>o.societe||'').filter(Boolean))].sort().map(s=><option key={s} value={s}>{s}</option>)}
+            </select>
+            <div style={{display:'flex',gap:4}}>
+              {['commande','devis'].map(m=><button key={m} onClick={()=>{setRecallMode(m);setRecallRef('');}}
+                style={{padding:'5px 10px',borderRadius:6,fontSize:11,fontWeight:500,cursor:'pointer',
+                  border:`1px solid ${recallMode===m?'#2d6a4f':'#e2ddd6'}`,
+                  background:recallMode===m?'#2d6a4f':'#fff',color:recallMode===m?'#fff':'#6b6560'}}>
+                {m==='commande'?'Commande':'Devis'}
+              </button>)}
+            </div>
+            <select value={recallRef} onChange={e=>{
+              const ref=e.target.value;setRecallRef(ref);
+              if(!ref)return;
+              const order=savedOrders.find(o=>o.ref===ref);
+              if(!order)return;
+              // Prefill everything
+              setSociete(order.societe||'');setContact(order.contact||'');
+              setFactAddr(order.factAddr||{addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});
+              setExpAddr(order.expAddr||{addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});
+              setSameAddr(false);setRetraitLoft(order.retraitLoft||false);
+              setPreparation(order.preparation||'');
+              setMessage(order.message||'');
+              setTariEvent(order.tariEvent||false);setPrixCoutant(false);setGratuite(false);setGratuiteRaison('');
+              setLignes((order.lignes||[]).filter(l=>l.qtyMode!=='auto').map(l=>({...l,qtyMode:'select'})));
+            }} style={{...INP('auto'),minWidth:200,fontSize:11,color:recallRef?'#1a1814':'#9e9890'}}>
+              <option value=''>— Choisir —</option>
+              {savedOrders.filter(o=>
+                (!recallTeammate||o.createdBy===recallTeammate)&&
+                (!recallClient||o.societe===recallClient)&&
+                o.mode===recallMode
+              ).map(o=>{
+                const d=o.createdAt?new Date(o.createdAt).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'';
+                const tm=(window._teamMembers||[]).find(m=>m.email===o.createdBy);
+                return <option key={o.ref} value={o.ref}>{o.ref} — {d}{tm?' ('+tm.prenom+')':''}</option>;
+              })}
+            </select>
+          </div>
+        </div>
+        {/* Recall panel */}
+        <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'14px 16px',marginBottom:16}}>
+          <div style={{fontSize:11,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:.5,marginBottom:10}}>Rappeler un devis ou une commande</div>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
+            <select value={recallTeammate} onChange={e=>{setRecallTeammate(e.target.value);setRecallClient('');setRecallRef('');}}
+              style={{...INP('auto'),minWidth:120,fontSize:12}}>
+              <option value=''>Tous</option>
+              {[...new Set(savedOrders.map(o=>o.createdBy||'').filter(Boolean))].map(email=>{
+                const tm=(window._teamMembers||[]).find(m=>m.email===email);
+                return <option key={email} value={email}>{tm?.prenom||email}</option>;
+              })}
+            </select>
+            <select value={recallClient} onChange={e=>{setRecallClient(e.target.value);setRecallRef('');}}
+              style={{...INP('auto'),minWidth:150,fontSize:12}}>
+              <option value=''>— Client —</option>
+              {[...new Set(savedOrders.filter(o=>!recallTeammate||o.createdBy===recallTeammate).map(o=>o.societe||'').filter(Boolean))].sort().map(s=><option key={s} value={s}>{s}</option>)}
+            </select>
+            <div style={{display:'flex',gap:4}}>
+              {['commande','devis'].map(m=><button key={m} onClick={()=>{setRecallMode(m);setRecallRef('');}}
+                style={{padding:'5px 10px',borderRadius:6,fontSize:11,fontWeight:500,cursor:'pointer',
+                  border:`1px solid ${recallMode===m?'#2d6a4f':'#e2ddd6'}`,
+                  background:recallMode===m?'#2d6a4f':'#fff',color:recallMode===m?'#fff':'#6b6560'}}>
+                {m==='commande'?'Commande':'Devis'}
+              </button>)}
+            </div>
+            <select value={recallRef} onChange={e=>{
+              const ref=e.target.value;setRecallRef(ref);
+              if(!ref)return;
+              const order=savedOrders.find(o=>o.ref===ref);
+              if(!order)return;
+              setSociete(order.societe||'');setContact(order.contact||'');
+              setFactAddr(order.factAddr||{addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});
+              setExpAddr(order.expAddr||{addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});
+              setSameAddr(false);setRetraitLoft(order.retraitLoft||false);
+              setPreparation(order.preparation||'');
+              setMessage(order.message||'');
+              setTariEvent(order.tariEvent||false);setPrixCoutant(false);setGratuite(false);setGratuiteRaison('');
+              setLignes((order.lignes||[]).filter(l=>l.qtyMode!=='auto').map(l=>({...l,qtyMode:'select'})));
+            }} style={{...INP('auto'),flex:1,minWidth:200,fontSize:11,color:recallRef?'#1a1814':'#9e9890'}}>
+              <option value=''>— Choisir un devis ou une commande —</option>
+              {savedOrders.filter(o=>(!recallTeammate||o.createdBy===recallTeammate)&&(!recallClient||o.societe===recallClient)&&o.mode===recallMode).map(o=>{
+                const d=o.createdAt?new Date(o.createdAt).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'';
+                const tm=(window._teamMembers||[]).find(m=>m.email===o.createdBy);
+                return <option key={o.ref} value={o.ref}>{o.ref} — {o.societe} — {d}{tm?' ('+tm.prenom+')':''}</option>;
+              })}
+            </select>
+          </div>
+        </div>
+        <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'14px 16px',marginBottom:16}}>
+          <div style={{fontSize:11,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:.5,marginBottom:10}}>Rappeler un devis ou une commande</div>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
+            <select value={recallTeammate} onChange={e=>{setRecallTeammate(e.target.value);setRecallClient('');setRecallRef('');}} style={{fontSize:12,padding:'5px 8px',borderRadius:7,border:'1px solid #e2ddd6',minWidth:110}}>
+              <option value=''>Tous</option>
+              {[...new Set(savedOrders.map(o=>o.createdBy||'').filter(Boolean))].map(email=>{const tm=(window._teamMembers||[]).find(m=>m.email===email);return<option key={email} value={email}>{tm?.prenom||email}</option>;})}
+            </select>
+            <select value={recallClient} onChange={e=>{setRecallClient(e.target.value);setRecallRef('');}} style={{fontSize:12,padding:'5px 8px',borderRadius:7,border:'1px solid #e2ddd6',minWidth:140}}>
+              <option value=''>— Client —</option>
+              {[...new Set(savedOrders.filter(o=>!recallTeammate||o.createdBy===recallTeammate).map(o=>o.societe||'').filter(Boolean))].sort().map(s=><option key={s} value={s}>{s}</option>)}
+            </select>
+            {['commande','devis'].map(m=><button key={m} onClick={()=>{setRecallMode(m);setRecallRef('');}} style={{padding:'5px 10px',borderRadius:6,fontSize:11,fontWeight:500,cursor:'pointer',border:`1px solid ${recallMode===m?'#2d6a4f':'#e2ddd6'}`,background:recallMode===m?'#2d6a4f':'#fff',color:recallMode===m?'#fff':'#6b6560'}}>{m==='commande'?'Commande':'Devis'}</button>)}
+            <select value={recallRef} onChange={e=>{
+              const ref=e.target.value;setRecallRef(ref);if(!ref)return;
+              const o=savedOrders.find(x=>x.ref===ref);if(!o)return;
+              setSociete(o.societe||'');setContact(o.contact||'');
+              setFactAddr(o.factAddr||{addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});
+              setExpAddr(o.expAddr||{addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});
+              setSameAddr(false);setRetraitLoft(o.retraitLoft||false);setPreparation(o.preparation||'');
+              setMessage(o.message||'');setTariEvent(o.tariEvent||false);setPrixCoutant(false);setGratuite(false);setGratuiteRaison('');
+              setLignes((o.lignes||[]).filter(l=>l.qtyMode!=='auto').map(l=>({...l,qtyMode:'select'})));
+            }} style={{flex:1,fontSize:11,padding:'5px 8px',borderRadius:7,border:'1px solid #e2ddd6',minWidth:200,color:recallRef?'#1a1814':'#9e9890'}}>
+              <option value=''>— Choisir —</option>
+              {savedOrders.filter(o=>(!recallTeammate||o.createdBy===recallTeammate)&&(!recallClient||o.societe===recallClient)&&o.mode===recallMode).map(o=>{
+                const d=o.createdAt?new Date(o.createdAt).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'';
+                const tm=(window._teamMembers||[]).find(m=>m.email===o.createdBy);
+                return<option key={o.ref} value={o.ref}>{o.ref} · {o.societe} · {d}{tm?' ('+tm.prenom+')':''}</option>;
+              })}
+            </select>
+          </div>
+        </div>
+                <div style={{...SECT,display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
           <div>
             <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>Mode de préparation *</div>
             <select value={preparation} onChange={e=>handlePrepChange(e.target.value)}
@@ -4396,9 +4580,7 @@ ${msgHtml}
                 <option key={p.k} value={p.k}>{p.l}</option>
               )}
             </select>
-            {isCoiffePrep&&totalBouteilles>0&&!coiffeOk&&<div style={{marginTop:8,fontSize:12,color:'#c0392b',fontWeight:600}}>
-              {totalBouteilles} bouteilles — doit être un multiple de 120.
-            </div>}
+
           </div>
           <div style={{borderLeft:'1px solid #f0ede8',paddingLeft:16}}>
             <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>Tarification</div>
@@ -4522,7 +4704,10 @@ ${msgHtml}
           </>}
         </div>}
 
-        {preparation&&<div style={{display:'flex',justifyContent:'flex-end'}}>
+        {preparation&&<div style={{display:'flex',justifyContent:'flex-end',alignItems:'center',gap:12}}>
+          {isCoiffePrep&&totalBouteilles>0&&!coiffeOk&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600}}>
+            ⚠️ {totalBouteilles} bouteilles — multiple de 120 requis
+          </div>}
           <button onClick={handleEnvoyer}
             disabled={sending||!coreLignes.length||!coiffeOk}
             style={{padding:'12px 32px',
