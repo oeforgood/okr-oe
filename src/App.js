@@ -4025,11 +4025,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     setPreparation(newPrep);
   }
 
-  const gratuite?('GRATUITÉ — '+gratuiteRaison):prixCoutant?'Prix Coûtant':tariEvent?'Tarif Events':totalEq75>=600?'Tarif 600+':totalEq75>=360?'Tarif 360+':totalEq75>=240?'Tarif 240+':totalEq75>=120?'Tarif 120+':'Tarif 24+'=gratuite?('GRATUITÉ — '+gratuiteRaison)
-    :(()=>{
-      const base=tariEvent?'Events':(totalEq75>=600?'600+':totalEq75>=360?'360+':totalEq75>=240?'240+':totalEq75>=120?'120+':'24+');
-      return prixCoutant?base+' Coûtant':base;
-    })();
+  const tarifLabel=gratuite?('GRATUITÉ — '+gratuiteRaison):prixCoutant?'Prix Coûtant':tariEvent?'Tarif Events':totalEq75>=600?'Tarif 600+':totalEq75>=360?'Tarif 360+':totalEq75>=240?'Tarif 240+':totalEq75>=120?'Tarif 120+':'Tarif 24+';
   const displayLignes=getDisplayLignes();
   const TARIF_COLORS={Gratuit:['#fef2f2','#c0392b'],Coûtant:['#ea580c','#fff'],Events:['#fef3c7','#92400e'],Palette:['#f0fdf4','#2d6a4f'],'600+':['#f0fdf4','#2d6a4f'],'360+':['#eff6ff','#1d4ed8'],'240+':['#f5f3ff','#6d28d9'],'120+':['#fdf4ff','#9333ea'],'24+':['#f8f7f5','#6b6560']};
   function renderTarifBadges(lbl){
