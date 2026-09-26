@@ -4143,12 +4143,12 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     if(!coreLignes.length){alert('Ajoutez au moins un produit.');return;}
     if(!preparation){alert('Choisissez un mode de préparation.');return;}
     if(!coiffeOk){alert(`Le nombre de bouteilles (${totalBouteilles}) doit être un multiple de 120.`);return;}
+    if(!minQtyOk){alert(tariEvent?'Il faut au moins 6 bouteilles ou équivalent.':'Il faut au moins 24 bouteilles ou équivalent (ou choisir le tarif Events).');return;}
     setSending(true);
     const ref=genRef();
     const tarifLabel=tarifLabelComputed;
     const textContent=buildText(ref);
     const prenom=teamMember?.prenom||'Oé';
-    // Build HTML table for products
     const livrInfo=retraitLoft?'Retrait au Loft Oé - 10bis rue Bellicard, 69003 Lyon':sameAddr?(factAddr.addr+', '+factAddr.cp+' '+factAddr.ville):(expAddr.addr+', '+expAddr.cp+' '+expAddr.ville);
     const clientInfoHtml='<table style="font-size:13px;margin-bottom:16px;border-collapse:collapse">'+
       '<tr><td style="padding:3px 16px 3px 0;color:#9e9890;font-size:11px;white-space:nowrap;vertical-align:top">CLIENT</td><td style="padding:3px 0"><strong>'+societe+'</strong> — '+contact+'</td></tr>'+
@@ -4158,27 +4158,16 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
       (message?'<tr><td style="padding:3px 16px 3px 0;color:#9e9890;font-size:11px;white-space:nowrap;vertical-align:top">MESSAGE</td><td style="padding:3px 0;font-style:italic">'+message+'</td></tr>':'')+
       (echantillons?'<tr><td style="padding:3px 16px 3px 0;color:#c0392b;font-size:11px;white-space:nowrap;vertical-align:top">ÉCHANTILLONS</td><td style="padding:3px 0;color:#c0392b;font-weight:600">⚠️ Gratuits — '+echantillonsRaison+'</td></tr>':'')+
       '</table>';
-    const fntS='font-family:${brandFont};font-size:14px;color:#1a1814;line-height:1.6';
+    const brandGreen='#2d6a4f';const brandBeige='#f5f3ef';const brandDark='#1a1814';const brandFont='system-ui,-apple-system,Helvetica,sans-serif';
+    const fntS=`font-family:${brandFont};font-size:14px;color:#1a1814;line-height:1.6`;
     const intro=mode==='devis'
       ?`<p style="${fntS}">Bonjour,</p><p style="${fntS}">Suite à nos échanges, voici le chiffrage détaillé :</p>`
       :`<p style="${fntS}">Bonjour,</p><p style="${fntS}">Une nouvelle commande a été enregistrée par <strong>${prenom}</strong>.</p>`;
     const outro=mode==='devis'
       ?'<p>Très belle fin de journée !<br><strong>'+prenom+' — Oé</strong></p>'
       :'<p>La bise.<br><strong>'+prenom+' — Oé</strong></p>';
-    await setDoc(doc(db,'devis_commandes',ref),{ref,mode,societe,contact,factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,preparation,tariEvent,infoLivraison,message,lignes:displayLignes,totalHT,totalTVA,totalTTC,createdAt:Date.now(),createdBy:currentUser?.email});
-    try{
-      await emailjs.send(EMAILJS_SERVICE,EMAILJS_TEMPLATE_DEVIS,{
-        to_email:'fx@oeforgood.com',cc_email:'',
-        to_name:prenom,from_name:prenom,name:prenom,
-        email:currentUser?.email||'',reply_to:currentUser?.email||'fx@oeforgood.com',
-        subject:`🌼 ${mode==='devis'?`Devis ${ref} - Oé`:`Commande ${ref} passée par ${prenom}`}`,
-        ref,html_content:msgBody,message:msgBody,
-      },EMAILJS_KEY);
-    }catch(e){console.error('EmailJS:',e);}
-const msgColor='#c0392b';
+    const msgColor='#c0392b';
     const msgHtml=message?`<div style="margin:16px 0;padding:12px 16px;background:#fff5f5;border-left:3px solid ${msgColor};border-radius:4px;font-size:13px;color:${msgColor}"><strong>${mode==='commande'?'Message supply':'Message client'} :</strong> ${message}</div>`:'';
-    const brandGreen='#2d6a4f';const brandBeige='#f5f3ef';const brandDark='#1a1814';const brandFont='system-ui,-apple-system,Helvetica,sans-serif';
-    // prodRows for mail
     const prodRows=displayLignes.map(ligne=>{
       const pu=gratuite&&ligne.code!==CASIER_CODE&&ligne.code!==COIFFE_CODE?0:getLinePU(ligne);
       const qty=parseInt(ligne.qty||0);
@@ -4237,8 +4226,18 @@ ${msgHtml}
 <div style="background:${brandBeige};padding:12px 24px;border-radius:0 0 8px 8px;border-top:1px solid #e2ddd6;font-size:11px;color:#6b6560;text-align:center">
   Oé · contact@oeforgood.com · oeforgood.com
 </div>
-</div>`
+</div>`;
     const msgBody=intro+clientInfoHtml+htmlTable+outro;
+    await setDoc(doc(db,'devis_commandes',ref),{ref,mode,societe,contact,factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,preparation,tariEvent,infoLivraison,message,lignes:displayLignes,totalHT,totalTVA,totalTTC,createdAt:Date.now(),createdBy:currentUser?.email});
+    try{
+      await emailjs.send(EMAILJS_SERVICE,EMAILJS_TEMPLATE_DEVIS,{
+        to_email:'fx@oeforgood.com',cc_email:'',
+        to_name:prenom,from_name:prenom,name:prenom,
+        email:currentUser?.email||'',reply_to:currentUser?.email||'fx@oeforgood.com',
+        subject:`🌼 ${mode==='devis'?`Devis ${ref} - Oé`:`Commande ${ref} passée par ${prenom}`}`,
+        ref,html_content:msgBody,message:msgBody,
+      },EMAILJS_KEY);
+    }catch(e){console.error('EmailJS:',e);}
     setSentRecap(textContent);setSending(false);setSent(true);
   }
 
