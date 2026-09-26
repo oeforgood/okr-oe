@@ -4119,6 +4119,8 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
       `PREPARATION : ${prepLabel}`,
       `TARIF : ${tarifLabel}`,
       message?`MESSAGE : ${message}`:'',
+      `TARIF : ${tarifLabel}`,
+      message?`>>> ${mode==='commande'?'SUPPLY':'CLIENT'} : ${message} <<<`:'',
       sep,
       header,
       divider,
