@@ -4119,8 +4119,6 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
       `PREPARATION : ${prepLabel}`,
       `TARIF : ${tarifLabel}`,
       message?`MESSAGE : ${message}`:'',
-      `TARIF : ${tarifLabel}`,
-      message?`>>> ${mode==='commande'?'SUPPLY':'CLIENT'} : ${message} <<<`:'',
       sep,
       header,
       divider,
@@ -4227,7 +4225,7 @@ ${msgHtml}
   Oé · contact@oeforgood.com · oeforgood.com
 </div>
 </div>`;
-    const msgBody=intro+clientInfoHtml+htmlTable+outro;
+    const msgBody=intro+htmlTable+outro;
     await setDoc(doc(db,'devis_commandes',ref),{ref,mode,societe,contact,factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,preparation,tariEvent,infoLivraison,message,lignes:displayLignes,totalHT,totalTVA,totalTTC,createdAt:Date.now(),createdBy:currentUser?.email});
     try{
       await emailjs.send(EMAILJS_SERVICE,EMAILJS_TEMPLATE_DEVIS,{
