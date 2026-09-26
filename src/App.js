@@ -4150,14 +4150,6 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     const textContent=buildText(ref);
     const prenom=teamMember?.prenom||'Oé';
     const livrInfo=retraitLoft?'Retrait au Loft Oé - 10bis rue Bellicard, 69003 Lyon':sameAddr?(factAddr.addr+', '+factAddr.cp+' '+factAddr.ville):(expAddr.addr+', '+expAddr.cp+' '+expAddr.ville);
-    const clientInfoHtml='<table style="font-size:13px;margin-bottom:16px;border-collapse:collapse">'+
-      '<tr><td style="padding:3px 16px 3px 0;color:#9e9890;font-size:11px;white-space:nowrap;vertical-align:top">CLIENT</td><td style="padding:3px 0"><strong>'+societe+'</strong> — '+contact+'</td></tr>'+
-      '<tr><td style="padding:3px 16px 3px 0;color:#9e9890;font-size:11px;white-space:nowrap;vertical-align:top">FACTURATION</td><td style="padding:3px 0">'+factAddr.addr+(factAddr.addr2?' '+factAddr.addr2:'')+', '+factAddr.cp+' '+factAddr.ville+(factAddr.email?' — '+factAddr.email:'')+'</td></tr>'+
-      '<tr><td style="padding:3px 16px 3px 0;color:#9e9890;font-size:11px;white-space:nowrap;vertical-align:top">LIVRAISON</td><td style="padding:3px 0">'+livrInfo+'</td></tr>'+
-      '<tr><td style="padding:3px 16px 3px 0;color:#9e9890;font-size:11px;white-space:nowrap;vertical-align:top">PRÉPARATION</td><td style="padding:3px 0">'+prepLabel+'</td></tr>'+
-      (message?'<tr><td style="padding:3px 16px 3px 0;color:#9e9890;font-size:11px;white-space:nowrap;vertical-align:top">MESSAGE</td><td style="padding:3px 0;font-style:italic">'+message+'</td></tr>':'')+
-      (echantillons?'<tr><td style="padding:3px 16px 3px 0;color:#c0392b;font-size:11px;white-space:nowrap;vertical-align:top">ÉCHANTILLONS</td><td style="padding:3px 0;color:#c0392b;font-weight:600">⚠️ Gratuits — '+echantillonsRaison+'</td></tr>':'')+
-      '</table>';
     const brandGreen='#2d6a4f';const brandBeige='#f5f3ef';const brandDark='#1a1814';const brandFont='system-ui,-apple-system,Helvetica,sans-serif';
     const fntS=`font-family:${brandFont};font-size:14px;color:#1a1814;line-height:1.6`;
     const intro=mode==='devis'
@@ -4168,7 +4160,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
       :'<p>La bise.<br><strong>'+prenom+' — Oé</strong></p>';
     const msgColor='#c0392b';
     const msgHtml=message?`<div style="margin:16px 0;padding:12px 16px;background:#fff5f5;border-left:3px solid ${msgColor};border-radius:4px;font-size:13px;color:${msgColor}"><strong>${mode==='commande'?'Message supply':'Message client'} :</strong> ${message}</div>`:'';
-    const prodRows=displayLignes.map(ligne=>{
+        const prodRows=displayLignes.map(ligne=>{
       const pu=gratuite&&ligne.code!==CASIER_CODE&&ligne.code!==COIFFE_CODE?0:getLinePU(ligne);
       const qty=parseInt(ligne.qty||0);
       const totalHT2=pu*qty;
@@ -4186,7 +4178,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
         <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;text-align:right;width:80px">${isOffert?'offert':fmtE(ttcLigne)}</td>
       </tr>`;
     }).join('');
-    const htmlTable=`<div style="font-family:${brandFont};max-width:720px;margin:0 auto;color:${brandDark}">
+        const htmlTable=`<div style="font-family:${brandFont};max-width:720px;margin:0 auto;color:${brandDark}">
 <div style="background:${brandGreen};padding:20px 24px;border-radius:8px 8px 0 0">
   <div style="color:#fff;font-size:20px;font-weight:700;letter-spacing:1px">🌼 Oé</div>
   <div style="color:rgba(255,255,255,0.8);font-size:12px;margin-top:4px">${mode==='devis'?'Devis':'Commande'} ${ref} · ${new Date().toLocaleDateString('fr-FR')}</div>
