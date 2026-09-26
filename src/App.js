@@ -4165,7 +4165,6 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     const outro=mode==='devis'
       ?'<p>Très belle fin de journée !<br><strong>'+prenom+' — Oé</strong></p>'
       :'<p>La bise.<br><strong>'+prenom+' — Oé</strong></p>';
-    const msgBody=intro+clientInfoHtml+htmlTable+outro;
     await setDoc(doc(db,'devis_commandes',ref),{ref,mode,societe,contact,factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,preparation,tariEvent,infoLivraison,message,lignes:displayLignes,totalHT,totalTVA,totalTTC,createdAt:Date.now(),createdBy:currentUser?.email});
     try{
       await emailjs.send(EMAILJS_SERVICE,EMAILJS_TEMPLATE_DEVIS,{
@@ -4239,6 +4238,7 @@ ${msgHtml}
   Oé · contact@oeforgood.com · oeforgood.com
 </div>
 </div>`
+    const msgBody=intro+clientInfoHtml+htmlTable+outro;
     setSentRecap(textContent);setSending(false);setSent(true);
   }
 
@@ -4580,7 +4580,6 @@ ${msgHtml}
 
         {preparation&&<div style={{display:'flex',justifyContent:'flex-end',alignItems:'center',gap:12}}>
           {isCoiffePrep&&totalBouteilles>0&&!coiffeOk&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600}}>⚠️ {totalBouteilles} bouteilles — multiple de 120 requis</div>}
-          {minQtyMsg&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600}}>⚠️ {minQtyMsg}</div>}
           {minQtyMsg&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600}}>⚠️ {minQtyMsg}</div>}
           <button onClick={handleEnvoyer}
             disabled={sending||!coreLignes.length||!coiffeOk||!minQtyOk}
