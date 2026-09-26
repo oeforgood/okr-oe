@@ -1,0 +1,11 @@
+const fs=require('fs');
+const b=fs.readFileSync('backup_list.txt','utf8').split('\n');
+const c=fs.readFileSync('current_list.txt','utf8').split('\n');
+const bSet=new Set(b);
+const cSet=new Set(c);
+let diff='=== DANS BACKUP MAIS PAS DANS FIREBASE ===\n';
+b.filter(l=>l&&!cSet.has(l)).forEach(l=>diff+=l+'\n');
+diff+='\n=== DANS FIREBASE MAIS PAS DANS BACKUP ===\n';
+c.filter(l=>l&&!bSet.has(l)).forEach(l=>diff+=l+'\n');
+fs.writeFileSync('diff_okr.txt',diff);
+console.log(diff);

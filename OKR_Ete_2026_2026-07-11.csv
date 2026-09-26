@@ -1,0 +1,191 @@
+﻿Type,ID,Titre,Parent,Owner,Contributors,Poids,Priorité,Valeur départ,Valeur actuelle,Valeur cible,Valeur révisée,Unité,Stop,Taux avancement
+Objectif,1,Déployer les principaux points d'amélioration du diagnostic commercial,,,,%,P1,,,,,,,
+Objectif,2,Fournir au commerce un écosystème complet qui soutient les ventes (Marketing),,,,%,P1,,,,,,,
+Objectif,3,Oeuvrer pour la mission,,,,%,P1,,,,,,,
+Objectif,4,Fiabiliser la logistique ,,,,%,P1,,,,,,,
+Objectif,5,Se mettre en position sereine pour la pérénité d'Oé,,,,%,P1,,,,,,,
+Objectif,6,Faire des Grands Comptes RHF notre socle de croissance rentable,,,,%,P1,,,,,,,
+Objectif,7,Installer Oé comme une marque qui tourne en linéaire GMS,,,,%,P1,,,,,,,
+Objectif,9,Export - Nouveaux Marchés et Comptes Existants,,,,%,P1,,,,,,,
+Objectif,12,"Faire naître le Système Commercial Oé. Paris et Lyon tournent, et chaque client connaît son RT.",,,,%,P1,,,,,,,
+Sous-objectif,1.1,"Mieux prioriser les Leads, Prospects et Clients",1,Thomas,,30%,P1,,,,,,,
+Sous-objectif,1.2,Simplifier et clarifier le portefeuille,1,Fx,,20%,,,,,,,,
+Sous-objectif,1.3,Renforcer l’exécution commerciale,1,Fx,,30%,P1,,,,,,,
+Sous-objectif,2.1,Les équipes commerciales disposent de supports performants,2,Ines,,20%,,,,,,,,
+Sous-objectif,2.2,Les outils digitaux soutiennent efficacement le parcours commercial,2,Juliette,,20%,,,,,,,,
+Sous-objectif,2.3,Le développement commercial est soutenu sur tous les marchés,2,Ines,,20%,,,,,,,,
+Sous-objectif,2.4,Les temps forts commerciaux sont accompagnés par des actions marketing,2,Ines,,20%,,,,,,,,
+Sous-objectif,2.5,Inès est autonome et l'équipe marketing poursuit son activité sans perte de rythme.,2,Juliette,,20%,,,,,,,,
+Sous-objectif,3.1,Commencer la certification Bcorp,3,Julie,,75%,,,,,,,,
+Sous-objectif,3.2,Définir le plan d'action suite à l'audit Aupeam,3,Julie,,25%,P1,,,,,,,
+Sous-objectif,4.1,Consolider l'offre transporteurs,4,Julie,,30%,,,,,,,,
+Sous-objectif,4.2,Maîtriser le sujet des douanes,4,Julie,,20%,P1,,,,,,,
+Sous-objectif,4.3,Être ready pour eurostar,4,Fiona,,20%,P1,,,,,,,
+Sous-objectif,4.4,Lancer une production d'essence en canette,4,Fiona,,30%,P1,,,,,,,
+Sous-objectif,5.1,Avancer dans notre plan d'étalement de dettes,5,Fx,,20%,P1,,,,,,,
+Sous-objectif,5.2,Se donner les moyens de réaliser la marge objectif en 2026,5,Fx,,50%,P1,,,,,,,
+Sous-objectif,5.3,Sécuriser Oé en termes de trésorerie sur 2026-2027,5,Fx,,30%,P1,,,,,,,
+Sous-objectif,6.1,Renforcer le partenariat opérationnel Episaveurs ,6,Christelle,,20%,,,,,,,,
+Sous-objectif,6.2,Pérenniser la relation France Boissons,6,Christelle,,15%,,,,,,,,
+Sous-objectif,6.4,Entretenir la relation avec le Pain Quotidien,6,Thomas,,10%,,,,,,,,
+Sous-objectif,6.5,Closer Deux grands comptes directs à potentiel,6,Christelle,,10%,,,,,,,,
+Sous-objectif,6.6,Sécuriser les volumes de nos distributeurs régionaux,6,Christelle,,10%,,,,,,,,
+Sous-objectif,6.7,Traiter nos top clients CHR directs,6,Christelle,,10%,,,,,,,,
+Sous-objectif,6.8,Sécuriser Métro,6,Christelle,,5%,,,,,,,,
+Sous-objectif,6.8,Sécuriser Métro,6,Christelle,,5%,,,,,,,,
+Sous-objectif,6.9,Verrouiller le partenariat V&B et le rendre prêt au décollage,6,Thomas,,5%,P1,,,,,,,
+Sous-objectif,6.10,Faire entrer Oé chez les leaders de la restauration collective et de l'hôtellerie.,6,Thomas,,2%,P1,,,,,,,
+Sous-objectif,6.11,Faire de la canette essence un relai de croissance fort pour 2027,6,Christelle,,%,P1,,,,,,,
+Sous-objectif,7.1,Accélérer Carrefour,7,Christelle,,20%,,,,,,,,
+Sous-objectif,7.2,"Développer l'emprise régionale ITM, U, Monoprix",7,Christelle,,20%,,,,,,,,
+Sous-objectif,7.3,Suivre Franprix ,7,Christelle,,10%,,,,,,,,
+Sous-objectif,7.4,Closer Groupe Casino,7,Christelle,,10%,,,,,,,,
+Sous-objectif,7.5,Renforcer la bascule Reuse/Réemploi,7,Christelle,,5%,,,,,,,,
+Sous-objectif,7.6,Renforcer nos positions en GSS,7,Christelle,,10%,,,,,,,,
+Sous-objectif,7.7,Pousser les Cavistes majeurs,7,Christelle,,10%,,,,,,,,
+Sous-objectif,7.8,Focuser sur le leader Hard Discount ,7,Thomas,,5%,,,,,,,,
+Sous-objectif,7.9,Renforcer les Marketplaces,7,Christelle,,10%,,,,,,,,
+Sous-objectif,9.1,Ouvrir un grand importateur/distributeur aux États-Unis (idéalement Frederick Wildman ou Serendipity),9,Gareth,,30%,P1,,,,,,,
+Sous-objectif,9.2,Signer un partenaire national au Royaume-Uni (grande distribution ou réseau traditionnel).,9,Gareth,,30%,P1,,,,,,,
+Sous-objectif,9.3,Maintenir et développer le business existant,9,Gareth,,30%,P1,,,,,,,
+Sous-objectif,9.4,Ouvrir un dialogue sérieux avec des importateurs en Australie et Nouvelle-Zélande,9,Gareth,,10%,P1,,,,,,,
+Sous-objectif,12.1,"Armer la machine (structure, CRM, pilotage)",12,Christelle,,50%,P1,,,,,,,
+Sous-objectif,12.2,"Onboarder la machine (formation, onboarding, tournées)",12,Christelle,,50%,P1,,,,,,,
+KR,1.1.1,"Avoir défini les niveaux d'effort commercial, les parcours de vente et de suivi de chaque catégories",1.1,Thomas,Christelle|Fx,%,,,,5,5,nb,Non,0%
+KR,1.1.2,Avoir catégorisé tous les prospects,1.1,Thomas,Christelle|Fx,%,,,,1,1,oui/non,Non,0%
+KR,1.1.3,Avoir catégorisé tous les clients,1.1,Thomas,Christelle|Fx,%,,,,1,1,oui/non,Non,0%
+KR,1.1.4,"Avoir le TDB de qualité du CRM clair, net",1.1,Thomas,Fx,%,,,,1,1,oui/non,Non,0%
+KR,1.2.1,Identifier la gamme de produit cible à 6 à 12 mois,1.2,Fx,Christelle|Thomas,50%,,,,1,1,oui/non,Non,0%
+KR,1.2.2,Exprimer le rôle de chaque produit dans la gamme,1.2,Fx,Thomas,10%,,,,1,1,%,Non,0%
+KR,1.2.3,Définir le plan d'écoulement des stocks pour le SEGC et le CTN,1.2,Fx,Fiona,10%,,,,1,1,%,Non,0%
+KR,1.2.4,Définir le plan d'écoulement des stocks pour les produits supprimés,1.2,Fx,Fiona,10%,,,,1,1,%,Non,0%
+KR,1.2.5,Formaliser l'offre visuellement et la faire intégrer par les Sales,1.2,Fx,Fx,10%,,,,1,1,oui/non,Non,0%
+KR,1.2.6,Formaliser le planning de transition et le partager à l'équipe,1.2,Fx,Fx,10%,,,,1,1,%,Non,0%
+KR,1.3.1,Déployer les 2 supports d’aide à la vente dans 10 GMS et 10 CHR,1.3,Thomas,Christelle,%,,,,20,20,nb,Non,0%
+KR,1.3.2,"Avoir créé et proposé le kit ""nouveaux clients"" à 10 clients. ",1.3,Thomas,,%,,,,10,10,nb,Non,0%
+KR,1.3.3,"Avoir lancé le flow ""Nouveau Clients""",1.3,Thomas,,%,,,,1,1,oui/non,Non,0%
+KR,2.1.1,"Les 3 supports PLV sont validés, produits et mis à disposition du commerce.",2.1,Juliette,Ines,40%,,,,1,1,%,Non,0%
+KR,2.1.2,Les nouvelles étiquettes Retail ainsi que les supports associés (PLV et présentation commerciale) sont validés.,2.1,,Juliette|Ines,30%,,,,1,1,%,Non,0%
+KR,2.1.3,"La présentation commerciale est à jour, validée par Thomas et utilisée lors de 100 % des nouveaux rendez-vous.",2.1,,Thomas|Ines,30%,,,,1,1,%,Non,0%
+KR,2.2.1,"Le site est audité, les points bloquants sont corrigés et la page Oé Pro est publiée.",2.2,,Guillemette|Juliette,30%,,,,1,1,%,Non,0%
+KR,2.2.2,La page Oé Exploration est publiée et accessible sur le site.,2.2,,Guillemette|Juliette,30%,,,,1,1,%,Non,0%
+KR,2.2.3,"Trois parcours d'automatisation HubSpot sont actifs (lead entrant, prospection, client existant).",2.2,Thomas,Guillemette|Thomas,40%,,,,1,1,%,Non,0%
+KR,2.3.1,"Les supports marketing export (PLV, dossier de presse, présentation) sont finalisés et disponibles.",2.3,,Ines,40%,,,,1,1,%,Non,0%
+KR,2.3.2,100 % des clients export prioritaires ont été contactés et leurs besoins sont documentés dans HubSpot.,2.3,,Ines,20%,,,,1,1,%,Non,0%
+KR,2.3.3,Les actions nécessaires au changement de carte des restaurateurs sont identifiées et planifiées.,2.3,,Thomas|Ines,20%,,,,1,1,%,Non,0%
+KR,2.3.4,Penser un outil facile d'animation pour nos clients (jeu de cartes ?),2.3,Thomas,,20%,,,,1,1,oui/non,Non,0%
+KR,2.3.5,Créer 2 Newsletters par mois jusqu'à décembre pour l'export. ,2.3,Thomas,,%,,,,8,8,nb,Non,0%
+KR,2.3.6,Créer un template simple dans Hubspot de Newsletter Export,2.3,Thomas,Juliette,%,,,,1,1,oui/non,Non,0%
+KR,2.3.7,"5 decks régionaux prêts avant fin septembre (Océanie, Asie, Amériques, UK, Europe). Même base pour tous, juste quelques ajustements par marché",2.3,Gareth,Juliette|Guillemette,%,,,,5,5,nb,Non,0%
+KR,2.4.1,Le prochain rendez-vous de la communauté lyonnaise est planifié et les invitations sont envoyées.,2.4,,Guillemette,30%,,,,1,1,%,Non,0%
+KR,2.4.2,Le plan de communication de Noël est validé et prêt à être déployé.,2.4,,Thomas|Ines,40%,,,,1,1,%,Non,0%
+KR,2.4.3,Les cannettes Essences sont lancées avec l'ensemble des supports marketing nécessaires.,2.4,,Thomas|Ines,30%,,,,1,1,%,Non,0%
+KR,2.5.1,Deux mois de communication (réseaux sociaux et newsletters) sont programmés.,2.5,,Juliette|Guillemette,15%,,,,1,1,%,Non,0%
+KR,2.5.2,"Tous les outils marketing (HubSpot, Klaviyo, Buffer, Notion...) sont documentés, à jour et les accès sont transmis.",2.5,,Juliette|Guillemette,15%,,,,1,1,%,Non,0%
+KR,2.5.3,"Un guide de passation complet (processus, contacts, calendrier, rituels) est finalisé et validé avec Inès.",2.5,,Guillemette|Juliette,15%,,,,1,1,%,Non,0%
+KR,2.5.4,"Inès réalise en autonomie les principales opérations marketing (CRM, réseaux sociaux, emailing, site et supports commerciaux).",2.5,,Ines,25%,,,,1,1,%,Non,0%
+KR,2.5.5,Organiser 4 rencontres avec Inès ,2.5,,Juliette|Guillemette,20%,,,,1,1,%,Non,0%
+KR,2.5.6,Organiser rencontre Cha x Inès : culture Oé,2.5,,Thomas,10%,,,,1,1,%,Non,0%
+KR,3.1.1,Définir notre plan d'action,3.1,Julie,Fiona,20%,,,,1,1,%,Non,0%
+KR,3.1.2,Réaliser 20% de l'évaluation,3.1,Julie,Fiona,40%,,,,20,20,%,Non,0%
+KR,3.1.3,Se faire introduire dans la communauté Bcorp ,3.1,Julie,Fiona|Thomas,10%,,,,1,1,oui/non,Non,0%
+KR,3.1.4,Assister à la première réunion du groupe B Corp AURA,3.1,Julie,Julie|Fiona,10%,,,,1,1,oui/non,Non,0%
+KR,3.1.5,Cranter 2 actions simples identifiées en faisant le début du questionnaire,3.1,Julie,Fiona,20%,,,,2,2,nb,Non,0%
+KR,3.2.1,Prendre connaissance du rapport Aupeam et bâtir le plan d'action,3.2,Julie,,100%,,,,1,1,%,Non,0%
+KR,4.1.1,Identifier d'autres transporteurs (notamment pour l'export),4.1,Julie,,30%,,,,3,3,nb,Non,0%
+KR,4.1.2,Faire des rendez-vous commerciaux,4.1,Julie,,40%,,,,3,3,nb,Non,0%
+KR,4.1.3,Comparer les offres reçues,4.1,Julie,Fx,20%,,,,1,1,oui/non,Non,0%
+KR,4.1.4,Se mettre en position de lancer un essai à partir de fin septembre,4.1,Julie,,10%,,,,1,1,oui/non,Non,0%
+KR,4.2.1,Apprendre les bases et identifier les différents besoins pour l'export,4.2,Julie,,60%,,,,1,1,%,Non,0%
+KR,4.2.2,Formaliser les process par écrit (Notion),4.2,Julie,,30%,,,,1,1,%,Non,0%
+KR,4.2.4,Mettre à jour nos informations douanières,4.2,Julie,,10%,,,,100,100,oui/non,Non,0%
+KR,4.3.1,Valider la capsule et la bouteille,4.3,Fiona,Fx,50%,,,,1,1,%,Non,0%
+KR,4.3.2,Identifier les investissements à faire,4.3,Fiona,Fx,30%,,,,1,1,%,Non,0%
+KR,4.3.3,S'assurer que toutes les parties sont moitivées et prête à dégainer ,4.3,Fiona,,20%,,,,1,1,%,Non,0%
+KR,4.4.1,Sélectionner et contractualiser le partenaire de production,4.4,Fiona,Fx,25%,,,,1,1,%,Non,0%
+KR,4.4.2,Gérer les approvisionnements,4.4,Fiona,,25%,,,,1,1,%,Non,0%
+KR,4.4.3,Valider le packaging de la canette,4.4,Fiona,Thomas|Fx|Juliette,20%,,,,1,1,%,Non,0%
+KR,4.4.4,Réaliser la première production de canettes,4.4,Fiona,,30%,,,,1,1,oui/non,Non,0%
+KR,5.1.1,Finaliser le report de nos échéances URSSAF,5.1,Fx,,50%,,,,1,1,oui/non,Non,0%
+KR,5.1.2,Fournir les éléments aux EF démontrant la nécessité d'un standstill de 24 mois,5.1,Fx,,50%,,,,1,1,oui/non,Non,0%
+KR,5.2.1,Réaliser les revues de marge par canal mi-septembre,5.2,Fx,Christelle|Thomas,20%,,,,2,2,nb,Non,0%
+KR,5.2.2,Mettre en place la revue du budget trimestrielle courant septembre,5.2,Fx,Fx|Thomas|Christelle|Gareth|Fiona,20%,,,,1,1,%,Non,0%
+KR,5.2.3,Intégrer Base Sales v2 à Calendula,5.2,Fx,,30%,,,,1,1,%,Non,0%
+KR,5.2.4,Linker les taux de marge de Base Sales v2 Calendula avec le reporting financier,5.2,Fx,,10%,,,,1,1,%,Non,0%
+KR,5.2.5,Fournir à Thomas et à Christelle leurs plans de progrès sur les marges avec des axes concrets,5.2,Fx,,20%,,,,2,2,nb,Non,0%
+KR,5.3.1,Sécuriser 300k€ supplémentaire dans la délégation,5.3,Thomas,Fx,30%,,,,300,300,€,Non,0%
+KR,5.3.2,Penser et écrire le projet de Steward Ownership,5.3,Fx,Thomas,20%,,,,1,1,%,Non,0%
+KR,5.3.3,"Contacter les deux ""grands"" du vin pour discuter Steward Ownership",5.3,Fx,,20%,,,,2,2,oui/non,Non,0%
+KR,6.1.1,Poursuite déploiement plan vin 2026 : bilan campagne été avec les équipes nationales et préparation campagne rentrée,6.1,Christelle,Thomas,20%,,,,100,100,%,Non,0%
+KR,6.1.2,"Point d'étape VVF, Logis Hôtel, Dupont Restauration, Pro Achat prospection Belambra, Vacances bleues, Moma group, Babel Communauty, Trinity, Radisson Hôtels",6.1,Christelle,,20%,,,,10,10,nb,Non,0%
+KR,6.1.3,"RDV ciblés sur 2 succursales clés : Bretagne, AURA + poursuite déploiement succursale IDF",6.1,Christelle,,20%,,,,3,3,nb,Non,0%
+KR,6.1.4,RDV force de vente Episaveurs IDF ,6.1,Christelle,,15%,,,,100,100,%,Non,0%
+KR,6.1.5,Déployer les sodas en IDF ,6.1,Christelle,,15%,,,,100,100,%,Non,0%
+KR,6.1.6,Suivi test consigne Rhône-Alpes,6.1,Thomas,Thomas|Christelle,10%,,,,1,1,%,Non,0%
+KR,6.2.1,Faire un rdv de construction S2 2026 et S1 2027 avec Julie Hoeffler,6.2,Christelle,,40%,,,,1,1,nb,Non,0%
+KR,6.2.2,Renouveler promotion nationale S3 2026 via EAZLE,6.2,Christelle,,30%,,,,1,1,nb,Non,0%
+KR,6.2.3,ACCOR: établir le plan promotionnel 2027,6.2,Christelle,,30%,,,,1,1,nb,Non,0%
+KR,6.4.1,Maintenir relation LPQ Belgique et s'informer des ouvertures,6.4,Thomas,Thomas,100%,,,,1,1,%,Non,0%
+KR,6.5.1,Finaliser les discussions avec Horeca,6.5,Christelle,,30%,,,,1,1,oui/non,Non,0%
+KR,6.5.2,Closer Flunch,6.5,Thomas,,70%,,,,1,1,oui/non,Non,0%
+KR,6.6.1,"RDV S1 2027 : Azade, Milliet, Native, Mes Boissons, Murgier",6.6,Christelle,Thomas,40%,,,,5,5,nb,Non,0%
+KR,6.6.2,Maintenir référencements & gammes stratégiques,6.6,Christelle,Thomas,30%,,,,100,100,%,Non,0%
+KR,6.6.3,Recréer lien terrain : 1 tournée par distributeur,6.6,Christelle,Thomas,15%,,,,6,6,nb,Non,0%
+KR,6.6.4,Convertir 10 prospects finaux à fort volume,6.6,Christelle,Thomas,15%,,,,10,10,nb,Non,0%
+KR,6.7.1,"Fidéliser 2 top clients existants et étendre sodas (Continental Marseille, Lyon)",6.7,Thomas,Thomas,80%,,,,2,2,nb,Non,0%
+KR,6.7.2,Closer 3 prospects CHR premium ,6.7,Christelle,Thomas,20%,,,,3,3,nb,Non,0%
+KR,6.8.1,Métro : RDV construction S1 2027,6.8,Christelle,,60%,,,,1,1,nb,Non,0%
+KR,6.8.2,Initier test réemploi,6.8,Christelle,,40%,,,,100,100,%,Non,0%
+KR,6.9.1,Référencement V&B signé et 1ère commande réalisée,6.9,Thomas,,%,,,,1,1,oui/non,Non,0%
+KR,6.9.2,Plan d'animation 12 mois co-validé avec les équipes V&B,6.9,Thomas,,%,,,,1,1,oui/non,Non,0%
+KR,6.9.3,Les 20 caves top-cibles identifiées et confirmées pour la première vague de lancement.,6.9,Thomas,,%,,,,20,20,nb,Non,0%
+KR,6.10.1,"Décrocher 1 accord de référencement signé parmi nos supercibles (LPB, Flunch, Eurostar ou autre)",6.10,Thomas,,25%,,,,1,1,nb,Non,0%
+KR,6.10.2,"Obtenir un RDV avec le décideur référencement chez au moins 5 surpercibles parmi Belhambra, SSP, Intercontinental, Compass, Mariott, Hilton ou Sogérès",6.10,Thomas,,25%,,,,5,5,nb,Non,0%
+KR,6.11.1,Avoir listé 20 comptes super-cibles canettes,6.11,Christelle,Thomas,40%,,,,20,20,nb,Non,0%
+KR,6.11.2,Avoir identifié le décideur de ces 20 comptes surper-cibles canettes,6.11,Christelle,Thomas,60%,,,,20,20,nb,Non,0%
+KR,7.1.1,Finaliser projet Carrefour Restart,7.1,Thomas,Fx,20%,,,,1,1,%,Non,0%
+KR,7.1.2,Déploiement : +15 magasins,7.1,Christelle,,15%,,,,15,15,nb,Non,0%
+KR,7.1.3,Finaliser référencement vin et sodas Reuse/Loop,7.1,Christelle,,50%,,,,2,2,nb,Non,0%
+KR,7.1.4,Animations Q3 : 15 magasins Reuse/Loop,7.1,Christelle,,15%,,,,15,15,nb,Non,0%
+KR,7.2.1,plan promo S1 2027 : ITM Ouest & Centre Est,7.2,Christelle,,25%,,,,2,2,nb,Non,0%
+KR,7.2.2,"Relancer RDV de référencement enseignes : U Ouest/IDF, ITM Ouest et Centre Est",7.2,Christelle,,25%,,,,3,3,nb,Non,0%
+KR,7.2.3,planifier animations Q3 : 30 animations,7.2,Christelle,,25%,,,,30,30,nb,Non,0%
+KR,7.2.4,Promotions : construction plan promo S1 2027 Monoprix et ITM Centre Est,7.2,Christelle,,25%,,,,2,2,nb,Non,0%
+KR,7.3.1,Faire un bilan des performances canettes sur l'été pour statuer leur potentiel GMS,7.3,Christelle,,100%,,,,100,100,%,Non,0%
+KR,7.4.1,Faire référencer les sodas,7.4,Christelle,,100%,,,,1,1,%,Non,0%
+KR,7.5.1,"Pilotage Reuse et influence IDF, Centre Est, Ouest",7.5,Christelle,,50%,,,,1,1,%,Non,0%
+KR,7.5.2,"Partenaires clés : Loop, GO Réemploi!, Petrel, Revera, Leko, Citéo",7.5,Christelle,,50%,,,,1,1,%,Non,0%
+KR,7.6.1,Naturalia : assurer le sell out des innovations vins/sodas + 10 animations,7.6,Christelle,,70%,,,,100,100,%,Non,0%
+KR,7.6.2,Grand Frais : obtenir le référencement des sodas pour 2027,7.6,Christelle,,30%,,,,1,1,nb,Non,0%
+KR,7.7.1,V&B : assurer le sell out des innovations vins/sodas +plan d'animations,7.7,Thomas,,70%,,,,1,1,nb,Non,0%
+KR,7.7.2,Nicolas : obtenir référencement soft vin test,7.7,Christelle,,30%,,,,1,1,nb,Non,0%
+KR,7.8.1,Lidl : poursuivre échanges,7.8,Thomas,,100%,,,,1,1,nb,Non,0%
+KR,7.9.1,Closer Le Petit Ballon ,7.9,Christelle,Thomas,50%,,,,1,1,nb,Non,0%
+KR,7.9.2, Optimiser destockages avec principaux acteurs,7.9,Christelle,,20%,,,,1,1,%,Non,0%
+KR,7.9.3,Déployer Kheops,7.9,Christelle,,30%,,,,1,1,%,Non,0%
+KR,9.1.1,Échantillons dégustés et feedback formel reçu de 2 importateurs majeurs minimum avant fin août,9.1,Gareth,,10%,,,,1,1,%,Non,0%
+KR,9.1.2,Grille tarifaire EXW + SRP validée et acceptée par l'importateur cible avant fin août,9.1,Gareth,,30%,,,,1,1,%,Non,0%
+KR,9.1.3,bon de commande en négociation finale avant fin septembre,9.1,Gareth,,40%,,,,1,1,%,Non,0%
+KR,9.1.4,"Termes commerciaux (territoires, volumes année 1, exclusivité) négociés et documentés par écrit avec l'importateur retenu",9.1,Gareth,,5%,,,,1,1,%,Non,0%
+KR,9.1.5,"3 retailers régionaux US avec intérêt confirmé, en attente de distribution, avant fin septembre",9.1,Gareth,,15%,,,,3,3,nb,Non,0%
+KR,9.2.1,"Préparation Waitrose complète avant fin août (pitch répété avec Young Foodies, grille tarifaire finalisée, échantillons prêts) en vue du meeting de fin septembre",9.2,Gareth,,50%,,,,1,1,%,Non,0%
+KR,9.2.2,"Comparatif documenté des deux modèles (YF/grande distribution vs. importateur traditionnel) marges, volumes, exclusivité. présenté en interne fin aout",9.2,Gareth,,15%,,,,1,1,%,Non,0%
+KR,9.2.3,"Meeting Waitrose fin septembre confirmé avant début septembre, plus 2 à 3 rdv importateurs (national) sur le même déplacemen",9.2,Gareth,,25%,,,,1,1,%,Non,0%
+KR,9.2.4,Deck de présentation UK finalisé et prêt à l'emploi (version Waitrose et version importateurs traditionnels) avant fin julliet,9.2,Gareth,,10%,,,,1,1,%,Non,0%
+KR,9.3.1,"100 % des clients actifs recontactés avant fin juillet (appel, pas juste un mail)",9.3,Gareth,,15%,,,,1,1,%,Non,0%
+KR,9.3.2,+10 % de volume commandé vs. été 2025 sur les comptes existants,9.3,Gareth,,40%,,,,1,1,%,Non,0%
+KR,9.3.3, 2 comptes existants élargis à une nouvelle référence ,9.3,Gareth,,25%,,,,1,1,%,Non,0%
+KR,9.3.4,1 compte Essences ouvert via un client existant (ex. Brukett) avant fin septembre,9.3,Gareth,,10%,,,,1,1,%,Non,0%
+KR,9.3.5,"CSM Allemagne accompagné sur le développement marque, équipe commerciale en place avant fin septembre",9.3,Gareth,,10%,,,,1,1,%,Non,0%
+KR,9.4.1,"Liste de 10 importateurs cibles qualifiés (profil organic/premium, portefeuille compatible) construite avant fin juillet",9.4,Gareth,,5%,,,,1,1,%,Non,0%
+KR,9.4.2,Échantillons envoyés à 1 importateur de chaque marché minimum suite à un meeting positif,9.4,Gareth,,30%,,,,1,1,%,Non,0%
+KR,9.4.3,"Positionnement prix validé pour les deux marchés (droits de douane, logistique, SRP local) avant fin août",9.4,Gareth,,20%,,,,1,1,%,Non,0%
+KR,9.4.4,Vins dégustés par 1 groupe de supermarchés (NZ ou Australie) avec retour formel et prochaines étapes définies avant fin septembre,9.4,Gareth,,45%,,,,1,1,%,Non,0%
+KR,12.1.1,Les 2 Responsables de Territoire (Paris + Lyon) sont recrutés et en poste au plus tard le 15/09.,12.1,Christelle,Thomas,25%,,,,2,2,nb,Non,0%
+KR,12.1.2,La base clients existante est nettoyée et segmentée par territoire : chaque RT reçoit une liste claire et priorisée de son portefeuille à visiter.,12.1,Christelle,Thomas,25%,,,,1,1,oui/non,Non,0%
+KR,12.1.3,Le tableau de bord de chaque Responsable de Territoire est prêt et clair. ,12.1,Thomas,Christelle,25%,,,,1,1,%,Non,0%
+KR,12.1.4,Avoir clairement défini les objectifs par RT et les actions qui en découlent pour amplifier le Système Commercial Oé.,12.1,Christelle,Thomas|Christelle|Fx,25%,,,,1,1,oui/non,Non,0%
+KR,12.2.1,"Chaque RT a complété son parcours d'onboarding (produits, posture de vente, outils, CRM) avant sa première tournée solo.",12.2,Christelle,Thomas,25%,,,,2,2,nb,Non,0%
+KR,12.2.2,Avoir calé 5 rdv de clients OR et Argent de chaque territoire pour l'automne,12.2,Christelle,Thomas,25%,,,,10,10,nb,Non,0%
+KR,12.2.3,100 % des visites loggées dans HubSpot avec compte-rendu + prochaine action datée.,12.2,Christelle,,25%,,,,1,1,%,Non,0%
+KR,12.2.4,Avoir créé pour chaque RT un pipeline de Prospects prêt pour l'automne.,12.2,Christelle,Thomas,25%,,,,1,1,%,Non,0%

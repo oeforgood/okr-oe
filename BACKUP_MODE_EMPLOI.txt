@@ -1,0 +1,125 @@
+═══════════════════════════════════════════════════════════════════
+  CALENDULA — MODE D'EMPLOI DES BACKUPS OKR
+  Dernière mise à jour : juillet 2026
+═══════════════════════════════════════════════════════════════════
+
+
+1. FONCTIONNEMENT DES BACKUPS AUTOMATIQUES
+─────────────────────────────────────────
+À chaque ouverture de Calendula dans le navigateur, un backup
+automatique est créé dans Firebase (collection "okr_backups").
+
+  → Les 20 dernières ouvertures sont conservées automatiquement.
+  → Les plus anciens sont supprimés automatiquement.
+  → Pas d'action requise de votre part.
+
+C'est la source principale de restauration en cas de problème.
+
+
+2. AVANT TOUTE OPÉRATION (backup manuel ou restauration)
+────────────────────────────────────────────────────────
+Ouvrir les règles Firebase AVANT de lancer une commande node :
+
+  a. Aller sur https://console.firebase.google.com
+  b. Projet "okr-oe" → Firestore Database → Règles
+  c. Remplacer "request.auth != null" par "true"
+  d. Cliquer "Publier"
+  e. Lancer la commande node
+  f. Remettre "request.auth != null" à la place de "true"
+  g. Cliquer "Publier"
+
+⚠️  Ne jamais laisser les règles ouvertes (if true) plus de
+    quelques minutes.
+
+
+3. COMMANDES DISPONIBLES
+────────────────────────
+Toutes les commandes se lancent depuis le Terminal :
+
+  cd ~/Desktop/Calendula
+
+  ── LISTER LES BACKUPS FIREBASE (recommandé) ──────────────────
+  node backup_okr.js list-firebase
+
+  Affiche les 20 derniers backups automatiques avec pour chacun :
+    • Date et heure d'ouverture de l'app
+    • Nombre d'objectifs / sous-objectifs / KR par saison
+    • Différences détaillées avec le backup précédent :
+        ✅ KR ou sous-objectif AJOUTÉ
+        ❌ KR ou sous-objectif SUPPRIMÉ
+        ✏️  KR ou sous-objectif RENOMMÉ
+
+  ── RESTAURER DEPUIS FIREBASE ─────────────────────────────────
+  node backup_okr.js restore-firebase [ID]
+
+  Exemple :
+  node backup_okr.js restore-firebase backup_2026-07-08T21-04-10-000Z
+
+  L'ID est affiché par la commande list-firebase.
+
+  ── BACKUP MANUEL LOCAL ───────────────────────────────────────
+  node backup_okr.js
+
+  Crée un fichier dans okr_backups/ avec la date et l'heure.
+  Utile avant une opération risquée (ex: drag & drop massif).
+
+  ── LISTER LES BACKUPS LOCAUX ─────────────────────────────────
+  node backup_okr.js list
+
+  Même affichage que list-firebase mais pour les fichiers locaux.
+
+  ── RESTAURER UN BACKUP LOCAL ─────────────────────────────────
+  node backup_okr.js restore
+  → Restaure le dernier backup local
+
+  node backup_okr.js restore okr_backups/okr_2026-07-08T21-04-10.json
+  → Restaure un backup local spécifique
+
+
+4. PROCÉDURE DE RESTAURATION RECOMMANDÉE
+─────────────────────────────────────────
+Étape 1 — Ouvrir Firebase (règles if true → Publier)
+
+Étape 2 — Identifier le bon backup :
+  node backup_okr.js list-firebase
+
+  Lire les diffs pour trouver le dernier backup AVANT le problème.
+  Par exemple, si des KR ont disparu, chercher le backup où ils
+  sont encore listés comme présents (pas encore marqués ❌).
+
+Étape 3 — Copier l'ID du backup voulu affiché à l'écran.
+
+Étape 4 — Restaurer :
+  node backup_okr.js restore-firebase [ID copié]
+
+Étape 5 — Refermer Firebase (règles if request.auth != null → Publier)
+
+Étape 6 — Recharger Calendula dans le navigateur (Cmd+Shift+R)
+
+
+5. CONSEILS
+───────────
+• Faire un backup manuel AVANT toute opération importante :
+    node backup_okr.js
+
+• Les backups Firebase sont créés automatiquement — vérifier
+  régulièrement qu'ils se créent bien avec list-firebase.
+
+• En cas de perte de données, agir vite : les 20 backups
+  automatiques peuvent être rapidement écrasés si l'app est
+  ouverte plusieurs fois.
+
+• Ne pas faire de drag & drop intensif sur les OKR sans avoir
+  fait un backup manuel juste avant.
+
+• Les backups locaux (okr_backups/*.json) sont un filet de
+  sécurité supplémentaire — ne pas les supprimer.
+
+
+6. EMPLACEMENT DES FICHIERS
+────────────────────────────
+  ~/Desktop/Calendula/backup_okr.js        → script de backup
+  ~/Desktop/Calendula/okr_backups/         → backups locaux
+  Firebase → collection "okr_backups"      → backups automatiques
+
+═══════════════════════════════════════════════════════════════════
