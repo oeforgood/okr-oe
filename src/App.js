@@ -1128,14 +1128,6 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
     return (v<0?'−':'')+s+' €';
   }
   function fmtPct(v){return v===null||v===undefined?'—':((v*100).toFixed(1).replace('.',','))+'%';}
-  function exportCSV(){
-    const headers=COLS.map(c=>COL_LABELS[c]||c).join(';');
-    const rowsData=tarif.map(r=>COLS.map(c=>(r[c]||'').toString().replace(/;/g,',')).join(';'));
-    const csv=[headers,...rowsData].join('\n');
-    const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');a.href=url;a.download='tarif_oe.csv';a.click();URL.revokeObjectURL(url);
-  }
   function fmtDate(ts){if(!ts)return '';const d=new Date(ts);return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'});}
 
   const card={background:'#fff',borderRadius:14,padding:'16px',marginBottom:12,boxShadow:'0 1px 4px rgba(0,0,0,.06)'};
@@ -1178,7 +1170,7 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
 
     {/* OKR */}
     <div style={card}>
-      <div style={{...sTitle,fontSize:14,color:'#1a1814'}}>🎯 OKR — {season?.label||seasonKey||''}</div>
+      <div style={{...sTitle,fontSize:14,color:'#1a1814'}}>🎯 {season?.label||seasonKey||'OKR'}</div>
       {[
         {label:'Avancement équipe',pct:avgPct,color:progColor(Math.round(avgPct))},
         {label:'Avancement saison',pct:seasonPct,color:'#b5680f'},
@@ -1213,7 +1205,7 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
       <div style={{...sTitle,fontSize:14,color:'#1a1814'}}>😊 Updates</div>
       {/* Semaine passée */}
       <div style={{marginBottom:14}}>
-        <div style={{fontSize:10,color:'#9e9890',marginBottom:8,fontWeight:600}}>Semaine passée : moi et l'équipe</div>
+        <div style={{fontSize:10,color:'#9e9890',marginBottom:8,fontWeight:600}}>Semaine passée</div>
         <div style={{display:'flex',alignItems:'center',gap:10}}>
           <span style={{fontSize:44,lineHeight:1}}>{getMoodIcon(myLastWk,myEmail,myPrenom,new Date(_7d))}</span>
           <div style={{display:'flex',gap:4,flexWrap:'wrap',alignItems:'center'}}>
@@ -1265,7 +1257,7 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
           <div style={{fontSize:10,color:'#9e9890',marginBottom:3}}>Tx marge {bsv3KPIs?.lastMo?MOIS[bsv3KPIs.lastMo-1]:''}</div>
           <div style={{display:'flex',alignItems:'center',gap:6}}>
             <span style={{fontSize:16,fontWeight:800,color:'#1a1814'}}>{fmtPct(bsv3KPIs?.tauxLM)}</span>
-            {bsv3KPIs?.tauxLM!=null&&bsv3KPIs?.tauxPM!=null&&<span style={{fontSize:13,color:bsv3KPIs.tauxLM>=bsv3KPIs.tauxPM?'#2d6a4f':'#c0392b'}}>
+            {bsv3KPIs?.tauxLM!==null&&bsv3KPIs?.tauxPM!==null&&<span style={{fontSize:13,color:bsv3KPIs.tauxLM>=bsv3KPIs.tauxPM?'#2d6a4f':'#c0392b'}}>
               {kpis.bsv3TauxLM>=kpis.bsv3TauxPM?'↑':'↓'}
             </span>}
           </div>
@@ -1300,7 +1292,7 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
 }
 
 
-function Dashboard({isMobile=false,currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,onMarkAsRead,okrData,isAdmin,onOpenSettings,onChangeSeasonKey,onSendMessage,absencesList=[],questions=[],onSubmitUpdate,onDeleteUpdate,bsv3KPIs,reportingKPIs}){
+function Dashboard({isMobile=false,currentUser,teamMember,teamMembers=[],onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,myUpdates,allUpdates,managerNotifs,teammateNotifs=[],onReadNotif,onMarkAsRead,okrData,isAdmin,onOpenSettings,onChangeSeasonKey,onSendMessage,absencesList=[],questions=[],onSubmitUpdate,onDeleteUpdate,bsv3KPIs,reportingKPIs}){
   const {objectives=[],subobjectives=[],keyresults=[],seasonKey:_sk}=okrData||{};
   const seasonKey=okrData?.seasonKey||"printemps_2026";
   const isOwner=currentUser?.email===OWNER_EMAIL;
@@ -1339,7 +1331,7 @@ function Dashboard({isMobile=false,currentUser,teamMember,teamMembers=[],onGoOKR
     <div style={{background:"rgba(245,243,239,.95)",borderBottom:"1px solid #e2ddd6",padding:"10px 20px",display:"flex",alignItems:"center",gap:12}}>
       <span style={{fontSize:18,fontWeight:700,color:"#2d6a4f",letterSpacing:"-.3px"}}>🌼 Calendula</span>
       <div style={{flex:1}}/>
-      {!isMobile&&<button onClick={onGoDevis} style={{padding:"6px 14px",borderRadius:8,border:"1px solid #2d6a4f",background:"#f0fdf4",color:"#2d6a4f",fontSize:12,fontWeight:600,cursor:"pointer"}}>📄 Devis/Commande</button>}<span style={{fontSize:13,color:"#6b6560"}}>{teamMember?.prenom}</span>
+      <span style={{fontSize:13,color:"#6b6560"}}>{teamMember?.prenom}</span>
       {isAdmin&&<button onClick={onOpenSettings} title="Paramètres" style={{width:32,height:32,borderRadius:8,border:"1px solid #e2ddd6",background:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#6b6560",fontSize:16}}
         onMouseEnter={e=>e.currentTarget.style.background="#f5f3ef"} onMouseLeave={e=>e.currentTarget.style.background="none"}>⚙️</button>}
       <button onClick={()=>signOut(auth)} style={{fontSize:12,color:"#9e9890",background:"none",border:"1px solid #e2ddd6",borderRadius:6,padding:"4px 10px",cursor:"pointer"}}>Déconnexion</button>
@@ -1913,7 +1905,7 @@ function TeamUpdatesSection({allUpdates, teamMembers=[], teamMember, onSelectWee
   );
 }
 
-function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,myUpdates,allUpdates=[],teamMembers=[],isMobile=false,okrData}){
+function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,myUpdates,allUpdates=[],teamMembers=[],isMobile=false,okrData}){
   const _rawWeekKey=getUpdateWeekKey();
   // On Tuesday weekKey is null - use last week for display purposes (read-only)
   const weekKey=_rawWeekKey||(()=>{const d=new Date();d.setDate(d.getDate()-8);return getWeekKey(d);})();
@@ -1947,7 +1939,7 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,onGoOKR,onGoU
   const now=new Date();
 
   return <div style={{minHeight:"100vh",background:"#f5f3ef",fontFamily:"system-ui,sans-serif"}}>
-    {!isMobile&&<AppNav current="update" onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3} onGoDevis={onGoDevis}/>}
+    {!isMobile&&<AppNav current="update" onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3}/>}
     {isTuesdayReadOnly&&<div style={{background:"#fef3c7",borderBottom:"1px solid #f59e0b",padding:"8px 20px",fontSize:12,color:"#92400e",textAlign:"center"}}>
       📅 Mardi : pas de saisie d'update aujourd'hui — consultation uniquement.
     </div>}
@@ -2086,14 +2078,8 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,onGoOKR,onGoU
               const seasonKey=okrData?.seasonKey||'';
               const checkedIds=answers[q.id]?.krIds||[];
               function toggleKR(id){
-                if(id==='__aucun__'){
-                  upd(q.id,{seasonKey,krIds:checkedIds.includes('__aucun__')?[]:['__aucun__']});
-                } else {
-                  const next=checkedIds.includes(id)
-                    ?checkedIds.filter(x=>x!==id)
-                    :[...checkedIds.filter(x=>x!=='__aucun__'),id];
-                  upd(q.id,{seasonKey,krIds:next});
-                }
+                const next=checkedIds.includes(id)?checkedIds.filter(x=>x!==id):[...checkedIds,id];
+                upd(q.id,{seasonKey,krIds:next});
               }
               return <div key={q.id} style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"14px 16px"}}>
                 <div style={{fontSize:13,fontWeight:500,color:"#1a1814",marginBottom:12}}>{q.text}</div>
@@ -2113,12 +2099,6 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,onGoOKR,onGoU
                       </div>
                     </label>;
                   })}
-                  <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",padding:"6px 8px",borderRadius:6,background:checkedIds.includes("__aucun__")?"#fef9c3":"#f8f7f5",border:`1px solid ${checkedIds.includes("__aucun__")?"#fbbf24":"#e2ddd6"}`}}>
-                    <input type="checkbox" checked={checkedIds.includes("__aucun__")} onChange={()=>toggleKR("__aucun__")} style={{accentColor:"#b45309",marginTop:2,flexShrink:0}}/>
-                    <div style={{flex:1}}>
-                      <span style={{fontSize:12,fontWeight:600,color:"#b45309"}}>Aucun OKR cette semaine</span>
-                    </div>
-                  </label>
                 </div>}
               </div>;
             }
@@ -3861,1048 +3841,8 @@ function QuestionsEditor({qs,onSave}){
 }
 
 
-
-const EMAILJS_TEMPLATE_DEVIS = 'template_2cltjij';
-const ROBE_COLORS = {
-  rouge: {dot:'#dc2626'},rosé:{dot:'#db2777'},rose:{dot:'#db2777'},
-  blanc: {dot:'#16a34a'},effervescent:{dot:'#64748b'},essence:{dot:'#2563eb'},essences:{dot:'#2563eb'},
-};
-function getRobeDot(robe){return (ROBE_COLORS[(robe||'').toLowerCase()]||{dot:'#9e9890'}).dot;}
-
-function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3}){
-  const [mode,setMode]=React.useState('commande');
-  const [tarif,setTarif]=React.useState([]);
-  const [loadingTarif,setLoadingTarif]=React.useState(true);
-  const [sending,setSending]=React.useState(false);
-  const [sent,setSent]=React.useState(false);
-  const [sentRecap,setSentRecap]=React.useState('');
-  const [step,setStep]=React.useState('coords');
-  const [societe,setSociete]=React.useState('');
-  const [contact,setContact]=React.useState('');
-  const [factAddr,setFactAddr]=React.useState({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});
-  const [expAddr,setExpAddr]=React.useState({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});
-  const [sameAddr,setSameAddr]=React.useState(false);
-  const [retraitLoft,setRetraitLoft]=React.useState(false);
-  const [infoLivraison,setInfoLivraison]=React.useState('');
-  const [message,setMessage]=React.useState('');
-  const [preparation,setPreparation]=React.useState('');
-  const [lignes,setLignes]=React.useState([]);
-  const [selectedProd,setSelectedProd]=React.useState('');
-  const [savedClients,setSavedClients]=React.useState([]);
-  const [selectedClientKey,setSelectedClientKey]=React.useState('');
-  const [savedOrders,setSavedOrders]=React.useState([]);
-  const [recallTeammate,setRecallTeammate]=React.useState(currentUser?.email||'');
-  const [recallClient,setRecallClient]=React.useState('');
-  const [recallMode,setRecallMode]=React.useState('commande');
-  const [recallRef,setRecallRef]=React.useState('');
-  React.useEffect(()=>{
-    if(mode==='devis'){
-      const prenom=teamMember?.prenom||'';
-      setMessage('Bonjour,\nSuite à nos échanges, voici le chiffrage détaillé.\nTrès belle fin de journée !\n'+prenom);
-    } else {
-      setMessage('');
-    }
-  },[mode]);
-  const [echantillons,setEchantillons]=React.useState(false);
-  const [tariEvent,setTariEvent]=React.useState(false);
-  const [prixCoutant,setPrixCoutant]=React.useState(false);
-  const [gratuite,setGratuite]=React.useState(false);
-  const [gratuiteModal,setGratuiteModal]=React.useState(false);
-  const [gratuiteRaison,setGratuiteRaison]=React.useState('');
-  const [echantillonsModal,setEchantillonsModal]=React.useState(false);
-  const [echantillonsRaison,setEchantillonsRaison]=React.useState('');
-
-  const PREP_OPTIONS=[
-    {k:'palette_casier_coiffe',l:'Palette de casiers avec coiffe consignée',loftOnly:false},
-    {k:'palette_casier_sans_coiffe',l:'Palette de casiers sans coiffe',loftOnly:false},
-    {k:'palette_cartons',l:'Palette de cartons',loftOnly:false},
-    {k:'coffret_ups',l:'Coffret UPS',loftOnly:false},
-    {k:'carton_sans_palette',l:'Carton sans palette',loftOnly:true},
-    {k:'casier_sans_palette',l:'Casier sans palette',loftOnly:true},
-  ];
-  const isCasierPrep=['palette_casier_coiffe','palette_casier_sans_coiffe','casier_sans_palette'].includes(preparation);
-  const isPalettePrep=['palette_casier_coiffe','palette_casier_sans_coiffe','palette_cartons'].includes(preparation);
-  const isCoiffePrep=preparation==='palette_casier_coiffe';
-  const effectivePCB=isPalettePrep?12:1;
-  const CASIER_CODE='CASIER-OE';const COIFFE_CODE='COIFFE-OE';
-  const CASIER_PRIX=10;const COIFFE_PRIX=120;
-
-  React.useEffect(()=>{
-    // Default message for devis
-    if(mode==='devis'){
-      const prenom=teamMember?.prenom||'';
-      setMessage('Bonjour,\nSuite à nos échanges, voici le chiffrage détaillé.\nTrès belle fin de journée !\n'+prenom);
-    }
-    getDocs(collection(db,'devis_clients')).then(snap=>{setSavedClients(snap.docs.map(d=>({key:d.id,...d.data()})).sort((a,b)=>(a.societe||'').localeCompare(b.societe||'')));});
-    getDocs(collection(db,'devis_commandes')).then(snap=>{setSavedOrders(snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)));});
-    getDocs(collection(db,'tarif')).then(snap=>{
-      const rows=[];
-      snap.docs
-        .filter(d=>!d.id.startsWith('history_')&&d.id!=='history_index')
-        .sort((a,b)=>a.id.localeCompare(b.id))
-        .forEach(d=>rows.push(...(d.data().rows||[])));
-      setTarif(rows);setLoadingTarif(false);
-    });
-  },[]);
-
-  const filteredTarif=React.useMemo(()=>{
-    const casier=['palette_casier_coiffe','palette_casier_sans_coiffe','casier_sans_palette'].includes(preparation);
-    return tarif.filter(p=>{
-      if(!p.code)return false;
-      if([CASIER_CODE,COIFFE_CODE,'CONTENANT BOUTEILLE'].includes(p.code))return false;
-      if(casier&&(p.code.length<2||(p.code[1]||'').toUpperCase()!=='E'))return false;
-      return true;
-    });
-  },[tarif,preparation]);
-
-  const coreLignes=lignes.filter(l=>l.qtyMode!=='auto');
-  const totalBouteilles=coreLignes.reduce((s,l)=>s+parseInt(l.qty||0),0);
-  const totalEq75=coreLignes.reduce((s,l)=>{
-    const p=tarif.find(t=>t.code===l.code);
-    const eq=parseFloat(String(p?.eq75||'0').replace(',','.').replace(/[^0-9.]/g,''))||0;
-    return s+(eq*parseInt(l.qty||0));
-  },0);
-
-  function parsePrix(v){return parseFloat(String(v||'0').replace(/€/g,'').replace(/\s/g,'').replace(',','.'))||0;}
-  function getPU(prod,qty){
-    const q=parseInt(qty||0);
-    // Gratuité override (casiers/coiffes keep their price)
-    if(gratuite&&prod.code!==CASIER_CODE&&prod.code!==COIFFE_CODE)return 0;
-    // Tarif Event override
-    if(prixCoutant&&tariEvent&&parsePrix(prod.tariEvents)>0){
-      return Math.round(parsePrix(prod.tariEvents)*0.85*100)/100;
-    }
-    if(prixCoutant){
-      const qpalPU=parseInt(String(prod.qpalette||'0').replace(/[^0-9]/g,''))||0;
-      const isPalCartonsPU=preparation==='palette_cartons';
-      const isPalCasiersPU=preparation==='palette_casier_coiffe'||preparation==='palette_casier_sans_coiffe';
-      const isPaletteQtyPU=isPalCartonsPU?(qpalPU>0&&q%qpalPU===0):isPalCasiersPU?(q>=480&&q%480===0):false;
-      if(isPaletteQtyPU&&parsePrix(prod.prixPalette)>0)return Math.round(parsePrix(prod.prixPalette)*0.85*100)/100;
-      if(totalEq75>=600)return Math.round(parsePrix(prod.prix600)*0.85*100)/100;
-      if(totalEq75>=360)return Math.round(parsePrix(prod.prix360)*0.85*100)/100;
-      if(totalEq75>=240)return Math.round(parsePrix(prod.prix240)*0.85*100)/100;
-      if(totalEq75>=120)return Math.round(parsePrix(prod.prix120)*0.85*100)/100;
-      return Math.round(parsePrix(prod.prix24)*0.85*100)/100;
-    }
-    if(tariEvent&&parsePrix(prod.tariEvents)>0)return parsePrix(prod.tariEvents);
-    // Palette condition
-    const qpalRaw=parseInt(String(prod.qpalette||'0').replace(/[^0-9]/g,''))||0;
-    const isPaletteCartons=preparation==='palette_cartons';
-    const isPaletteCasiers=preparation==='palette_casier_coiffe'||preparation==='palette_casier_sans_coiffe';
-    const isPaletteQty=isPaletteCartons?(qpalRaw>0&&q>0&&q%qpalRaw===0):isPaletteCasiers?(q>=480&&q%480===0):false;
-    {const qpalPU2=parseInt(String(prod.qpalette||'0').replace(/[^0-9]/g,''))||0;const isPalC=preparation==='palette_cartons';const isPalCas=preparation==='palette_casier_coiffe'||preparation==='palette_casier_sans_coiffe';const isPalQ=isPalC?(qpalPU2>0&&q%qpalPU2===0):isPalCas?(q>=480&&q%480===0):false;if(isPalQ&&parsePrix(prod.prixPalette)>0)return parsePrix(prod.prixPalette);}
-    if(totalEq75>=600)return parsePrix(prod.prix600);
-    if(totalEq75>=360)return parsePrix(prod.prix360);
-    if(totalEq75>=240)return parsePrix(prod.prix240);
-    if(totalEq75>=120)return parsePrix(prod.prix120);
-    return parsePrix(prod.prix24);
-  }
-
-  function getDisplayLignes(){
-    const result=[...coreLignes];
-    if(isCasierPrep){const n=Math.ceil(totalBouteilles/12);if(n>0)result.push({code:CASIER_CODE,libelle:'Casier consigné',robe:'',pcb:1,eq75:0,tva:'0',qty:n,qtyMode:'auto',prix:CASIER_PRIX});}
-    if(isCoiffePrep){const nbCasiers=Math.ceil(totalBouteilles/12);const n=Math.ceil(nbCasiers/40);if(n>0)result.push({code:COIFFE_CODE,libelle:'Coiffe consignée',robe:'',pcb:1,eq75:0,tva:'0',qty:n,qtyMode:'auto',prix:COIFFE_PRIX});}
-    return result;
-  }
-
-  function addProduit(code){
-    const prod=tarif.find(t=>t.code===code);if(!prod)return;
-    const rawPcb=parseInt(String(prod.pcb||'').replace(/[^0-9]/g,''))||1;
-    const pcb=preparation==='palette_cartons'?Math.max(1,rawPcb):effectivePCB;
-    const qty=Math.max(1,pcb);
-    setLignes(p=>[...p,{code:prod.code,libelle:prod.libelle,robe:prod.robe,pcb,eq75:prod.eq75,tva:prod.tva,qty,qtyMode:pcb>1?'select':'free'}]);
-    setSelectedProd('');
-  }
-  function updLigne(i,f,v){setLignes(p=>p.map((l,j)=>j===i?{...l,[f]:v}:l));}
-  function remLigne(i){setLignes(p=>p.filter((_,j)=>j!==i));}
-
-  function handlePrepChange(newPrep){
-    const newIsCasier=['palette_casier_coiffe','palette_casier_sans_coiffe','casier_sans_palette'].includes(newPrep);
-    if(newIsCasier){
-      const bad=coreLignes.some(l=>(l.code||'')[1]!=='E');
-      if(bad){alert('Supprimez d\'abord les produits autres que 75cl.');return;}
-    }
-    const newIsPalette=['palette_casier_coiffe','palette_casier_sans_coiffe','palette_cartons'].includes(newPrep);
-    const newIsPaletteCartons=newPrep==='palette_cartons';
-    const newPCB=newIsPalette?(newIsPaletteCartons?'tarif':12):1;
-    setLignes(p=>p.filter(l=>l.qtyMode!=='auto').map(l=>{
-      const prodData=tarif.find(t=>t.code===l.code);
-      const pcb=newPCB==='tarif'?Math.max(1,parseInt(String(prodData?.pcb||'1').replace(/[^0-9]/g,''))||1):newPCB;
-      const qty=pcb>1?Math.max(pcb,Math.ceil((parseInt(l.qty||pcb))/pcb)*pcb):parseInt(l.qty||1);
-      return {...l,pcb,qty,qtyMode:'select'};
-    }));
-    setPreparation(newPrep);
-  }
-
-  const displayLignes=getDisplayLignes();
-  const TARIF_COLORS={Gratuit:['#fef2f2','#c0392b'],Coûtant:['#ea580c','#fff'],Events:['#fef3c7','#92400e'],Palette:['#f0fdf4','#2d6a4f'],'600+':['#f0fdf4','#2d6a4f'],'360+':['#eff6ff','#1d4ed8'],'240+':['#f5f3ff','#6d28d9'],'120+':['#fdf4ff','#9333ea'],'24+':['#f8f7f5','#6b6560']};
-  function renderTarifBadges(lbl){
-    const lbls=Array.isArray(lbl)?lbl:(lbl?[lbl]:[]);
-    if(!lbls.length)return null;
-    return <span style={{display:'flex',gap:2,justifyContent:'center',flexWrap:'nowrap',alignItems:'center'}}>
-      {lbls.map((lb,i)=>{const[bg,fg]=TARIF_COLORS[lb]||['#f8f7f5','#6b6560'];return<span key={i} style={{fontSize:9,padding:'1px 4px',borderRadius:6,background:bg,color:fg,fontWeight:700,whiteSpace:'nowrap'}}>{lb}</span>;})}
-    </span>;
-  }
-  function getLineTarifLabel(l){
-    if(l.qtyMode==='auto')return '';
-    if(gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE)return 'Gratuit';
-    if(tariEvent&&prixCoutant)return ['Events','Coûtant'];
-    if(tariEvent)return 'Events';
-    if(prixCoutant){
-      if(totalEq75>=600)return ['600+','Coûtant'];
-      if(totalEq75>=360)return ['360+','Coûtant'];
-      if(totalEq75>=240)return ['240+','Coûtant'];
-      if(totalEq75>=120)return ['120+','Coûtant'];
-      return ['24+','Coûtant'];
-    }
-    const prod=tarif.find(t=>t.code===l.code);
-    if(!prod)return '';
-    const q=parseInt(l.qty||0);
-    const qpalRaw=parseInt(String(prod.qpalette||'0').replace(/[^0-9]/g,''))||0;
-    const isPalCartons=preparation==='palette_cartons';
-    const isPalCasiers=preparation==='palette_casier_coiffe'||preparation==='palette_casier_sans_coiffe';
-    const isPalQty=isPalCartons?(qpalRaw>0&&q%qpalRaw===0):isPalCasiers?(q>=480&&q%480===0):false;
-    if(isPalQty)return 'Palette';
-    if(totalEq75>=600)return '600+';
-    if(totalEq75>=360)return '360+';
-    if(totalEq75>=240)return '240+';
-    if(totalEq75>=120)return '120+';
-    return '24+';
-  }
-  function getLinePU(l){return l.prix!==undefined?l.prix:(()=>{const p=tarif.find(t=>t.code===l.code);return p?getPU(p,l.qty):0;})();}
-  const totalHT=displayLignes.reduce((s,l)=>s+getLinePU(l)*parseInt(l.qty||0),0);
-  const totalTVA=displayLignes.reduce((s,l)=>s+getLinePU(l)*parseInt(l.qty||0)*(parseFloat(l.tva||0)/100),0);
-  const totalTTC=totalHT+totalTVA;
-  function fmtE(v){return Number(v).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';}
-  const prepLabel=PREP_OPTIONS.find(p=>p.k===preparation)?.l||'';
-  const expA=sameAddr||retraitLoft?factAddr:expAddr;
-  const coiffeOk=!isCoiffePrep||totalBouteilles===0||totalBouteilles%120===0;
-  const minQtyOk=gratuite||(tariEvent?totalEq75>=6:totalEq75>=24);
-  const minQtyMsg=coreLignes.length>0&&!gratuite&&!minQtyOk?(tariEvent?'Il faut au moins 6 bouteilles ou équivalent.':'Il faut au moins 24 bouteilles ou équivalent (ou choisir le tarif Events).'):'';
-
-
-  function genRef(){
-    const d=new Date();
-    return (mode==='devis'?'DEV':'CMD')+`-${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}-${String(Math.floor(Math.random()*900)+100)}`;
-  }
-
-  function buildText(ref){
-    const sep='─'.repeat(70);
-    const tarifLabel=tarifLabelComputed;
-    function col(s,w){return String(s||'').padEnd(w).slice(0,w);}
-    function colR(s,w){return String(s||'').padStart(w).slice(-w);}
-    const colW=12;
-    function rp(s,w){const str=String(s||'');return str.length>=w?str.slice(0,w):str+' '.repeat(w-str.length);}
-    function lp(s,w){const str=String(s||'');return str.length>=w?str.slice(-w):' '.repeat(w-str.length)+str;}
-    const header=rp('Code',10)+'  '+rp('Produit',32)+'  '+lp('Qté',5)+'  '+lp('P.U. HT',10)+'  '+lp('Total HT',10)+'  TVA';
-    const divider='-'.repeat(90);
-    const lignesText=displayLignes.map(l=>{
-      const pu=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?0:getLinePU(l);
-      const qty=parseInt(l.qty||0);
-      const totalLigneHT=pu*qty;
-      const tvaRate=parseFloat(l.tva||0);
-      const tvaVal=totalLigneHT*(tvaRate/100);
-      const tvaTxt=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?'offert':tvaRate>0?(tvaRate+'%: '+fmtE(tvaVal)):'0%';
-      return rp(l.code||'',10)+'  '+rp(l.libelle||'',32)+'  '+lp(String(qty),5)+'  '+lp(fmtE(pu),10)+'  '+lp(fmtE(totalLigneHT),10)+'  '+tvaTxt;
-    }).join('\n');
-    const expInfo=retraitLoft?'Retrait au Loft Oé':sameAddr?`${factAddr.addr}, ${factAddr.cp} ${factAddr.ville}`:`${expAddr.addr}, ${expAddr.cp} ${expAddr.ville}`;
-    return [
-      `Oé - ${mode==='devis'?'DEVIS':'BON DE COMMANDE'}`,
-      `Réf : ${ref}  -  ${new Date().toLocaleDateString('fr-FR')}`,
-      sep,
-      `CLIENT : ${societe}  |  ${contact}`,
-      `Fact. : ${factAddr.addr}${factAddr.addr2?' '+factAddr.addr2:''}  ${factAddr.cp} ${factAddr.ville} - ${factAddr.pays}`,
-      factAddr.email?`Email : ${factAddr.email}`:'',
-      `Livr. : ${expInfo}`,
-      
-      sep,
-      `PREPARATION : ${prepLabel}`,
-      `TARIF : ${tarifLabel}`,
-      message?`MESSAGE : ${message}`:'',
-      `TARIF : ${tarifLabel}`,
-      message?`>>> ${mode==='commande'?'SUPPLY':'CLIENT'} : ${message} <<<`:'',
-      sep,
-      header,
-      divider,
-      lignesText,
-      sep,
-      `${''.padEnd(44)}Total HT  : ${colR(fmtE(totalHT),12)}`,
-      `${''.padEnd(44)}TVA       : ${colR(fmtE(totalTVA),12)}`,
-      `${''.padEnd(44)}TOTAL TTC : ${colR(fmtE(totalTTC),12)}`,
-      sep,
-      `Oé - contact@oeforgood.com`,
-    ].filter(l=>l!=='').join('\n');
-  }
-
-  async function saveCoords(){
-    await setDoc(doc(db,'devis_clients',societe.trim()||'_'),{societe,contact,factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,infoLivraison,updatedAt:Date.now()});
-    setStep('produits');
-  }
-
-  async function handleEnvoyer(){
-    if(!coreLignes.length){alert('Ajoutez au moins un produit.');return;}
-    if(!preparation){alert('Choisissez un mode de préparation.');return;}
-    if(!coiffeOk){alert(`Le nombre de bouteilles (${totalBouteilles}) doit être un multiple de 120.`);return;}
-    setSending(true);
-    const ref=genRef();
-    const tarifLabel=tarifLabelComputed;
-    const textContent=buildText(ref);
-    const prenom=teamMember?.prenom||'Oé';
-    // Build HTML table for products
-    const livrInfo=retraitLoft?'Retrait au Loft Oé - 10bis rue Bellicard, 69003 Lyon':sameAddr?(factAddr.addr+', '+factAddr.cp+' '+factAddr.ville):(expAddr.addr+', '+expAddr.cp+' '+expAddr.ville);
-    const clientInfoHtml='<table style="font-size:13px;margin-bottom:16px;border-collapse:collapse">'+
-      '<tr><td style="padding:3px 16px 3px 0;color:#9e9890;font-size:11px;white-space:nowrap;vertical-align:top">CLIENT</td><td style="padding:3px 0"><strong>'+societe+'</strong> — '+contact+'</td></tr>'+
-      '<tr><td style="padding:3px 16px 3px 0;color:#9e9890;font-size:11px;white-space:nowrap;vertical-align:top">FACTURATION</td><td style="padding:3px 0">'+factAddr.addr+(factAddr.addr2?' '+factAddr.addr2:'')+', '+factAddr.cp+' '+factAddr.ville+(factAddr.email?' — '+factAddr.email:'')+'</td></tr>'+
-      '<tr><td style="padding:3px 16px 3px 0;color:#9e9890;font-size:11px;white-space:nowrap;vertical-align:top">LIVRAISON</td><td style="padding:3px 0">'+livrInfo+'</td></tr>'+
-      '<tr><td style="padding:3px 16px 3px 0;color:#9e9890;font-size:11px;white-space:nowrap;vertical-align:top">PRÉPARATION</td><td style="padding:3px 0">'+prepLabel+'</td></tr>'+
-      (message?'<tr><td style="padding:3px 16px 3px 0;color:#9e9890;font-size:11px;white-space:nowrap;vertical-align:top">MESSAGE</td><td style="padding:3px 0;font-style:italic">'+message+'</td></tr>':'')+
-      (echantillons?'<tr><td style="padding:3px 16px 3px 0;color:#c0392b;font-size:11px;white-space:nowrap;vertical-align:top">ÉCHANTILLONS</td><td style="padding:3px 0;color:#c0392b;font-weight:600">⚠️ Gratuits — '+echantillonsRaison+'</td></tr>':'')+
-      '</table>';
-    const fntS='font-family:${brandFont};font-size:14px;color:#1a1814;line-height:1.6';
-    const intro=mode==='devis'
-      ?`<p style="${fntS}">Bonjour,</p><p style="${fntS}">Suite à nos échanges, voici le chiffrage détaillé :</p>`
-      :`<p style="${fntS}">Bonjour,</p><p style="${fntS}">Une nouvelle commande a été enregistrée par <strong>${prenom}</strong>.</p>`;
-    const outro=mode==='devis'
-      ?'<p>Très belle fin de journée !<br><strong>'+prenom+' — Oé</strong></p>'
-      :'<p>La bise.<br><strong>'+prenom+' — Oé</strong></p>';
-    await setDoc(doc(db,'devis_commandes',ref),{ref,mode,societe,contact,factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,preparation,tariEvent,infoLivraison,message,lignes:displayLignes,totalHT,totalTVA,totalTTC,createdAt:Date.now(),createdBy:currentUser?.email});
-    try{
-      await emailjs.send(EMAILJS_SERVICE,EMAILJS_TEMPLATE_DEVIS,{
-        to_email:'fx@oeforgood.com',cc_email:'',
-        to_name:prenom,from_name:prenom,name:prenom,
-        email:currentUser?.email||'',reply_to:currentUser?.email||'fx@oeforgood.com',
-        subject:`🌼 ${mode==='devis'?`Devis ${ref} - Oé`:`Commande ${ref} passée par ${prenom}`}`,
-        ref,html_content:msgBody,message:msgBody,
-      },EMAILJS_KEY);
-    }catch(e){console.error('EmailJS:',e);}
-const msgColor='#c0392b';
-    const msgHtml=message?`<div style="margin:16px 0;padding:12px 16px;background:#fff5f5;border-left:3px solid ${msgColor};border-radius:4px;font-size:13px;color:${msgColor}"><strong>${mode==='commande'?'Message supply':'Message client'} :</strong> ${message}</div>`:'';
-    const brandGreen='#2d6a4f';const brandBeige='#f5f3ef';const brandDark='#1a1814';const brandFont='system-ui,-apple-system,Helvetica,sans-serif';
-    // prodRows for mail
-    const prodRows=displayLignes.map(ligne=>{
-      const pu=gratuite&&ligne.code!==CASIER_CODE&&ligne.code!==COIFFE_CODE?0:getLinePU(ligne);
-      const qty=parseInt(ligne.qty||0);
-      const totalHT2=pu*qty;
-      const tvaRate=parseFloat(ligne.tva||0);
-      const tvaVal=totalHT2*(tvaRate/100);
-      const ttcLigne=totalHT2+tvaVal;
-      const isOffert=gratuite&&ligne.code!==CASIER_CODE&&ligne.code!==COIFFE_CODE;
-      return `<tr>
-        <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;font-weight:600;letter-spacing:0.3px;width:90px">${ligne.code||''}</td>
-        <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px">${ligne.libelle||''}</td>
-        <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;text-align:right;width:45px">${qty}</td>
-        <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;text-align:right;width:80px">${isOffert?'offert':fmtE(pu)}</td>
-        <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;text-align:right;font-weight:700;width:80px">${isOffert?'offert':fmtE(totalHT2)}</td>
-        <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;text-align:right;color:#6b6560;width:80px">${isOffert?'':tvaRate>0?(tvaRate+'%'):'0%'}</td>
-        <td style="padding:4px 8px;border-bottom:1px solid #f5f3ef;font-size:12px;text-align:right;width:80px">${isOffert?'offert':fmtE(ttcLigne)}</td>
-      </tr>`;
-    }).join('');
-    const htmlTable=`<div style="font-family:${brandFont};max-width:720px;margin:0 auto;color:${brandDark}">
-<div style="background:${brandGreen};padding:20px 24px;border-radius:8px 8px 0 0">
-  <div style="color:#fff;font-size:20px;font-weight:700;letter-spacing:1px">🌼 Oé</div>
-  <div style="color:rgba(255,255,255,0.8);font-size:12px;margin-top:4px">${mode==='devis'?'Devis':'Commande'} ${ref} · ${new Date().toLocaleDateString('fr-FR')}</div>
-</div>
-<div style="background:${brandBeige};padding:16px 24px;border-bottom:1px solid #e2ddd6">
-  <table style="width:100%;border-collapse:collapse;font-size:12px">
-    <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0;white-space:nowrap">CLIENT</td><td style="font-weight:600">${societe} — ${contact}</td></tr>
-    <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0">FACTURATION</td><td>${factAddr.addr}, ${factAddr.cp} ${factAddr.ville}${factAddr.email?' · '+factAddr.email:''}</td></tr>
-    <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0">LIVRAISON</td><td>${retraitLoft?'Retrait au Loft Oé · 10bis rue Bellicard, 69003 Lyon':sameAddr?factAddr.addr+', '+factAddr.cp+' '+factAddr.ville:expAddr.addr+', '+expAddr.cp+' '+expAddr.ville}</td></tr>
-    <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0">PRÉPARATION</td><td>${prepLabel}</td></tr>
-    <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0">TARIF</td><td>${tarifLabel}</td></tr>
-  </table>
-</div>
-<div style="background:#fff;padding:0">
-  <table style="width:100%;border-collapse:collapse">
-    <thead><tr style="background:${brandBeige}">
-      <th style="padding:8px;text-align:left;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen};width:90px">Code</th>
-      <th style="padding:8px;text-align:left;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen}">Produit</th>
-      <th style="padding:8px;text-align:right;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen};width:45px">Qté</th>
-      <th style="padding:8px;text-align:right;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen};width:80px">P.U. HT</th>
-      <th style="padding:8px;text-align:right;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen};width:80px">Total HT</th>
-      <th style="padding:8px;text-align:right;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen};width:80px">TVA</th>
-      <th style="padding:8px;text-align:right;font-size:11px;color:#6b6560;font-weight:600;border-bottom:2px solid ${brandGreen};width:80px">TTC</th>
-    </tr></thead>
-    <tbody>${prodRows}</tbody>
-    <tfoot>
-      <tr style="border-top:2px solid ${brandGreen}">
-        <td colspan="4" style="padding:6px 8px;font-size:12px;font-weight:700;color:${brandGreen}">TOTAL</td>
-        <td style="padding:6px 8px;text-align:right;font-size:12px;font-weight:700">${gratuite?'OFFERT':fmtE(totalHT)}</td>
-        <td style="padding:6px 8px;text-align:right;font-size:12px;font-weight:400;color:#6b6560">${fmtE(totalTVA)}</td>
-        <td style="padding:6px 8px;text-align:right;font-size:12px;font-weight:400">${gratuite?'OFFERT':fmtE(totalTTC)}</td>
-      </tr>
-    </tfoot>
-  </table>
-</div>
-${msgHtml}
-<div style="background:${brandBeige};padding:12px 24px;border-radius:0 0 8px 8px;border-top:1px solid #e2ddd6;font-size:11px;color:#6b6560;text-align:center">
-  Oé · contact@oeforgood.com · oeforgood.com
-</div>
-</div>`
-    const msgBody=intro+clientInfoHtml+htmlTable+outro;
-    setSentRecap(textContent);setSending(false);setSent(true);
-  }
-
-  function resetForm(){setSent(false);setSentRecap('');setStep('coords');setLignes([]);setPreparation('');setSociete('');setContact('');setFactAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setExpAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setSameAddr(false);setRetraitLoft(false);setMessage('');setInfoLivraison('');setTariEvent(false);setPrixCoutant(false);setGratuite(false);setGratuiteRaison('');}
-
-  const INP=(w='100%')=>({fontSize:13,padding:'7px 10px',borderRadius:7,border:'1px solid #e2ddd6',outline:'none',fontFamily:'inherit',width:w,boxSizing:'border-box'});
-  const LBL={fontSize:11,fontWeight:600,color:'#6b6560',marginBottom:3,display:'block'};
-  const SECT={background:'#fff',borderRadius:12,padding:'20px',marginBottom:16,border:'1px solid #e2ddd6'};
-
-  if(sent)return <div style={{minHeight:'100vh',background:'#f5f3ef',fontFamily:'system-ui,sans-serif'}}>
-    <AppNav current="devis" onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3} onGoDevis={()=>{}}/>
-    <div style={{maxWidth:960,margin:'20px auto',padding:'0 24px 60px'}}>
-      <div style={{background:'#f0fdf4',border:'1px solid #86efac',borderRadius:12,padding:'20px',marginBottom:16,textAlign:'center'}}>
-        <div style={{fontSize:36,marginBottom:8}}>&#x2705;</div>
-        <div style={{fontSize:16,fontWeight:700,marginBottom:4}}>{mode==='devis'?'Devis envoyé !':'Commande enregistrée !'}</div>
-        <div style={{fontSize:12,color:'#6b6560',marginBottom:16}}>Un mail de confirmation vous a été envoyé en CC.</div>
-        <button onClick={resetForm} style={{padding:'8px 20px',background:'#2d6a4f',color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>Nouveau devis / commande</button>
-      </div>
-      <div style={{background:'#fff',borderRadius:12,border:'1px solid #e2ddd6',padding:'20px'}}>
-        <div style={{fontSize:12,fontWeight:700,color:'#6b6560',marginBottom:12,textTransform:'uppercase',letterSpacing:.5}}>Récapitulatif</div>
-        <div style={{fontFamily:'system-ui,-apple-system,sans-serif',fontSize:13,color:'#1a1814',lineHeight:1.7}}>
-          {(()=>{
-            const lines=sentRecap.split('\n');
-            const infoLines=[];let inProd=false;
-            for(const line of lines){
-              if(line.startsWith('─')||line.startsWith('-'))continue;
-              if(line.startsWith('Code '))inProd=true;
-              if(!inProd)infoLines.push(line);
-            }
-            const GRD='90px 1fr 45px 80px 80px 80px 80px';
-            const TH={fontSize:11,fontWeight:700,color:'#6b6560',padding:'4px 6px',textAlign:'right'};
-            const TD={fontSize:12,padding:'3px 6px',textAlign:'right',borderBottom:'1px solid #f5f3ef'};
-            const totTTC=displayLignes.reduce((s,l)=>{
-              const pu=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?0:getLinePU(l);
-              return s+pu*parseInt(l.qty||0)*(1+(parseFloat(l.tva||0)/100));
-            },0);
-            return <>
-              {infoLines.map((line,i)=>{
-                if(!line.trim())return null;
-                const isTitle=i===0;
-                const isMsg=line.startsWith('>>> ');
-                return <div key={i} style={{fontSize:isTitle?15:12,fontWeight:isTitle?700:400,color:isTitle?'#2d6a4f':isMsg?'#c0392b':'#6b6560',marginBottom:isTitle?8:2}}>
-                  {isMsg?line.replace(/^>>> /,'').replace(/ <<<$/,''):line}
-                </div>;
-              })}
-              <div style={{overflowX:'auto',marginTop:12}}>
-                <div style={{display:'grid',gridTemplateColumns:GRD,borderBottom:'2px solid #2d6a4f',paddingBottom:4,marginBottom:2}}>
-                  <span style={{...TH,textAlign:'left'}}>Code</span>
-                  <span style={{...TH,textAlign:'left'}}>Produit</span>
-                  <span style={TH}>Qté</span>
-                  <span style={TH}>P.U. HT</span>
-                  <span style={TH}>Total HT</span>
-                  <span style={TH}>TVA</span>
-                  <span style={TH}>TTC</span>
-                </div>
-                {displayLignes.map((l,i)=>{
-                  const pu=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?0:getLinePU(l);
-                  const qty=parseInt(l.qty||0);
-                  const htL=pu*qty;
-                  const tvaR=parseFloat(l.tva||0);
-                  const tvaV=htL*(tvaR/100);
-                  const ttcL=htL+tvaV;
-                  const isOff=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE;
-                  return <div key={i} style={{display:'grid',gridTemplateColumns:GRD,borderBottom:'1px solid #f5f3ef'}}>
-                    <span style={{...TD,textAlign:'left',fontFamily:'system-ui,sans-serif',fontSize:12,fontWeight:600,letterSpacing:0.3}}>{l.code}</span>
-                    <span style={{...TD,textAlign:'left'}}>{l.libelle}{l.qtyMode==='auto'?<span style={{fontSize:10,color:'#9e9890',marginLeft:4}}>(auto)</span>:null}</span>
-                    <span style={TD}>{qty}</span>
-                    <span style={TD}>{isOff?'offert':fmtE(pu)}</span>
-                    <span style={{...TD,fontWeight:700}}>{isOff?'offert':fmtE(htL)}</span>
-                    <span style={{...TD,fontSize:11,color:'#6b6560'}}>{tvaR>0?tvaR+'%':'0%'}</span>
-                    <span style={{...TD,fontWeight:600}}>{isOff?'offert':fmtE(ttcL)}</span>
-                  </div>;
-                })}
-                <div style={{display:'grid',gridTemplateColumns:GRD,borderTop:'2px solid #2d6a4f',marginTop:4,paddingTop:4}}>
-                  <span style={{gridColumn:'1/5',fontSize:12,fontWeight:700,color:'#2d6a4f',padding:'4px 6px'}}>TOTAL</span>
-                  <span style={{...TD,borderBottom:'none',fontWeight:700}}>{gratuite?'OFFERT':fmtE(totalHT)}</span>
-                  <span style={{...TD,borderBottom:'none',fontWeight:400}}>{fmtE(totalTVA)}</span>
-                  <span style={{...TD,borderBottom:'none',fontWeight:400}}>{gratuite?'OFFERT':fmtE(totalTTC)}</span>
-                </div>
-              </div>
-            </>;
-          })()}
-        </div>
-      </div>
-    </div>
-  </div>;
-
-  return <div style={{minHeight:'100vh',background:'#f5f3ef',fontFamily:'system-ui,sans-serif'}}>
-    <AppNav current="devis" onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3} onGoDevis={()=>{}}/>
-    <div style={{maxWidth:900,margin:'0 auto',padding:'20px 16px 60px'}}>
-      <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
-        {[{k:'commande',l:'Enregistrer une commande'},{k:'devis',l:'Faire et envoyer un devis'}].map(t=>
-          <button key={t.k} onClick={()=>setMode(t.k)}
-            style={{padding:'8px 18px',borderRadius:8,border:`1px solid ${mode===t.k?'#2d6a4f':'#e2ddd6'}`,
-              background:mode===t.k?'#2d6a4f':'#fff',color:mode===t.k?'#fff':'#6b6560',fontSize:13,fontWeight:500,cursor:'pointer'}}>
-            {t.l}
-          </button>
-        )}
-      </div>
-
-      {step==='coords'&&<>
-        <div style={SECT}>
-          <div style={{fontSize:13,fontWeight:700,marginBottom:14}}>Informations client</div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:14}}>
-            <div style={{gridColumn:'1/-1',marginBottom:4}}>
-            <label style={LBL}>Clients sauvegardés</label>
-            <div style={{display:'flex',gap:8}}>
-              <select value={selectedClientKey} onChange={e=>{const key=e.target.value;setSelectedClientKey(key);if(!key)return;const cl=savedClients.find(x=>x.key===key);if(!cl)return;setSociete(cl.societe||'');setContact(cl.contact||'');setFactAddr(cl.factAddr||{addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''}); }}
-                style={{...INP(),flex:1,color:selectedClientKey?'#1a1814':'#9e9890'}}>
-                <option value=''>— Choisir un client —</option>
-                {savedClients.map(cl=><option key={cl.key} value={cl.key}>{cl.societe}</option>)}
-              </select>
-              {selectedClientKey&&<button onClick={async()=>{if(!window.confirm('Supprimer ce client ?'))return;await deleteDoc(doc(db,'devis_clients',selectedClientKey));setSavedClients(p=>p.filter(x=>x.key!==selectedClientKey));setSelectedClientKey('');}}
-                style={{padding:'6px 10px',background:'#fff',border:'1px solid #e2ddd6',borderRadius:7,fontSize:12,color:'#c0392b',cursor:'pointer',flexShrink:0}}>Supprimer</button>}
-              <button onClick={()=>{setSociete('');setContact('');setFactAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setSelectedClientKey('');}}
-                style={{padding:'6px 10px',background:'#f8f7f5',border:'1px solid #e2ddd6',borderRadius:7,fontSize:12,cursor:'pointer',flexShrink:0}}>Effacer</button>
-            </div>
-          </div>
-          <div><label style={LBL}>Nom de la société *</label><input value={societe} onChange={e=>{setSociete(e.target.value);setSelectedClientKey('');}} style={INP()}/></div>
-            <div><label style={LBL}>Prénom et Nom du contact</label><input value={contact} onChange={e=>setContact(e.target.value)} style={INP()}/></div>
-          </div>
-          <div style={{fontSize:12,fontWeight:700,color:'#6b6560',marginBottom:8}}>Adresse de facturation</div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:14}}>
-            <div><label style={LBL}>Adresse</label><input value={factAddr.addr} onChange={e=>setFactAddr(p=>({...p,addr:e.target.value}))} style={INP()}/></div>
-            <div><label style={LBL}>Complément</label><input value={factAddr.addr2} onChange={e=>setFactAddr(p=>({...p,addr2:e.target.value}))} style={INP()}/></div>
-            <div><label style={LBL}>Code postal</label><input value={factAddr.cp} onChange={e=>setFactAddr(p=>({...p,cp:e.target.value}))} style={INP()}/></div>
-            <div><label style={LBL}>Ville</label><input value={factAddr.ville} onChange={e=>setFactAddr(p=>({...p,ville:e.target.value}))} style={INP()}/></div>
-            <div><label style={LBL}>Pays</label><input value={factAddr.pays} onChange={e=>setFactAddr(p=>({...p,pays:e.target.value}))} style={INP()}/></div>
-            <div><label style={LBL}>Téléphone</label><input value={factAddr.tel} onChange={e=>setFactAddr(p=>({...p,tel:e.target.value}))} style={INP()}/></div>
-            <div style={{gridColumn:'1/-1'}}><label style={LBL}>Email{mode==='devis'?' *':''}</label><input value={factAddr.email} onChange={e=>setFactAddr(p=>({...p,email:e.target.value}))} style={INP()}/></div>
-          </div>
-          <div style={{fontSize:12,fontWeight:700,color:'#6b6560',marginBottom:8}}>Adresse d'expédition</div>
-          <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:10}}>
-            <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer'}}>
-              <input type="checkbox" checked={sameAddr} onChange={e=>{setSameAddr(e.target.checked);if(e.target.checked)setRetraitLoft(false);}}/> Identique à la facturation
-            </label>
-            <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer'}}>
-              <input type="checkbox" checked={retraitLoft} onChange={e=>{setRetraitLoft(e.target.checked);if(e.target.checked)setSameAddr(false);}}/> Retrait par le client au Loft Oé
-            </label>
-          </div>
-          {!sameAddr&&!retraitLoft&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-            <div><label style={LBL}>Adresse</label><input value={expAddr.addr} onChange={e=>setExpAddr(p=>({...p,addr:e.target.value}))} style={INP()}/></div>
-            <div><label style={LBL}>Complément</label><input value={expAddr.addr2} onChange={e=>setExpAddr(p=>({...p,addr2:e.target.value}))} style={INP()}/></div>
-            <div><label style={LBL}>Code postal</label><input value={expAddr.cp} onChange={e=>setExpAddr(p=>({...p,cp:e.target.value}))} style={INP()}/></div>
-            <div><label style={LBL}>Ville</label><input value={expAddr.ville} onChange={e=>setExpAddr(p=>({...p,ville:e.target.value}))} style={INP()}/></div>
-            <div><label style={LBL}>Pays</label><input value={expAddr.pays} onChange={e=>setExpAddr(p=>({...p,pays:e.target.value}))} style={INP()}/></div>
-            <div><label style={LBL}>Téléphone</label><input value={expAddr.tel} onChange={e=>setExpAddr(p=>({...p,tel:e.target.value}))} style={INP()}/></div>
-            <div style={{gridColumn:'1/-1'}}><label style={LBL}>Email</label><input value={expAddr.email} onChange={e=>setExpAddr(p=>({...p,email:e.target.value}))} style={INP()}/></div>
-          </div>}
-          {retraitLoft&&<div style={{background:'#f0fdf4',border:'1px solid #86efac',borderRadius:8,padding:'10px 14px',fontSize:12,color:'#2d6a4f'}}>
-            Retrait au Loft Oé - 10bis rue Bellicard, 69003 Lyon
-          </div>}
-        </div>
-        <div style={{display:'flex',justifyContent:'flex-end'}}>
-          <button onClick={saveCoords} disabled={!societe.trim()}
-            style={{padding:'11px 28px',background:societe.trim()?'#2d6a4f':'#e2ddd6',color:societe.trim()?'#fff':'#9e9890',border:'none',borderRadius:10,fontSize:14,fontWeight:700,cursor:societe.trim()?'pointer':'default'}}>
-            Enregistrer les coordonnées
-          </button>
-        </div>
-      </>}
-
-      {step==='produits'&&<>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
-          <div style={{background:'#fff',borderRadius:10,padding:'14px 16px',border:'1px solid #e2ddd6'}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
-              <div style={{fontSize:10,fontWeight:700,color:'#9e9890',textTransform:'uppercase',letterSpacing:.5}}>Livraison</div>
-              <button onClick={()=>setStep('coords')} style={{fontSize:10,color:'#2d6a4f',background:'none',border:'none',cursor:'pointer',padding:0}}>Modifier</button>
-            </div>
-            <div style={{fontSize:13,fontWeight:700}}>{societe}</div>
-            <div style={{fontSize:12,color:'#6b6560'}}>{contact}</div>
-            {retraitLoft
-              ?<div style={{fontSize:12,color:'#2d6a4f',marginTop:2}}>Retrait au Loft Oé</div>
-              :<><div style={{fontSize:12,color:'#6b6560',marginTop:2}}>{expA.addr}</div><div style={{fontSize:12,color:'#6b6560'}}>{expA.cp} {expA.ville}</div></>}
-            {infoLivraison&&<div style={{fontSize:11,color:'#b5680f',marginTop:3,fontStyle:'italic'}}>{infoLivraison}</div>}
-          </div>
-          <div style={{background:'#fff',borderRadius:10,padding:'14px 16px',border:'1px solid #e2ddd6'}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
-              <div style={{fontSize:10,fontWeight:700,color:'#9e9890',textTransform:'uppercase',letterSpacing:.5}}>Facturation</div>
-              <button onClick={()=>setStep('coords')} style={{fontSize:10,color:'#2d6a4f',background:'none',border:'none',cursor:'pointer',padding:0}}>Modifier</button>
-            </div>
-            <div style={{fontSize:13,fontWeight:700}}>{societe}</div>
-            <div style={{fontSize:12,color:'#6b6560'}}>{factAddr.addr}</div>
-            <div style={{fontSize:12,color:'#6b6560'}}>{factAddr.cp} {factAddr.ville}</div>
-            <div style={{fontSize:12,color:'#6b6560'}}>{factAddr.email}</div>
-          </div>
-        </div>
-
-        <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'14px 16px',marginBottom:16}}>
-          <div style={{fontSize:11,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:.5,marginBottom:10}}>Rappeler un devis ou une commande</div>
-          <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
-            <select value={recallTeammate} onChange={e=>{setRecallTeammate(e.target.value);setRecallClient('');setRecallRef('');}} style={{fontSize:12,padding:'5px 8px',borderRadius:7,border:'1px solid #e2ddd6',minWidth:110}}>
-              <option value=''>Tous</option>
-              {[...new Set(savedOrders.map(o=>o.createdBy||'').filter(Boolean))].map(email=>{const tm=(window._teamMembers||[]).find(m=>m.email===email);return<option key={email} value={email}>{tm?.prenom||email}</option>;})}
-            </select>
-            <select value={recallClient} onChange={e=>{setRecallClient(e.target.value);setRecallRef('');}} style={{fontSize:12,padding:'5px 8px',borderRadius:7,border:'1px solid #e2ddd6',minWidth:140}}>
-              <option value=''>— Client —</option>
-              {[...new Set(savedOrders.filter(o=>!recallTeammate||o.createdBy===recallTeammate).map(o=>o.societe||'').filter(s=>s&&savedClients.some(sc=>sc.societe===s)))].sort().map(s=><option key={s} value={s}>{s}</option>)}
-            </select>
-            {['commande','devis'].map(m=><button key={m} onClick={()=>{setRecallMode(m);setRecallRef('');}} style={{padding:'5px 10px',borderRadius:6,fontSize:11,fontWeight:500,cursor:'pointer',border:`1px solid ${recallMode===m?'#2d6a4f':'#e2ddd6'}`,background:recallMode===m?'#2d6a4f':'#fff',color:recallMode===m?'#fff':'#6b6560'}}>{m==='commande'?'Commande':'Devis'}</button>)}
-            <select value={recallRef} onChange={e=>{const ref=e.target.value;setRecallRef(ref);if(!ref)return;const o=savedOrders.find(x=>x.ref===ref);if(!o)return;setSociete(o.societe||'');setContact(o.contact||'');setFactAddr(o.factAddr||{addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setExpAddr(o.expAddr||{addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setSameAddr(false);setRetraitLoft(o.retraitLoft||false);setPreparation(o.preparation||'');setMessage(o.message||'');setTariEvent(o.tariEvent||false);setPrixCoutant(false);setGratuite(false);setGratuiteRaison('');setLignes((o.lignes||[]).filter(l=>l.qtyMode!=='auto').map(l=>({...l,qtyMode:'select'})));}}
-              style={{flex:1,fontSize:11,padding:'5px 8px',borderRadius:7,border:'1px solid #e2ddd6',minWidth:200,color:recallRef?'#1a1814':'#9e9890'}}>
-              <option value=''>— Choisir —</option>
-              {savedOrders.filter(o=>(!recallTeammate||o.createdBy===recallTeammate)&&(!recallClient||o.societe===recallClient)&&o.mode===recallMode).map(o=>{const d=o.createdAt?new Date(o.createdAt).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'';const tm=(window._teamMembers||[]).find(m=>m.email===o.createdBy);return<option key={o.ref} value={o.ref}>{o.ref} · {o.societe} · {d}{tm?' ('+tm.prenom+')':''}</option>;})}
-            </select>
-          </div>
-        </div>
-                <div style={{...SECT,display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
-          <div>
-            <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>Mode de préparation *</div>
-            <select value={preparation} onChange={e=>handlePrepChange(e.target.value)}
-              style={{...INP(),color:preparation?'#1a1814':'#9e9890'}}>
-              <option value=''>-- Choisir un mode de préparation --</option>
-              {PREP_OPTIONS.filter(p=>!p.loftOnly||retraitLoft).map(p=>
-                <option key={p.k} value={p.k}>{p.l}</option>
-              )}
-            </select>
-            {isCoiffePrep&&totalBouteilles>0&&!coiffeOk&&<div style={{marginTop:8,fontSize:12,color:'#c0392b',fontWeight:600}}>
-              {totalBouteilles} bouteilles — doit être un multiple de 120.
-            </div>}
-          </div>
-          <div style={{borderLeft:'1px solid #f0ede8',paddingLeft:16}}>
-            <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>Tarification</div>
-            <div style={{display:'flex',flexDirection:'column',gap:8}}>
-              <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',fontWeight:tariEvent?600:400}}>
-                <input type="checkbox" checked={tariEvent}
-                  onChange={e=>{setTariEvent(e.target.checked);if(e.target.checked){setGratuite(false);setGratuiteRaison('');}}}/>
-                Tarif Events
-              </label>
-              <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',fontWeight:prixCoutant?600:400}}>
-                <input type="checkbox" checked={prixCoutant}
-                  onChange={e=>{setPrixCoutant(e.target.checked);if(e.target.checked){setGratuite(false);setGratuiteRaison('');}}}/>
-                Prix coûtant
-              </label>
-              <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',fontWeight:gratuite?600:400,color:gratuite?'#c0392b':'inherit'}}>
-                <input type="checkbox" checked={gratuite}
-                  onChange={e=>{
-                    if(e.target.checked){setGratuiteModal(true);setTariEvent(false);setPrixCoutant(false);}
-                    else{setGratuite(false);setGratuiteRaison('');}
-                  }}/>
-                {gratuite&&gratuiteRaison
-                  ?<span>Gratuité : <span style={{fontStyle:'italic',cursor:'pointer',textDecoration:'underline dotted'}}
-                      onClick={()=>{setGratuiteModal(true);}} title="Cliquer pour modifier">
-                      {gratuiteRaison}
-                    </span></span>
-                  :'Gratuité'}
-              </label>
-            </div>
-          </div>
-        </div>
-
-        {preparation&&<div style={SECT}>
-          <label style={LBL}>{mode==='devis'?'Message pour le client':'Message pour la supply'}</label>
-          <textarea value={message} onChange={e=>setMessage(e.target.value)} rows={mode==='devis'?5:2}
-            style={{...INP(),fontFamily:'inherit',lineHeight:1.5,resize:'vertical'}}/>
-        </div>}
-
-        {preparation&&<div style={SECT}>
-          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
-            <div style={{fontSize:13,fontWeight:700}}>Produits{isCasierPrep?' (75cl uniquement)':''}</div>
-            {prixCoutant&&<span style={{fontSize:11,padding:'1px 7px',borderRadius:8,background:'#ea580c',color:'#fff',fontWeight:700}}>Coûtant</span>}
-            {gratuite&&<span style={{fontSize:11,padding:'1px 7px',borderRadius:8,background:'#fef2f2',color:'#c0392b',fontWeight:700}}>Gratuité</span>}
-          </div>
-          {loadingTarif?<div style={{color:'#9e9890',fontSize:13}}>Chargement...</div>
-          :<>
-            <select value={selectedProd} onChange={e=>{if(e.target.value)addProduit(e.target.value);}}
-              style={{...INP(),marginBottom:16,color:selectedProd?'#1a1814':'#9e9890'}}>
-              <option value=''>Ajouter un produit</option>
-              {filteredTarif.map(p=><option key={p.code} value={p.code}>{`${p.code} — ${p.libelle||''}${p.robe?' ('+p.robe+')':''}`}</option>)}
-            </select>
-            {displayLignes.length>0&&<>
-              <table style={{width:'100%',borderCollapse:'collapse'}}>
-                <thead><tr style={{background:'#f8f7f5'}}>
-                  {['Code','Produit','Tarif','Quantité','P.U. HT','Total HT',''].map((h,i)=>
-                    <th key={i} style={{padding:'6px 8px',fontSize:11,color:'#6b6560',textAlign:i>=2&&i<5?'right':'left',fontWeight:700}}>{h}</th>)}
-                </tr></thead>
-                <tbody>{displayLignes.map((l,i)=>{
-                  const isAuto=l.qtyMode==='auto';
-                  const pu=getLinePU(l);
-                  const qtyOpts=Array.from({length:12},(_,k)=>(k+1)*effectivePCB);
-                  return <tr key={i} style={{borderBottom:'1px solid #f0ede8',background:isAuto?'#fafaf8':'#fff'}}>
-                    <td style={{padding:'8px',fontSize:12,color:'#6b6560'}}>{l.code}</td>
-                    <td style={{padding:'8px',fontSize:12}}>
-                      {l.robe&&<span style={{display:'inline-block',width:9,height:9,borderRadius:'50%',background:getRobeDot(l.robe),marginRight:6,verticalAlign:'middle'}}/>}
-                      {l.libelle}{isAuto&&<span style={{fontSize:10,color:'#9e9890',marginLeft:5}}>(auto)</span>}
-                    </td>
-                    <td style={{padding:'4px 8px',textAlign:'center',whiteSpace:'nowrap'}}>
-                      {!isAuto&&renderTarifBadges(getLineTarifLabel(l))}
-                    </td>
-                    <td style={{padding:'8px',textAlign:'right'}}>
-                      {isAuto?<span style={{fontSize:12,color:'#6b6560'}}>{l.qty}</span>
-                      :(()=>{
-                        const pcb=Math.max(1,parseInt(String(l.pcb||'1').replace(/[^0-9]/g,''))||1);
-                        const prodT=tarif.find(t=>t.code===l.code);
-                        const qpal=parseInt(String(prodT?.qpalette||'0').replace(/[^0-9]/g,''))||0;
-                        const palQty=isPalettePrep?(isCasierPrep?480:(qpal>0?qpal:0)):0;
-                        // Build options: palettes first, then 1x..100x PCB
-                        // Build options based on preparation type
-                        let allOpts=[];
-                        if(isCasierPrep){
-                          // 12 to 480 by 12, then 960,1440,...,9600 (palettes)
-                          const byPCB=Array.from({length:40},(_,k)=>(k+1)*12); // 12..480
-                          const byPal=Array.from({length:19},(_,k)=>(k+2)*480); // 960..9600
-                          allOpts=[...byPCB,...byPal];
-                        } else if(isPalettePrep&&palQty>0){
-                          // PCB to Qpalette, then 2*Qpalette..20*Qpalette
-                          const byPCB=[];for(let q=pcb;q<=palQty;q+=pcb)byPCB.push(q);
-                          const byPal=Array.from({length:19},(_,k)=>(k+2)*palQty);
-                          allOpts=[...byPCB,...byPal];
-                        } else {
-                          allOpts=Array.from({length:100},(_,k)=>(k+1)*Math.max(1,pcb));
-                        }
-                        const palQtyEff=isCasierPrep?480:palQty;
-                        return <select value={l.qty} onChange={e=>updLigne(i,'qty',parseInt(e.target.value))}
-                            style={{fontSize:12,padding:'3px 6px',borderRadius:6,border:'1px solid #e2ddd6'}}>
-                            {allOpts.map(q=>{
-                              const isPalMult=palQtyEff>0&&q%palQtyEff===0;
-                              const palNum=isPalMult?q/palQtyEff:0;
-                              return <option key={q} value={q}>{isPalMult?`${palNum} palette${palNum>1?'s':''} (${q})`:String(q)}</option>;
-                            })}
-                          </select>;
-                      })()}
-                    </td>
-                    <td style={{padding:'8px',fontSize:12,textAlign:'right',color:'#6b6560'}}>{fmtE(pu)}</td>
-                    <td style={{padding:'8px',fontSize:12,textAlign:'right',fontWeight:600}}>{fmtE(pu*parseInt(l.qty||0))}</td>
-                    <td style={{padding:'4px',textAlign:'center'}}>
-                      {!isAuto&&<button onClick={()=>remLigne(i)} style={{border:'none',background:'none',color:'#c0392b',cursor:'pointer',fontSize:14,padding:'2px 6px'}}>x</button>}
-                    </td>
-                  </tr>;
-                })}</tbody>
-              </table>
-              <div style={{marginTop:14,borderTop:'2px solid #e2ddd6',paddingTop:12,textAlign:'right'}}>
-                <div style={{fontSize:13,color:'#6b6560'}}>Total HT : <strong>{fmtE(totalHT)}</strong></div>
-                <div style={{fontSize:13,color:'#6b6560'}}>TVA : <strong>{fmtE(totalTVA)}</strong></div>
-                <div style={{fontSize:16,fontWeight:800,color:gratuite?'#c0392b':'#2d6a4f',marginTop:6}}>{gratuite?'OFFERT — Gratuité':`Total TTC : ${fmtE(totalTTC)}`}</div>
-              </div>
-            </>}
-          </>}
-        </div>}
-
-        {preparation&&<div style={{display:'flex',justifyContent:'flex-end',alignItems:'center',gap:12}}>
-          {isCoiffePrep&&totalBouteilles>0&&!coiffeOk&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600}}>⚠️ {totalBouteilles} bouteilles — multiple de 120 requis</div>}
-          {minQtyMsg&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600}}>⚠️ {minQtyMsg}</div>}
-          <button onClick={handleEnvoyer}
-            disabled={sending||!coreLignes.length||!coiffeOk||!minQtyOk}
-            style={{padding:'12px 32px',
-              background:sending||!coreLignes.length||!coiffeOk||!minQtyOk?'#e2ddd6':'#2d6a4f',
-              color:sending||!coreLignes.length||!coiffeOk||!minQtyOk?'#9e9890':'#fff',
-              border:'none',borderRadius:10,fontSize:15,fontWeight:700,cursor:'pointer'}}>
-            {sending?'Envoi en cours...':(mode==='devis'?'Envoyer le devis':'Enregistrer la commande')}
-          </button>
-        </div>}
-      </>}
-    </div>
-
-    {gratuiteModal&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}
-      onClick={()=>{setGratuiteModal(false);setGratuite(false);}}>
-      <div style={{background:'#fff',borderRadius:14,padding:'24px',width:420,maxWidth:'90vw'}} onClick={e=>e.stopPropagation()}>
-        <div style={{fontSize:15,fontWeight:700,marginBottom:16}}>Gratuité</div>
-        <div style={{fontSize:13,color:'#6b6560',marginBottom:12}}>Pourquoi ces produits sont offerts ?</div>
-        <textarea value={gratuiteRaison} onChange={e=>setGratuiteRaison(e.target.value)}
-          placeholder="Ex: Prospection, Geste commercial, Salon XYZ..." rows={3} autoFocus
-          style={{width:'100%',fontSize:13,padding:'8px 10px',borderRadius:8,border:'1px solid #e2ddd6',outline:'none',resize:'vertical',boxSizing:'border-box'}}/>
-        <div style={{display:'flex',gap:10,marginTop:16,justifyContent:'flex-end'}}>
-          <button onClick={()=>{setGratuiteModal(false);setGratuite(false);setGratuiteRaison('');}}
-            style={{padding:'8px 16px',background:'#f8f7f5',border:'1px solid #e2ddd6',borderRadius:8,fontSize:13,cursor:'pointer'}}>Annuler</button>
-          <button onClick={()=>{if(gratuiteRaison.trim()){setGratuite(true);setGratuiteModal(false);}}}
-            disabled={!gratuiteRaison.trim()}
-            style={{padding:'8px 16px',background:gratuiteRaison.trim()?'#2d6a4f':'#e2ddd6',color:gratuiteRaison.trim()?'#fff':'#9e9890',border:'none',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>
-            Valider
-          </button>
-        </div>
-      </div>
-    </div>}
-  </div>;
-}
-
-function TarifTab({db}){
-  const [tarif,setTarif]=React.useState([]);
-  const [loading,setLoading]=React.useState(true);
-  const [saving,setSaving]=React.useState(false);
-  const [msg,setMsg]=React.useState('');
-  const [history,setHistory]=React.useState([]);
-  const [activeId,setActiveId]=React.useState('current');
-  const [editingId,setEditingId]=React.useState(null);
-  const [editName,setEditName]=React.useState('');
-  const fileRef=React.useRef();
-  const COLS=['code','libelle','robe','contenant','tariEvents','prix24','prix120','prix240','prix360','prix600','prixPalette','pcb','eq75','qpalette','tva'];
-  const COL_LABELS={'code':'Code','libelle':'Libellé','robe':'Robe','contenant':'Contenant','tariEvents':'Tarif Events','prix24':'Prix/24','prix120':'Prix/120','prix240':'Prix/240','prix360':'Prix/360','prix600':'Prix/600','prixPalette':'Prix palette','pcb':'PCB','eq75':'Éq.75','qpalette':'Q.palette','tva':'TVA'};
-
-  // Load active tarif + history
-  React.useEffect(()=>{
-    if(!db)return;
-    // Load active tarif
-    getDocs(collection(db,'tarif')).then(snap=>{
-      if(!snap.empty){
-        const rows=[];
-        snap.docs.sort((a,b)=>a.id.localeCompare(b.id)).forEach(d=>{
-          if(!d.id.startsWith('history_'))rows.push(...(d.data().rows||[]));
-        });
-        setTarif(rows);
-      }
-      setLoading(false);
-    });
-    // Load history index
-    getDoc(doc(db,'tarif','history_index')).then(snap=>{
-      if(snap.exists()){
-        setHistory(snap.data().entries||[]);
-        if(snap.data().activeId)setActiveId(snap.data().activeId);
-      }
-    }).catch(()=>{});
-  },[]);
-
-  function parseCSV(text){
-    const lines=text.split(/\r?\n/).filter(l=>l.trim());
-    if(lines.length<2)return[];
-    // Auto-detect separator by counting columns with each candidate
-    const firstLine=lines[0];
-    const countCols=s=>{
-      let n=1,inQ=false;
-      for(const ch of firstLine){if(ch==='"')inQ=!inQ;else if(ch===s&&!inQ)n++;}
-      return n;
-    };
-    const sep=countCols(';')>=countCols(',')?';':',';
-    const headers=firstLine.split(sep).map(h=>h.trim().replace(/^"|"$/g,'').toLowerCase().trim());
-    const colMap={};
-    const CSV_MAP={
-      'code':'code','code produit':'code',
-      'libellé':'libelle','libelle':'libelle',
-      'robe':'robe','contenant':'contenant',
-      'tarif events':'tariEvents','tarif event':'tariEvents','tarievents':'tariEvents',
-      'prix/24':'prix24','prix par 24':'prix24',
-      'prix/120':'prix120','prix par 120':'prix120',
-      'prix/240':'prix240','prix par 240':'prix240',
-      'prix/360':'prix360','prix par 360':'prix360',
-      'prix/600':'prix600','prix par 600':'prix600',
-      'prix palette':'prixPalette','prix par palette':'prixPalette',
-      'prix par palette complète':'prixPalette','prix par palette complete':'prixPalette',
-      'pcb':'pcb',
-      'éq.75':'eq75','eq.75':'eq75','equivalent75':'eq75','équivalent75':'eq75','eq75':'eq75','eq 75':'eq75',
-      'q.palette':'qpalette','qpalette':'qpalette','q palette':'qpalette',
-      'tva':'tva'
-    };
-    headers.forEach((h,i)=>{const key=CSV_MAP[h];if(key)colMap[key]=i;});
-    // Helper: clean a field value (strip quotes, €, spaces, convert % for TVA)
-    function cleanVal(v,col){
-      let s=(v||'').replace(/^"|"$/g,'').replace(/€/g,'').trim();
-      // Only strip spaces for numeric fields, not text fields
-      if(['prix24','prix120','prix240','prix360','prix600','prixPalette','tariEvents','pcb','eq75','qpalette','tva'].includes(col)){
-        s=s.replace(/\s/g,'');
-      }
-      if(col==='tva')s=s.replace('%','');
-      return s;
-    }
-    return lines.slice(1).filter(l=>l.trim()).map(l=>{
-      // Parse CSV line respecting quoted fields
-      const fields=[];let cur='',inQ=false;
-      for(let i=0;i<l.length;i++){
-        const ch=l[i];
-        if(ch==='"'){inQ=!inQ;}
-        else if(ch===sep&&!inQ){fields.push(cur);cur='';}
-        else cur+=ch;
-      }
-      fields.push(cur);
-      const row={};
-      COLS.forEach(c=>{
-        if(colMap[c]!==undefined)row[c]=cleanVal(fields[colMap[c]],c);
-        else row[c]='';
-      });
-      return row;
-    }).filter(r=>r.code&&r.code.trim());
-  }
-
-  async function handleImport(e){
-    const file=e.target.files[0];if(!file)return;
-    setMsg('Lecture...');
-    const text=await file.text();
-    const rows=parseCSV(text);
-    if(!rows.length){setMsg('❌ Aucune ligne valide trouvée');return;}
-    setSaving(true);setMsg('Enregistrement...');
-    const CHUNK=100;
-    const now=Date.now();
-    const histId='history_'+now;
-    const histEntry={id:histId,filename:file.name,importedAt:now,count:rows.length};
-
-    // Save as new active tarif (chunks)
-    const oldSnap=await getDocs(collection(db,'tarif'));
-    await Promise.all(oldSnap.docs.filter(d=>!d.id.startsWith('history_')).map(d=>deleteDoc(d.ref)));
-    for(let i=0;i<rows.length;i+=CHUNK){
-      await setDoc(doc(db,'tarif',`chunk_${Math.floor(i/CHUNK)}`),{rows:rows.slice(i,i+CHUNK),importedAt:now,filename:file.name});
-    }
-    // Save history snapshot (chunks prefixed with histId)
-    for(let i=0;i<rows.length;i+=CHUNK){
-      await setDoc(doc(db,'tarif',`${histId}_chunk_${Math.floor(i/CHUNK)}`),{rows:rows.slice(i,i+CHUNK)});
-    }
-    // Update history index
-    const newHistory=[histEntry,...history.filter(h=>h.keep||true)].slice(0,20);
-    // Keep-forever entries are never evicted beyond the 20 limit logic (handled on rename)
-    await setDoc(doc(db,'tarif','history_index'),{entries:newHistory,activeId:histId});
-    setHistory(newHistory);
-    setActiveId(histId);
-    setTarif(rows);setSaving(false);
-    setMsg(`✅ ${rows.length} produits importés — ${file.name}`);
-    e.target.value='';
-  }
-
-  async function activateTarif(entry){
-    if(entry.id===activeId)return;
-    setSaving(true);setMsg('Chargement...');
-    // Load historical chunks
-    const snap=await getDocs(collection(db,'tarif'));
-    const histChunks=snap.docs.filter(d=>d.id.startsWith(entry.id+'_chunk_')).sort((a,b)=>a.id.localeCompare(b.id));
-    const rows=[];
-    histChunks.forEach(d=>rows.push(...(d.data().rows||[])));
-    if(!rows.length){setMsg('❌ Historique introuvable');setSaving(false);return;}
-    // Replace active tarif
-    const CHUNK=100;
-    const now=Date.now();
-    await Promise.all(snap.docs.filter(d=>!d.id.startsWith('history_')).map(d=>deleteDoc(d.ref)));
-    for(let i=0;i<rows.length;i+=CHUNK){
-      await setDoc(doc(db,'tarif',`chunk_${Math.floor(i/CHUNK)}`),{rows:rows.slice(i,i+CHUNK),importedAt:entry.importedAt,filename:entry.filename,activatedAt:now});
-    }
-    await updateDoc(doc(db,'tarif','history_index'),{activeId:entry.id});
-    setActiveId(entry.id);
-    setTarif(rows);setSaving(false);
-    setMsg(`✅ Tarif "${entry.filename}" activé (${entry.count} produits)`);
-  }
-
-  async function updateCell(rowIdx,col,val){
-    const next=tarif.map((r,i)=>i===rowIdx?{...r,[col]:val}:r);
-    setTarif(next);
-    clearTimeout(window._tarifSaveTimer);
-    window._tarifSaveTimer=setTimeout(async()=>{
-      const CHUNK=100;
-      for(let i=0;i<next.length;i+=CHUNK){
-        await setDoc(doc(db,'tarif',`chunk_${Math.floor(i/CHUNK)}`),{rows:next.slice(i,i+CHUNK)});
-      }
-    },1500);
-  }
-
-  function exportCSV(){
-    const headers=COLS.map(c=>COL_LABELS[c]||c).join(';');
-    const rowsData=tarif.map(r=>COLS.map(c=>(r[c]||'').toString().replace(/;/g,',')).join(';'));
-    const csv=[headers,...rowsData].join('\n');
-    const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');a.href=url;a.download='tarif_oe.csv';a.click();URL.revokeObjectURL(url);
-  }
-  function fmtDate(ts){
-    if(!ts)return '';
-    const d=new Date(ts);
-    return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'})+' à '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
-  }
-
-  const th={padding:'5px 8px',fontSize:10,fontWeight:700,color:'#6b6560',textAlign:'left',borderBottom:'2px solid #e2ddd6',background:'#f8f7f5',whiteSpace:'nowrap',position:'sticky',top:0};
-  const td={padding:'4px 6px',fontSize:11,borderBottom:'1px solid #f0ede8'};
-  const inp={width:'100%',fontSize:11,border:'1px solid transparent',borderRadius:4,padding:'2px 4px',background:'transparent',outline:'none',fontFamily:'inherit'};
-
-  return <div style={{padding:'16px 0'}}>
-    {/* Header actions */}
-    <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:20,flexWrap:'wrap'}}>
-      <div style={{fontSize:15,fontWeight:700}}>Tarif produits</div>
-      <button onClick={()=>fileRef.current.click()}
-        style={{padding:'7px 14px',background:'#2d6a4f',color:'#fff',border:'none',borderRadius:8,fontSize:12,fontWeight:600,cursor:'pointer'}}>
-        Importer un tarif (.csv)
-      </button>
-      <input ref={fileRef} type="file" accept=".csv" style={{display:'none'}} onChange={handleImport}/>
-      {tarif.length>0&&<button onClick={exportCSV}
-        style={{padding:'7px 14px',background:'#f0fdf4',color:'#2d6a4f',border:'1px solid #2d6a4f',borderRadius:8,fontSize:12,fontWeight:600,cursor:'pointer'}}>
-        Exporter en .csv
-      </button>}
-      {msg&&<span style={{fontSize:12,color:msg.startsWith('❌')?'#c0392b':'#2d6a4f'}}>{msg}</span>}
-      {saving&&<span style={{fontSize:11,color:'#9e9890'}}>Enregistrement...</span>}
-    </div>
-
-    {/* History */}
-    {history.length>0&&<div style={{marginBottom:20,background:'#f8f7f5',borderRadius:10,padding:'14px 16px',border:'1px solid #e2ddd6'}}>
-      <div style={{fontSize:11,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:.5,marginBottom:10}}>Historique des tarifs importés</div>
-      <div style={{display:'flex',flexDirection:'column',gap:6}}>
-        {history.map((entry,i)=>{
-          const isActive=entry.id===activeId;
-          const displayName=entry.name||entry.filename;
-          return <div key={entry.id} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',borderRadius:8,
-            background:isActive?'#f0fdf4':entry.keep?'#fffbeb':'#fff',border:`1px solid ${isActive?'#2d6a4f':entry.keep?'#f59e0b':'#e2ddd6'}`}}>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:2}}>
-                {isActive&&<span style={{fontSize:10,background:'#2d6a4f',color:'#fff',borderRadius:10,padding:'1px 6px',flexShrink:0}}>Actif</span>}
-                {entry.keep&&<span style={{fontSize:10,background:'#f59e0b',color:'#fff',borderRadius:10,padding:'1px 6px',flexShrink:0}}>★ Gardé</span>}
-              </div>
-              {editingId===entry.id
-                ?<input autoFocus value={editName} onChange={e=>setEditName(e.target.value)}
-                  onBlur={async()=>{
-                    const updated=history.map(h=>h.id===entry.id?{...h,name:editName}:h);
-                    setHistory(updated);setEditingId(null);
-                    await setDoc(doc(db,'tarif','history_index'),{entries:updated,activeId},{merge:true});
-                  }}
-                  onKeyDown={e=>{if(e.key==='Enter')e.target.blur();if(e.key==='Escape')setEditingId(null);}}
-                  style={{fontSize:12,fontWeight:600,border:'1px solid #2d6a4f',borderRadius:4,padding:'2px 6px',width:'100%'}}/>
-                :<div style={{fontSize:12,fontWeight:isActive?700:400,color:'#1a1814',cursor:'pointer'}}
-                  onDoubleClick={()=>{setEditingId(entry.id);setEditName(displayName);}}
-                  title="Double-cliquer pour renommer">
-                  {displayName}
-                </div>}
-              <div style={{fontSize:10,color:'#9e9890'}}>{fmtDate(entry.importedAt)} — {entry.count} produits</div>
-            </div>
-            <div style={{display:'flex',gap:4,flexShrink:0}}>
-              <button onClick={async()=>{
-                const updated=history.map(h=>h.id===entry.id?{...h,keep:!h.keep}:h);
-                setHistory(updated);
-                await setDoc(doc(db,'tarif','history_index'),{entries:updated,activeId},{merge:true});
-              }} title={entry.keep?'Ne plus garder éternellement':'Garder éternellement'}
-                style={{padding:'4px 8px',background:entry.keep?'#fef3c7':'#f8f7f5',border:`1px solid ${entry.keep?'#f59e0b':'#e2ddd6'}`,borderRadius:6,fontSize:11,cursor:'pointer'}}>
-                {entry.keep?'★':'☆'}
-              </button>
-              {!isActive&&<button onClick={()=>activateTarif(entry)}
-                style={{padding:'4px 10px',background:'#fff',border:'1px solid #2d6a4f',color:'#2d6a4f',borderRadius:6,fontSize:11,fontWeight:600,cursor:'pointer'}}>
-                Activer
-              </button>}
-              {!isActive&&<button onClick={async()=>{
-                if(!window.confirm("Supprimer ce tarif de l'historique ?"))return;
-                // Delete history chunks
-                const snap=await getDocs(collection(db,'tarif'));
-                await Promise.all(snap.docs.filter(d=>d.id.startsWith(entry.id+'_chunk_')).map(d=>deleteDoc(d.ref)));
-                const updated=history.filter(h=>h.id!==entry.id);
-                setHistory(updated);
-                await setDoc(doc(db,'tarif','history_index'),{entries:updated,activeId},{merge:true});
-              }} style={{padding:'4px 8px',background:'#fff',border:'1px solid #e2ddd6',color:'#c0392b',borderRadius:6,fontSize:11,cursor:'pointer'}}
-                title="Supprimer">✕</button>}
-            </div>
-          </div>;
-        })}
-      </div>
-    </div>}
-
-    {/* Tarif table */}
-    {loading?<div style={{color:'#9e9890',fontSize:13}}>Chargement...</div>
-    :tarif.length===0?<div style={{color:'#9e9890',fontSize:13}}>Aucun tarif chargé. Importez un fichier CSV.</div>
-    :<div style={{overflowX:'auto',maxHeight:'60vh',overflowY:'auto',border:'1px solid #e2ddd6',borderRadius:8}}>
-      <table style={{borderCollapse:'collapse',minWidth:'100%'}}>
-        <thead><tr>{COLS.map(c=><th key={c} style={th}>{COL_LABELS[c]}</th>)}</tr></thead>
-        <tbody>{tarif.map((row,i)=><tr key={i} style={{background:i%2===0?'#fff':'#fafaf8'}}>
-          {COLS.map(c=><td key={c} style={td}>
-            <input value={row[c]||''} onChange={e=>updateCell(i,c,e.target.value)}
-              style={{...inp,width:c==='libelle'?180:c==='code'?80:c==='robe'?80:70}}
-              onFocus={e=>e.target.style.border='1px solid #2d6a4f'}
-              onBlur={e=>e.target.style.border='1px solid transparent'}/>
-          </td>)}
-        </tr>)}</tbody>
-      </table>
-    </div>}
-  </div>;
-}
-
-
 function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions,catTypes,onSaveCatTypes,codeMap,onSaveCodeMap,customSubcatLabels,onSaveCustomSubcatLabels,savedCanalMargin,onSaveCanalMargin,onSendMessage,onSaveBsv3,onUploadReporting}){
   const [members,setMembers]=useState(teamMembers.map(m=>({...m})));
-  const [allHsOwners,setAllHsOwners]=useState([]);
-
-  React.useEffect(()=>{
-    getDocs(collection(db,'bsv3_data')).then(snap=>{
-      const owners=new Set();
-      snap.docs.forEach(d=>(d.data().rows||[]).forEach(r=>{if(r['Propriétaire HS'])owners.add(r['Propriétaire HS']);}));
-      setAllHsOwners([...owners].sort());
-    }).catch(()=>{});
-  },[]);
   const [msgModal,setMsgModal]=useState(null); // {email, prenom}
   const [msgTitle,setMsgTitle]=useState('');
   const [msgBody,setMsgBody]=useState('');
@@ -4959,10 +3899,6 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
     setBsv3Uploading(false);
   }
   const [qs,setQs]=useState(questions||DEFAULT_QUESTIONS);
-  // Sync qs when questions prop loads from Firebase
-  useEffect(()=>{
-    if(questions&&questions.length>0)setQs(questions);
-  },[questions]);
   const [saved,setSaved]=useState(false);
 
   function addMember(){
@@ -4988,11 +3924,6 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
     setMembers(updated);
     onSaveMembers&&onSaveMembers(updated);
   }
-  function setHsOwner(email,hsOwner){
-    const updated=members.map(m=>m.email===email?{...m,hsOwner}:m);
-    setMembers(updated);
-    onSaveMembers&&onSaveMembers(updated);
-  }
   function toggleForce(email,field){
     const updated=members.map(m=>m.email===email?{...m,[field]:!m[field]}:m);
     setMembers(updated);
@@ -5013,13 +3944,13 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
     <TopBar onBack={onBack} title="⚙️ Paramètres"/>
     <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
       <div style={{display:"flex",gap:10,marginBottom:20}}>
-        {([{k:"members",l:"👥 Membres & rôles"},{k:"absences",l:"🌴 Absences"},...(currentUser?.email===OWNER_EMAIL?[{k:"questions",l:"❓ Questions Update"},{k:"history",l:"📋 Historique Updates"},{k:"feedback",l:"💡 Feedback"},{k:"reporting_params",l:"⚙️ Reporting"},{k:"bsv3",l:"📊 Base Sales v3"},{k:"tarif",l:"💰 Tarif"}]:[])]).map(t=><button key={t.k} onClick={()=>setTab(t.k)}
+        {([{k:"members",l:"👥 Membres & rôles"},...(currentUser?.email===OWNER_EMAIL?[{k:"questions",l:"❓ Questions Update"},{k:"history",l:"📋 Historique Updates"},{k:"feedback",l:"💡 Feedback"},{k:"reporting_params",l:"⚙️ Reporting"},{k:"bsv3",l:"📊 Base Sales v3"}]:[])]).map(t=><button key={t.k} onClick={()=>setTab(t.k)}
           style={{padding:"8px 16px",borderRadius:8,border:`1px solid ${tab===t.k?"#2d6a4f":"#e2ddd6"}`,background:tab===t.k?"#2d6a4f":"#fff",color:tab===t.k?"#fff":"#6b6560",cursor:"pointer",fontSize:13,fontWeight:500}}>
           {t.l}
         </button>)}
       </div>
 
-      {tab==="members"&&<div>
+      {tab==="members"&&<div style={{display:"grid",gridTemplateColumns:"3fr 2fr",gap:16,alignItems:"start"}}>
         <div>{/* LEFT COL */}
         <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"18px 20px",marginBottom:16}}>
           <div style={{fontSize:13,fontWeight:600,marginBottom:14}}>Ajouter un membre</div>
@@ -5035,7 +3966,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
         <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",overflow:"hidden"}}>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
             <thead><tr style={{background:"#f5f3ef"}}>
-              {["Prénom","Email","Manager","Rôle","Proprio HS",""].map(h=><th key={h} style={{fontSize:11,fontWeight:600,color:"#9e9890",textTransform:"uppercase",letterSpacing:".05em",padding:"10px 14px",textAlign:"left",borderBottom:"1px solid #e2ddd6"}}>{h}</th>)}
+              {["Prénom","Email","Manager","Rôle",""].map(h=><th key={h} style={{fontSize:11,fontWeight:600,color:"#9e9890",textTransform:"uppercase",letterSpacing:".05em",padding:"10px 14px",textAlign:"left",borderBottom:"1px solid #e2ddd6"}}>{h}</th>)}
               <th style={{padding:"10px 14px",borderBottom:"1px solid #e2ddd6",textAlign:"center"}}>
                 <button onClick={()=>{setMsgModal({email:'__ALL__',prenom:'tous les teammates'});setMsgTitle('');setMsgBody('');}} style={{fontSize:16,background:"none",border:"none",cursor:"pointer",padding:"0 4px"}} title="Envoyer à tous">✉️</button>
               </th>
@@ -5054,14 +3985,8 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
                   {m.email===OWNER_EMAIL
                     ?<span style={{fontSize:12,color:"#9e9890"}}>Propriétaire</span>
                     :<select value={m.role||"teammate"} onChange={e=>setRole(m.email,e.target.value)} style={{...INP,fontSize:12}}>
-                      <option value="admin">Admin</option><option value="teammate">actif</option><option value="inactive">Fini</option>
+                      <option value="admin">Admin</option><option value="teammate">Teammate actif</option><option value="inactive">Teammate inactif</option>
                     </select>}
-                </td>
-                <td style={{padding:"10px 14px"}}>
-                  <select value={m.hsOwner||""} onChange={e=>setHsOwner(m.email,e.target.value)} style={{...INP,fontSize:12,width:'100%'}}>
-                    <option value="">— Aucun —</option>
-                    {allHsOwners.map(o=><option key={o} value={o}>{o}</option>)}
-                  </select>
                 </td>
                 <td style={{padding:"10px 14px"}}>
                   <button onClick={()=>{setMsgModal({email:m.email,prenom:m.prenom});setMsgTitle('');setMsgBody('');}} style={{fontSize:14,background:"none",border:"none",cursor:"pointer",padding:"0 4px",marginRight:4}} title="Envoyer un message">✉️</button>
@@ -5074,10 +3999,13 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
 
         </div>{/* end left col */}
 
-      </div>}
-
-      {tab==="absences"&&<div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"16px 20px"}}>
-        <AbsencesTab teamMembers={members}/>
+        {/* RIGHT COL: Absences */}
+        <div>
+          <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"16px 20px"}}>
+            <div style={{fontSize:12,fontWeight:600,color:"#6b6560",textTransform:"uppercase",letterSpacing:".05em",marginBottom:14}}>🌴 Absences déclarées</div>
+            <AbsencesTab teamMembers={members}/>
+          </div>
+        </div>
       </div>}
 
       {tab==="questions"&&<QuestionsEditor qs={qs} onSave={newQs=>{setQs(newQs);onSaveQuestions&&onSaveQuestions(newQs);}}/> }
@@ -5116,7 +4044,6 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
           </div>
         </div>
       </div>}
-      {tab==="tarif"&&<TarifTab db={db}/>}
       {tab==="bsv3"&&<div style={{padding:"16px 0"}}>
         <div style={{fontSize:15,fontWeight:600,marginBottom:8}}>📊 Base Sales v3</div>
         <p style={{fontSize:13,color:"#6b6560",marginBottom:16}}>Importez le fichier CSV mensuel pour mettre à jour les données de marge nette commerciale.</p>
@@ -5543,13 +4470,12 @@ function ImportObjModal({allSeasons,currentSeasonKey,people,onClose,onImport}){
 }
 
 // ─── OKR PAGE ─────────────────────────────────────────────────────────────────
-function AppNav({current,onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis}){
+function AppNav({current,onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3}){
   const tabs=[
     {k:'okr',l:'🎯 OKR',fn:onGoOKR},
     {k:'update',l:'✍️ Mes Updates',fn:onGoUpdate},
     {k:'reporting',l:'📈 Reporting',fn:onGoReporting},
     {k:'bsv3',l:'📊 Base Sales v3',fn:onGoBsv3},
-    {k:'devis',l:'📄 Devis/Commande',fn:onGoDevis},
   ];
   return <div style={{background:'#fff',borderBottom:'1px solid #e2ddd6',display:'flex',alignItems:'center',height:44,flexShrink:0,paddingLeft:12}}>
     <span onClick={onBack} style={{fontSize:14,fontWeight:700,color:'#2d6a4f',cursor:'pointer',whiteSpace:'nowrap',paddingRight:16}}>🌼 Calendula</span>
@@ -5557,7 +4483,7 @@ function AppNav({current,onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDe
   </div>;
 }
 
-function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,currentUser,teamMember,isAdmin,teamMembers=[]}){
+function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,teamMember,isAdmin,teamMembers=[]}){
   const [seasonKey,setSeasonKey]=useState("printemps_2026");
   const [dragOverSobj,setDragOverSobj]=useState(null);
   const [dragOverObj,setDragOverObj]=useState(null); // {id, before}
@@ -5677,11 +4603,9 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cur
   const season=allSeasons[seasonKey]||allSeasons["printemps_2026"];
   const{objectives,subobjectives,keyresults}=season;
   // Use active team members from Firebase instead of static season people
-  // Only show members who own at least one KR this season (regardless of active status)
-  const krOwners=new Set((keyresults||[]).map(k=>k.owner).filter(Boolean));
   const people=teamMembers.length>0
-    ? teamMembers.filter(m=>krOwners.has(m.prenom)).map(m=>m.prenom).sort()
-    : (season.people||[]).filter(p=>krOwners.has(p));
+    ? teamMembers.filter(m=>m.role!=="inactive").map(m=>m.prenom).sort()
+    : (season.people||[]);
 
   useEffect(()=>{
     const ref=doc(db,"okr","data");
@@ -5797,7 +4721,7 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cur
   if(!loaded)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:200,color:"#9e9890",fontSize:13}}>Chargement…</div>;
 
   return <div style={{fontFamily:"system-ui,sans-serif",background:"#f5f3ef",minHeight:"100vh",color:"#1a1814"}}>
-    <AppNav current="okr" onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3} onGoDevis={onGoDevis}/>
+    <AppNav current="okr" onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3}/>
     <div style={{borderBottom:"1px solid #e2ddd6",padding:"4px 20px",display:"flex",justifyContent:"flex-end",alignItems:"center",gap:8,background:"rgba(245,243,239,.95)"}}>
       {allLocked&&<span style={{fontSize:16}}>🔒</span>}
       <button onClick={()=>setShowJournal(true)} style={{width:28,height:28,border:"1px solid #e2ddd6",borderRadius:6,background:"none",cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",color:"#6b6560"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f3ef"} onMouseLeave={e=>e.currentTarget.style.background="none"}>🕐</button>
@@ -5943,9 +4867,9 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cur
 }
 
 // ─── APP ROOT ─────────────────────────────────────────────────────────────────
-function ReportingPagePublic({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis, catTypes, codeMap, customSubcatLabels={}, savedCanalMargin, currentUser}) {
+function ReportingPagePublic({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3, catTypes, codeMap, customSubcatLabels={}, savedCanalMargin, currentUser}) {
   return <div style={{minHeight:"100vh",background:"#f5f3ef",fontFamily:"system-ui,sans-serif"}}>
-    <AppNav current="reporting" onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3} onGoDevis={onGoDevis}/>
+    <AppNav current="reporting" onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3}/>
     <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
       <ReportingTab onSaveCatTypes={null} savedCatTypes={catTypes} savedCodeMap={codeMap}
         onSaveCodeMap={null} savedCustomLabels={customSubcatLabels} onSaveCustomLabels={null} savedCanalMargin={savedCanalMargin} readOnly={true} currentUser={currentUser}/>
@@ -6215,18 +5139,13 @@ function FactureModal({rows, onClose, currentUser, onPuceClick, getPuce, puceCol
     return email.split('@')[0];
   }
 
-  const PUCE_EMOJI={grey:'⚫',green:'🟢',orange:'🟠',red:'🔴'};
-  const FX_EMAIL='fx@oeforgood.com';
-  const FIONA_EMAIL='fiona@oeforgood.com';
-
   async function saveComment(){
     if(!commentText.trim()||!canComment)return;
     setSavingComment(true);
     const prenom=getPrenomFromEmail(currentUser.email);
-    const commentTxt=commentText.trim();
     const newComment={
       id:Date.now()+'_'+Math.random().toString(36).slice(2),
-      text:commentTxt,
+      text:commentText.trim(),
       email:currentUser.email,
       prenom,
       ts:Date.now(),
@@ -6241,60 +5160,14 @@ function FactureModal({rows, onClose, currentUser, onPuceClick, getPuce, puceCol
     }
     setCommentText('');
     setSavingComment(false);
-    // Send notification to the other person (Fx↔Fiona) after 30s
-    const myEmail=currentUser.email;
-    const toEmail=myEmail===FX_EMAIL?FIONA_EMAIL:FX_EMAIL;
-    const clientName=rows[0]?.['Client PL']||rows[0]?.['Tiers']||'';
-    setTimeout(async()=>{
-      // Read puce color 30s later
-      let puceColor='grey';
-      try{
-        const bsv3Snap=await getDoc(doc(db,'bsv3_comments',factureNum));
-        // Read puce from bsv3_data via getPuce
-        puceColor=getPuce?getPuce(factureNum):'grey';
-      }catch(e){}
-      const puceEmoji=PUCE_EMOJI[puceColor]||'⚫';
-      const title=`🌼 ${prenom} a écrit un commentaire concernant la facture ${factureNum} pour ${clientName}`;
-      const message=`${puceEmoji} Commentaire : ${commentTxt}`;
-      const notifId=`comment_${factureNum}_${Date.now()}`;
-      await setDoc(doc(db,'teammate_notifications',notifId),{
-        toEmail,fromPrenom:prenom,fromEmail:myEmail,
-        title,message,createdAt:Date.now(),read:false,
-        factureNum,clientName,
-      });
-      sendNotifEmail(toEmail,getPrenomFromEmail(toEmail),title);
-    },30000);
   }
 
-  const PUCE_EMOJI_MAP={grey:'⚫',green:'🟢',orange:'🟠',red:'🔴'};
   async function toggleCommentPublic(commentId){
     const ref=doc(db,'bsv3_comments',factureNum);
     const snap=await getDoc(ref);
     if(!snap.exists())return;
-    const comments=snap.data().comments||[];
-    const comment=comments.find(c=>c.id===commentId);
-    const wasPublic=comment?.public||false;
-    const updated=comments.map(c=>c.id===commentId?{...c,public:!c.public}:c);
+    const updated=(snap.data().comments||[]).map(c=>c.id===commentId?{...c,public:!c.public}:c);
     await setDoc(ref,{comments:updated});
-    // If comment is now becoming public, notify HS owner
-    if(!wasPublic&&comment){
-      const clientName=rows[0]?.['Client PL']||rows[0]?.['Tiers']||'';
-      const hsOwnerName=rows[0]?.['Propriétaire HS']||'';
-      const puceColor=getPuce?getPuce(factureNum):'grey';
-      const title=`🌼 La facture ${factureNum} pour ${clientName} a reçu un commentaire concernant sa marge`;
-      const message=`👁️ Commentaire : ${comment.text}`;
-      const notifId=`pub_comment_${factureNum}_${Date.now()}`;
-      // Find HS owner email from teamMembers via window._teamMembers
-      const teamMems=window._teamMembers||[];
-      const ownerMember=teamMems.find(m=>m.hsOwner===hsOwnerName);
-      if(ownerMember?.email){
-        await setDoc(doc(db,'teammate_notifications',notifId),{
-          toEmail:ownerMember.email,fromPrenom:comment.prenom,fromEmail:comment.email,
-          title,message,createdAt:Date.now(),read:false,factureNum,clientName,
-        });
-        sendNotifEmail(ownerMember.email,ownerMember.prenom||hsOwnerName,title);
-      }
-    }
   }
 
   async function deleteComment(commentId){
@@ -6668,9 +5541,6 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
       const rr=topLevel==='mois'
         ?validRows.filter(r=>r['Mois Emission']===val)
         :validRows.filter(r=>r[topField]===val);
-      if(effectiveFilterPuce==='commented'){
-        return rr.some(r=>facturesWithComments.has(r['Numéro de facture']));
-      }
       return rr.some(r=>(r.puce||'grey')===effectiveFilterPuce);
     })
     :topSorted;
@@ -6707,10 +5577,10 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
         <tbody>
           {topSortedFiltered.map(val=>{
             const rows=(topLevel==='mois'?validRows.filter(r=>r['Mois Emission']===val):validRows.filter(r=>r[topField]===val))
-              .filter(r=>!effectiveFilterPuce||(effectiveFilterPuce==='commented'?facturesWithComments.has(r['Numéro de facture']):(r.puce||'grey')===effectiveFilterPuce));
+              .filter(r=>!effectiveFilterPuce||(r.puce||'grey')===effectiveFilterPuce);
             const prev=filteredPrev.filter(r=>r[topField]===val)
-              .filter(r=>!effectiveFilterPuce||(effectiveFilterPuce==='commented'?facturesWithComments.has(r['Numéro de facture']):(r.puce||'grey')===effectiveFilterPuce));
-            const prev2=filteredPrev.filter(r=>r[topField]===val).filter(r=>!effectiveFilterPuce||(effectiveFilterPuce==='commented'?facturesWithComments.has(r['Numéro de facture']):(r.puce||'grey')===effectiveFilterPuce));
+              .filter(r=>!effectiveFilterPuce||(r.puce||'grey')===effectiveFilterPuce);
+            const prev2=filteredPrev.filter(r=>r[topField]===val).filter(r=>!effectiveFilterPuce||(r.puce||'grey')===effectiveFilterPuce);
             return <Bsv3DrillRow key={val} label={val} rows={rows} prevRows={prev2}
               contextRows={topLevel==='mois'?allYearRows:rows}
               year={year} levels={levels} levelIdx={0} depth={0}
@@ -6821,8 +5691,7 @@ function Bsv3CaTable({rows, importedAt, clientFilter='', proprietaireFilter=''})
 
   const clientFilterLower2=clientFilter.trim().toLowerCase();
   const validRows=rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])
-    &&(!clientFilterLower2||(r['Client PL']||r['Tiers']||'').toLowerCase().includes(clientFilterLower2))
-    &&(!proprietaireFilter||(r['Propriétaire HS']||'')===proprietaireFilter));
+    &&(!clientFilterLower2||(r['Client PL']||r['Tiers']||'').toLowerCase().includes(clientFilterLower2)));
 
   function getCA(rows2,mth,yr){
     return rows2.filter(r=>parseInt(r['Mois Emission'])===mth&&r['Année Emission']===String(yr))
@@ -7099,27 +5968,6 @@ function Bsv3CommandesTable({rows, importedAt, activeLetters, activeAppelations=
             ))}
           </tr></thead>
           <tbody>
-            {(()=>{
-              const allR=validRows.filter(r=>sortedProds.includes(r['Contenant+Appelation/Robe']));
-              const tdT={padding:'5px 6px',fontSize:11,textAlign:'right',fontFamily:'monospace',fontWeight:800,color:'#2d6a4f',background:'#e8f4f0',borderBottom:'2px solid #2d6a4f'};
-              return <tr style={{background:'#e8f4f0'}}>
-                <td style={{padding:'6px 8px',fontSize:11,fontWeight:800,color:'#2d6a4f',textAlign:'left',position:'sticky',left:0,background:'#e8f4f0',borderBottom:'2px solid #2d6a4f'}}>TOTAL</td>
-                <td style={{...tdT,background:'#d1fae5'}}>{fmtQ(get12M(allR,lastM,lastY))}</td>
-                <td style={{...tdT,background:'#d1fae5'}}>{fmtQ(getPrev12M(allR))}</td>
-                <td style={tdT}>{fmtQ(getYTD(allR,lastY))}</td>
-                {!collapsedYears['ytd']&&months.filter(x=>x.y===lastY).map(({m:mo,y:yr})=>(
-                  <td key={'t'+mo+yr} style={tdT}>{fmtQ(getQty(allR,mo,yr))}</td>
-                ))}
-                {years.filter(yr=>yr!==lastY).map(yr=>(
-                  <React.Fragment key={'ty'+yr}>
-                    <td style={tdT}>{fmtQ(months.filter(x=>x.y===yr).reduce((s,{m:mo})=>s+getQty(allR,mo,yr),0))}</td>
-                    {!collapsedYears[yr]&&months.filter(x=>x.y===yr).map(({m:mo})=>(
-                      <td key={'t'+mo+yr} style={tdT}>{fmtQ(getQty(allR,mo,yr))}</td>
-                    ))}
-                  </React.Fragment>
-                ))}
-              </tr>;
-            })()}
             {sortedProds.map(prod=>{
               const prodRows=validRows.filter(r=>r['Contenant+Appelation/Robe']===prod);
               const isExp=expandedProds[prod];
@@ -7168,7 +6016,6 @@ function Bsv3CommandesTable({rows, importedAt, activeLetters, activeAppelations=
                 })()}
               </React.Fragment>;
             })}
-          
           </tbody>
         </table>
       </div>
@@ -7176,7 +6023,7 @@ function Bsv3CommandesTable({rows, importedAt, activeLetters, activeAppelations=
   </div>;
 }
 
-function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,currentUser,onUpdatePuce}){
+function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,currentUser,onUpdatePuce}){
   const {rows,importedAt,loading}=useBsv3Data();
   const [mainTab,setMainTab]=React.useState('ventes');
   const [clientFilter,setClientFilter]=React.useState('');
@@ -7232,20 +6079,6 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cu
 
   // Letter filter for écoulements
   const allProdsForFilter=[...new Set(rows.filter(r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])).map(r=>r['Contenant+Appelation/Robe']))];
-  const allProprietaires=(()=>{
-    const clientsMap={};
-    rows.forEach(r=>{const p=r['Propriétaire HS'];const cl=r['Client PL']||r['Tiers'];if(p&&cl){if(!clientsMap[p])clientsMap[p]=new Set();clientsMap[p].add(cl);}});
-    const all=[...new Set(rows.map(r=>r['Propriétaire HS']).filter(Boolean))];
-    const ABSENT='Tiers absent de HubSpot';const DEACT='(Deactivated User)';
-    const deactLower=DEACT.toLowerCase();
-    return all.sort((a,b)=>{
-      if(a===ABSENT)return -1;if(b===ABSENT)return 1;
-      const aD=a.toLowerCase().includes(deactLower);
-      const bD=b.toLowerCase().includes(deactLower);
-      if(aD&&!bD)return 1;if(!aD&&bD)return -1;
-      return a.localeCompare(b,'fr',{sensitivity:'base'});
-    }).map(p=>({value:p,label:p+' - '+(clientsMap[p]?.size||0)+' client'+(clientsMap[p]?.size>1?'s':'')}));
-  })();
   const allLetters=[...new Set(allProdsForFilter.map(p=>p[0]))].sort((a,b)=>{
     const ia=PROD_LETTER_ORDER.indexOf(a),ib=PROD_LETTER_ORDER.indexOf(b);
     if(ia>=0&&ib>=0)return ia-ib;if(ia>=0)return -1;if(ib>=0)return 1;return a.localeCompare(b);
@@ -7256,7 +6089,7 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cu
   });
 
   return <div style={{minHeight:'100vh',background:'#f8f7f5'}}>
-    <AppNav current="bsv3" onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3} onGoDevis={onGoDevis}/>
+    <AppNav current="bsv3" onBack={onBack} onGoOKR={onGoOKR} onGoUpdate={onGoUpdate} onGoReporting={onGoReporting} onGoBsv3={onGoBsv3}/>
 
     <div style={{maxWidth:1400,margin:'0 auto',padding:'20px 16px'}}>
       {/* Main tabs */}
@@ -7272,7 +6105,7 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cu
         <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:10}}>
           {mainTab!=='ecoulements'&&allProprietaires.length>0&&<select value={proprietaireFilter} onChange={e=>setProprietaireFilter(e.target.value)}
             style={{fontSize:12,padding:'5px 8px',borderRadius:6,border:'1px solid #e2ddd6',outline:'none',background:'#fff',color:proprietaireFilter?'#1a1814':'#9e9890',cursor:'pointer'}}>
-            <option value=''>Tous les propriétaires HubSpot</option>
+            <option value=''>Propriétaire HS</option>
             {allProprietaires.map(p=><option key={p.value} value={p.value}>{p.label}</option>)}
           </select>}
           <span style={{fontSize:11,color:'#9e9890'}}>🔍</span>
@@ -7377,17 +6210,13 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cu
                 border:`1px solid ${isAnnee?'#2d6a4f':'#e2ddd6'}`,
                 background:isAnnee?'#2d6a4f':'#fff',color:isAnnee?'#fff':'#9e9890',
                 fontSize:11,fontWeight:600,cursor:isAnnee?'default':'pointer'}}>Année</button>
-            {<div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:4}}>
-              {canEditPuce&&['grey','green','orange','red'].map(c=>{
+            {canEditPuce&&<div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:4}}>
+              {['grey','green','orange','red'].map(c=>{
                 const on=filterPuce===c;
                 return <button key={c} onClick={()=>setFilterPuce(on?null:c)}
                   style={{width:10,height:10,borderRadius:'50%',border:`2px solid ${on?'#1a1814':'transparent'}`,
                     background:PUCE_COLOR_PAGE[c],cursor:'pointer',padding:0,flexShrink:0}}/>;
               })}
-              <button onClick={()=>setFilterPuce(filterPuce==='commented'?null:'commented')}
-                title="Factures avec commentaires publics"
-                style={{fontSize:11,border:`2px solid ${filterPuce==='commented'?'#1a1814':'transparent'}`,
-                  borderRadius:4,background:'none',cursor:'pointer',padding:'0 1px',lineHeight:1,flexShrink:0}}>👁</button>
               {filterPuce&&<button onClick={()=>setFilterPuce(null)} style={{fontSize:9,padding:'1px 5px',borderRadius:4,border:'1px solid #e2ddd6',background:'#fff',color:'#9e9890',cursor:'pointer'}}>✕</button>}
             </div>}
           </div>;
@@ -7560,7 +6389,7 @@ export default function App(){
     const unsub=onSnapshot(doc(db,"app_config","main"),(snap)=>{
       if(snap.exists()){
         const d=snap.data();
-        if(d.teamMembers){setTeamMembers(d.teamMembers);window._teamMembers=d.teamMembers;}
+        if(d.teamMembers)setTeamMembers(d.teamMembers);
         if(d.questions)setQuestions(d.questions);
         if(d.catTypes)setCatTypes(d.catTypes);
         if(d.codeMap)setCodeMap(d.codeMap);
@@ -7954,16 +6783,14 @@ export default function App(){
   </div>;
   }
 
-  if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} onGoDevis={()=>setPage("devis")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers}/>;
-  if(page==="update")return <UpdatePage onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} onGoDevis={()=>setPage("devis")} teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} okrData={okrData} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers}/>;
-  if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} onGoDevis={()=>setPage("devis")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels} savedCanalMargin={savedCanalMargin} currentUser={authUser}/>;
-  if(page==="bsv3")return <Bsv3Page onBack={()=>setPage('dashboard')} onGoOKR={()=>setPage('okr')} onGoUpdate={()=>setPage('update')} onGoReporting={()=>setPage('reporting')} onGoBsv3={()=>setPage('bsv3')} onGoDevis={()=>setPage('devis')} currentUser={authUser} onUpdatePuce={updatePuceInFirebase}/>;
-  if(page==="devis")return <DevisCommandePage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMember={currentTeamMember} onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} onGoDevis={()=>setPage("devis")}/>;
+  if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers}/>;
+  if(page==="update")return <UpdatePage onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} okrData={okrData} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers}/>;
+  if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels} savedCanalMargin={savedCanalMargin} currentUser={authUser}/>;
+  if(page==="bsv3")return <Bsv3Page onBack={()=>setPage('dashboard')} onGoOKR={()=>setPage('okr')} onGoUpdate={()=>setPage('update')} onGoReporting={()=>setPage('reporting')} onGoBsv3={()=>setPage('bsv3')} currentUser={authUser} onUpdatePuce={updatePuceInFirebase}/>;
   if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels} savedCanalMargin={savedCanalMargin} onSaveCanalMargin={handleSaveCanalMargin} onSendMessage={handleSendMessage} onSaveBsv3={handleSaveBsv3} onUpdatePuce={updatePuceInFirebase} onUploadReporting={handleUploadReporting}/>;
 
   return <Dashboard
     isMobile={isMobile}
-    onGoDevis={()=>setPage('devis')}
     bsv3KPIs={appBsv3KPIs}
     reportingKPIs={appReportingKPIs}
     questions={questions}
