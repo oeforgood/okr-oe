@@ -4088,7 +4088,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
 
   function buildText(ref){
     const sep='─'.repeat(70);
-    const tarifLabel=tarifLabelComputed;
+    const tarifLabel=gratuite?('GRATUITÉ — '+gratuiteRaison):prixCoutant?'Prix Coûtant':tariEvent?'Tarif Events':totalEq75>=600?'Tarif 600+':totalEq75>=360?'Tarif 360+':totalEq75>=240?'Tarif 240+':totalEq75>=120?'Tarif 120+':'Tarif 24+';
     function col(s,w){return String(s||'').padEnd(w).slice(0,w);}
     function colR(s,w){return String(s||'').padStart(w).slice(-w);}
     const colW=12;
@@ -4146,7 +4146,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     if(!minQtyOk){alert(tariEvent?'Il faut au moins 6 bouteilles ou équivalent.':'Il faut au moins 24 bouteilles ou équivalent (ou choisir le tarif Events).');return;}
     setSending(true);
     const ref=genRef();
-    const tarifLabel=tarifLabelComputed;
+    const tarifLabel=gratuite?('GRATUITÉ — '+gratuiteRaison):prixCoutant?'Prix Coûtant':tariEvent?'Tarif Events':totalEq75>=600?'Tarif 600+':totalEq75>=360?'Tarif 360+':totalEq75>=240?'Tarif 240+':totalEq75>=120?'Tarif 120+':'Tarif 24+';
     const textContent=buildText(ref);
     const prenom=teamMember?.prenom||'Oé';
     const livrInfo=retraitLoft?'Retrait au Loft Oé - 10bis rue Bellicard, 69003 Lyon':sameAddr?(factAddr.addr+', '+factAddr.cp+' '+factAddr.ville):(expAddr.addr+', '+expAddr.cp+' '+expAddr.ville);
