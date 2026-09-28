@@ -4151,7 +4151,9 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
       sep,
       `PREPARATION : ${prepLabel}`,
       `TARIF : ${tarifLabel}`,
-      message?`>>> ${mode==='commande'?'SUPPLY':'CLIENT'} : ${message} <<<`:'',
+      message?`>>>MSG_START:${mode==='commande'?'SUPPLY':'CLIENT'}`:'',
+      ...(message?message.split('\n').map(l=>`>>>MSG: ${l}`):[]),
+      message?'>>>MSG_END':''  ,
       sep,
       header,
       divider,
@@ -4327,19 +4329,37 @@ ${infoBlock}
               const pu=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?0:getLinePU(l);
               return s+pu*parseInt(l.qty||0)*(1+(parseFloat(l.tva||0)/100));
             },0);
+            // Regrouper les lignes de message en un seul bloc
+            const renderedInfoLines=[];
+            let msgLabel='';
+            let msgLines=[];
+            let inMsg=false;
+            for(let i=0;i<infoLines.length;i++){
+              const line=infoLines[i];
+              if(line.startsWith('>>>MSG_START:')){
+                inMsg=true;
+                msgLabel=line.includes('SUPPLY')?'Message supply :':'Message client :';
+                msgLines=[];
+              } else if(line==='>>>MSG_END'){
+                inMsg=false;
+                renderedInfoLines.push({type:'msg',label:msgLabel,lines:[...msgLines]});
+              } else if(inMsg&&line.startsWith('>>>MSG: ')){
+                msgLines.push(line.replace(/^>>>MSG: /,''));
+              } else {
+                renderedInfoLines.push({type:'line',line,idx:i});
+              }
+            }
             return <>
-              {infoLines.map((line,i)=>{
-                if(!line.trim())return null;
-                const isTitle=i===0;
-                const isMsg=line.startsWith('>>> ');
-                if(isMsg){
-                  const msgText=line.replace(/^>>> (?:SUPPLY|CLIENT) : /,'').replace(/ <<<$/,'');
-                  const label=line.includes('SUPPLY')?'Message supply :':'Message client :';
+              {renderedInfoLines.map((item,i)=>{
+                if(item.type==='msg'){
                   return <div key={i} style={{margin:'8px 0 4px',padding:'10px 14px',background:'#fff5f5',borderLeft:'3px solid #c0392b',borderRadius:4,fontSize:12,color:'#c0392b'}}>
-                    <strong>{label}</strong><br/>
-                    {msgText.split('\n').map((l,j)=><span key={j}>{l}{j<msgText.split('\n').length-1?<br/>:null}</span>)}
+                    <strong>{item.label}</strong><br/>
+                    {item.lines.map((l,j)=><span key={j}>{l}{j<item.lines.length-1?<br/>:null}</span>)}
                   </div>;
                 }
+                const line=item.line;
+                if(!line.trim())return null;
+                const isTitle=item.idx===0;
                 return <div key={i} style={{fontSize:isTitle?15:12,fontWeight:isTitle?700:400,color:isTitle?'#2d6a4f':'#6b6560',marginBottom:isTitle?8:2}}>
                   {line}
                 </div>;
