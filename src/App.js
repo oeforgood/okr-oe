@@ -4284,7 +4284,17 @@ ${infoBlock}
     setSentRecap(textContent);setSending(false);setSent(true);
   }
 
-  function resetForm(){setSent(false);setSentRecap('');setStep('coords');setLignes([]);setPreparation('');setSociete('');setContact('');setFactAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setExpAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setSameAddr(false);setRetraitLoft(false);setMessage('');setInfoLivraison('');setTariEvent(false);setPrixCoutant(false);setGratuite(false);setGratuiteRaison('');}
+  function resetForm(){
+    setSent(false);setSentRecap('');setStep('coords');setLignes([]);setPreparation('');setSociete('');setContact('');
+    setFactAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});
+    setExpAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});
+    setSameAddr(false);setRetraitLoft(false);setMessage('');setInfoLivraison('');
+    setTariEvent(false);setPrixCoutant(false);setGratuite(false);setGratuiteRaison('');
+    setSelectedClientKey('');setRecallRef('');setRecallClient('');
+    // Rechargement depuis Firestore pour inclure ce qui vient d'être créé
+    getDocs(collection(db,'devis_clients')).then(snap=>{setSavedClients(snap.docs.map(d=>({key:d.id,...d.data()})).sort((a,b)=>(a.societe||'').localeCompare(b.societe||'')));});
+    getDocs(collection(db,'devis_commandes')).then(snap=>{setSavedOrders(snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)));});
+  }
 
   const INP=(w='100%')=>({fontSize:13,padding:'7px 10px',borderRadius:7,border:'1px solid #e2ddd6',outline:'none',fontFamily:'inherit',width:w,boxSizing:'border-box'});
   const LBL={fontSize:11,fontWeight:600,color:'#6b6560',marginBottom:3,display:'block'};
@@ -4324,7 +4334,9 @@ ${infoBlock}
                 const isMsg=line.startsWith('>>> ');
                 if(isMsg){
                   const msgText=line.replace(/^>>> (?:SUPPLY|CLIENT) : /,'').replace(/ <<<$/,'');
-                  return <div key={i} style={{fontSize:12,color:'#c0392b',marginBottom:2}}>
+                  const label=line.includes('SUPPLY')?'Message supply :':'Message client :';
+                  return <div key={i} style={{margin:'8px 0 4px',padding:'10px 14px',background:'#fff5f5',borderLeft:'3px solid #c0392b',borderRadius:4,fontSize:12,color:'#c0392b'}}>
+                    <strong>{label}</strong><br/>
                     {msgText.split('\n').map((l,j)=><span key={j}>{l}{j<msgText.split('\n').length-1?<br/>:null}</span>)}
                   </div>;
                 }
