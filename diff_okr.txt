@@ -1,0 +1,74 @@
+=== DANS BACKUP 21h04 MAIS PAS DANS FIREBASE ===
+SOBJ 1.1 | Sous-objectif 1
+SOBJ 1.2 | Sous-objectif 2
+SOBJ 2.1 | Sous-objectif à renommer test
+SOBJ 2.2 | Sous-objectif à renommer test 2
+SOBJ 2.3 | Sous-objectif à renommer test 3
+SOBJ 3.1 | Commencer la certification Bcorp
+SOBJ 3.2 | Définir le plan d'action suite à l'audit Aupeam
+SOBJ 4.2 | Maîtriser le sujet des douanes
+SOBJ 4.3 | Être ready pour eurostar
+SOBJ 4.4 | Lancer une production d'essence en canette
+SOBJ 5.1 | Avancer dans notre plan d'étalement de dettes
+SOBJ 5.2 | Se donner les moyens de réaliser la marge objectif en 2026
+SOBJ 8.7 | Mieux prioriser les clients, prospects et opportunités
+SOBJ 8.8 | Simplifier et clarifier le portefeuille
+SOBJ 8.9 | Renforcer l’exécution commerciale
+SOBJ 9.1 | Définir les prix pour la grande distribution aux États-Unis
+KR 2.3.4 | Penser un outil facile d'animation pour nos clients (jeu de cartes ?)
+KR 3.1.1 | Définir notre plan d'action
+KR 3.1.2 | Réaliser 20% de l'évaluation
+KR 3.1.3 | Se faire introduire dans la communauté Bcorp 
+KR 3.1.4 | Assister à la première réunion du groupe B Corp AURA
+KR 3.1.5 | Cranter 2 actions simples identifiées en faisant le début du questionnaire
+KR 3.2.1 | Prendre connaissance du rapport Aupeam et bâtir le plan d'action
+KR 4.1.1 | Identifier d'autres transporteurs (notamment pour l'export)
+KR 4.1.2 | Faire des rendez-vous commerciaux
+KR 4.1.3 | Comparer les offres reçues
+KR 4.1.4 | Se mettre en position de lancer un essai à partir de fin septembre
+KR 4.3.1 | Valider la capsule et la bouteille
+KR 4.3.2 | Identifier les investissements à faire
+KR 4.3.3 | S'assurer que toutes les parties sont moitivés et prête à dégainer 
+KR 4.4.1 | Valider ou non le devis de JDLO
+KR 4.4.2 | Gérer les appro !
+KR 4.4.3 | Valider l'étiquette ou printé avec nomoq
+KR 4.4.4 | Notionniser tout le process
+KR 5.1.1 | Finaliser le report de nos échéances URSSAF
+KR 5.1.2 | Fournir les éléments aux EF démontrant la nécessité d'un standstill de 24 mois
+KR 5.2.1 | Réaliser les revues de marge par canal mi-septembre
+KR 5.2.2 | Mettre en place la revue du budget trimestrielle courant septembre
+KR 5.2.3 | Intégrer Base Sales v2 à Calendula
+KR 5.2.4 | Linker les taux de marge de Base Sales v2 Calendula avec le reporting financier
+KR 5.2.5 | Fournir à Thomas et à Christelle leurs plans de progrès sur les marges avec des axes concrets
+
+=== DANS FIREBASE MAIS PAS DANS BACKUP 21h04 ===
+SOBJ 1.2 | Sous-objectif à renommer
+SOBJ 2.1 | Sous-objectif à renommer
+SOBJ 2.2 | Sous-objectif à renommer
+SOBJ 2.3 | Sous-objectif à renommer
+SOBJ 3.1 | Sous-objectif à renommer
+SOBJ 3.2 | Sous-objectif à renommer
+SOBJ 5.1 | Se donner les moyens de réaliser la marge objectif en 2026
+SOBJ 5.2 | Avancer dans notre plan d'étalement de dettes
+KR 1.2.1 | Identifier la gamme de produit cible à 6 à 12 mois
+KR 1.2.3 | Définir le plan d'écoulement des stocks pour les produits supprimés
+KR 1.2.3 | Définir le plan d'écoulement des stocks pour les produits supprimés
+KR 1.2.4 | Définir le plan d'écoulement des stocks pour le SEGC et le CTN
+KR 1.2.5 | Formaliser l'offre visuellement et la faire intégrer par les Sales
+KR 1.2.6 | Formaliser le planning de transition et le partager à l'équipe
+KR 2.3.4 | TBC Penser un outil facile d'animation pour nos clients (jeu de cartes ?)
+KR 3.1.1 | Se familiariser avec la démarche 
+KR 3.1.2 | Commencer l'évaluation (chiffré?)
+KR 3.1.3 | Rentrer dans la boucle de la communauté Bcorp
+KR 3.2.1 | Valider le besoin (avoir signer le devis)
+KR 4.1.1 | Etudier d'autres transporteurs (notamment pour l'export)
+KR 4.1.2 | Faire des rendez-vous commerciaux et comparer les offres
+KR 4.1.3 | Faire des essais et/ou acter qu'aucun ne convient
+KR 4.1.4 | Maitriser le sujet des douanes 
+KR 5.1.1 | Réaliser les revues de marge par canal mi-septembre
+KR 5.1.2 | Mettre en place la revue du budget trimestrielle courant septembre
+KR 5.1.3 | Intégrer Base Sales v2 à Calendula
+KR 5.1.4 | Linker les taux de marge de Base Sales v2 Calendula avec le reporting financier
+KR 5.1.5 | Fournir à Thomas et à Christelle leurs plans de progrès sur les marges avec des axes concrets
+KR 5.2.1 | Finaliser le report de nos échéances URSSAF
+KR 5.2.2 | Fournir les éléments aux EF démontrant la nécessité d'un standstill de 24 mois
