@@ -4281,8 +4281,12 @@ ${infoBlock}
     const msgBody=intro+htmlTable;
     await setDoc(doc(db,'devis_commandes',ref),{ref,mode,societe,contact,factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,preparation,tariEvent,infoLivraison,message,lignes:displayLignes,totalHT,totalTVA,totalTTC,createdAt:Date.now(),createdBy:currentUser?.email});
     try{
+      const toEmail=mode==='devis'
+        ?(factAddr.email||'')
+        :'pro@oeforgood.com';
       await emailjs.send(EMAILJS_SERVICE,EMAILJS_TEMPLATE_DEVIS,{
-        to_email:'fx@oeforgood.com',cc_email:'',
+        to_email:toEmail,
+        cc_email:teamEmail,
         to_name:prenom,from_name:prenom,name:prenom,
         email:currentUser?.email||'',reply_to:currentUser?.email||'fx@oeforgood.com',
         subject:`🌼 ${mode==='devis'?`Devis ${ref} - Oé`:`Commande ${ref} passée par ${prenom}`}`,
