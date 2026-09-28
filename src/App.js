@@ -4186,7 +4186,13 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
     const brandGreen='#2d6a4f';const brandBeige='#f5f3ef';const brandDark='#1a1814';const brandFont='system-ui,-apple-system,Helvetica,sans-serif';
     const fntS=`font-family:${brandFont};font-size:14px;color:#1a1814;line-height:1.1`;
     // Intro mail : commande = texte fixe, devis = message client saisi
-    const introCommande=`<p style="${fntS}">Bonjour,</p><p style="${fntS}">Une nouvelle commande a été passée par <strong>${prenom}</strong> pour le compte de <strong>${societe}</strong>.</p><p style="${fntS}">La bise.</p>`;
+    const supplyMsgBlock=message&&mode==='commande'
+      ?`<div style="margin:12px 0;padding:12px 16px;background:#fff5f5;border-left:4px solid #c0392b;border-radius:4px;font-family:${brandFont}">
+  <div style="font-size:11px;font-weight:700;color:#c0392b;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px">Message supply</div>
+  <div style="font-size:13px;color:#c0392b;line-height:1.5">${message.replace(/\n/g,'<br>')}</div>
+</div>`
+      :'';
+    const introCommande=`<p style="${fntS}">Bonjour,</p><p style="${fntS}">Une nouvelle commande a été passée par <strong>${prenom}</strong> pour le compte de <strong>${societe}</strong>.</p>${supplyMsgBlock}<p style="${fntS}">La bise.</p>`;
     const introDevis=message?`<p style="${fntS}">${message.replace(/\n/g,'<br>')}</p>`:`<p style="${fntS}">Bonjour,</p>`;
     const intro=mode==='commande'?introCommande:introDevis;
     const msgColor='#c0392b';
