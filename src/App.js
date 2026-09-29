@@ -3981,6 +3981,22 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   },0);
 
   function parsePrix(v){return parseFloat(String(v||'0').replace(/€/g,'').replace(/\s/g,'').replace(',','.'))||0;}
+  // Prix de base SANS remise coûtant (utilisé pour le prix barré)
+  function getBasePU(prod,qty){
+    const q=parseInt(qty||0);
+    if(gratuite&&prod.code!==CASIER_CODE&&prod.code!==COIFFE_CODE)return 0;
+    if(tariEvent&&parsePrix(prod.tariEvents)>0)return parsePrix(prod.tariEvents);
+    const qpalRaw=parseInt(String(prod.qpalette||'0').replace(/[^0-9]/g,''))||0;
+    const isPaletteCartons=preparation==='palette_cartons';
+    const isPaletteCasiers=preparation==='palette_casier_coiffe'||preparation==='palette_casier_sans_coiffe';
+    const isPaletteQty=isPaletteCartons?(qpalRaw>0&&q>0&&q%qpalRaw===0):isPaletteCasiers?(q>=480&&q%480===0):false;
+    if(isPaletteQty&&parsePrix(prod.prixPalette)>0)return parsePrix(prod.prixPalette);
+    if(totalEq75>=600)return parsePrix(prod.prix600);
+    if(totalEq75>=360)return parsePrix(prod.prix360);
+    if(totalEq75>=240)return parsePrix(prod.prix240);
+    if(totalEq75>=120)return parsePrix(prod.prix120);
+    return parsePrix(prod.prix24);
+  }
   function getPU(prod,qty){
     const q=parseInt(qty||0);
     // Gratuité override (casiers/coiffes keep their price)
@@ -4036,7 +4052,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
         if(l.qtyMode==='auto')return l;
         const prod=tarif.find(t=>t.code===l.code);
         if(!prod)return l;
-        const base=getPU(prod,l.qty);
+        const base=getBasePU(prod,l.qty);
         const prix=Math.round(base*0.85*100)/100;
         return {...l,prix,remise:15,coutant:true};
       }));
@@ -4079,7 +4095,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
     const pcb=preparation==='palette_cartons'?Math.max(1,rawPcb):effectivePCB;
     const qty=Math.max(1,pcb);
     const newLigne={code:prod.code,libelle:prod.libelle,robe:prod.robe,pcb,eq75:prod.eq75,tva:prod.tva,qty,qtyMode:pcb>1?'select':'free'};
-    if(prixCoutant){const base=getPU(prod,qty);newLigne.prix=Math.round(base*0.85*100)/100;newLigne.remise=15;newLigne.coutant=true;}
+    if(prixCoutant){const base=getBasePU(prod,qty);newLigne.prix=Math.round(base*0.85*100)/100;newLigne.remise=15;newLigne.coutant=true;}
     setLignes(p=>[...p,newLigne]);
     setSelectedProd('');
   }
@@ -4182,7 +4198,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
     const colors={Coûtant:['#ea580c','#fff'],Events:['#fef3c7','#92400e'],'600+':['#f0fdf4','#2d6a4f'],'360+':['#eff6ff','#1d4ed8'],'240+':['#f5f3ff','#6d28d9'],'120+':['#fdf4ff','#9333ea'],'24+':['#f8f7f5','#6b6560'],Palette:['#f0fdf4','#2d6a4f']};
     const hasRemise2=l.remise>0&&l.prix!==undefined;
     const prod=tarif.find(t=>t.code===l.code);
-    const basePU=prod?getPU(prod,l.qty):0;
+    const basePU=prod?getBasePU(prod,l.qty):0;
     const tarifLabel=lbls.filter(x=>x!=='Coûtant').join(' ');
     function openRemiseModal(){
       const taux=hasRemise2?l.remise:0;
@@ -4496,7 +4512,7 @@ ${infoBlock}
                   const isAuto=l.qtyMode==='auto';
                   const isEditing=editingPriceIdx===i&&!isOff&&!isAuto;
                   // compute original (pre-discount) price for strikethrough display
-                  const origPU=(()=>{const p=tarif.find(t=>t.code===l.code);return p?getPU(p,l.qty):0;})();
+                  const origPU=(()=>{const p=tarif.find(t=>t.code===l.code);return p?getBasePU(p,l.qty):0;})();
                   const hasRemise=!isOff&&l.remise>0&&l.prix!==undefined;
                   return <div key={i} style={{display:'grid',gridTemplateColumns:GRD,borderBottom:'1px solid #f5f3ef',alignItems:'center'}}>
                     <span style={{...TD,textAlign:'left',fontFamily:'system-ui,sans-serif',fontSize:12,fontWeight:600,letterSpacing:0.3}}>{l.code}</span>
@@ -4764,7 +4780,7 @@ ${infoBlock}
                     </td>
                     <td style={{padding:'8px',fontSize:12,textAlign:'right',color:'#6b6560'}}>
                       {(()=>{
-                        const origPU2=(()=>{const p=tarif.find(t=>t.code===l.code);return p?getPU(p,l.qty):0;})();
+                        const origPU2=(()=>{const p=tarif.find(t=>t.code===l.code);return p?getBasePU(p,l.qty):0;})();
                         const hasRemise2=l.remise>0&&l.prix!==undefined;
                         return <span style={{display:'inline-flex',alignItems:'center',gap:4,flexWrap:'wrap',justifyContent:'flex-end'}}>
                           <span style={{fontWeight:hasRemise2?700:400}}>{fmtE(pu)}</span>
