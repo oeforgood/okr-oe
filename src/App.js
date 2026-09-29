@@ -4440,7 +4440,7 @@ ${infoBlock}
               if(line.startsWith('Code '))inProd=true;
               if(!inProd)infoLines.push(line);
             }
-            const GRD='90px 1fr 90px 40px 80px 80px 46px 80px';
+            const GRD='70px 1fr 80px 36px 110px 80px 44px 76px';
             const TH={fontSize:10,fontWeight:600,color:'#6b6560',padding:'6px 6px',textAlign:'right',whiteSpace:'nowrap'};
             const TD={fontSize:11,padding:'4px 6px',textAlign:'right',borderBottom:'1px solid #f5f3ef'};
             const totTTC=displayLignes.reduce((s,l)=>{
@@ -4516,8 +4516,8 @@ ${infoBlock}
                     </span>
                     <span style={{...CELL,textAlign:'left'}}>{getLineTarifBadgesRecap(l)}</span>
                     <span style={CELL}>{qty}</span>
-                    <span style={CELL}>
-                      {isOff?<span style={{color:'#c0392b',fontWeight:600}}>offert</span>:<span style={{display:'inline-flex',alignItems:'center',gap:4,flexWrap:'wrap',justifyContent:'flex-end'}}>
+                    <span style={{...CELL,whiteSpace:'nowrap'}}>
+                      {isOff?<span style={{color:'#c0392b',fontWeight:600}}>offert</span>:<span style={{display:'inline-flex',alignItems:'center',gap:4,flexWrap:'nowrap',justifyContent:'flex-end'}}>
                         <span style={{fontWeight:hasRemise?700:400}}>{fmtE(pu)}</span>
                         {hasRemise&&<span style={{fontSize:10,color:'#9e9890',textDecoration:'line-through'}}>{fmtE(origPU)}</span>}
                       </span>}
