@@ -4074,12 +4074,6 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[tarifKey]);
 
-  // Auto-uncheck prixCoutant si plus aucune ligne non-auto n'est coûtant
-  React.useEffect(()=>{
-    if(prixCoutant && !lignes.some(l=>l.coutant&&l.qtyMode!=='auto')){
-      setPrixCoutant(false);
-    }
-  },[lignes]);
 
   function getDisplayLignes(){
     const result=[...coreLignes];
@@ -4212,8 +4206,12 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
       })}
       {hasRemise2&&<span style={{display:'inline-flex',alignItems:'center',gap:1,fontSize:9,padding:'1px 4px',borderRadius:4,background:l.coutant?'#f8b4c8':'#fef2f2',color:l.coutant?'#9d174d':'#c0392b',fontWeight:600,whiteSpace:'nowrap'}}>
         {l.coutant?'Coûtant':`Remise ${Math.round(l.remise)}%`}
-        <button onClick={e=>{e.stopPropagation();updLigne(i,'prix',undefined);updLigne(i,'remise',undefined);updLigne(i,'coutant',undefined);}}
-          style={{background:'none',border:'none',cursor:'pointer',fontSize:9,padding:'0 0 0 2px',lineHeight:1,color:l.coutant?'#9d174d':'#c0392b'}}>❌</button>
+        <button onClick={e=>{
+          e.stopPropagation();
+          const newLignes=lignes.map((ll,j)=>j===i?{...ll,prix:undefined,remise:undefined,coutant:undefined}:ll);
+          setLignes(newLignes);
+          if(l.coutant && !newLignes.some(ll=>ll.coutant&&ll.qtyMode!=='auto')) setPrixCoutant(false);
+        }} style={{background:'none',border:'none',cursor:'pointer',fontSize:9,padding:'0 0 0 2px',lineHeight:1,color:l.coutant?'#9d174d':'#c0392b'}}>❌</button>
       </span>}
     </span>;
   }
@@ -4518,7 +4516,7 @@ ${infoBlock}
                   const ttcL=htL+tvaV;
                   const isOff=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE;
                   const isAuto=l.qtyMode==='auto';
-                  const isEditing=editingPriceIdx===i&&!isOff&&!isAuto;
+                  const isEditing=false;
                   // compute original (pre-discount) price for strikethrough display
                   const origPU=(()=>{const p=tarif.find(t=>t.code===l.code);return p?getBasePU(p,l.qty):0;})();
                   const hasRemise=!isOff&&l.remise>0&&l.prix!==undefined;
@@ -4892,8 +4890,8 @@ ${infoBlock}
                     style={{...INP_S,paddingRight:40}}/>
                   <span style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',fontSize:12,color:'#6b6560',pointerEvents:'none'}}>%</span>
                   <span style={{position:'absolute',right:24,top:0,bottom:0,display:'flex',flexDirection:'column',borderLeft:'1px solid #e2ddd6'}}>
-                    <button onClick={()=>onTaux(draft.taux+1)} style={{flex:1,border:'none',background:'transparent',cursor:'pointer',fontSize:9,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 4px'}}>▲</button>
-                    <button onClick={()=>onTaux(Math.max(0,draft.taux-1))} style={{flex:1,border:'none',borderTop:'1px solid #e2ddd6',background:'transparent',cursor:'pointer',fontSize:9,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 4px'}}>▼</button>
+                    <button onClick={()=>{const r=Math.round(draft.taux);onTaux(r===draft.taux?r+1:r);}} style={{flex:1,border:'none',background:'transparent',cursor:'pointer',fontSize:9,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 4px'}}>▲</button>
+                    <button onClick={()=>{const r=Math.round(draft.taux);onTaux(Math.max(0,r===draft.taux?r-1:r));}} style={{flex:1,border:'none',borderTop:'1px solid #e2ddd6',background:'transparent',cursor:'pointer',fontSize:9,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 4px'}}>▼</button>
                   </span>
                 </div>
               </div>
