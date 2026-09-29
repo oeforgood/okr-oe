@@ -4048,11 +4048,15 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
     if(prixCoutant){
       setLignes(prev=>prev.map(l=>{
         if(l.qtyMode==='auto')return l;
+        // Ne pas réappliquer si l'utilisateur a explicitement supprimé le label coûtant sur cette ligne
+        if(l.coutantRemoved) return l;
+        // Ne pas écraser une remise manuelle existante non-coûtante
+        if(l.prix!==undefined&&!l.coutant) return l;
         const prod=tarif.find(t=>t.code===l.code);
         if(!prod)return l;
         const base=getBasePU(prod,l.qty);
         const prix=Math.round(base*0.85*100)/100;
-        return {...l,prix,remise:15,coutant:true};
+        return {...l,prix,remise:15,coutant:true,coutantRemoved:undefined};
       }));
       return;
     }
@@ -4060,7 +4064,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
     setLignes(prev=>prev.map(l=>{
       if(l.qtyMode==='auto')return l;
       // Ligne qui était coûtant → on nettoie
-      if(l.coutant) return {...l,prix:undefined,remise:undefined,coutant:undefined};
+      if(l.coutant) return {...l,prix:undefined,remise:undefined,coutant:undefined,coutantRemoved:undefined};
       // Ligne avec remise manuelle → recalcule le taux (prix reste fixé)
       if(l.prix!==undefined){
         const prod=tarif.find(t=>t.code===l.code);
@@ -4208,12 +4212,9 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
         {l.coutant?'Coûtant':`Remise ${Math.round(l.remise)}%`}
         <button onClick={e=>{
           e.stopPropagation();
-          const newLignes=lignes.map((ll,j)=>j===i?{...ll,prix:undefined,remise:undefined,coutant:undefined}:ll);
+          const wasCoutant=l.coutant;
+          const newLignes=lignes.map((ll,j)=>j===i?{...ll,prix:undefined,remise:undefined,coutant:undefined,coutantRemoved:wasCoutant?true:undefined}:ll);
           setLignes(newLignes);
-          if(l.coutant){
-            const nonAuto=newLignes.filter(ll=>ll.qtyMode!=='auto');
-            if(!nonAuto.every(ll=>ll.coutant)) setTimeout(()=>setPrixCoutant(false),0);
-          }
         }} style={{background:'none',border:'none',cursor:'pointer',fontSize:9,padding:'0 0 0 2px',lineHeight:1,color:l.coutant?'#9d174d':'#c0392b'}}>❌</button>
       </span>}
     </span>;
@@ -4690,7 +4691,11 @@ ${infoBlock}
               </label>
               {canPrixCoutant&&<label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',fontWeight:prixCoutant?600:400}}>
                 <input type="checkbox" checked={prixCoutant}
-                  onChange={e=>{setPrixCoutant(e.target.checked);if(e.target.checked){setGratuite(false);setGratuiteRaison('');}}}/>
+                  onChange={e=>{
+                    setPrixCoutant(e.target.checked);
+                    if(e.target.checked){setGratuite(false);setGratuiteRaison('');}
+                    else{setLignes(prev=>prev.map(l=>({...l,coutantRemoved:undefined})));}
+                  }}/>
                 Prix coûtant
               </label>}
               <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',fontWeight:gratuite?600:400,color:gratuite?'#c0392b':'inherit'}}>
