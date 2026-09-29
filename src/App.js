@@ -4050,8 +4050,6 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
         if(l.qtyMode==='auto')return l;
         // Ne pas réappliquer si l'utilisateur a explicitement supprimé le label coûtant sur cette ligne
         if(l.coutantRemoved) return l;
-        // Ne pas écraser une remise manuelle existante non-coûtante
-        if(l.prix!==undefined&&!l.coutant) return l;
         const prod=tarif.find(t=>t.code===l.code);
         if(!prod)return l;
         const base=getBasePU(prod,l.qty);
