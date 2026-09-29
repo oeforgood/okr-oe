@@ -4516,7 +4516,7 @@ ${infoBlock}
                   const ttcL=htL+tvaV;
                   const isOff=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE;
                   const isAuto=l.qtyMode==='auto';
-                  const isEditing=editingPriceIdx===i&&!isOff&&!isAuto;
+                  const isEditing=false;
                   // compute original (pre-discount) price for strikethrough display
                   const origPU=(()=>{const p=tarif.find(t=>t.code===l.code);return p?getBasePU(p,l.qty):0;})();
                   const hasRemise=!isOff&&l.remise>0&&l.prix!==undefined;
@@ -4889,9 +4889,9 @@ ${infoBlock}
                   <input type="number" min="0" max="100" step="1" value={draft.taux} onChange={e=>onTaux(e.target.value)}
                     style={{...INP_S,paddingRight:40}}/>
                   <span style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',fontSize:12,color:'#6b6560',pointerEvents:'none'}}>%</span>
-                  <span style={{position:'absolute',right:24,top:0,bottom:0,display:'flex',flexDirection:'column',borderLeft:'1px solid #e2ddd6'}}>
-                    <button onClick={()=>onTaux(draft.taux+1)} style={{flex:1,border:'none',background:'transparent',cursor:'pointer',fontSize:9,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 4px'}}>▲</button>
-                    <button onClick={()=>onTaux(Math.max(0,draft.taux-1))} style={{flex:1,border:'none',borderTop:'1px solid #e2ddd6',background:'transparent',cursor:'pointer',fontSize:9,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 4px'}}>▼</button>
+                  <span style={{position:'absolute',right:24,top:1,bottom:1,width:16,display:'flex',flexDirection:'column',borderLeft:'1px solid #e2ddd6',overflow:'hidden',borderRadius:'0 7px 7px 0'}}>
+                    <button onClick={()=>{const r=Math.round(draft.taux);onTaux(r===draft.taux?r+1:r);}} style={{flex:1,border:'none',background:'#f5f4f2',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',padding:0,lineHeight:1,fontSize:7,color:'#555',borderBottom:'1px solid #e2ddd6'}}>▲</button>
+                    <button onClick={()=>{const r=Math.round(draft.taux);onTaux(Math.max(0,r===draft.taux?r-1:r));}} style={{flex:1,border:'none',background:'#f5f4f2',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',padding:0,lineHeight:1,fontSize:7,color:'#555'}}>▼</button>
                   </span>
                 </div>
               </div>
@@ -4902,9 +4902,9 @@ ${infoBlock}
                 <div style={{position:'relative'}}>
                   <input type="number" min="0" step="0.10" value={draft.valeur} onChange={e=>onValeur(e.target.value)} style={{...INP_S,paddingRight:40}}/>
                   <span style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',fontSize:12,color:'#6b6560',pointerEvents:'none'}}>€</span>
-                  <span style={{position:'absolute',right:24,top:0,bottom:0,display:'flex',flexDirection:'column',borderLeft:'1px solid #e2ddd6'}}>
-                    <button onClick={()=>{const r=Math.round(draft.valeur*10)/10;onValeur(r===draft.valeur?Math.round((draft.valeur+0.10)*100)/100:r);}} style={{flex:1,border:'none',background:'transparent',cursor:'pointer',fontSize:9,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 4px'}}>▲</button>
-                    <button onClick={()=>{const r=Math.round(draft.valeur*10)/10;onValeur(Math.max(0,r===draft.valeur?Math.round((draft.valeur-0.10)*100)/100:r));}} style={{flex:1,border:'none',borderTop:'1px solid #e2ddd6',background:'transparent',cursor:'pointer',fontSize:9,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 4px'}}>▼</button>
+                  <span style={{position:'absolute',right:24,top:1,bottom:1,width:16,display:'flex',flexDirection:'column',borderLeft:'1px solid #e2ddd6',overflow:'hidden',borderRadius:'0 7px 7px 0'}}>
+                    <button onClick={()=>{const r=Math.round(draft.valeur*10)/10;onValeur(r===draft.valeur?Math.round((draft.valeur+0.10)*100)/100:r);}} style={{flex:1,border:'none',background:'#f5f4f2',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',padding:0,lineHeight:1,fontSize:7,color:'#555',borderBottom:'1px solid #e2ddd6'}}>▲</button>
+                    <button onClick={()=>{const r=Math.round(draft.valeur*10)/10;onValeur(Math.max(0,r===draft.valeur?Math.round((draft.valeur-0.10)*100)/100:r));}} style={{flex:1,border:'none',background:'#f5f4f2',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',padding:0,lineHeight:1,fontSize:7,color:'#555'}}>▼</button>
                   </span>
                 </div>
               </div>
@@ -4915,9 +4915,9 @@ ${infoBlock}
                 <div style={{position:'relative'}}>
                   <input type="number" min="0" step="0.10" value={draft.prix} onChange={e=>onPrix(e.target.value)} style={{...INP_S,paddingRight:40,fontWeight:700,color:'#2d6a4f'}}/>
                   <span style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',fontSize:12,color:'#6b6560',pointerEvents:'none'}}>€</span>
-                  <span style={{position:'absolute',right:24,top:0,bottom:0,display:'flex',flexDirection:'column',borderLeft:'1px solid #e2ddd6'}}>
-                    <button onClick={()=>{const rounded=Math.round(draft.prix*10)/10;onPrix(rounded===draft.prix?Math.round((draft.prix+0.10)*100)/100:rounded);}} style={{flex:1,border:'none',background:'transparent',cursor:'pointer',fontSize:9,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 4px'}}>▲</button>
-                    <button onClick={()=>{const rounded=Math.round(draft.prix*10)/10;onPrix(rounded===draft.prix?Math.max(0,Math.round((draft.prix-0.10)*100)/100):rounded);}} style={{flex:1,border:'none',borderTop:'1px solid #e2ddd6',background:'transparent',cursor:'pointer',fontSize:9,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 4px'}}>▼</button>
+                  <span style={{position:'absolute',right:24,top:1,bottom:1,width:16,display:'flex',flexDirection:'column',borderLeft:'1px solid #e2ddd6',overflow:'hidden',borderRadius:'0 7px 7px 0'}}>
+                    <button onClick={()=>{const rounded=Math.round(draft.prix*10)/10;onPrix(rounded===draft.prix?Math.round((draft.prix+0.10)*100)/100:rounded);}} style={{flex:1,border:'none',background:'#f5f4f2',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',padding:0,lineHeight:1,fontSize:7,color:'#555',borderBottom:'1px solid #e2ddd6'}}>▲</button>
+                    <button onClick={()=>{const rounded=Math.round(draft.prix*10)/10;onPrix(rounded===draft.prix?Math.max(0,Math.round((draft.prix-0.10)*100)/100):rounded);}} style={{flex:1,border:'none',background:'#f5f4f2',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',padding:0,lineHeight:1,fontSize:7,color:'#555'}}>▼</button>
                   </span>
                 </div>
               </div>
