@@ -4215,6 +4215,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
           const wasCoutant=l.coutant;
           const newLignes=lignes.map((ll,j)=>j===i?{...ll,prix:undefined,remise:undefined,coutant:undefined,coutantRemoved:wasCoutant?true:undefined}:ll);
           setLignes(newLignes);
+          if(wasCoutant) setPrixCoutant(false);
         }} style={{background:'none',border:'none',cursor:'pointer',fontSize:9,padding:'0 0 0 2px',lineHeight:1,color:l.coutant?'#9d174d':'#c0392b'}}>❌</button>
       </span>}
     </span>;
@@ -4693,8 +4694,10 @@ ${infoBlock}
                 <input type="checkbox" checked={prixCoutant}
                   onChange={e=>{
                     setPrixCoutant(e.target.checked);
-                    if(e.target.checked){setGratuite(false);setGratuiteRaison('');}
-                    else{setLignes(prev=>prev.map(l=>({...l,coutantRemoved:undefined})));}
+                    if(e.target.checked){
+                      setGratuite(false);setGratuiteRaison('');
+                      setLignes(prev=>prev.map(l=>({...l,coutantRemoved:undefined})));
+                    }
                   }}/>
                 Prix coûtant
               </label>}
