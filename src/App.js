@@ -4168,18 +4168,14 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
 
   function getLineTarifBadgesRecap(l){
     if(l.qtyMode==='auto')return null;
-    if(gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE)return <span style={{fontSize:9,padding:'1px 4px',borderRadius:4,background:'#fef2f2',color:'#c0392b',fontWeight:600}}>Gratuit</span>;
-    const parts=[];
-    if(tariEvent)parts.push('Events');
-    else if(totalEq75>=600)parts.push('600+');
-    else if(totalEq75>=360)parts.push('360+');
-    else if(totalEq75>=240)parts.push('240+');
-    else if(totalEq75>=120)parts.push('120+');
-    else parts.push('24+');
-    const colors={Events:['#fef3c7','#92400e'],'600+':['#f0fdf4','#2d6a4f'],'360+':['#eff6ff','#1d4ed8'],'240+':['#f5f3ff','#6d28d9'],'120+':['#fdf4ff','#9333ea'],'24+':['#f8f7f5','#6b6560'],Palette:['#f0fdf4','#2d6a4f']};
+    const lbls=getLineTarifLabel(l);
+    const colors={Coûtant:['#f8b4c8','#9d174d'],Events:['#fef3c7','#92400e'],'600+':['#f0fdf4','#2d6a4f'],'360+':['#eff6ff','#1d4ed8'],'240+':['#f5f3ff','#6d28d9'],'120+':['#fdf4ff','#9333ea'],'24+':['#f8f7f5','#6b6560'],Palette:['#f0fdf4','#2d6a4f'],Gratuit:['#fef2f2','#c0392b']};
     return <span style={{display:'flex',gap:2,flexWrap:'nowrap',alignItems:'center'}}>
-      {parts.map((p,i)=>{const[bg,fg]=colors[p]||['#f8f7f5','#6b6560'];return<span key={i} style={{fontSize:9,padding:'1px 4px',borderRadius:4,background:bg,color:fg,fontWeight:600,whiteSpace:'nowrap'}}>{p}</span>;})}
-      {l.remise>0&&l.prix!==undefined&&<span style={{fontSize:9,padding:'1px 4px',borderRadius:4,background:l.coutant?'#f8b4c8':'#fef2f2',color:l.coutant?'#9d174d':'#c0392b',fontWeight:600,whiteSpace:'nowrap'}}>{l.coutant?'Coûtant':`Remise ${Math.round(l.remise)}%`}</span>}
+      {lbls.map((lb,i)=>{
+        const isRemise=lb.startsWith('Remise');
+        const[bg,fg]=isRemise?['#fef2f2','#c0392b']:colors[lb]||['#f8f7f5','#6b6560'];
+        return<span key={i} style={{fontSize:9,padding:'1px 4px',borderRadius:4,background:bg,color:fg,fontWeight:600,whiteSpace:'nowrap'}}>{lb}</span>;
+      })}
     </span>;
   }
   // Badge tarif cliquable pour le tableau d'édition
