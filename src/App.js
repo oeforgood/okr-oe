@@ -4864,7 +4864,7 @@ ${infoBlock}
         if(draft.taux===0){updLigne(idx,'prix',undefined);updLigne(idx,'remise',undefined);}
         setRemiseModal(null);
       }
-      const INP_S={width:'100%',padding:'7px 10px',border:'1px solid #e2ddd6',borderRadius:8,fontSize:13,boxSizing:'border-box',textAlign:'right'};
+      const INP_S={width:'100%',padding:'7px 10px',border:'1px solid #e2ddd6',borderRadius:8,fontSize:13,boxSizing:'border-box',textAlign:'right',MozAppearance:'textfield',WebkitAppearance:'none'};
       return <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1100,display:'flex',alignItems:'center',justifyContent:'center'}}
         onClick={()=>setRemiseModal(null)}>
         <div style={{background:'#fff',borderRadius:14,padding:'24px',width:400,maxWidth:'90vw'}} onClick={e=>e.stopPropagation()}>
@@ -7880,6 +7880,12 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cu
   </div>;
 }
 export default function App(){
+  React.useEffect(()=>{
+    const st=document.createElement('style');
+    st.textContent='input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}input[type=number]{-moz-appearance:textfield;}';
+    document.head.appendChild(st);
+    return()=>document.head.removeChild(st);
+  },[]);
   const [isMobile,setIsMobile]=React.useState(()=>window.innerWidth<768);
   React.useEffect(()=>{
     const h=()=>setIsMobile(window.innerWidth<768);
