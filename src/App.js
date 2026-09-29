@@ -4074,12 +4074,6 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[tarifKey]);
 
-  // Auto-décoche prixCoutant si plus aucune ligne n'a coutant:true
-  React.useEffect(()=>{
-    if(prixCoutant && !coreLignes.some(l=>l.coutant && l.qtyMode!=='auto')){
-      setPrixCoutant(false);
-    }
-  },[coreLignes]);
 
   function getDisplayLignes(){
     const result=[...coreLignes];
@@ -4216,6 +4210,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
           e.stopPropagation();
           const newLignes=lignes.map((ll,j)=>j===i?{...ll,prix:undefined,remise:undefined,coutant:undefined}:ll);
           setLignes(newLignes);
+          if(l.coutant && !newLignes.some(ll=>ll.coutant&&ll.qtyMode!=='auto')) setTimeout(()=>setPrixCoutant(false),0);
         }} style={{background:'none',border:'none',cursor:'pointer',fontSize:9,padding:'0 0 0 2px',lineHeight:1,color:l.coutant?'#9d174d':'#c0392b'}}>❌</button>
       </span>}
     </span>;
