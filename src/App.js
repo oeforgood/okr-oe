@@ -4299,17 +4299,13 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
     // Colonne tarif par ligne
     function getLineTarifLabelHtml(l){
       if(l.qtyMode==='auto')return '';
-      if(gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE)return 'Gratuit';
-      const TARIF_COLORS_MAIL={Gratuit:['#fef2f2','#c0392b'],Coûtant:['#ea580c','#fff'],Events:['#fef3c7','#92400e'],'600+':['#f0fdf4','#2d6a4f'],'360+':['#eff6ff','#1d4ed8'],'240+':['#f5f3ff','#6d28d9'],'120+':['#fdf4ff','#9333ea'],'24+':['#f8f7f5','#6b6560']};
-      const parts=[];
-      if(tariEvent)parts.push('Events');
-      else if(totalEq75>=600)parts.push('600+');
-      else if(totalEq75>=360)parts.push('360+');
-      else if(totalEq75>=240)parts.push('240+');
-      else if(totalEq75>=120)parts.push('120+');
-      else parts.push('24+');
-      if(prixCoutant)parts.push('Coûtant');
-      return parts.map(p=>{const[bg,fg]=TARIF_COLORS_MAIL[p]||['#f8f7f5','#6b6560'];return`<span style="display:inline-block;font-size:9px;padding:1px 4px;border-radius:4px;background:${bg};color:${fg};font-weight:600;white-space:nowrap;margin-right:2px">${p}</span>`;}).join('');
+      const TARIF_COLORS_MAIL={Gratuit:['#fef2f2','#c0392b'],Coûtant:['#f8b4c8','#9d174d'],Events:['#fef3c7','#92400e'],'600+':['#f0fdf4','#2d6a4f'],'360+':['#eff6ff','#1d4ed8'],'240+':['#f5f3ff','#6d28d9'],'120+':['#fdf4ff','#9333ea'],'24+':['#f8f7f5','#6b6560'],Palette:['#f0fdf4','#2d6a4f']};
+      const parts=getLineTarifLabel(l);
+      return parts.map(p=>{
+        const isRemise=p.startsWith('Remise');
+        const[bg,fg]=isRemise?['#fef2f2','#c0392b']:TARIF_COLORS_MAIL[p]||['#f8f7f5','#6b6560'];
+        return`<span style="display:inline-block;font-size:9px;padding:1px 4px;border-radius:4px;background:${bg};color:${fg};font-weight:600;white-space:nowrap;margin-right:2px">${p}</span>`;
+      }).join('');
     }
     const prodRows=displayLignes.map(ligne=>{
       const pu=gratuite&&ligne.code!==CASIER_CODE&&ligne.code!==COIFFE_CODE?0:getLinePU(ligne);
