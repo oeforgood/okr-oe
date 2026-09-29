@@ -4239,8 +4239,9 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
       else if(totalEq75>=240)parts.push('240+');
       else if(totalEq75>=120)parts.push('120+');
       else parts.push('24+');
-      if(prixCoutant)parts.push('Coûtant');
-      return parts.join('+');
+      if(l.coutant)parts.push('Coûtant');
+      else if(l.remise>0&&l.prix!==undefined)parts.push(`Remise ${Math.round(l.remise)}%`);
+      return parts.join(' ');
     }
     const header=rp('Code',10)+'  '+rp('Produit',32)+'  '+rp('Tarif',12)+'  '+lp('Qté',5)+'  '+lp('P.U. HT',10)+'  '+lp('Total HT',10)+'  TVA';
     const divider='-'.repeat(105);
