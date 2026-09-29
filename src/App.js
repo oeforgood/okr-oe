@@ -4426,7 +4426,7 @@ ${infoBlock}
                     <span style={TD}>{qty}</span>
                     <span style={{...TD,padding:'2px 2px'}}>
                       {isOff?'offert':fmtE(pu)}
-                      {hasRemise&&<span style={{fontSize:10,color:'#c0392b',fontWeight:600,marginLeft:4}}>-{l.remise}%</span>}
+                      {hasRemise&&<span style={{fontSize:10,color:'#c0392b',fontWeight:600,marginLeft:4}}>-{Math.round(l.remise)}%</span>}
                     </span>
                     <span style={{...TD,fontWeight:700}}>{isOff?'offert':fmtE(htL)}</span>
                     <span style={{...TD,fontSize:11,color:'#6b6560'}}>{tvaR>0?tvaR+'%':'0%'}</span>
@@ -4439,6 +4439,9 @@ ${infoBlock}
                   <span style={{...TD,borderBottom:'none',fontWeight:400}}>{fmtE(totalTVA)}</span>
                   <span style={{...TD,borderBottom:'none',fontWeight:400}}>{gratuite?'OFFERT':fmtE(totalTTC)}</span>
                 </div>
+                {remiseJustif&&<div style={{marginTop:8,fontSize:11,color:'#c0392b',fontWeight:600,textAlign:'right',paddingRight:6}}>
+                  Remise justifiée : {remiseJustif}
+                </div>}
               </div>
             </>;
           })()}
@@ -4725,7 +4728,7 @@ ${infoBlock}
                             title="Cliquer pour modifier le prix">
                             <span style={{borderBottom:'1px dashed #2d6a4f'}}>{fmtE(pu)}</span>
                             {hasRemise2&&<span style={{fontSize:10,color:'#9e9890',textDecoration:'line-through'}}>{fmtE(origPU2)}</span>}
-                            {hasRemise2&&<span style={{fontSize:10,color:'#c0392b',fontWeight:600}}>-{l.remise}%</span>}
+                            {hasRemise2&&<span style={{fontSize:10,color:'#c0392b',fontWeight:600}}>-{Math.round(l.remise)}%</span>}
                           </span>
                         );
                       })()}
@@ -4741,16 +4744,16 @@ ${infoBlock}
                 <div style={{fontSize:13,color:'#6b6560'}}>Total HT : <strong>{fmtE(totalHT)}</strong></div>
                 <div style={{fontSize:13,color:'#6b6560'}}>TVA : <strong>{fmtE(totalTVA)}</strong></div>
                 <div style={{fontSize:16,fontWeight:800,color:gratuite?'#c0392b':'#2d6a4f',marginTop:6}}>{gratuite?'OFFERT — Gratuité':`Total TTC : ${fmtE(totalTTC)}`}</div>
-                {remiseJustif&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600,marginTop:6,textAlign:'right'}}>Remise justifiée : {remiseJustif}</div>}
+                {remiseJustif&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600,marginTop:6,textAlign:'right',display:'flex',alignItems:'center',justifyContent:'flex-end',gap:8}}>
+                  <span>Remise justifiée : {remiseJustif}</span>
+                  <button onClick={()=>setRemiseJustif('')} style={{background:'none',border:'none',cursor:'pointer',fontSize:13,padding:0,lineHeight:1,color:'#c0392b'}} title="Supprimer la justification">❌</button>
+                </div>}
               </div>
             </>}
           </>}
         </div>}
 
         {preparation&&<div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:8}}>
-          {remiseJustif&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600,background:'#fff5f5',border:'1px solid #f5c6c6',borderRadius:7,padding:'6px 12px',maxWidth:500,textAlign:'right'}}>
-            <span style={{fontWeight:700}}>Justification remise : </span>{remiseJustif}
-          </div>}
           <div style={{display:'flex',justifyContent:'flex-end',alignItems:'center',gap:12}}>
             {isCoiffePrep&&totalBouteilles>0&&!coiffeOk&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600}}>⚠️ {totalBouteilles} bouteilles — multiple de 120 requis</div>}
             {minQtyMsg&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600}}>⚠️ {minQtyMsg}</div>}
