@@ -46,6 +46,18 @@ const SEASONS=[
 ];
 
 const OWNER_EMAIL = "fx@oeforgood.com";
+
+// Rôles disponibles (Propriétaire est réservé au OWNER_EMAIL, géré en dur)
+const ROLES = [
+  { value: 'marketing',   label: 'Marketing' },
+  { value: 'production',  label: 'Production' },
+  { value: 'sales',       label: 'Sales' },
+  { value: 'admin',       label: 'Admin' },
+  { value: 'inactive',    label: 'Fini' },
+];
+
+// Fonctionnalités restreintes par rôle
+const COUTANT_ROLES = ['owner', 'marketing'];
 const ALLOWED_DOMAIN = "oeforgood.com";
 const OBJ_BG=["#dbeafe","#dcfce7","#fce7f3","#fef3c7","#ede9fe","#ffedd5","#e0f2fe","#f0fdf4","#fdf4ff","#fff7ed","#ecfdf5"];
 const OBJ_TX=["#1e40af","#166534","#9d174d","#92400e","#5b21b6","#9a3412","#075985","#14532d","#701a75","#7c2d12","#064e3b"];
@@ -3906,6 +3918,8 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   const [echantillons,setEchantillons]=React.useState(false);
   const [tariEvent,setTariEvent]=React.useState(false);
   const [prixCoutant,setPrixCoutant]=React.useState(false);
+  const userRole=currentUser?.email===OWNER_EMAIL?'owner':(teamMember?.role||'');
+  const canPrixCoutant=COUTANT_ROLES.includes(userRole);
   const [gratuite,setGratuite]=React.useState(false);
   const [gratuiteModal,setGratuiteModal]=React.useState(false);
   const [gratuiteRaison,setGratuiteRaison]=React.useState('');
@@ -4559,11 +4573,11 @@ ${infoBlock}
                   onChange={e=>{setTariEvent(e.target.checked);if(e.target.checked){setGratuite(false);setGratuiteRaison('');}}}/>
                 Tarif Events
               </label>
-              <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',fontWeight:prixCoutant?600:400}}>
+              {canPrixCoutant&&<label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',fontWeight:prixCoutant?600:400}}>
                 <input type="checkbox" checked={prixCoutant}
                   onChange={e=>{setPrixCoutant(e.target.checked);if(e.target.checked){setGratuite(false);setGratuiteRaison('');}}}/>
                 Prix coûtant
-              </label>
+              </label>}
               <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',fontWeight:gratuite?600:400,color:gratuite?'#c0392b':'inherit'}}>
                 <input type="checkbox" checked={gratuite}
                   onChange={e=>{
@@ -5145,8 +5159,8 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
                 <td style={{padding:"10px 14px"}}>
                   {m.email===OWNER_EMAIL
                     ?<span style={{fontSize:12,color:"#9e9890"}}>Propriétaire</span>
-                    :<select value={m.role||"teammate"} onChange={e=>setRole(m.email,e.target.value)} style={{...INP,fontSize:12}}>
-                      <option value="admin">Admin</option><option value="teammate">actif</option><option value="inactive">Fini</option>
+                    :<select value={m.role||"sales"} onChange={e=>setRole(m.email,e.target.value)} style={{...INP,fontSize:12}}>
+                      {ROLES.map(r=><option key={r.value} value={r.value}>{r.label}</option>)}
                     </select>}
                 </td>
                 <td style={{padding:"10px 14px"}}>
