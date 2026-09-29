@@ -4031,22 +4031,20 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
     return parsePrix(prod.prix24);
   }
 
-  // Quand tariEvent change → recalcule le taux de remise sur les lignes avec prix fixe (hors coûtant)
+  // Recalcul global des prix à chaque changement de tarification (tariEvent, prixCoutant, gratuite, totalEq75)
+  // Règles :
+  //   gratuite → prix=0 (géré par getPU), on efface remises/coûtant
+  //   prixCoutant → prix = basePU * 0.85, remise=15, coutant=true
+  //   sinon ligne.coutant → nettoyer (décochée entretemps)
+  //   sinon ligne.prix fixé manuellement → recalcule le TAUX (prix reste)
+  //   sinon → prix libre selon getPU
+  const tarifKey=`${tariEvent?1:0}_${prixCoutant?1:0}_${gratuite?1:0}_${totalEq75}`;
   React.useEffect(()=>{
-    setLignes(prev=>prev.map(l=>{
-      if(l.coutant)return l; // coûtant géré séparément
-      if(l.prix===undefined)return l;
-      const prod=tarif.find(t=>t.code===l.code);
-      if(!prod)return l;
-      const newBase=getPU(prod,l.qty);
-      const newRemise=newBase>0?Math.round((1-l.prix/newBase)*10000)/100:0;
-      return {...l,remise:newRemise<0?0:newRemise};
-    }));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[tariEvent]);
-
-  // Prix coûtant → applique/retire remise 15% sur toutes les lignes
-  React.useEffect(()=>{
+    if(gratuite){
+      setLignes(prev=>prev.map(l=>({...l,prix:undefined,remise:undefined,coutant:undefined})));
+      setRemiseJustif('');
+      return;
+    }
     if(prixCoutant){
       setLignes(prev=>prev.map(l=>{
         if(l.qtyMode==='auto')return l;
@@ -4056,31 +4054,32 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
         const prix=Math.round(base*0.85*100)/100;
         return {...l,prix,remise:15,coutant:true};
       }));
-    } else {
-      // Retire uniquement les remises marquées coûtant
-      setLignes(prev=>prev.map(l=>{
-        if(!l.coutant)return l;
-        return {...l,prix:undefined,remise:undefined,coutant:undefined};
-      }));
+      return;
     }
+    // Ni gratuite ni prixCoutant
+    setLignes(prev=>prev.map(l=>{
+      if(l.qtyMode==='auto')return l;
+      // Ligne qui était coûtant → on nettoie
+      if(l.coutant) return {...l,prix:undefined,remise:undefined,coutant:undefined};
+      // Ligne avec remise manuelle → recalcule le taux (prix reste fixé)
+      if(l.prix!==undefined){
+        const prod=tarif.find(t=>t.code===l.code);
+        if(!prod)return l;
+        const newBase=getBasePU(prod,l.qty);
+        const newRemise=newBase>0?Math.round((1-l.prix/newBase)*10000)/100:0;
+        return {...l,remise:newRemise<0?0:newRemise};
+      }
+      return l;
+    }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[prixCoutant]);
+  },[tarifKey]);
 
-  // Auto-uncheck prixCoutant if no line has coutant===true
+  // Auto-uncheck prixCoutant si plus aucune ligne non-auto n'est coûtant
   React.useEffect(()=>{
-    if(prixCoutant && !lignes.some(l=>l.coutant)){
+    if(prixCoutant && !lignes.some(l=>l.coutant&&l.qtyMode!=='auto')){
       setPrixCoutant(false);
     }
   },[lignes]);
-
-  // Efface toutes les remises quand gratuite est activé
-  React.useEffect(()=>{
-    if(gratuite){
-      setLignes(prev=>prev.map(l=>({...l,prix:undefined,remise:undefined})));
-      setRemiseJustif('');
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[gratuite]);
 
   function getDisplayLignes(){
     const result=[...coreLignes];
@@ -4714,8 +4713,8 @@ ${infoBlock}
         {preparation&&<div style={SECT}>
           <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
             <div style={{fontSize:13,fontWeight:700}}>Produits{isCasierPrep?' (75cl uniquement)':''}</div>
-            {prixCoutant&&coreLignes.some(l=>l.coutant)&&<span style={{fontSize:11,padding:'1px 7px',borderRadius:8,background:'#ea580c',color:'#fff',fontWeight:700}}>Coûtant</span>}
-            {hasAnyRemise&&!coreLignes.every(l=>l.coutant)&&coreLignes.some(l=>l.remise>0&&l.prix!==undefined&&!l.coutant)&&<span style={{fontSize:11,padding:'1px 7px',borderRadius:8,background:'#fef2f2',color:'#c0392b',fontWeight:700}}>Remise</span>}
+            {prixCoutant&&coreLignes.some(l=>l.coutant)&&coreLignes.filter(l=>l.qtyMode!=='auto').every(l=>l.coutant)&&<span style={{fontSize:11,padding:'1px 7px',borderRadius:8,background:'#ea580c',color:'#fff',fontWeight:700}}>Coûtant</span>}
+            {coreLignes.some(l=>l.remise>0&&l.prix!==undefined&&!l.coutant)&&<span style={{fontSize:11,padding:'1px 7px',borderRadius:8,background:'#fef2f2',color:'#c0392b',fontWeight:700}}>Remise</span>}
             {gratuite&&<span style={{fontSize:11,padding:'1px 7px',borderRadius:8,background:'#fef2f2',color:'#c0392b',fontWeight:700}}>Gratuité</span>}
           </div>
           {loadingTarif?<div style={{color:'#9e9890',fontSize:13}}>Chargement...</div>
