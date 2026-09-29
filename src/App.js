@@ -4074,6 +4074,12 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[tarifKey]);
 
+  // Auto-décoche prixCoutant si plus aucune ligne n'a coutant:true
+  React.useEffect(()=>{
+    if(prixCoutant && !coreLignes.some(l=>l.coutant && l.qtyMode!=='auto')){
+      setPrixCoutant(false);
+    }
+  },[coreLignes]);
 
   function getDisplayLignes(){
     const result=[...coreLignes];
@@ -4210,7 +4216,6 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
           e.stopPropagation();
           const newLignes=lignes.map((ll,j)=>j===i?{...ll,prix:undefined,remise:undefined,coutant:undefined}:ll);
           setLignes(newLignes);
-          if(l.coutant && !newLignes.some(ll=>ll.coutant&&ll.qtyMode!=='auto')) setPrixCoutant(false);
         }} style={{background:'none',border:'none',cursor:'pointer',fontSize:9,padding:'0 0 0 2px',lineHeight:1,color:l.coutant?'#9d174d':'#c0392b'}}>❌</button>
       </span>}
     </span>;
@@ -4881,48 +4886,48 @@ ${infoBlock}
         <div style={{background:'#fff',borderRadius:14,padding:'24px',width:400,maxWidth:'90vw'}} onClick={e=>e.stopPropagation()}>
           <div style={{fontSize:15,fontWeight:700,marginBottom:4}}>{libelle}</div>
           <div style={{fontSize:12,color:'#6b6560',marginBottom:16}}>{qty} unité{qty>1?'s':''} · Tarif {tarifLabel} · Base {fmtE(basePU)}</div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:16}}>
+          {(()=>{
+            const SVG_UP=<svg width="8" height="5" viewBox="0 0 8 5" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 0.5L7.5 4.5H0.5L4 0.5Z" fill="#888"/></svg>;
+            const SVG_DN=<svg width="8" height="5" viewBox="0 0 8 5" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 4.5L0.5 0.5H7.5L4 4.5Z" fill="#888"/></svg>;
+            const SPIN_WRAP={position:'absolute',right:1,top:1,bottom:1,width:18,display:'flex',flexDirection:'column',borderLeft:'1px solid #ddd',overflow:'hidden',borderRadius:'0 6px 6px 0'};
+            const BTN_S={flex:1,border:'none',background:'#f0eeeb',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',padding:0};
+            return <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:16}}>
             <div>
               <div style={{fontSize:11,color:'#6b6560',marginBottom:4,fontWeight:600}}>Taux de remise</div>
-              <div style={{display:'flex',flexDirection:'column',alignItems:'stretch',gap:2}}>
-                <div style={{position:'relative'}}>
-                  <input type="number" min="0" max="100" step="1" value={draft.taux} onChange={e=>onTaux(e.target.value)}
-                    style={{...INP_S,paddingRight:40}}/>
-                  <span style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',fontSize:12,color:'#6b6560',pointerEvents:'none'}}>%</span>
-                  <span style={{position:'absolute',right:24,top:1,bottom:1,width:16,display:'flex',flexDirection:'column',borderLeft:'1px solid #e2ddd6',overflow:'hidden',borderRadius:'0 7px 7px 0'}}>
-                    <button onClick={()=>{const r=Math.round(draft.taux);onTaux(r===draft.taux?r+1:r);}} style={{flex:1,border:'none',background:'#f5f4f2',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',padding:0,lineHeight:1,fontSize:7,color:'#555',borderBottom:'1px solid #e2ddd6'}}>▲</button>
-                    <button onClick={()=>{const r=Math.round(draft.taux);onTaux(Math.max(0,r===draft.taux?r-1:r));}} style={{flex:1,border:'none',background:'#f5f4f2',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',padding:0,lineHeight:1,fontSize:7,color:'#555'}}>▼</button>
-                  </span>
-                </div>
+              <div style={{position:'relative'}}>
+                <input type="number" min="0" max="100" step="1" value={draft.taux} onChange={e=>onTaux(e.target.value)}
+                  style={{...INP_S,paddingRight:44}}/>
+                <span style={{position:'absolute',right:22,top:'50%',transform:'translateY(-50%)',fontSize:12,color:'#6b6560',pointerEvents:'none'}}>%</span>
+                <span style={SPIN_WRAP}>
+                  <button onClick={()=>{const r=Math.round(draft.taux);onTaux(r===draft.taux?r+1:r);}} style={{...BTN_S,borderBottom:'1px solid #ddd'}}>{SVG_UP}</button>
+                  <button onClick={()=>{const r=Math.round(draft.taux);onTaux(Math.max(0,r===draft.taux?r-1:r));}} style={BTN_S}>{SVG_DN}</button>
+                </span>
               </div>
             </div>
             <div>
               <div style={{fontSize:11,color:'#6b6560',marginBottom:4,fontWeight:600}}>Valeur remise</div>
-              <div style={{display:'flex',flexDirection:'column',alignItems:'stretch',gap:2}}>
-                <div style={{position:'relative'}}>
-                  <input type="number" min="0" step="0.10" value={draft.valeur} onChange={e=>onValeur(e.target.value)} style={{...INP_S,paddingRight:40}}/>
-                  <span style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',fontSize:12,color:'#6b6560',pointerEvents:'none'}}>€</span>
-                  <span style={{position:'absolute',right:24,top:1,bottom:1,width:16,display:'flex',flexDirection:'column',borderLeft:'1px solid #e2ddd6',overflow:'hidden',borderRadius:'0 7px 7px 0'}}>
-                    <button onClick={()=>{const r=Math.round(draft.valeur*10)/10;onValeur(r===draft.valeur?Math.round((draft.valeur+0.10)*100)/100:r);}} style={{flex:1,border:'none',background:'#f5f4f2',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',padding:0,lineHeight:1,fontSize:7,color:'#555',borderBottom:'1px solid #e2ddd6'}}>▲</button>
-                    <button onClick={()=>{const r=Math.round(draft.valeur*10)/10;onValeur(Math.max(0,r===draft.valeur?Math.round((draft.valeur-0.10)*100)/100:r));}} style={{flex:1,border:'none',background:'#f5f4f2',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',padding:0,lineHeight:1,fontSize:7,color:'#555'}}>▼</button>
-                  </span>
-                </div>
+              <div style={{position:'relative'}}>
+                <input type="number" min="0" step="0.10" value={draft.valeur} onChange={e=>onValeur(e.target.value)} style={{...INP_S,paddingRight:44}}/>
+                <span style={{position:'absolute',right:22,top:'50%',transform:'translateY(-50%)',fontSize:12,color:'#6b6560',pointerEvents:'none'}}>€</span>
+                <span style={SPIN_WRAP}>
+                  <button onClick={()=>{const r=Math.round(draft.valeur*10)/10;onValeur(r===draft.valeur?Math.round((draft.valeur+0.10)*100)/100:r);}} style={{...BTN_S,borderBottom:'1px solid #ddd'}}>{SVG_UP}</button>
+                  <button onClick={()=>{const r=Math.round(draft.valeur*10)/10;onValeur(Math.max(0,r===draft.valeur?Math.round((draft.valeur-0.10)*100)/100:r));}} style={BTN_S}>{SVG_DN}</button>
+                </span>
               </div>
             </div>
             <div>
               <div style={{fontSize:11,color:'#6b6560',marginBottom:4,fontWeight:600}}>Prix remisé</div>
-              <div style={{display:'flex',flexDirection:'column',alignItems:'stretch',gap:2}}>
-                <div style={{position:'relative'}}>
-                  <input type="number" min="0" step="0.10" value={draft.prix} onChange={e=>onPrix(e.target.value)} style={{...INP_S,paddingRight:40,fontWeight:700,color:'#2d6a4f'}}/>
-                  <span style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',fontSize:12,color:'#6b6560',pointerEvents:'none'}}>€</span>
-                  <span style={{position:'absolute',right:24,top:1,bottom:1,width:16,display:'flex',flexDirection:'column',borderLeft:'1px solid #e2ddd6',overflow:'hidden',borderRadius:'0 7px 7px 0'}}>
-                    <button onClick={()=>{const rounded=Math.round(draft.prix*10)/10;onPrix(rounded===draft.prix?Math.round((draft.prix+0.10)*100)/100:rounded);}} style={{flex:1,border:'none',background:'#f5f4f2',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',padding:0,lineHeight:1,fontSize:7,color:'#555',borderBottom:'1px solid #e2ddd6'}}>▲</button>
-                    <button onClick={()=>{const rounded=Math.round(draft.prix*10)/10;onPrix(rounded===draft.prix?Math.max(0,Math.round((draft.prix-0.10)*100)/100):rounded);}} style={{flex:1,border:'none',background:'#f5f4f2',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',padding:0,lineHeight:1,fontSize:7,color:'#555'}}>▼</button>
-                  </span>
-                </div>
+              <div style={{position:'relative'}}>
+                <input type="number" min="0" step="0.10" value={draft.prix} onChange={e=>onPrix(e.target.value)} style={{...INP_S,paddingRight:44,fontWeight:700,color:'#2d6a4f'}}/>
+                <span style={{position:'absolute',right:22,top:'50%',transform:'translateY(-50%)',fontSize:12,color:'#6b6560',pointerEvents:'none'}}>€</span>
+                <span style={SPIN_WRAP}>
+                  <button onClick={()=>{const rounded=Math.round(draft.prix*10)/10;onPrix(rounded===draft.prix?Math.round((draft.prix+0.10)*100)/100:rounded);}} style={{...BTN_S,borderBottom:'1px solid #ddd'}}>{SVG_UP}</button>
+                  <button onClick={()=>{const rounded=Math.round(draft.prix*10)/10;onPrix(rounded===draft.prix?Math.max(0,Math.round((draft.prix-0.10)*100)/100):rounded);}} style={BTN_S}>{SVG_DN}</button>
+                </span>
               </div>
             </div>
-          </div>
+          </div>;
+          })()}
           <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
             <button onClick={annuler} style={{padding:'8px 16px',background:'#f8f7f5',border:'1px solid #e2ddd6',borderRadius:8,fontSize:13,cursor:'pointer',color:'#6b6560'}}>Annuler la remise</button>
             <button onClick={valider} style={{padding:'8px 18px',background:'#2d6a4f',color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:700,cursor:'pointer'}}>Valider la remise</button>
