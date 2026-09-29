@@ -4901,8 +4901,8 @@ ${infoBlock}
                   <input type="number" min="0" step="0.10" value={draft.valeur} onChange={e=>onValeur(e.target.value)} style={{...INP_S,paddingRight:40}}/>
                   <span style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',fontSize:12,color:'#6b6560',pointerEvents:'none'}}>€</span>
                   <span style={{position:'absolute',right:24,top:0,bottom:0,display:'flex',flexDirection:'column',borderLeft:'1px solid #e2ddd6'}}>
-                    <button onClick={()=>onValeur(Math.round((draft.valeur+0.10)*100)/100)} style={{flex:1,border:'none',background:'transparent',cursor:'pointer',fontSize:9,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 4px'}}>▲</button>
-                    <button onClick={()=>onValeur(Math.max(0,Math.round((draft.valeur-0.10)*100)/100))} style={{flex:1,border:'none',borderTop:'1px solid #e2ddd6',background:'transparent',cursor:'pointer',fontSize:9,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 4px'}}>▼</button>
+                    <button onClick={()=>{const r=Math.round(draft.valeur*10)/10;onValeur(r===draft.valeur?Math.round((draft.valeur+0.10)*100)/100:r);}} style={{flex:1,border:'none',background:'transparent',cursor:'pointer',fontSize:9,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 4px'}}>▲</button>
+                    <button onClick={()=>{const r=Math.round(draft.valeur*10)/10;onValeur(Math.max(0,r===draft.valeur?Math.round((draft.valeur-0.10)*100)/100:r));}} style={{flex:1,border:'none',borderTop:'1px solid #e2ddd6',background:'transparent',cursor:'pointer',fontSize:9,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 4px'}}>▼</button>
                   </span>
                 </div>
               </div>
