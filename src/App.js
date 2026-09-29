@@ -4050,6 +4050,13 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[prixCoutant]);
 
+  // Auto-uncheck prixCoutant if no line has coutant===true
+  React.useEffect(()=>{
+    if(prixCoutant && !lignes.some(l=>l.coutant)){
+      setPrixCoutant(false);
+    }
+  },[lignes]);
+
   // Efface toutes les remises quand gratuite est activé
   React.useEffect(()=>{
     if(gratuite){
@@ -4187,13 +4194,12 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
     return <span style={{display:'flex',gap:2,flexWrap:'nowrap',alignItems:'center'}}>
       {lbls.filter(x=>x!=='Coûtant').map((lb,j)=>{
         const[bg,fg]=colors[lb]||['#f8f7f5','#6b6560'];
-        return<span key={j} onClick={openRemiseModal} style={{fontSize:9,padding:'1px 4px',borderRadius:4,background:bg,color:fg,fontWeight:600,whiteSpace:'nowrap',cursor:'pointer',borderBottom:'1px dashed currentColor'}} title="Cliquer pour appliquer une remise">{lb}</span>;
+        return<span key={j} onClick={openRemiseModal} style={{fontSize:9,padding:'1px 4px',borderRadius:4,background:bg,color:fg,fontWeight:600,whiteSpace:'nowrap',cursor:'pointer'}} title="Cliquer pour appliquer une remise">{lb}</span>;
       })}
-      {lbls.includes('Coûtant')&&<span style={{fontSize:9,padding:'1px 4px',borderRadius:4,background:'#ea580c',color:'#fff',fontWeight:600,whiteSpace:'nowrap'}}>Coûtant</span>}
-      {hasRemise2&&<span style={{display:'inline-flex',alignItems:'center',gap:1,fontSize:9,padding:'1px 4px',borderRadius:4,background:'#fef2f2',color:'#c0392b',fontWeight:600,whiteSpace:'nowrap'}}>
+      {hasRemise2&&<span style={{display:'inline-flex',alignItems:'center',gap:1,fontSize:9,padding:'1px 4px',borderRadius:4,background:l.coutant?'#f8b4c8':'#fef2f2',color:l.coutant?'#9d174d':'#c0392b',fontWeight:600,whiteSpace:'nowrap'}}>
         {l.coutant?'Coûtant':`Remise ${Math.round(l.remise)}%`}
-        <button onClick={e=>{e.stopPropagation();updLigne(i,'prix',undefined);updLigne(i,'remise',undefined);updLigne(i,'coutant',undefined);if(l.coutant)setPrixCoutant(false);}}
-          style={{background:'none',border:'none',cursor:'pointer',fontSize:9,padding:'0 0 0 2px',lineHeight:1,color:'#c0392b'}}>❌</button>
+        <button onClick={e=>{e.stopPropagation();updLigne(i,'prix',undefined);updLigne(i,'remise',undefined);updLigne(i,'coutant',undefined);}}
+          style={{background:'none',border:'none',cursor:'pointer',fontSize:9,padding:'0 0 0 2px',lineHeight:1,color:l.coutant?'#9d174d':'#c0392b'}}>❌</button>
       </span>}
     </span>;
   }
@@ -4847,33 +4853,41 @@ ${infoBlock}
       return <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1100,display:'flex',alignItems:'center',justifyContent:'center'}}
         onClick={()=>setRemiseModal(null)}>
         <div style={{background:'#fff',borderRadius:14,padding:'24px',width:400,maxWidth:'90vw'}} onClick={e=>e.stopPropagation()}>
-          <div style={{fontSize:15,fontWeight:700,marginBottom:4}}>Remise sur {code}</div>
+          <div style={{fontSize:15,fontWeight:700,marginBottom:4}}>Remise sur {libelle}</div>
           <div style={{fontSize:12,color:'#6b6560',marginBottom:16}}>{libelle} · {qty} unité{qty>1?'s':''} · Tarif {tarifLabel} · Base {fmtE(basePU)}</div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:16}}>
             <div>
               <div style={{fontSize:11,color:'#6b6560',marginBottom:4,fontWeight:600}}>Taux de remise</div>
-              <div style={{display:'flex',alignItems:'center',gap:4}}>
-                <button onClick={()=>onTaux(draft.taux-1)} style={{width:26,height:26,border:'1px solid #e2ddd6',borderRadius:6,background:'#f8f7f5',cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>−</button>
-                <div style={{position:'relative',flex:1}}>
+              <div style={{display:'flex',flexDirection:'column',alignItems:'stretch',gap:2}}>
+                <button onClick={()=>onTaux(draft.taux+1)} style={{width:'100%',height:20,border:'1px solid #e2ddd6',borderRadius:6,background:'#f8f7f5',cursor:'pointer',fontSize:10,display:'flex',alignItems:'center',justifyContent:'center'}}>▲</button>
+                <div style={{position:'relative'}}>
                   <input type="number" min="0" max="100" step="1" value={draft.taux} onChange={e=>onTaux(e.target.value)}
                     style={{...INP_S,paddingRight:22}}/>
                   <span style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',fontSize:12,color:'#6b6560',pointerEvents:'none'}}>%</span>
                 </div>
-                <button onClick={()=>onTaux(draft.taux+1)} style={{width:26,height:26,border:'1px solid #e2ddd6',borderRadius:6,background:'#f8f7f5',cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>+</button>
+                <button onClick={()=>onTaux(draft.taux-1)} style={{width:'100%',height:20,border:'1px solid #e2ddd6',borderRadius:6,background:'#f8f7f5',cursor:'pointer',fontSize:10,display:'flex',alignItems:'center',justifyContent:'center'}}>▼</button>
               </div>
             </div>
             <div>
               <div style={{fontSize:11,color:'#6b6560',marginBottom:4,fontWeight:600}}>Valeur remise</div>
-              <div style={{position:'relative'}}>
-                <input type="number" min="0" step="0.01" value={draft.valeur} onChange={e=>onValeur(e.target.value)} style={{...INP_S,paddingRight:22}}/>
-                <span style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',fontSize:12,color:'#6b6560',pointerEvents:'none'}}>€</span>
+              <div style={{display:'flex',flexDirection:'column',alignItems:'stretch',gap:2}}>
+                <button onClick={()=>onValeur(Math.round((draft.valeur+0.10)*100)/100)} style={{width:'100%',height:20,border:'1px solid #e2ddd6',borderRadius:6,background:'#f8f7f5',cursor:'pointer',fontSize:10,display:'flex',alignItems:'center',justifyContent:'center'}}>▲</button>
+                <div style={{position:'relative'}}>
+                  <input type="number" min="0" step="0.10" value={draft.valeur} onChange={e=>onValeur(e.target.value)} style={{...INP_S,paddingRight:22}}/>
+                  <span style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',fontSize:12,color:'#6b6560',pointerEvents:'none'}}>€</span>
+                </div>
+                <button onClick={()=>onValeur(Math.max(0,Math.round((draft.valeur-0.10)*100)/100))} style={{width:'100%',height:20,border:'1px solid #e2ddd6',borderRadius:6,background:'#f8f7f5',cursor:'pointer',fontSize:10,display:'flex',alignItems:'center',justifyContent:'center'}}>▼</button>
               </div>
             </div>
             <div>
               <div style={{fontSize:11,color:'#6b6560',marginBottom:4,fontWeight:600}}>Prix remisé</div>
-              <div style={{position:'relative'}}>
-                <input type="number" min="0" step="0.01" value={draft.prix} onChange={e=>onPrix(e.target.value)} style={{...INP_S,paddingRight:22,fontWeight:700,color:'#2d6a4f'}}/>
-                <span style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',fontSize:12,color:'#6b6560',pointerEvents:'none'}}>€</span>
+              <div style={{display:'flex',flexDirection:'column',alignItems:'stretch',gap:2}}>
+                <button onClick={()=>{const rounded=Math.round(draft.prix*10)/10;onPrix(rounded===draft.prix?Math.round((draft.prix+0.10)*100)/100:rounded);}} style={{width:'100%',height:20,border:'1px solid #e2ddd6',borderRadius:6,background:'#f8f7f5',cursor:'pointer',fontSize:10,display:'flex',alignItems:'center',justifyContent:'center'}}>▲</button>
+                <div style={{position:'relative'}}>
+                  <input type="number" min="0" step="0.10" value={draft.prix} onChange={e=>onPrix(e.target.value)} style={{...INP_S,paddingRight:22,fontWeight:700,color:'#2d6a4f'}}/>
+                  <span style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',fontSize:12,color:'#6b6560',pointerEvents:'none'}}>€</span>
+                </div>
+                <button onClick={()=>{const rounded=Math.round(draft.prix*10)/10;onPrix(rounded===draft.prix?Math.max(0,Math.round((draft.prix-0.10)*100)/100):rounded);}} style={{width:'100%',height:20,border:'1px solid #e2ddd6',borderRadius:6,background:'#f8f7f5',cursor:'pointer',fontSize:10,display:'flex',alignItems:'center',justifyContent:'center'}}>▼</button>
               </div>
             </div>
           </div>
