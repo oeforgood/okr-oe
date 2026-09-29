@@ -4719,7 +4719,54 @@ ${infoBlock}
                           </select>;
                       })()}
                     </td>
-                    <td style={{padding:'8px',fontSize:12,textAlign:'right',color:'#6b6560'}}>{fmtE(pu)}</td>
+                    <td style={{padding:'8px',fontSize:12,textAlign:'right',color:'#6b6560'}}>
+                      {(()=>{
+                        const origPU2=(()=>{const p=tarif.find(t=>t.code===l.code);return p?getPU(p,l.qty):0;})();
+                        const isEditing2=editingPriceIdx===i&&!isAuto;
+                        const hasRemise2=l.remise>0&&l.prix!==undefined;
+                        if(isAuto)return <span>{fmtE(pu)}</span>;
+                        if(isEditing2)return(
+                          <div style={{display:'flex',alignItems:'center',justifyContent:'flex-end',gap:3,fontSize:11,flexWrap:'nowrap'}}>
+                            <span style={{color:'#6b6560',fontWeight:600}}>R.</span>
+                            <input type="number" min="0" max="100" step="0.1"
+                              value={l.remise!==undefined?l.remise:''}
+                              placeholder="0"
+                              onChange={e=>{
+                                const r=parseFloat(e.target.value)||0;
+                                const newPrix=Math.round(origPU2*(1-r/100)*100)/100;
+                                updLigne(i,'remise',r);
+                                updLigne(i,'prix',newPrix);
+                              }}
+                              style={{width:36,fontSize:11,border:'1px solid #c0392b',borderRadius:4,padding:'1px 3px',textAlign:'center',color:'#c0392b'}}
+                            />
+                            <span style={{color:'#6b6560'}}>%</span>
+                            <input type="number" min="0" step="0.01"
+                              value={l.prix!==undefined?l.prix:''}
+                              placeholder={String(origPU2)}
+                              onChange={e=>{
+                                const newPrix=parseFloat(e.target.value)||0;
+                                const r=origPU2>0?Math.round((1-newPrix/origPU2)*10000)/100:0;
+                                updLigne(i,'prix',newPrix);
+                                updLigne(i,'remise',r<0?0:r);
+                              }}
+                              style={{width:54,fontSize:11,border:'1px solid #2d6a4f',borderRadius:4,padding:'1px 3px',textAlign:'center',fontWeight:600}}
+                            />
+                            <button onClick={()=>{updLigne(i,'prix',undefined);updLigne(i,'remise',undefined);setEditingPriceIdx(null);}}
+                              style={{background:'none',border:'none',cursor:'pointer',fontSize:12,padding:0}}>❌</button>
+                            {l.prix!==undefined&&<span style={{fontSize:10,color:'#9e9890',textDecoration:'line-through'}}>{fmtE(origPU2)}</span>}
+                          </div>
+                        );
+                        return(
+                          <span onClick={()=>setEditingPriceIdx(i)}
+                            style={{cursor:'pointer',display:'inline-flex',alignItems:'center',gap:4}}
+                            title="Cliquer pour modifier le prix">
+                            <span style={{borderBottom:'1px dashed #2d6a4f'}}>{fmtE(pu)}</span>
+                            {hasRemise2&&<span style={{fontSize:10,color:'#9e9890',textDecoration:'line-through'}}>{fmtE(origPU2)}</span>}
+                            {hasRemise2&&<span style={{fontSize:10,color:'#c0392b',fontWeight:600}}>-{l.remise}%</span>}
+                          </span>
+                        );
+                      })()}
+                    </td>
                     <td style={{padding:'8px',fontSize:12,textAlign:'right',fontWeight:600}}>{fmtE(pu*parseInt(l.qty||0))}</td>
                     <td style={{padding:'4px',textAlign:'center'}}>
                       {!isAuto&&<button onClick={()=>remLigne(i)} style={{border:'none',background:'none',color:'#c0392b',cursor:'pointer',fontSize:14,padding:'2px 6px'}}>x</button>}
