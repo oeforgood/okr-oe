@@ -4316,9 +4316,10 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
       const ttcLigne=totalHT2+tvaVal;
       const isOffert=gratuite&&ligne.code!==CASIER_CODE&&ligne.code!==COIFFE_CODE;
       const tarifHtml=getLineTarifLabelHtml(ligne);
+      const robeDotHtml=ligne.robe?`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${getRobeDot(ligne.robe)};margin-right:5px;vertical-align:middle;flex-shrink:0"></span>`:'';
       return `<tr>
         <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;font-weight:600;letter-spacing:0.3px;white-space:nowrap">${ligne.code||''}</td>
-        <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;white-space:nowrap">${ligne.libelle||''}</td>
+        <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;white-space:nowrap">${robeDotHtml}${ligne.libelle||''}</td>
         <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;white-space:nowrap">${tarifHtml}</td>
         <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;text-align:right;white-space:nowrap">${qty}</td>
         <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;text-align:right;white-space:nowrap">${isOffert?'offert':(ligne.remise>0&&ligne.prix!==undefined?`<span style="font-weight:600">${fmtE(pu)}</span> <span style="text-decoration:line-through;color:#9e9890;font-size:10px">${fmtE((()=>{const p=tarif.find(t=>t.code===ligne.code);return p?getPU(p,ligne.qty):0;})())}</span>`:fmtE(pu))}</td>
@@ -4439,9 +4440,9 @@ ${infoBlock}
               if(line.startsWith('Code '))inProd=true;
               if(!inProd)infoLines.push(line);
             }
-            const GRD='90px 1fr 90px 36px 80px 80px 80px 80px';
-            const TH={fontSize:11,fontWeight:700,color:'#6b6560',padding:'4px 6px',textAlign:'right'};
-            const TD={fontSize:12,padding:'3px 6px',textAlign:'right',borderBottom:'1px solid #f5f3ef'};
+            const GRD='90px 1fr 90px 40px 80px 80px 46px 80px';
+            const TH={fontSize:10,fontWeight:600,color:'#6b6560',padding:'6px 6px',textAlign:'right',whiteSpace:'nowrap'};
+            const TD={fontSize:11,padding:'4px 6px',textAlign:'right',borderBottom:'1px solid #f5f3ef'};
             const totTTC=displayLignes.reduce((s,l)=>{
               const pu=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?0:getLinePU(l);
               return s+pu*parseInt(l.qty||0)*(1+(parseFloat(l.tva||0)/100));
@@ -4506,20 +4507,24 @@ ${infoBlock}
                   // compute original (pre-discount) price for strikethrough display
                   const origPU=(()=>{const p=tarif.find(t=>t.code===l.code);return p?getBasePU(p,l.qty):0;})();
                   const hasRemise=!isOff&&l.remise>0&&l.prix!==undefined;
-                  return <div key={i} style={{display:'grid',gridTemplateColumns:GRD,borderBottom:'1px solid #f5f3ef',alignItems:'center'}}>
-                    <span style={{...TD,textAlign:'left',fontFamily:'system-ui,sans-serif',fontSize:12,fontWeight:600,letterSpacing:0.3}}>{l.code}</span>
-                    <span style={{...TD,textAlign:'left'}}>{l.libelle}{l.qtyMode==='auto'?<span style={{fontSize:10,color:'#9e9890',marginLeft:4}}>(auto)</span>:null}</span>
-                    <span style={{...TD,textAlign:'left'}}>{getLineTarifBadgesRecap(l)}</span>
-                    <span style={TD}>{qty}</span>
-                    <span style={{...TD,padding:'2px 2px'}}>
-                      {isOff?'offert':<span style={{display:'inline-flex',alignItems:'center',gap:4,flexWrap:'wrap'}}>
+                  const CELL={fontSize:11,padding:'4px 6px',textAlign:'right',borderBottom:'1px solid #f5f3ef'};
+                  return <div key={i} style={{display:'grid',gridTemplateColumns:GRD,borderBottom:'1px solid #f5f3ef',alignItems:'center',background:isAuto?'#fafaf8':'#fff'}}>
+                    <span style={{...CELL,textAlign:'left',fontWeight:600,letterSpacing:'0.3px',whiteSpace:'nowrap'}}>{l.code}</span>
+                    <span style={{...CELL,textAlign:'left',whiteSpace:'nowrap'}}>
+                      {l.robe&&<span style={{display:'inline-block',width:8,height:8,borderRadius:'50%',background:getRobeDot(l.robe),marginRight:5,verticalAlign:'middle',flexShrink:0}}/>}
+                      {l.libelle}{isAuto?<span style={{fontSize:10,color:'#9e9890',marginLeft:4}}>(auto)</span>:null}
+                    </span>
+                    <span style={{...CELL,textAlign:'left'}}>{getLineTarifBadgesRecap(l)}</span>
+                    <span style={CELL}>{qty}</span>
+                    <span style={CELL}>
+                      {isOff?<span style={{color:'#c0392b',fontWeight:600}}>offert</span>:<span style={{display:'inline-flex',alignItems:'center',gap:4,flexWrap:'wrap',justifyContent:'flex-end'}}>
                         <span style={{fontWeight:hasRemise?700:400}}>{fmtE(pu)}</span>
                         {hasRemise&&<span style={{fontSize:10,color:'#9e9890',textDecoration:'line-through'}}>{fmtE(origPU)}</span>}
                       </span>}
                     </span>
-                    <span style={{...TD,fontWeight:700}}>{isOff?'offert':fmtE(htL)}</span>
-                    <span style={{...TD,fontSize:11,color:'#6b6560'}}>{tvaR>0?tvaR+'%':'0%'}</span>
-                    <span style={{...TD,fontWeight:600}}>{isOff?'offert':fmtE(ttcL)}</span>
+                    <span style={{...CELL,fontWeight:700}}>{isOff?<span style={{color:'#c0392b',fontWeight:600}}>offert</span>:fmtE(htL)}</span>
+                    <span style={{...CELL,color:'#6b6560'}}>{tvaR>0?tvaR+'%':'0%'}</span>
+                    <span style={CELL}>{isOff?<span style={{color:'#c0392b',fontWeight:600}}>offert</span>:fmtE(ttcL)}</span>
                   </div>;
                 })}
                 <div style={{display:'grid',gridTemplateColumns:GRD,borderTop:'2px solid #2d6a4f',marginTop:4,paddingTop:4}}>
@@ -4728,26 +4733,30 @@ ${infoBlock}
               {filteredTarif.map(p=><option key={p.code} value={p.code}>{`${p.code} — ${p.libelle||''}${p.robe?' ('+p.robe+')':''}`}</option>)}
             </select>
             {displayLignes.length>0&&<>
-              <table style={{width:'100%',borderCollapse:'collapse'}}>
-                <thead><tr style={{background:'#f8f7f5'}}>
-                  {['Code','Produit','Tarif','Quantité','P.U. HT','Total HT',''].map((h,i)=>
-                    <th key={i} style={{padding:'6px 8px',fontSize:11,color:'#6b6560',textAlign:i>=2&&i<5?'right':'left',fontWeight:700}}>{h}</th>)}
+              <table style={{width:'100%',borderCollapse:'collapse',tableLayout:'auto'}}>
+                <thead><tr style={{background:'#f8f7f5',borderBottom:'2px solid #2d6a4f'}}>
+                  {['Code','Produit','Tarif','Qté','P.U. HT','Total HT','TVA','TTC',''].map((h,i)=>
+                    <th key={i} style={{padding:'6px 6px',fontSize:10,color:'#6b6560',textAlign:i>=3&&i<=7?'right':'left',fontWeight:600,whiteSpace:'nowrap'}}>{h}</th>)}
                 </tr></thead>
                 <tbody>{displayLignes.map((l,i)=>{
                   const isAuto=l.qtyMode==='auto';
                   const pu=getLinePU(l);
-                  const qtyOpts=Array.from({length:12},(_,k)=>(k+1)*effectivePCB);
-                  return <tr key={i} style={{borderBottom:'1px solid #f0ede8',background:isAuto?'#fafaf8':'#fff'}}>
-                    <td style={{padding:'8px',fontSize:12,color:'#6b6560'}}>{l.code}</td>
-                    <td style={{padding:'8px',fontSize:12}}>
-                      {l.robe&&<span style={{display:'inline-block',width:9,height:9,borderRadius:'50%',background:getRobeDot(l.robe),marginRight:6,verticalAlign:'middle'}}/>}
+                  const tvaRate=parseFloat(l.tva||0);
+                  const totalHT2=pu*parseInt(l.qty||0);
+                  const tvaVal=totalHT2*(tvaRate/100);
+                  const ttc=totalHT2+tvaVal;
+                  const isOffert=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE;
+                  return <tr key={i} style={{borderBottom:'1px solid #f5f3ef',background:isAuto?'#fafaf8':'#fff'}}>
+                    <td style={{padding:'4px 6px',fontSize:11,fontWeight:600,letterSpacing:'0.3px',whiteSpace:'nowrap'}}>{l.code}</td>
+                    <td style={{padding:'4px 6px',fontSize:11,whiteSpace:'nowrap'}}>
+                      {l.robe&&<span style={{display:'inline-block',width:8,height:8,borderRadius:'50%',background:getRobeDot(l.robe),marginRight:5,verticalAlign:'middle'}}/>}
                       {l.libelle}{isAuto&&<span style={{fontSize:10,color:'#9e9890',marginLeft:5}}>(auto)</span>}
                     </td>
-                    <td style={{padding:'4px 8px',textAlign:'center',whiteSpace:'nowrap'}}>
+                    <td style={{padding:'4px 6px',whiteSpace:'nowrap'}}>
                       {!isAuto&&renderTarifBadgesEditable(l,i)}
                     </td>
-                    <td style={{padding:'8px',textAlign:'right'}}>
-                      {isAuto?<span style={{fontSize:12,color:'#6b6560'}}>{l.qty}</span>
+                    <td style={{padding:'4px 6px',textAlign:'right',whiteSpace:'nowrap'}}>
+                      {isAuto?<span style={{fontSize:11,color:'#6b6560'}}>{l.qty}</span>
                       :(()=>{
                         const pcb=Math.max(1,parseInt(String(l.pcb||'1').replace(/[^0-9]/g,''))||1);
                         const prodT=tarif.find(t=>t.code===l.code);
@@ -4780,19 +4789,22 @@ ${infoBlock}
                           </select>;
                       })()}
                     </td>
-                    <td style={{padding:'8px',fontSize:12,textAlign:'right',color:'#6b6560'}}>
+                    <td style={{padding:'4px 6px',fontSize:11,textAlign:'right'}}>
                       {(()=>{
                         const origPU2=(()=>{const p=tarif.find(t=>t.code===l.code);return p?getBasePU(p,l.qty):0;})();
-                        const hasRemise2=l.remise>0&&l.prix!==undefined;
+                        const hasRemise2=!isOffert&&l.remise>0&&l.prix!==undefined;
+                        if(isOffert) return <span style={{color:'#c0392b',fontWeight:600}}>offert</span>;
                         return <span style={{display:'inline-flex',alignItems:'center',gap:4,flexWrap:'wrap',justifyContent:'flex-end'}}>
                           <span style={{fontWeight:hasRemise2?700:400}}>{fmtE(pu)}</span>
                           {hasRemise2&&<span style={{fontSize:10,color:'#9e9890',textDecoration:'line-through'}}>{fmtE(origPU2)}</span>}
                         </span>;
                       })()}
                     </td>
-                    <td style={{padding:'8px',fontSize:12,textAlign:'right',fontWeight:600}}>{fmtE(pu*parseInt(l.qty||0))}</td>
-                    <td style={{padding:'4px',textAlign:'center'}}>
-                      {!isAuto&&<button onClick={()=>remLigne(i)} style={{border:'none',background:'none',color:'#c0392b',cursor:'pointer',fontSize:14,padding:'2px 6px'}}>x</button>}
+                    <td style={{padding:'4px 6px',fontSize:11,textAlign:'right',fontWeight:700}}>{isOffert?'offert':fmtE(pu*parseInt(l.qty||0))}</td>
+                    <td style={{padding:'4px 6px',fontSize:11,textAlign:'right',color:'#6b6560'}}>{tvaRate>0?(tvaRate+'%'):'0%'}</td>
+                    <td style={{padding:'4px 6px',fontSize:11,textAlign:'right'}}>{isOffert?'offert':fmtE(ttc)}</td>
+                    <td style={{padding:'4px 6px',textAlign:'center'}}>
+                      {!isAuto&&<button onClick={()=>remLigne(i)} style={{border:'none',background:'none',color:'#c0392b',cursor:'pointer',fontSize:14,padding:'2px 6px'}}>×</button>}
                     </td>
                   </tr>;
                 })}</tbody>
