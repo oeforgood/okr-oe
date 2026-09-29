@@ -56,8 +56,6 @@ const ROLES = [
   { value: 'inactive',    label: 'Fini' },
 ];
 
-// Fonctionnalités restreintes par rôle
-const COUTANT_ROLES = ['owner', 'marketing'];
 const ALLOWED_DOMAIN = "oeforgood.com";
 const OBJ_BG=["#dbeafe","#dcfce7","#fce7f3","#fef3c7","#ede9fe","#ffedd5","#e0f2fe","#f0fdf4","#fdf4ff","#fff7ed","#ecfdf5"];
 const OBJ_TX=["#1e40af","#166534","#9d174d","#92400e","#5b21b6","#9a3412","#075985","#14532d","#701a75","#7c2d12","#064e3b"];
@@ -3881,7 +3879,7 @@ const ROBE_COLORS = {
 };
 function getRobeDot(robe){return (ROBE_COLORS[(robe||'').toLowerCase()]||{dot:'#9e9890'}).dot;}
 
-function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3}){
+function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3}){
   const [mode,setMode]=React.useState('commande');
   const [tarif,setTarif]=React.useState([]);
   const [loadingTarif,setLoadingTarif]=React.useState(true);
@@ -3919,7 +3917,8 @@ function DevisCommandePage({onBack,currentUser,teamMember,onGoOKR,onGoUpdate,onG
   const [tariEvent,setTariEvent]=React.useState(false);
   const [prixCoutant,setPrixCoutant]=React.useState(false);
   const userRole=currentUser?.email===OWNER_EMAIL?'owner':(teamMember?.role||'');
-  const canPrixCoutant=COUTANT_ROLES.includes(userRole);
+  const perms=rolePermissions||{};
+  const canPrixCoutant=userRole==='owner'||(perms.coutant?.[userRole]===true);
   const [gratuite,setGratuite]=React.useState(false);
   const [gratuiteModal,setGratuiteModal]=React.useState(false);
   const [gratuiteRaison,setGratuiteRaison]=React.useState('');
@@ -4998,7 +4997,72 @@ function TarifTab({db}){
 }
 
 
-function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions,catTypes,onSaveCatTypes,codeMap,onSaveCodeMap,customSubcatLabels,onSaveCustomSubcatLabels,savedCanalMargin,onSaveCanalMargin,onSendMessage,onSaveBsv3,onUploadReporting}){
+// Liste des fonctionnalités gérées par permissions
+const PERMISSION_FEATURES=[
+  {key:'coutant', label:'Prix coûtant', description:'Afficher le checkbox "Prix coûtant" dans les devis/commandes'},
+];
+const PERMISSION_ROLES=[
+  {value:'marketing',  label:'Marketing'},
+  {value:'production', label:'Production'},
+  {value:'sales',      label:'Sales'},
+  {value:'admin',      label:'Admin'},
+];
+
+function PermissionsMatrix({rolePermissions,onSave}){
+  const [perms,setPerms]=useState(rolePermissions||{});
+  // Sync si rolePermissions change (onSnapshot temps réel)
+  useEffect(()=>{setPerms(rolePermissions||{});},[rolePermissions]);
+
+  function toggle(featureKey,roleValue){
+    const current=perms[featureKey]||{};
+    const updated={...perms,[featureKey]:{...current,[roleValue]:!current[roleValue]}};
+    setPerms(updated);
+    onSave&&onSave(updated);
+  }
+
+  const TH={padding:'8px 16px',fontSize:11,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:.5,textAlign:'center',borderBottom:'2px solid #2d6a4f'};
+  const TD={padding:'10px 16px',borderBottom:'1px solid #f0ede8',fontSize:13,textAlign:'center'};
+
+  return <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'20px 24px'}}>
+    <div style={{fontSize:14,fontWeight:700,color:'#2d6a4f',marginBottom:4}}>Permissions par rôle</div>
+    <div style={{fontSize:12,color:'#9e9890',marginBottom:20}}>
+      Le Propriétaire a toujours accès à tout. Les modifications prennent effet instantanément pour tous les utilisateurs connectés.
+    </div>
+    <table style={{width:'100%',borderCollapse:'collapse'}}>
+      <thead>
+        <tr style={{background:'#f5f3ef'}}>
+          <th style={{...TH,textAlign:'left',width:'40%'}}>Fonctionnalité</th>
+          {PERMISSION_ROLES.map(r=>
+            <th key={r.value} style={TH}>{r.label}</th>
+          )}
+        </tr>
+      </thead>
+      <tbody>
+        {PERMISSION_FEATURES.map(f=>(
+          <tr key={f.key}>
+            <td style={{...TD,textAlign:'left'}}>
+              <div style={{fontWeight:600,color:'#1a1814'}}>{f.label}</div>
+              {f.description&&<div style={{fontSize:11,color:'#9e9890',marginTop:2}}>{f.description}</div>}
+            </td>
+            {PERMISSION_ROLES.map(r=>{
+              const checked=!!(perms[f.key]?.[r.value]);
+              return <td key={r.value} style={TD}>
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={()=>toggle(f.key,r.value)}
+                  style={{width:16,height:16,cursor:'pointer',accentColor:'#2d6a4f'}}
+                />
+              </td>;
+            })}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>;
+}
+
+function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,onSaveQuestions,catTypes,onSaveCatTypes,codeMap,onSaveCodeMap,customSubcatLabels,onSaveCustomSubcatLabels,savedCanalMargin,onSaveCanalMargin,onSendMessage,onSaveBsv3,onUploadReporting,rolePermissions,onSaveRolePermissions}){
   const [members,setMembers]=useState(teamMembers.map(m=>({...m})));
   const [allHsOwners,setAllHsOwners]=useState([]);
 
@@ -5119,7 +5183,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
     <TopBar onBack={onBack} title="⚙️ Paramètres"/>
     <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
       <div style={{display:"flex",gap:10,marginBottom:20}}>
-        {([{k:"members",l:"👥 Membres & rôles"},{k:"absences",l:"🌴 Absences"},...(currentUser?.email===OWNER_EMAIL?[{k:"questions",l:"❓ Questions Update"},{k:"history",l:"📋 Historique Updates"},{k:"feedback",l:"💡 Feedback"},{k:"reporting_params",l:"⚙️ Reporting"},{k:"bsv3",l:"📊 Base Sales v3"},{k:"tarif",l:"💰 Tarif"}]:[])]).map(t=><button key={t.k} onClick={()=>setTab(t.k)}
+        {([{k:"members",l:"👥 Membres & rôles"},{k:"absences",l:"🌴 Absences"},...(currentUser?.email===OWNER_EMAIL?[{k:"permissions",l:"🔐 Permissions"},{k:"questions",l:"❓ Questions Update"},{k:"history",l:"📋 Historique Updates"},{k:"feedback",l:"💡 Feedback"},{k:"reporting_params",l:"⚙️ Reporting"},{k:"bsv3",l:"📊 Base Sales v3"},{k:"tarif",l:"💰 Tarif"}]:[])]).map(t=><button key={t.k} onClick={()=>setTab(t.k)}
           style={{padding:"8px 16px",borderRadius:8,border:`1px solid ${tab===t.k?"#2d6a4f":"#e2ddd6"}`,background:tab===t.k?"#2d6a4f":"#fff",color:tab===t.k?"#fff":"#6b6560",cursor:"pointer",fontSize:13,fontWeight:500}}>
           {t.l}
         </button>)}
@@ -5181,6 +5245,8 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
         </div>{/* end left col */}
 
       </div>}
+
+      {tab==="permissions"&&<PermissionsMatrix rolePermissions={rolePermissions} onSave={onSaveRolePermissions}/>}
 
       {tab==="absences"&&<div style={{background:"#fff",borderRadius:10,border:"1px solid #e2ddd6",padding:"16px 20px"}}>
         <AbsencesTab teamMembers={members}/>
@@ -7647,6 +7713,21 @@ export default function App(){
     return()=>unsubAbs();
   },[]);
 
+  // Permissions par rôle — temps réel via onSnapshot
+  const DEFAULT_PERMISSIONS={coutant:{marketing:true,production:false,sales:false,admin:false}};
+  const [rolePermissions,setRolePermissions]=useState(DEFAULT_PERMISSIONS);
+  useEffect(()=>{
+    const unsub=onSnapshot(doc(db,'app_config','role_permissions'),(snap)=>{
+      if(snap.exists())setRolePermissions(snap.data());
+      else setRolePermissions(DEFAULT_PERMISSIONS);
+    });
+    return()=>unsub();
+  },[]);
+  async function handleSaveRolePermissions(perms){
+    setRolePermissions(perms);
+    await setDoc(doc(db,'app_config','role_permissions'),perms);
+  }
+
   // Load reporting meta (canalMargin) from Firebase
   useEffect(()=>{
     const unsubMeta=onSnapshot(doc(db,'reporting','meta'),(snap)=>{
@@ -8064,8 +8145,8 @@ export default function App(){
   if(page==="update")return <UpdatePage onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} onGoDevis={()=>setPage("devis")} teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} okrData={okrData} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers}/>;
   if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} onGoDevis={()=>setPage("devis")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels} savedCanalMargin={savedCanalMargin} currentUser={authUser}/>;
   if(page==="bsv3")return <Bsv3Page onBack={()=>setPage('dashboard')} onGoOKR={()=>setPage('okr')} onGoUpdate={()=>setPage('update')} onGoReporting={()=>setPage('reporting')} onGoBsv3={()=>setPage('bsv3')} onGoDevis={()=>setPage('devis')} currentUser={authUser} onUpdatePuce={updatePuceInFirebase}/>;
-  if(page==="devis")return <DevisCommandePage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMember={currentTeamMember} onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} onGoDevis={()=>setPage("devis")}/>;
-  if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels} savedCanalMargin={savedCanalMargin} onSaveCanalMargin={handleSaveCanalMargin} onSendMessage={handleSendMessage} onSaveBsv3={handleSaveBsv3} onUpdatePuce={updatePuceInFirebase} onUploadReporting={handleUploadReporting}/>;
+  if(page==="devis")return <DevisCommandePage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMember={currentTeamMember} rolePermissions={rolePermissions} onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} onGoDevis={()=>setPage("devis")}/>;
+  if(page==="settings"&&isAdmin)return <SettingsPage onBack={()=>setPage("dashboard")} currentUser={authUser} teamMembers={teamMembers} onSaveMembers={handleSaveMembers} questions={questions} onSaveQuestions={handleSaveQuestions} catTypes={catTypes} onSaveCatTypes={handleSaveCatTypes} codeMap={codeMap} onSaveCodeMap={handleSaveCodeMap} customSubcatLabels={customSubcatLabels} onSaveCustomSubcatLabels={handleSaveCustomLabels} savedCanalMargin={savedCanalMargin} onSaveCanalMargin={handleSaveCanalMargin} onSendMessage={handleSendMessage} onSaveBsv3={handleSaveBsv3} onUpdatePuce={updatePuceInFirebase} onUploadReporting={handleUploadReporting} rolePermissions={rolePermissions} onSaveRolePermissions={handleSaveRolePermissions}/>;
 
   return <Dashboard
     isMobile={isMobile}
