@@ -4201,8 +4201,10 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
       const valeur=Math.round((basePU-prix)*100)/100;
       setRemiseModal({idx:i,code:l.code,libelle:l.libelle,qty:parseInt(l.qty||0),basePU,tarifLabel,draft:{taux,valeur,prix}});
     }
+    // Labels de base uniquement (tarif, palette) — sans Coûtant ni Remise qui ont leur propre badge avec ❌
+    const baseLbls=lbls.filter(x=>x!=='Coûtant'&&!x.startsWith('Remise'));
     return <span style={{display:'flex',gap:2,flexWrap:'nowrap',alignItems:'center'}}>
-      {lbls.filter(x=>x!=='Coûtant').map((lb,j)=>{
+      {baseLbls.map((lb,j)=>{
         const[bg,fg]=colors[lb]||['#f8f7f5','#6b6560'];
         return<span key={j} onClick={openRemiseModal} style={{fontSize:9,padding:'1px 4px',borderRadius:4,background:bg,color:fg,fontWeight:600,whiteSpace:'nowrap',cursor:'pointer'}} title="Cliquer pour appliquer une remise">{lb}</span>;
       })}
@@ -4694,7 +4696,11 @@ ${infoBlock}
                     setPrixCoutant(e.target.checked);
                     if(e.target.checked){
                       setGratuite(false);setGratuiteRaison('');
+                      // Remet les flags à zéro pour que le useEffect réapplique sur toutes les lignes
                       setLignes(prev=>prev.map(l=>({...l,coutantRemoved:undefined})));
+                    } else {
+                      // Décochage manuel → supprime tous les labels coûtant
+                      setLignes(prev=>prev.map(l=>l.coutant?{...l,prix:undefined,remise:undefined,coutant:undefined,coutantRemoved:undefined}:l));
                     }
                   }}/>
                 Prix coûtant
