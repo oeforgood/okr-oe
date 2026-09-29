@@ -4124,29 +4124,29 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   }
   function getLineTarifLabel(l){
     if(l.qtyMode==='auto')return '';
-    if(gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE)return 'Gratuit';
-    if(tariEvent&&prixCoutant)return ['Events','Coûtant'];
-    if(tariEvent)return 'Events';
-    if(prixCoutant){
-      if(totalEq75>=600)return ['600+','Coûtant'];
-      if(totalEq75>=360)return ['360+','Coûtant'];
-      if(totalEq75>=240)return ['240+','Coûtant'];
-      if(totalEq75>=120)return ['120+','Coûtant'];
-      return ['24+','Coûtant'];
+    if(gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE)return ['Gratuit'];
+    // Tarif de base
+    let base;
+    if(tariEvent) base='Events';
+    else {
+      const prod=tarif.find(t=>t.code===l.code);
+      const q=parseInt(l.qty||0);
+      const qpalRaw=prod?parseInt(String(prod.qpalette||'0').replace(/[^0-9]/g,''))||0:0;
+      const isPalCartons=preparation==='palette_cartons';
+      const isPalCasiers=preparation==='palette_casier_coiffe'||preparation==='palette_casier_sans_coiffe';
+      const isPalQty=isPalCartons?(qpalRaw>0&&q>0&&q%qpalRaw===0):isPalCasiers?(q>=480&&q%480===0):false;
+      if(isPalQty) base='Palette';
+      else if(totalEq75>=600) base='600+';
+      else if(totalEq75>=360) base='360+';
+      else if(totalEq75>=240) base='240+';
+      else if(totalEq75>=120) base='120+';
+      else base='24+';
     }
-    const prod=tarif.find(t=>t.code===l.code);
-    if(!prod)return '';
-    const q=parseInt(l.qty||0);
-    const qpalRaw=parseInt(String(prod.qpalette||'0').replace(/[^0-9]/g,''))||0;
-    const isPalCartons=preparation==='palette_cartons';
-    const isPalCasiers=preparation==='palette_casier_coiffe'||preparation==='palette_casier_sans_coiffe';
-    const isPalQty=isPalCartons?(qpalRaw>0&&q%qpalRaw===0):isPalCasiers?(q>=480&&q%480===0):false;
-    if(isPalQty)return 'Palette';
-    if(totalEq75>=600)return '600+';
-    if(totalEq75>=360)return '360+';
-    if(totalEq75>=240)return '240+';
-    if(totalEq75>=120)return '120+';
-    return '24+';
+    const parts=[base];
+    // Remise/coûtant individuel de la ligne
+    if(l.coutant) parts.push('Coûtant');
+    else if(l.remise>0&&l.prix!==undefined) parts.push(`Remise ${Math.round(l.remise)}%`);
+    return parts;
   }
   function getLinePU(l){return l.prix!==undefined?l.prix:(()=>{const p=tarif.find(t=>t.code===l.code);return p?getPU(p,l.qty):0;})();}
   const totalHT=displayLignes.reduce((s,l)=>s+getLinePU(l)*parseInt(l.qty||0),0);
@@ -4210,7 +4210,10 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
           e.stopPropagation();
           const newLignes=lignes.map((ll,j)=>j===i?{...ll,prix:undefined,remise:undefined,coutant:undefined}:ll);
           setLignes(newLignes);
-          if(l.coutant && !newLignes.some(ll=>ll.coutant&&ll.qtyMode!=='auto')) setTimeout(()=>setPrixCoutant(false),0);
+          if(l.coutant){
+            const nonAuto=newLignes.filter(ll=>ll.qtyMode!=='auto');
+            if(!nonAuto.every(ll=>ll.coutant)) setTimeout(()=>setPrixCoutant(false),0);
+          }
         }} style={{background:'none',border:'none',cursor:'pointer',fontSize:9,padding:'0 0 0 2px',lineHeight:1,color:l.coutant?'#9d174d':'#c0392b'}}>❌</button>
       </span>}
     </span>;
@@ -4226,17 +4229,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
     function lp(s,w){const str=String(s||'');return str.length>=w?str.slice(-w):' '.repeat(w-str.length)+str;}
     function getLineTarifLabelText(l){
       if(l.qtyMode==='auto')return '';
-      if(gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE)return 'Gratuit';
-      const parts=[];
-      if(tariEvent)parts.push('Events');
-      else if(totalEq75>=600)parts.push('600+');
-      else if(totalEq75>=360)parts.push('360+');
-      else if(totalEq75>=240)parts.push('240+');
-      else if(totalEq75>=120)parts.push('120+');
-      else parts.push('24+');
-      if(l.coutant)parts.push('Coûtant');
-      else if(l.remise>0&&l.prix!==undefined)parts.push(`Remise ${Math.round(l.remise)}%`);
-      return parts.join(' ');
+      return getLineTarifLabel(l).join(' ');
     }
     const header=rp('Code',10)+'  '+rp('Produit',32)+'  '+rp('Tarif',12)+'  '+lp('Qté',5)+'  '+lp('P.U. HT',10)+'  '+lp('Total HT',10)+'  TVA';
     const divider='-'.repeat(105);
