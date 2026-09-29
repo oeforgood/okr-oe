@@ -4418,52 +4418,9 @@ ${infoBlock}
                     <span style={{...TD,textAlign:'left'}}>{l.libelle}{l.qtyMode==='auto'?<span style={{fontSize:10,color:'#9e9890',marginLeft:4}}>(auto)</span>:null}</span>
                     <span style={{...TD,textAlign:'left'}}>{getLineTarifBadgesRecap(l)}</span>
                     <span style={TD}>{qty}</span>
-                    {/* P.U. HT — clickable, expands to remise editor */}
                     <span style={{...TD,padding:'2px 2px'}}>
-                      {isOff?<span>offert</span>:isEditing?(
-                        <div style={{display:'flex',alignItems:'center',gap:3,fontSize:11}}>
-                          <span style={{color:'#6b6560',fontWeight:600,whiteSpace:'nowrap'}}>R.</span>
-                          <input
-                            type="number" min="0" max="100" step="0.1"
-                            value={l.remise!==undefined?l.remise:''}
-                            placeholder="0"
-                            onChange={e=>{
-                              const r=parseFloat(e.target.value)||0;
-                              const newPrix=Math.round(origPU*(1-r/100)*100)/100;
-                              updLigne(i,'remise',r);
-                              updLigne(i,'prix',newPrix);
-                            }}
-                            style={{width:34,fontSize:11,border:'1px solid #c0392b',borderRadius:4,padding:'1px 3px',textAlign:'center',color:'#c0392b'}}
-                          />
-                          <span style={{color:'#6b6560'}}>%</span>
-                          <input
-                            type="number" min="0" step="0.01"
-                            value={l.prix!==undefined?l.prix:''}
-                            placeholder={fmtE(origPU)}
-                            onChange={e=>{
-                              const newPrix=parseFloat(e.target.value)||0;
-                              const r=origPU>0?Math.round((1-newPrix/origPU)*10000)/100:0;
-                              updLigne(i,'prix',newPrix);
-                              updLigne(i,'remise',r<0?0:r);
-                            }}
-                            style={{width:52,fontSize:11,border:'1px solid #2d6a4f',borderRadius:4,padding:'1px 3px',textAlign:'center',fontWeight:600}}
-                          />
-                          <button onClick={()=>{updLigne(i,'prix',undefined);updLigne(i,'remise',undefined);setEditingPriceIdx(null);}}
-                            style={{background:'none',border:'none',cursor:'pointer',fontSize:12,padding:0,lineHeight:1}}>❌</button>
-                          {hasRemise||l.prix!==undefined?(
-                            <span style={{fontSize:10,color:'#9e9890',textDecoration:'line-through',whiteSpace:'nowrap'}}>{fmtE(origPU)}</span>
-                          ):null}
-                        </div>
-                      ):(
-                        <span
-                          onClick={()=>{if(!isAuto)setEditingPriceIdx(i);}}
-                          style={{cursor:isAuto?'default':'pointer',display:'flex',alignItems:'center',gap:4}}
-                          title={isAuto?'':'Cliquer pour modifier le prix'}>
-                          <span style={{borderBottom:'1px dashed #2d6a4f'}}>{fmtE(pu)}</span>
-                          {hasRemise&&<span style={{fontSize:10,color:'#9e9890',textDecoration:'line-through'}}>{fmtE(origPU)}</span>}
-                          {hasRemise&&<span style={{fontSize:10,color:'#c0392b',fontWeight:600}}>-{l.remise}%</span>}
-                        </span>
-                      )}
+                      {isOff?'offert':fmtE(pu)}
+                      {hasRemise&&<span style={{fontSize:10,color:'#c0392b',fontWeight:600,marginLeft:4}}>-{l.remise}%</span>}
                     </span>
                     <span style={{...TD,fontWeight:700}}>{isOff?'offert':fmtE(htL)}</span>
                     <span style={{...TD,fontSize:11,color:'#6b6560'}}>{tvaR>0?tvaR+'%':'0%'}</span>
