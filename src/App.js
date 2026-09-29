@@ -3898,6 +3898,9 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   const [preparation,setPreparation]=React.useState('');
   const [lignes,setLignes]=React.useState([]);
   const [editingPriceIdx,setEditingPriceIdx]=React.useState(null);
+  const [remiseJustif,setRemiseJustif]=React.useState('');
+  const [remiseJustifModal,setRemiseJustifModal]=React.useState(false);
+  const [remiseJustifDraft,setRemiseJustifDraft]=React.useState('');
   const [selectedProd,setSelectedProd]=React.useState('');
   const [savedClients,setSavedClients]=React.useState([]);
   const [selectedClientKey,setSelectedClientKey]=React.useState('');
@@ -4087,6 +4090,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   const totalHT=displayLignes.reduce((s,l)=>s+getLinePU(l)*parseInt(l.qty||0),0);
   const totalTVA=displayLignes.reduce((s,l)=>s+getLinePU(l)*parseInt(l.qty||0)*(parseFloat(l.tva||0)/100),0);
   const totalTTC=totalHT+totalTVA;
+  const hasAnyRemise=displayLignes.some(l=>l.remise>0&&l.prix!==undefined);
   function fmtE(v){return Number(v).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';}
   const prepLabel=PREP_OPTIONS.find(p=>p.k===preparation)?.l||'';
   const expA=sameAddr||retraitLoft?factAddr:expAddr;
@@ -4239,7 +4243,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
         <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;white-space:nowrap">${ligne.libelle||''}</td>
         <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;white-space:nowrap">${tarifHtml}</td>
         <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;text-align:right;white-space:nowrap">${qty}</td>
-        <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;text-align:right;white-space:nowrap">${isOffert?'offert':fmtE(pu)}</td>
+        <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;text-align:right;white-space:nowrap">${isOffert?'offert':(ligne.remise>0&&ligne.prix!==undefined?`<span style="font-weight:600">${fmtE(pu)}</span> <span style="text-decoration:line-through;color:#9e9890;font-size:10px">${fmtE((()=>{const p=tarif.find(t=>t.code===ligne.code);return p?getPU(p,ligne.qty):0;})())}</span>`:fmtE(pu))}</td>
         <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;text-align:right;font-weight:700;white-space:nowrap">${isOffert?'offert':fmtE(totalHT2)}</td>
         <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;text-align:right;color:#6b6560;white-space:nowrap">${isOffert?'':tvaRate>0?(tvaRate+'%'):'0%'}</td>
         <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;text-align:right;white-space:nowrap">${isOffert?'offert':fmtE(ttcLigne)}</td>
@@ -4287,13 +4291,14 @@ ${infoBlock}
       </tr>
     </tfoot>
   </table>
+  ${mode==='commande'&&remiseJustif?`<div style="padding:10px 16px;background:#fff5f5;border-top:1px solid #f5c6c6;font-size:11px;color:#c0392b"><span style="font-weight:700;text-transform:uppercase;letter-spacing:0.4px">Justification remise : </span>${remiseJustif}</div>`:''}
 </div>
 <div style="background:${brandBeige};padding:12px 24px;border-radius:0 0 8px 8px;border-top:1px solid #e2ddd6;font-size:11px;color:#6b6560;text-align:center">
   ${footerEmail}
 </div>
 </div>`;
     const msgBody=intro+htmlTable;
-    await setDoc(doc(db,'devis_commandes',ref),{ref,mode,societe,contact,factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,preparation,tariEvent,infoLivraison,message,lignes:displayLignes,totalHT,totalTVA,totalTTC,createdAt:Date.now(),createdBy:currentUser?.email});
+    await setDoc(doc(db,'devis_commandes',ref),{ref,mode,societe,contact,factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,preparation,tariEvent,infoLivraison,message,lignes:displayLignes,totalHT,totalTVA,totalTTC,remiseJustif:remiseJustif||'',createdAt:Date.now(),createdBy:currentUser?.email});
     try{
       const toEmail=mode==='devis'
         ?(factAddr.email||'')
@@ -4316,6 +4321,7 @@ ${infoBlock}
     setExpAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});
     setSameAddr(false);setRetraitLoft(false);setMessage('');setInfoLivraison('');
     setTariEvent(false);setPrixCoutant(false);setGratuite(false);setGratuiteRaison('');
+    setRemiseJustif('');setEditingPriceIdx(null);
     setSelectedClientKey('');setRecallRef('');setRecallClient('');
     // Rechargement depuis Firestore pour inclure ce qui vient d'être créé
     getDocs(collection(db,'devis_clients')).then(snap=>{setSavedClients(snap.docs.map(d=>({key:d.id,...d.data()})).sort((a,b)=>(a.societe||'').localeCompare(b.societe||'')));});
@@ -4553,7 +4559,7 @@ ${infoBlock}
               {[...new Set(savedOrders.filter(o=>!recallTeammate||o.createdBy===recallTeammate).map(o=>o.societe||'').filter(s=>s&&savedClients.some(sc=>sc.societe===s)))].sort().map(s=><option key={s} value={s}>{s}</option>)}
             </select>
             {['commande','devis'].map(m=><button key={m} onClick={()=>{setRecallMode(m);setRecallRef('');}} style={{padding:'5px 10px',borderRadius:6,fontSize:11,fontWeight:500,cursor:'pointer',border:`1px solid ${recallMode===m?'#2d6a4f':'#e2ddd6'}`,background:recallMode===m?'#2d6a4f':'#fff',color:recallMode===m?'#fff':'#6b6560'}}>{m==='commande'?'Commande':'Devis'}</button>)}
-            <select value={recallRef} onChange={e=>{const ref=e.target.value;setRecallRef(ref);if(!ref)return;const o=savedOrders.find(x=>x.ref===ref);if(!o)return;setSociete(o.societe||'');setContact(o.contact||'');setFactAddr(o.factAddr||{addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setExpAddr(o.expAddr||{addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setSameAddr(false);setRetraitLoft(o.retraitLoft||false);setPreparation(o.preparation||'');setMessage(o.message||'');setTariEvent(o.tariEvent||false);setPrixCoutant(false);setGratuite(false);setGratuiteRaison('');setLignes((o.lignes||[]).filter(l=>l.qtyMode!=='auto').map(l=>({...l,qtyMode:'select'})));}}
+            <select value={recallRef} onChange={e=>{const ref=e.target.value;setRecallRef(ref);if(!ref)return;const o=savedOrders.find(x=>x.ref===ref);if(!o)return;setSociete(o.societe||'');setContact(o.contact||'');setFactAddr(o.factAddr||{addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setExpAddr(o.expAddr||{addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setSameAddr(false);setRetraitLoft(o.retraitLoft||false);setPreparation(o.preparation||'');setMessage(o.message||'');setTariEvent(o.tariEvent||false);setPrixCoutant(false);setGratuite(false);setGratuiteRaison('');setLignes((o.lignes||[]).filter(l=>l.qtyMode!=='auto').map(l=>({...l,qtyMode:'select'})));setRemiseJustif(o.remiseJustif||'');}}
               style={{flex:1,fontSize:11,padding:'5px 8px',borderRadius:7,border:'1px solid #e2ddd6',minWidth:200,color:recallRef?'#1a1814':'#9e9890'}}>
               <option value=''>— Choisir —</option>
               {savedOrders.filter(o=>(!recallTeammate||o.createdBy===recallTeammate)&&(!recallClient||o.societe===recallClient)&&o.mode===recallMode).map(o=>{const d=o.createdAt?new Date(o.createdAt).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'';const tm=(window._teamMembers||[]).find(m=>m.email===o.createdBy);return<option key={o.ref} value={o.ref}>{o.ref} · {o.societe} · {d}{tm?' ('+tm.prenom+')':''}</option>;})}
@@ -4735,26 +4741,62 @@ ${infoBlock}
                 <div style={{fontSize:13,color:'#6b6560'}}>Total HT : <strong>{fmtE(totalHT)}</strong></div>
                 <div style={{fontSize:13,color:'#6b6560'}}>TVA : <strong>{fmtE(totalTVA)}</strong></div>
                 <div style={{fontSize:16,fontWeight:800,color:gratuite?'#c0392b':'#2d6a4f',marginTop:6}}>{gratuite?'OFFERT — Gratuité':`Total TTC : ${fmtE(totalTTC)}`}</div>
+                {remiseJustif&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600,marginTop:6,textAlign:'right'}}>Remise justifiée : {remiseJustif}</div>}
               </div>
             </>}
           </>}
         </div>}
 
-        {preparation&&<div style={{display:'flex',justifyContent:'flex-end',alignItems:'center',gap:12}}>
-          {isCoiffePrep&&totalBouteilles>0&&!coiffeOk&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600}}>⚠️ {totalBouteilles} bouteilles — multiple de 120 requis</div>}
-          {minQtyMsg&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600}}>⚠️ {minQtyMsg}</div>}
-          <button onClick={handleEnvoyer}
-            disabled={sending||!coreLignes.length||!coiffeOk||!minQtyOk}
-            style={{padding:'12px 32px',
-              background:sending||!coreLignes.length||!coiffeOk||!minQtyOk?'#e2ddd6':'#2d6a4f',
-              color:sending||!coreLignes.length||!coiffeOk||!minQtyOk?'#9e9890':'#fff',
-              border:'none',borderRadius:10,fontSize:15,fontWeight:700,cursor:'pointer'}}>
-            {sending?'Envoi en cours...':(mode==='devis'?'Envoyer le devis':'Enregistrer la commande')}
-          </button>
+        {preparation&&<div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:8}}>
+          {remiseJustif&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600,background:'#fff5f5',border:'1px solid #f5c6c6',borderRadius:7,padding:'6px 12px',maxWidth:500,textAlign:'right'}}>
+            <span style={{fontWeight:700}}>Justification remise : </span>{remiseJustif}
+          </div>}
+          <div style={{display:'flex',justifyContent:'flex-end',alignItems:'center',gap:12}}>
+            {isCoiffePrep&&totalBouteilles>0&&!coiffeOk&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600}}>⚠️ {totalBouteilles} bouteilles — multiple de 120 requis</div>}
+            {minQtyMsg&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600}}>⚠️ {minQtyMsg}</div>}
+            {hasAnyRemise&&!remiseJustif
+              ?<button onClick={()=>{setRemiseJustifDraft('');setRemiseJustifModal(true);}}
+                style={{padding:'12px 32px',background:'#c0392b',color:'#fff',border:'none',borderRadius:10,fontSize:15,fontWeight:700,cursor:'pointer'}}>
+                Expliquer la remise
+              </button>
+              :<button onClick={handleEnvoyer}
+                disabled={sending||!coreLignes.length||!coiffeOk||!minQtyOk}
+                style={{padding:'12px 32px',
+                  background:sending||!coreLignes.length||!coiffeOk||!minQtyOk?'#e2ddd6':'#2d6a4f',
+                  color:sending||!coreLignes.length||!coiffeOk||!minQtyOk?'#9e9890':'#fff',
+                  border:'none',borderRadius:10,fontSize:15,fontWeight:700,cursor:'pointer'}}>
+                {sending?'Envoi en cours...':(mode==='devis'?'Envoyer le devis':'Enregistrer la commande')}
+              </button>
+            }
+          </div>
         </div>}
       </>}
     </div>
 
+    {remiseJustifModal&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}
+      onClick={()=>setRemiseJustifModal(false)}>
+      <div style={{background:'#fff',borderRadius:14,padding:'24px',width:440,maxWidth:'90vw'}} onClick={e=>e.stopPropagation()}>
+        <div style={{fontSize:15,fontWeight:700,marginBottom:8}}>Justification de la remise</div>
+        <div style={{fontSize:13,color:'#6b6560',marginBottom:14}}>Pourquoi un prix remisé a-t-il été appliqué ?</div>
+        <textarea
+          value={remiseJustifDraft}
+          onChange={e=>setRemiseJustifDraft(e.target.value)}
+          rows={4}
+          placeholder="Ex : client fidèle, partenariat, événement..."
+          style={{width:'100%',fontSize:13,border:'1px solid #e2ddd6',borderRadius:8,padding:'10px',resize:'vertical',fontFamily:'inherit',boxSizing:'border-box'}}
+          autoFocus
+        />
+        <div style={{display:'flex',gap:8,marginTop:14,justifyContent:'flex-end'}}>
+          <button onClick={()=>setRemiseJustifModal(false)}
+            style={{padding:'8px 18px',background:'#f8f7f5',border:'1px solid #e2ddd6',borderRadius:8,fontSize:13,cursor:'pointer'}}>Annuler</button>
+          <button onClick={()=>{setRemiseJustif(remiseJustifDraft.trim());setRemiseJustifModal(false);}}
+            disabled={!remiseJustifDraft.trim()}
+            style={{padding:'8px 20px',background:remiseJustifDraft.trim()?'#2d6a4f':'#e2ddd6',color:remiseJustifDraft.trim()?'#fff':'#9e9890',border:'none',borderRadius:8,fontSize:13,fontWeight:700,cursor:'pointer'}}>
+            Valider
+          </button>
+        </div>
+      </div>
+    </div>}
     {gratuiteModal&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}
       onClick={()=>{setGratuiteModal(false);setGratuite(false);}}>
       <div style={{background:'#fff',borderRadius:14,padding:'24px',width:420,maxWidth:'90vw'}} onClick={e=>e.stopPropagation()}>
