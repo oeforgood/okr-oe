@@ -4516,7 +4516,7 @@ ${infoBlock}
                   const ttcL=htL+tvaV;
                   const isOff=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE;
                   const isAuto=l.qtyMode==='auto';
-                  const isEditing=false;
+                  const isEditing=editingPriceIdx===i&&!isOff&&!isAuto;
                   // compute original (pre-discount) price for strikethrough display
                   const origPU=(()=>{const p=tarif.find(t=>t.code===l.code);return p?getBasePU(p,l.qty):0;})();
                   const hasRemise=!isOff&&l.remise>0&&l.prix!==undefined;
@@ -4890,8 +4890,8 @@ ${infoBlock}
                     style={{...INP_S,paddingRight:40}}/>
                   <span style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',fontSize:12,color:'#6b6560',pointerEvents:'none'}}>%</span>
                   <span style={{position:'absolute',right:24,top:0,bottom:0,display:'flex',flexDirection:'column',borderLeft:'1px solid #e2ddd6'}}>
-                    <button onClick={()=>{const r=Math.round(draft.taux);onTaux(r===draft.taux?r+1:r);}} style={{flex:1,border:'none',background:'transparent',cursor:'pointer',fontSize:9,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 4px'}}>▲</button>
-                    <button onClick={()=>{const r=Math.round(draft.taux);onTaux(Math.max(0,r===draft.taux?r-1:r));}} style={{flex:1,border:'none',borderTop:'1px solid #e2ddd6',background:'transparent',cursor:'pointer',fontSize:9,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 4px'}}>▼</button>
+                    <button onClick={()=>onTaux(draft.taux+1)} style={{flex:1,border:'none',background:'transparent',cursor:'pointer',fontSize:9,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 4px'}}>▲</button>
+                    <button onClick={()=>onTaux(Math.max(0,draft.taux-1))} style={{flex:1,border:'none',borderTop:'1px solid #e2ddd6',background:'transparent',cursor:'pointer',fontSize:9,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 4px'}}>▼</button>
                   </span>
                 </div>
               </div>
