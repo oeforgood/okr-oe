@@ -3897,7 +3897,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   const [message,setMessage]=React.useState('');
   const [preparation,setPreparation]=React.useState('');
   const [lignes,setLignes]=React.useState([]);
-  const [editingPriceIdx,setEditingPriceIdx]=React.useState(null);
+  const [remiseModal,setRemiseModal]=React.useState(null); // {idx,code,libelle,qty,basePU,tarifLabel,draft:{taux,valeur,prix}}
   const [remiseJustif,setRemiseJustif]=React.useState('');
   const [remiseJustifModal,setRemiseJustifModal]=React.useState(false);
   const [remiseJustifDraft,setRemiseJustifDraft]=React.useState('');
@@ -4015,9 +4015,10 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
     return parsePrix(prod.prix24);
   }
 
-  // Recalcule le taux de remise quand le tarif change (Events / Coûtant) — le prix remisé reste fixe
+  // Quand tariEvent change → recalcule le taux de remise sur les lignes avec prix fixe (hors coûtant)
   React.useEffect(()=>{
     setLignes(prev=>prev.map(l=>{
+      if(l.coutant)return l; // coûtant géré séparément
       if(l.prix===undefined)return l;
       const prod=tarif.find(t=>t.code===l.code);
       if(!prod)return l;
@@ -4026,7 +4027,28 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
       return {...l,remise:newRemise<0?0:newRemise};
     }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[tariEvent,prixCoutant]);
+  },[tariEvent]);
+
+  // Prix coûtant → applique/retire remise 15% sur toutes les lignes
+  React.useEffect(()=>{
+    if(prixCoutant){
+      setLignes(prev=>prev.map(l=>{
+        if(l.qtyMode==='auto')return l;
+        const prod=tarif.find(t=>t.code===l.code);
+        if(!prod)return l;
+        const base=getPU(prod,l.qty);
+        const prix=Math.round(base*0.85*100)/100;
+        return {...l,prix,remise:15,coutant:true};
+      }));
+    } else {
+      // Retire uniquement les remises marquées coûtant
+      setLignes(prev=>prev.map(l=>{
+        if(!l.coutant)return l;
+        return {...l,prix:undefined,remise:undefined,coutant:undefined};
+      }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[prixCoutant]);
 
   // Efface toutes les remises quand gratuite est activé
   React.useEffect(()=>{
@@ -4049,7 +4071,9 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
     const rawPcb=parseInt(String(prod.pcb||'').replace(/[^0-9]/g,''))||1;
     const pcb=preparation==='palette_cartons'?Math.max(1,rawPcb):effectivePCB;
     const qty=Math.max(1,pcb);
-    setLignes(p=>[...p,{code:prod.code,libelle:prod.libelle,robe:prod.robe,pcb,eq75:prod.eq75,tva:prod.tva,qty,qtyMode:pcb>1?'select':'free'}]);
+    const newLigne={code:prod.code,libelle:prod.libelle,robe:prod.robe,pcb,eq75:prod.eq75,tva:prod.tva,qty,qtyMode:pcb>1?'select':'free'};
+    if(prixCoutant){const base=getPU(prod,qty);newLigne.prix=Math.round(base*0.85*100)/100;newLigne.remise=15;newLigne.coutant=true;}
+    setLignes(p=>[...p,newLigne]);
     setSelectedProd('');
   }
   function updLigne(i,f,v){setLignes(p=>p.map((l,j)=>j===i?{...l,[f]:v}:l));}
@@ -4137,12 +4161,40 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
     else if(totalEq75>=120)parts.push('120+');
     else parts.push('24+');
     if(prixCoutant)parts.push('Coûtant');
-    return <span style={{display:'flex',gap:2,flexWrap:'nowrap'}}>
-      {parts.map((p,i)=>{
-        const colors={Coûtant:['#ea580c','#fff'],Events:['#fef3c7','#92400e'],'600+':['#f0fdf4','#2d6a4f'],'360+':['#eff6ff','#1d4ed8'],'240+':['#f5f3ff','#6d28d9'],'120+':['#fdf4ff','#9333ea'],'24+':['#f8f7f5','#6b6560']};
-        const[bg,fg]=colors[p]||['#f8f7f5','#6b6560'];
-        return <span key={i} style={{fontSize:9,padding:'1px 4px',borderRadius:4,background:bg,color:fg,fontWeight:600,whiteSpace:'nowrap'}}>{p}</span>;
+    const colors={Coûtant:['#ea580c','#fff'],Events:['#fef3c7','#92400e'],'600+':['#f0fdf4','#2d6a4f'],'360+':['#eff6ff','#1d4ed8'],'240+':['#f5f3ff','#6d28d9'],'120+':['#fdf4ff','#9333ea'],'24+':['#f8f7f5','#6b6560'],Palette:['#f0fdf4','#2d6a4f']};
+    return <span style={{display:'flex',gap:2,flexWrap:'nowrap',alignItems:'center'}}>
+      {parts.map((p,i)=>{const[bg,fg]=colors[p]||['#f8f7f5','#6b6560'];return<span key={i} style={{fontSize:9,padding:'1px 4px',borderRadius:4,background:bg,color:fg,fontWeight:600,whiteSpace:'nowrap'}}>{p}</span>;})}
+      {l.remise>0&&l.prix!==undefined&&<span style={{fontSize:9,padding:'1px 4px',borderRadius:4,background:'#fef2f2',color:'#c0392b',fontWeight:600,whiteSpace:'nowrap'}}>{l.coutant?'Coûtant':`Remise ${Math.round(l.remise)}%`}</span>}
+    </span>;
+  }
+  // Badge tarif cliquable pour le tableau d'édition
+  function renderTarifBadgesEditable(l,i){
+    if(l.qtyMode==='auto')return null;
+    if(gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE)return<span style={{fontSize:9,padding:'1px 4px',borderRadius:4,background:'#fef2f2',color:'#c0392b',fontWeight:600}}>Gratuit</span>;
+    const lbl=getLineTarifLabel(l);
+    const lbls=Array.isArray(lbl)?lbl:(lbl?[lbl]:[]);
+    const colors={Coûtant:['#ea580c','#fff'],Events:['#fef3c7','#92400e'],'600+':['#f0fdf4','#2d6a4f'],'360+':['#eff6ff','#1d4ed8'],'240+':['#f5f3ff','#6d28d9'],'120+':['#fdf4ff','#9333ea'],'24+':['#f8f7f5','#6b6560'],Palette:['#f0fdf4','#2d6a4f']};
+    const hasRemise2=l.remise>0&&l.prix!==undefined;
+    const prod=tarif.find(t=>t.code===l.code);
+    const basePU=prod?getPU(prod,l.qty):0;
+    const tarifLabel=lbls.filter(x=>x!=='Coûtant').join(' ');
+    function openRemiseModal(){
+      const taux=hasRemise2?l.remise:0;
+      const prix=hasRemise2?l.prix:basePU;
+      const valeur=Math.round((basePU-prix)*100)/100;
+      setRemiseModal({idx:i,code:l.code,libelle:l.libelle,qty:parseInt(l.qty||0),basePU,tarifLabel,draft:{taux,valeur,prix}});
+    }
+    return <span style={{display:'flex',gap:2,flexWrap:'nowrap',alignItems:'center'}}>
+      {lbls.filter(x=>x!=='Coûtant').map((lb,j)=>{
+        const[bg,fg]=colors[lb]||['#f8f7f5','#6b6560'];
+        return<span key={j} onClick={openRemiseModal} style={{fontSize:9,padding:'1px 4px',borderRadius:4,background:bg,color:fg,fontWeight:600,whiteSpace:'nowrap',cursor:'pointer',borderBottom:'1px dashed currentColor'}} title="Cliquer pour appliquer une remise">{lb}</span>;
       })}
+      {lbls.includes('Coûtant')&&<span style={{fontSize:9,padding:'1px 4px',borderRadius:4,background:'#ea580c',color:'#fff',fontWeight:600,whiteSpace:'nowrap'}}>Coûtant</span>}
+      {hasRemise2&&<span style={{display:'inline-flex',alignItems:'center',gap:1,fontSize:9,padding:'1px 4px',borderRadius:4,background:'#fef2f2',color:'#c0392b',fontWeight:600,whiteSpace:'nowrap'}}>
+        {l.coutant?'Coûtant':`Remise ${Math.round(l.remise)}%`}
+        <button onClick={e=>{e.stopPropagation();updLigne(i,'prix',undefined);updLigne(i,'remise',undefined);updLigne(i,'coutant',undefined);if(l.coutant)setPrixCoutant(false);}}
+          style={{background:'none',border:'none',cursor:'pointer',fontSize:9,padding:'0 0 0 2px',lineHeight:1,color:'#c0392b'}}>❌</button>
+      </span>}
     </span>;
   }
 
@@ -4343,7 +4395,7 @@ ${infoBlock}
     setExpAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});
     setSameAddr(false);setRetraitLoft(false);setMessage('');setInfoLivraison('');
     setTariEvent(false);setPrixCoutant(false);setGratuite(false);setGratuiteRaison('');
-    setRemiseJustif('');setEditingPriceIdx(null);
+    setRemiseJustif('');setRemiseModal(null);
     setSelectedClientKey('');setRecallRef('');setRecallClient('');
     // Rechargement depuis Firestore pour inclure ce qui vient d'être créé
     getDocs(collection(db,'devis_clients')).then(snap=>{setSavedClients(snap.docs.map(d=>({key:d.id,...d.data()})).sort((a,b)=>(a.societe||'').localeCompare(b.societe||'')));});
@@ -4673,7 +4725,7 @@ ${infoBlock}
                       {l.libelle}{isAuto&&<span style={{fontSize:10,color:'#9e9890',marginLeft:5}}>(auto)</span>}
                     </td>
                     <td style={{padding:'4px 8px',textAlign:'center',whiteSpace:'nowrap'}}>
-                      {!isAuto&&renderTarifBadges(getLineTarifLabel(l))}
+                      {!isAuto&&renderTarifBadgesEditable(l,i)}
                     </td>
                     <td style={{padding:'8px',textAlign:'right'}}>
                       {isAuto?<span style={{fontSize:12,color:'#6b6560'}}>{l.qty}</span>
@@ -4712,49 +4764,11 @@ ${infoBlock}
                     <td style={{padding:'8px',fontSize:12,textAlign:'right',color:'#6b6560'}}>
                       {(()=>{
                         const origPU2=(()=>{const p=tarif.find(t=>t.code===l.code);return p?getPU(p,l.qty):0;})();
-                        const isEditing2=editingPriceIdx===i&&!isAuto;
                         const hasRemise2=l.remise>0&&l.prix!==undefined;
-                        if(isAuto)return <span>{fmtE(pu)}</span>;
-                        if(isEditing2)return(
-                          <div style={{display:'flex',alignItems:'center',justifyContent:'flex-end',gap:3,fontSize:11,flexWrap:'nowrap'}}>
-                            <span style={{color:'#6b6560',fontWeight:600}}>R.</span>
-                            <input type="number" min="0" max="100" step="0.1"
-                              value={l.remise!==undefined?l.remise:''}
-                              placeholder="0"
-                              onChange={e=>{
-                                const r=parseFloat(e.target.value)||0;
-                                const newPrix=Math.round(origPU2*(1-r/100)*100)/100;
-                                updLigne(i,'remise',r);
-                                updLigne(i,'prix',newPrix);
-                              }}
-                              style={{width:36,fontSize:11,border:'1px solid #c0392b',borderRadius:4,padding:'1px 3px',textAlign:'center',color:'#c0392b'}}
-                            />
-                            <span style={{color:'#6b6560'}}>%</span>
-                            <input type="number" min="0" step="0.01"
-                              value={l.prix!==undefined?l.prix:''}
-                              placeholder={String(origPU2)}
-                              onChange={e=>{
-                                const newPrix=parseFloat(e.target.value)||0;
-                                const r=origPU2>0?Math.round((1-newPrix/origPU2)*10000)/100:0;
-                                updLigne(i,'prix',newPrix);
-                                updLigne(i,'remise',r<0?0:r);
-                              }}
-                              style={{width:54,fontSize:11,border:'1px solid #2d6a4f',borderRadius:4,padding:'1px 3px',textAlign:'center',fontWeight:600}}
-                            />
-                            <button onClick={()=>{updLigne(i,'prix',undefined);updLigne(i,'remise',undefined);setEditingPriceIdx(null);}}
-                              style={{background:'none',border:'none',cursor:'pointer',fontSize:12,padding:0}}>❌</button>
-                            {l.prix!==undefined&&<span style={{fontSize:10,color:'#9e9890',textDecoration:'line-through'}}>{fmtE(origPU2)}</span>}
-                          </div>
-                        );
-                        return(
-                          <span onClick={()=>setEditingPriceIdx(i)}
-                            style={{cursor:'pointer',display:'inline-flex',alignItems:'center',gap:4}}
-                            title="Cliquer pour modifier le prix">
-                            <span style={{borderBottom:'1px dashed #2d6a4f'}}>{fmtE(pu)}</span>
-                            {hasRemise2&&<span style={{fontSize:10,color:'#9e9890',textDecoration:'line-through'}}>{fmtE(origPU2)}</span>}
-                            {hasRemise2&&<span style={{fontSize:10,color:'#c0392b',fontWeight:600}}>-{Math.round(l.remise)}%</span>}
-                          </span>
-                        );
+                        return <span style={{display:'inline-flex',alignItems:'center',gap:4,flexWrap:'wrap',justifyContent:'flex-end'}}>
+                          <span style={{fontWeight:hasRemise2?700:400}}>{fmtE(pu)}</span>
+                          {hasRemise2&&<span style={{fontSize:10,color:'#9e9890',textDecoration:'line-through'}}>{fmtE(origPU2)}</span>}
+                        </span>;
                       })()}
                     </td>
                     <td style={{padding:'8px',fontSize:12,textAlign:'right',fontWeight:600}}>{fmtE(pu*parseInt(l.qty||0))}</td>
@@ -4800,6 +4814,76 @@ ${infoBlock}
       </>}
     </div>
 
+    {remiseModal&&(()=>{
+      const {idx,code,libelle,qty,basePU,tarifLabel,draft}=remiseModal;
+      function setDraft(d){setRemiseModal(m=>({...m,draft:d}));}
+      function onTaux(raw){
+        const taux=Math.max(0,Math.min(100,parseFloat(raw)||0));
+        const prix=Math.round(basePU*(1-taux/100)*100)/100;
+        const valeur=Math.round((basePU-prix)*100)/100;
+        setDraft({taux,valeur,prix});
+      }
+      function onValeur(raw){
+        const valeur=Math.max(0,parseFloat(raw)||0);
+        const prix=Math.round((basePU-valeur)*100)/100;
+        const taux=basePU>0?Math.round((valeur/basePU)*10000)/100:0;
+        setDraft({taux,valeur:Math.round((basePU-prix)*100)/100,prix});
+      }
+      function onPrix(raw){
+        const prix=Math.max(0,parseFloat(raw)||0);
+        const valeur=Math.round((basePU-prix)*100)/100;
+        const taux=basePU>0?Math.round((1-prix/basePU)*10000)/100:0;
+        setDraft({taux:taux<0?0:taux,valeur:valeur<0?0:valeur,prix});
+      }
+      function annuler(){updLigne(idx,'prix',undefined);updLigne(idx,'remise',undefined);updLigne(idx,'coutant',undefined);setRemiseModal(null);}
+      function valider(){
+        updLigne(idx,'prix',draft.prix);
+        updLigne(idx,'remise',draft.taux);
+        updLigne(idx,'coutant',undefined);
+        if(draft.taux===0){updLigne(idx,'prix',undefined);updLigne(idx,'remise',undefined);}
+        setRemiseModal(null);
+      }
+      const INP_S={width:'100%',padding:'7px 10px',border:'1px solid #e2ddd6',borderRadius:8,fontSize:13,boxSizing:'border-box',textAlign:'right'};
+      return <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1100,display:'flex',alignItems:'center',justifyContent:'center'}}
+        onClick={()=>setRemiseModal(null)}>
+        <div style={{background:'#fff',borderRadius:14,padding:'24px',width:400,maxWidth:'90vw'}} onClick={e=>e.stopPropagation()}>
+          <div style={{fontSize:15,fontWeight:700,marginBottom:4}}>Remise sur {code}</div>
+          <div style={{fontSize:12,color:'#6b6560',marginBottom:16}}>{libelle} · {qty} unité{qty>1?'s':''} · Tarif {tarifLabel} · Base {fmtE(basePU)}</div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:16}}>
+            <div>
+              <div style={{fontSize:11,color:'#6b6560',marginBottom:4,fontWeight:600}}>Taux de remise</div>
+              <div style={{display:'flex',alignItems:'center',gap:4}}>
+                <button onClick={()=>onTaux(draft.taux-1)} style={{width:26,height:26,border:'1px solid #e2ddd6',borderRadius:6,background:'#f8f7f5',cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>−</button>
+                <div style={{position:'relative',flex:1}}>
+                  <input type="number" min="0" max="100" step="1" value={draft.taux} onChange={e=>onTaux(e.target.value)}
+                    style={{...INP_S,paddingRight:22}}/>
+                  <span style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',fontSize:12,color:'#6b6560',pointerEvents:'none'}}>%</span>
+                </div>
+                <button onClick={()=>onTaux(draft.taux+1)} style={{width:26,height:26,border:'1px solid #e2ddd6',borderRadius:6,background:'#f8f7f5',cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>+</button>
+              </div>
+            </div>
+            <div>
+              <div style={{fontSize:11,color:'#6b6560',marginBottom:4,fontWeight:600}}>Valeur remise</div>
+              <div style={{position:'relative'}}>
+                <input type="number" min="0" step="0.01" value={draft.valeur} onChange={e=>onValeur(e.target.value)} style={{...INP_S,paddingRight:22}}/>
+                <span style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',fontSize:12,color:'#6b6560',pointerEvents:'none'}}>€</span>
+              </div>
+            </div>
+            <div>
+              <div style={{fontSize:11,color:'#6b6560',marginBottom:4,fontWeight:600}}>Prix remisé</div>
+              <div style={{position:'relative'}}>
+                <input type="number" min="0" step="0.01" value={draft.prix} onChange={e=>onPrix(e.target.value)} style={{...INP_S,paddingRight:22,fontWeight:700,color:'#2d6a4f'}}/>
+                <span style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',fontSize:12,color:'#6b6560',pointerEvents:'none'}}>€</span>
+              </div>
+            </div>
+          </div>
+          <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+            <button onClick={annuler} style={{padding:'8px 16px',background:'#f8f7f5',border:'1px solid #e2ddd6',borderRadius:8,fontSize:13,cursor:'pointer',color:'#6b6560'}}>Annuler la remise</button>
+            <button onClick={valider} style={{padding:'8px 18px',background:'#2d6a4f',color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:700,cursor:'pointer'}}>Valider la remise</button>
+          </div>
+        </div>
+      </div>;
+    })()}
     {remiseJustifModal&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}
       onClick={()=>setRemiseJustifModal(false)}>
       <div style={{background:'#fff',borderRadius:14,padding:'24px',width:440,maxWidth:'90vw'}} onClick={e=>e.stopPropagation()}>
