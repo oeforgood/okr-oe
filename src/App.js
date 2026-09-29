@@ -4015,6 +4015,28 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
     return parsePrix(prod.prix24);
   }
 
+  // Recalcule le taux de remise quand le tarif change (Events / Coûtant) — le prix remisé reste fixe
+  React.useEffect(()=>{
+    setLignes(prev=>prev.map(l=>{
+      if(l.prix===undefined)return l;
+      const prod=tarif.find(t=>t.code===l.code);
+      if(!prod)return l;
+      const newBase=getPU(prod,l.qty);
+      const newRemise=newBase>0?Math.round((1-l.prix/newBase)*10000)/100:0;
+      return {...l,remise:newRemise<0?0:newRemise};
+    }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[tariEvent,prixCoutant]);
+
+  // Efface toutes les remises quand gratuite est activé
+  React.useEffect(()=>{
+    if(gratuite){
+      setLignes(prev=>prev.map(l=>({...l,prix:undefined,remise:undefined})));
+      setRemiseJustif('');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[gratuite]);
+
   function getDisplayLignes(){
     const result=[...coreLignes];
     if(isCasierPrep){const n=Math.ceil(totalBouteilles/12);if(n>0)result.push({code:CASIER_CODE,libelle:'Casier consigné',robe:'',pcb:1,eq75:0,tva:'0',qty:n,qtyMode:'auto',prix:CASIER_PRIX});}
@@ -4425,8 +4447,10 @@ ${infoBlock}
                     <span style={{...TD,textAlign:'left'}}>{getLineTarifBadgesRecap(l)}</span>
                     <span style={TD}>{qty}</span>
                     <span style={{...TD,padding:'2px 2px'}}>
-                      {isOff?'offert':fmtE(pu)}
-                      {hasRemise&&<span style={{fontSize:10,color:'#c0392b',fontWeight:600,marginLeft:4}}>-{Math.round(l.remise)}%</span>}
+                      {isOff?'offert':<span style={{display:'inline-flex',alignItems:'center',gap:4,flexWrap:'wrap'}}>
+                        <span style={{fontWeight:hasRemise?700:400}}>{fmtE(pu)}</span>
+                        {hasRemise&&<span style={{fontSize:10,color:'#9e9890',textDecoration:'line-through'}}>{fmtE(origPU)}</span>}
+                      </span>}
                     </span>
                     <span style={{...TD,fontWeight:700}}>{isOff?'offert':fmtE(htL)}</span>
                     <span style={{...TD,fontSize:11,color:'#6b6560'}}>{tvaR>0?tvaR+'%':'0%'}</span>
