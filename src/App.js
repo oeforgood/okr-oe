@@ -4807,6 +4807,10 @@ ${infoBlock}
                 <div style={{fontSize:13,color:'#6b6560'}}>Total HT : <strong>{fmtE(totalHT)}</strong></div>
                 <div style={{fontSize:13,color:'#6b6560'}}>TVA : <strong>{fmtE(totalTVA)}</strong></div>
                 <div style={{fontSize:16,fontWeight:800,color:gratuite?'#c0392b':'#2d6a4f',marginTop:6}}>{gratuite?'OFFERT — Gratuité':`Total TTC : ${fmtE(totalTTC)}`}</div>
+                {gratuite&&gratuiteRaison&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600,marginTop:6,textAlign:'right',display:'flex',alignItems:'center',justifyContent:'flex-end',gap:8}}>
+                  <span>Gratuité justifiée : {gratuiteRaison}</span>
+                  <button onClick={()=>setGratuiteRaison('')} style={{background:'none',border:'none',cursor:'pointer',fontSize:13,padding:0,lineHeight:1,color:'#c0392b'}} title="Supprimer la justification">❌</button>
+                </div>}
                 {remiseJustif&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600,marginTop:6,textAlign:'right',display:'flex',alignItems:'center',justifyContent:'flex-end',gap:8}}>
                   <span>Remise justifiée : {remiseJustif}</span>
                   <button onClick={()=>setRemiseJustif('')} style={{background:'none',border:'none',cursor:'pointer',fontSize:13,padding:0,lineHeight:1,color:'#c0392b'}} title="Supprimer la justification">❌</button>
