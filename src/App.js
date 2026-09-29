@@ -4060,12 +4060,10 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
       }));
       return;
     }
-    // Ni gratuite ni prixCoutant
+    // Ni gratuite ni prixCoutant — on recalcule juste les remises manuelles, on ne touche pas aux labels coûtant individuels
     setLignes(prev=>prev.map(l=>{
       if(l.qtyMode==='auto')return l;
-      // Ligne qui était coûtant → on nettoie
-      if(l.coutant) return {...l,prix:undefined,remise:undefined,coutant:undefined,coutantRemoved:undefined};
-      // Ligne avec remise manuelle → recalcule le taux (prix reste fixé)
+      // Ligne avec remise manuelle (coûtant ou remise) → recalcule le taux si le tarif de base a changé
       if(l.prix!==undefined){
         const prod=tarif.find(t=>t.code===l.code);
         if(!prod)return l;
