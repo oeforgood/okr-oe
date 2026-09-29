@@ -4392,7 +4392,16 @@ ${infoBlock}
 </div>
 </div>`;
     const msgBody=intro+htmlTable;
-    await setDoc(doc(db,'devis_commandes',ref),{ref,mode,societe,contact,factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,preparation,tariEvent,infoLivraison,message,lignes:displayLignes,totalHT,totalTVA,totalTTC,remiseJustif:remiseJustif||'',createdAt:Date.now(),createdBy:currentUser?.email});
+    function cleanForFirestore(obj){
+      if(Array.isArray(obj))return obj.map(cleanForFirestore);
+      if(obj!==null&&typeof obj==='object'){
+        const out={};
+        for(const k of Object.keys(obj)){if(obj[k]!==undefined)out[k]=cleanForFirestore(obj[k]);}
+        return out;
+      }
+      return obj;
+    }
+    await setDoc(doc(db,'devis_commandes',ref),cleanForFirestore({ref,mode,societe,contact,factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,preparation,tariEvent,infoLivraison,message,lignes:displayLignes,totalHT,totalTVA,totalTTC,remiseJustif:remiseJustif||'',createdAt:Date.now(),createdBy:currentUser?.email}));
     try{
       const toEmail=mode==='devis'
         ?(factAddr.email||'')
