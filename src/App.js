@@ -3897,7 +3897,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   const [message,setMessage]=React.useState('');
   const [preparation,setPreparation]=React.useState('');
   const [lignes,setLignes]=React.useState([]);
-  const [editingPriceIdx,setEditingPriceIdx]=React.useState(null);
+  const [remiseModal,setRemiseModal]=React.useState(null); // {idx,code,libelle,qty,basePU,tarifLabel,draft:{taux,valeur,prix}}
   const [remiseJustif,setRemiseJustif]=React.useState('');
   const [remiseJustifModal,setRemiseJustifModal]=React.useState(false);
   const [remiseJustifDraft,setRemiseJustifDraft]=React.useState('');
@@ -3981,6 +3981,22 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   },0);
 
   function parsePrix(v){return parseFloat(String(v||'0').replace(/€/g,'').replace(/\s/g,'').replace(',','.'))||0;}
+  // Prix de base SANS remise coûtant (utilisé pour le prix barré)
+  function getBasePU(prod,qty){
+    const q=parseInt(qty||0);
+    if(gratuite&&prod.code!==CASIER_CODE&&prod.code!==COIFFE_CODE)return 0;
+    if(tariEvent&&parsePrix(prod.tariEvents)>0)return parsePrix(prod.tariEvents);
+    const qpalRaw=parseInt(String(prod.qpalette||'0').replace(/[^0-9]/g,''))||0;
+    const isPaletteCartons=preparation==='palette_cartons';
+    const isPaletteCasiers=preparation==='palette_casier_coiffe'||preparation==='palette_casier_sans_coiffe';
+    const isPaletteQty=isPaletteCartons?(qpalRaw>0&&q>0&&q%qpalRaw===0):isPaletteCasiers?(q>=480&&q%480===0):false;
+    if(isPaletteQty&&parsePrix(prod.prixPalette)>0)return parsePrix(prod.prixPalette);
+    if(totalEq75>=600)return parsePrix(prod.prix600);
+    if(totalEq75>=360)return parsePrix(prod.prix360);
+    if(totalEq75>=240)return parsePrix(prod.prix240);
+    if(totalEq75>=120)return parsePrix(prod.prix120);
+    return parsePrix(prod.prix24);
+  }
   function getPU(prod,qty){
     const q=parseInt(qty||0);
     // Gratuité override (casiers/coiffes keep their price)
@@ -4015,27 +4031,49 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
     return parsePrix(prod.prix24);
   }
 
-  // Recalcule le taux de remise quand le tarif change (Events / Coûtant) — le prix remisé reste fixe
-  React.useEffect(()=>{
-    setLignes(prev=>prev.map(l=>{
-      if(l.prix===undefined)return l;
-      const prod=tarif.find(t=>t.code===l.code);
-      if(!prod)return l;
-      const newBase=getPU(prod,l.qty);
-      const newRemise=newBase>0?Math.round((1-l.prix/newBase)*10000)/100:0;
-      return {...l,remise:newRemise<0?0:newRemise};
-    }));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[tariEvent,prixCoutant]);
-
-  // Efface toutes les remises quand gratuite est activé
+  // Recalcul global des prix à chaque changement de tarification (tariEvent, prixCoutant, gratuite, totalEq75)
+  // Règles :
+  //   gratuite → prix=0 (géré par getPU), on efface remises/coûtant
+  //   prixCoutant → prix = basePU * 0.85, remise=15, coutant=true
+  //   sinon ligne.coutant → nettoyer (décochée entretemps)
+  //   sinon ligne.prix fixé manuellement → recalcule le TAUX (prix reste)
+  //   sinon → prix libre selon getPU
+  const tarifKey=`${tariEvent?1:0}_${prixCoutant?1:0}_${gratuite?1:0}_${totalEq75}`;
   React.useEffect(()=>{
     if(gratuite){
-      setLignes(prev=>prev.map(l=>({...l,prix:undefined,remise:undefined})));
+      setLignes(prev=>prev.map(l=>({...l,prix:undefined,remise:undefined,coutant:undefined})));
       setRemiseJustif('');
+      return;
     }
+    if(prixCoutant){
+      setLignes(prev=>prev.map(l=>{
+        if(l.qtyMode==='auto')return l;
+        // Ne pas réappliquer si l'utilisateur a explicitement supprimé le label coûtant sur cette ligne
+        if(l.coutantRemoved) return l;
+        const prod=tarif.find(t=>t.code===l.code);
+        if(!prod)return l;
+        const base=getBasePU(prod,l.qty);
+        const prix=Math.round(base*0.85*100)/100;
+        return {...l,prix,remise:15,coutant:true,coutantRemoved:undefined};
+      }));
+      return;
+    }
+    // Ni gratuite ni prixCoutant — on recalcule juste les remises manuelles, on ne touche pas aux labels coûtant individuels
+    setLignes(prev=>prev.map(l=>{
+      if(l.qtyMode==='auto')return l;
+      // Ligne avec remise manuelle (coûtant ou remise) → recalcule le taux si le tarif de base a changé
+      if(l.prix!==undefined){
+        const prod=tarif.find(t=>t.code===l.code);
+        if(!prod)return l;
+        const newBase=getBasePU(prod,l.qty);
+        const newRemise=newBase>0?Math.round((1-l.prix/newBase)*10000)/100:0;
+        return {...l,remise:newRemise<0?0:newRemise};
+      }
+      return l;
+    }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[gratuite]);
+  },[tarifKey]);
+
 
   function getDisplayLignes(){
     const result=[...coreLignes];
@@ -4049,7 +4087,9 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
     const rawPcb=parseInt(String(prod.pcb||'').replace(/[^0-9]/g,''))||1;
     const pcb=preparation==='palette_cartons'?Math.max(1,rawPcb):effectivePCB;
     const qty=Math.max(1,pcb);
-    setLignes(p=>[...p,{code:prod.code,libelle:prod.libelle,robe:prod.robe,pcb,eq75:prod.eq75,tva:prod.tva,qty,qtyMode:pcb>1?'select':'free'}]);
+    const newLigne={code:prod.code,libelle:prod.libelle,robe:prod.robe,pcb,eq75:prod.eq75,tva:prod.tva,qty,qtyMode:pcb>1?'select':'free'};
+    if(prixCoutant){const base=getBasePU(prod,qty);newLigne.prix=Math.round(base*0.85*100)/100;newLigne.remise=15;newLigne.coutant=true;}
+    setLignes(p=>[...p,newLigne]);
     setSelectedProd('');
   }
   function updLigne(i,f,v){setLignes(p=>p.map((l,j)=>j===i?{...l,[f]:v}:l));}
@@ -4084,29 +4124,29 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   }
   function getLineTarifLabel(l){
     if(l.qtyMode==='auto')return '';
-    if(gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE)return 'Gratuit';
-    if(tariEvent&&prixCoutant)return ['Events','Coûtant'];
-    if(tariEvent)return 'Events';
-    if(prixCoutant){
-      if(totalEq75>=600)return ['600+','Coûtant'];
-      if(totalEq75>=360)return ['360+','Coûtant'];
-      if(totalEq75>=240)return ['240+','Coûtant'];
-      if(totalEq75>=120)return ['120+','Coûtant'];
-      return ['24+','Coûtant'];
+    if(gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE)return ['Gratuit'];
+    // Tarif de base
+    let base;
+    if(tariEvent) base='Events';
+    else {
+      const prod=tarif.find(t=>t.code===l.code);
+      const q=parseInt(l.qty||0);
+      const qpalRaw=prod?parseInt(String(prod.qpalette||'0').replace(/[^0-9]/g,''))||0:0;
+      const isPalCartons=preparation==='palette_cartons';
+      const isPalCasiers=preparation==='palette_casier_coiffe'||preparation==='palette_casier_sans_coiffe';
+      const isPalQty=isPalCartons?(qpalRaw>0&&q>0&&q%qpalRaw===0):isPalCasiers?(q>=480&&q%480===0):false;
+      if(isPalQty) base='Palette';
+      else if(totalEq75>=600) base='600+';
+      else if(totalEq75>=360) base='360+';
+      else if(totalEq75>=240) base='240+';
+      else if(totalEq75>=120) base='120+';
+      else base='24+';
     }
-    const prod=tarif.find(t=>t.code===l.code);
-    if(!prod)return '';
-    const q=parseInt(l.qty||0);
-    const qpalRaw=parseInt(String(prod.qpalette||'0').replace(/[^0-9]/g,''))||0;
-    const isPalCartons=preparation==='palette_cartons';
-    const isPalCasiers=preparation==='palette_casier_coiffe'||preparation==='palette_casier_sans_coiffe';
-    const isPalQty=isPalCartons?(qpalRaw>0&&q%qpalRaw===0):isPalCasiers?(q>=480&&q%480===0):false;
-    if(isPalQty)return 'Palette';
-    if(totalEq75>=600)return '600+';
-    if(totalEq75>=360)return '360+';
-    if(totalEq75>=240)return '240+';
-    if(totalEq75>=120)return '120+';
-    return '24+';
+    const parts=[base];
+    // Remise/coûtant individuel de la ligne
+    if(l.coutant) parts.push('Coûtant');
+    else if(l.remise>0&&l.prix!==undefined) parts.push(`Remise ${Math.round(l.remise)}%`);
+    return parts;
   }
   function getLinePU(l){return l.prix!==undefined?l.prix:(()=>{const p=tarif.find(t=>t.code===l.code);return p?getPU(p,l.qty):0;})();}
   const totalHT=displayLignes.reduce((s,l)=>s+getLinePU(l)*parseInt(l.qty||0),0);
@@ -4128,21 +4168,50 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
 
   function getLineTarifBadgesRecap(l){
     if(l.qtyMode==='auto')return null;
-    if(gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE)return <span style={{fontSize:9,padding:'1px 4px',borderRadius:4,background:'#fef2f2',color:'#c0392b',fontWeight:600}}>Gratuit</span>;
-    const parts=[];
-    if(tariEvent)parts.push('Events');
-    else if(totalEq75>=600)parts.push('600+');
-    else if(totalEq75>=360)parts.push('360+');
-    else if(totalEq75>=240)parts.push('240+');
-    else if(totalEq75>=120)parts.push('120+');
-    else parts.push('24+');
-    if(prixCoutant)parts.push('Coûtant');
-    return <span style={{display:'flex',gap:2,flexWrap:'nowrap'}}>
-      {parts.map((p,i)=>{
-        const colors={Coûtant:['#ea580c','#fff'],Events:['#fef3c7','#92400e'],'600+':['#f0fdf4','#2d6a4f'],'360+':['#eff6ff','#1d4ed8'],'240+':['#f5f3ff','#6d28d9'],'120+':['#fdf4ff','#9333ea'],'24+':['#f8f7f5','#6b6560']};
-        const[bg,fg]=colors[p]||['#f8f7f5','#6b6560'];
-        return <span key={i} style={{fontSize:9,padding:'1px 4px',borderRadius:4,background:bg,color:fg,fontWeight:600,whiteSpace:'nowrap'}}>{p}</span>;
+    const lbls=getLineTarifLabel(l);
+    const colors={Coûtant:['#f8b4c8','#9d174d'],Events:['#fef3c7','#92400e'],'600+':['#f0fdf4','#2d6a4f'],'360+':['#eff6ff','#1d4ed8'],'240+':['#f5f3ff','#6d28d9'],'120+':['#fdf4ff','#9333ea'],'24+':['#f8f7f5','#6b6560'],Palette:['#f0fdf4','#2d6a4f'],Gratuit:['#fef2f2','#c0392b']};
+    return <span style={{display:'flex',gap:2,flexWrap:'nowrap',alignItems:'center'}}>
+      {lbls.map((lb,i)=>{
+        const isRemise=lb.startsWith('Remise');
+        const[bg,fg]=isRemise?['#fef2f2','#c0392b']:colors[lb]||['#f8f7f5','#6b6560'];
+        return<span key={i} style={{fontSize:9,padding:'1px 4px',borderRadius:4,background:bg,color:fg,fontWeight:600,whiteSpace:'nowrap'}}>{lb}</span>;
       })}
+    </span>;
+  }
+  // Badge tarif cliquable pour le tableau d'édition
+  function renderTarifBadgesEditable(l,i){
+    if(l.qtyMode==='auto')return null;
+    if(gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE)return<span style={{fontSize:9,padding:'1px 4px',borderRadius:4,background:'#fef2f2',color:'#c0392b',fontWeight:600}}>Gratuit</span>;
+    const lbl=getLineTarifLabel(l);
+    const lbls=Array.isArray(lbl)?lbl:(lbl?[lbl]:[]);
+    const colors={Coûtant:['#ea580c','#fff'],Events:['#fef3c7','#92400e'],'600+':['#f0fdf4','#2d6a4f'],'360+':['#eff6ff','#1d4ed8'],'240+':['#f5f3ff','#6d28d9'],'120+':['#fdf4ff','#9333ea'],'24+':['#f8f7f5','#6b6560'],Palette:['#f0fdf4','#2d6a4f']};
+    const hasRemise2=l.remise>0&&l.prix!==undefined;
+    const prod=tarif.find(t=>t.code===l.code);
+    const basePU=prod?getBasePU(prod,l.qty):0;
+    const tarifLabel=lbls.filter(x=>x!=='Coûtant').join(' ');
+    function openRemiseModal(){
+      const taux=hasRemise2?l.remise:0;
+      const prix=hasRemise2?l.prix:basePU;
+      const valeur=Math.round((basePU-prix)*100)/100;
+      setRemiseModal({idx:i,code:l.code,libelle:l.libelle,qty:parseInt(l.qty||0),basePU,tarifLabel,draft:{taux,valeur,prix}});
+    }
+    // Labels de base uniquement (tarif, palette) — sans Coûtant ni Remise qui ont leur propre badge avec ❌
+    const baseLbls=lbls.filter(x=>x!=='Coûtant'&&!x.startsWith('Remise'));
+    return <span style={{display:'flex',gap:2,flexWrap:'nowrap',alignItems:'center'}}>
+      {baseLbls.map((lb,j)=>{
+        const[bg,fg]=colors[lb]||['#f8f7f5','#6b6560'];
+        return<span key={j} onClick={openRemiseModal} style={{fontSize:9,padding:'1px 4px',borderRadius:4,background:bg,color:fg,fontWeight:600,whiteSpace:'nowrap',cursor:'pointer'}} title="Cliquer pour appliquer une remise">{lb}</span>;
+      })}
+      {hasRemise2&&<span style={{display:'inline-flex',alignItems:'center',gap:1,fontSize:9,padding:'1px 4px',borderRadius:4,background:l.coutant?'#f8b4c8':'#fef2f2',color:l.coutant?'#9d174d':'#c0392b',fontWeight:600,whiteSpace:'nowrap'}}>
+        {l.coutant?'Coûtant':`Remise ${Math.round(l.remise)}%`}
+        <button onClick={e=>{
+          e.stopPropagation();
+          const wasCoutant=l.coutant;
+          const newLignes=lignes.map((ll,j)=>j===i?{...ll,prix:undefined,remise:undefined,coutant:undefined,coutantRemoved:wasCoutant?true:undefined}:ll);
+          setLignes(newLignes);
+          if(wasCoutant) setPrixCoutant(false);
+        }} style={{background:'none',border:'none',cursor:'pointer',fontSize:9,padding:'0 0 0 2px',lineHeight:1,color:l.coutant?'#9d174d':'#c0392b'}}>❌</button>
+      </span>}
     </span>;
   }
 
@@ -4156,16 +4225,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
     function lp(s,w){const str=String(s||'');return str.length>=w?str.slice(-w):' '.repeat(w-str.length)+str;}
     function getLineTarifLabelText(l){
       if(l.qtyMode==='auto')return '';
-      if(gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE)return 'Gratuit';
-      const parts=[];
-      if(tariEvent)parts.push('Events');
-      else if(totalEq75>=600)parts.push('600+');
-      else if(totalEq75>=360)parts.push('360+');
-      else if(totalEq75>=240)parts.push('240+');
-      else if(totalEq75>=120)parts.push('120+');
-      else parts.push('24+');
-      if(prixCoutant)parts.push('Coûtant');
-      return parts.join('+');
+      return getLineTarifLabel(l).join(' ');
     }
     const header=rp('Code',10)+'  '+rp('Produit',32)+'  '+rp('Tarif',12)+'  '+lp('Qté',5)+'  '+lp('P.U. HT',10)+'  '+lp('Total HT',10)+'  TVA';
     const divider='-'.repeat(105);
@@ -4239,17 +4299,13 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
     // Colonne tarif par ligne
     function getLineTarifLabelHtml(l){
       if(l.qtyMode==='auto')return '';
-      if(gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE)return 'Gratuit';
-      const TARIF_COLORS_MAIL={Gratuit:['#fef2f2','#c0392b'],Coûtant:['#ea580c','#fff'],Events:['#fef3c7','#92400e'],'600+':['#f0fdf4','#2d6a4f'],'360+':['#eff6ff','#1d4ed8'],'240+':['#f5f3ff','#6d28d9'],'120+':['#fdf4ff','#9333ea'],'24+':['#f8f7f5','#6b6560']};
-      const parts=[];
-      if(tariEvent)parts.push('Events');
-      else if(totalEq75>=600)parts.push('600+');
-      else if(totalEq75>=360)parts.push('360+');
-      else if(totalEq75>=240)parts.push('240+');
-      else if(totalEq75>=120)parts.push('120+');
-      else parts.push('24+');
-      if(prixCoutant)parts.push('Coûtant');
-      return parts.map(p=>{const[bg,fg]=TARIF_COLORS_MAIL[p]||['#f8f7f5','#6b6560'];return`<span style="display:inline-block;font-size:9px;padding:1px 4px;border-radius:4px;background:${bg};color:${fg};font-weight:600;white-space:nowrap;margin-right:2px">${p}</span>`;}).join('');
+      const TARIF_COLORS_MAIL={Gratuit:['#fef2f2','#c0392b'],Coûtant:['#f8b4c8','#9d174d'],Events:['#fef3c7','#92400e'],'600+':['#f0fdf4','#2d6a4f'],'360+':['#eff6ff','#1d4ed8'],'240+':['#f5f3ff','#6d28d9'],'120+':['#fdf4ff','#9333ea'],'24+':['#f8f7f5','#6b6560'],Palette:['#f0fdf4','#2d6a4f']};
+      const parts=getLineTarifLabel(l);
+      return parts.map(p=>{
+        const isRemise=p.startsWith('Remise');
+        const[bg,fg]=isRemise?['#fef2f2','#c0392b']:TARIF_COLORS_MAIL[p]||['#f8f7f5','#6b6560'];
+        return`<span style="display:inline-block;font-size:9px;padding:1px 4px;border-radius:4px;background:${bg};color:${fg};font-weight:600;white-space:nowrap;margin-right:2px">${p}</span>`;
+      }).join('');
     }
     const prodRows=displayLignes.map(ligne=>{
       const pu=gratuite&&ligne.code!==CASIER_CODE&&ligne.code!==COIFFE_CODE?0:getLinePU(ligne);
@@ -4260,9 +4316,10 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
       const ttcLigne=totalHT2+tvaVal;
       const isOffert=gratuite&&ligne.code!==CASIER_CODE&&ligne.code!==COIFFE_CODE;
       const tarifHtml=getLineTarifLabelHtml(ligne);
+      const robeDotHtml=ligne.robe?`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${getRobeDot(ligne.robe)};margin-right:5px;vertical-align:middle;flex-shrink:0"></span>`:'';
       return `<tr>
         <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;font-weight:600;letter-spacing:0.3px;white-space:nowrap">${ligne.code||''}</td>
-        <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;white-space:nowrap">${ligne.libelle||''}</td>
+        <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;white-space:nowrap">${robeDotHtml}${ligne.libelle||''}</td>
         <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;white-space:nowrap">${tarifHtml}</td>
         <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;text-align:right;white-space:nowrap">${qty}</td>
         <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;text-align:right;white-space:nowrap">${isOffert?'offert':(ligne.remise>0&&ligne.prix!==undefined?`<span style="font-weight:600">${fmtE(pu)}</span> <span style="text-decoration:line-through;color:#9e9890;font-size:10px">${fmtE((()=>{const p=tarif.find(t=>t.code===ligne.code);return p?getPU(p,ligne.qty):0;})())}</span>`:fmtE(pu))}</td>
@@ -4320,7 +4377,16 @@ ${infoBlock}
 </div>
 </div>`;
     const msgBody=intro+htmlTable;
-    await setDoc(doc(db,'devis_commandes',ref),{ref,mode,societe,contact,factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,preparation,tariEvent,infoLivraison,message,lignes:displayLignes,totalHT,totalTVA,totalTTC,remiseJustif:remiseJustif||'',createdAt:Date.now(),createdBy:currentUser?.email});
+    function cleanForFirestore(obj){
+      if(Array.isArray(obj))return obj.map(cleanForFirestore);
+      if(obj!==null&&typeof obj==='object'){
+        const out={};
+        for(const k of Object.keys(obj)){if(obj[k]!==undefined)out[k]=cleanForFirestore(obj[k]);}
+        return out;
+      }
+      return obj;
+    }
+    await setDoc(doc(db,'devis_commandes',ref),cleanForFirestore({ref,mode,societe,contact,factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,preparation,tariEvent,infoLivraison,message,lignes:displayLignes,totalHT,totalTVA,totalTTC,remiseJustif:remiseJustif||'',createdAt:Date.now(),createdBy:currentUser?.email}));
     try{
       const toEmail=mode==='devis'
         ?(factAddr.email||'')
@@ -4343,7 +4409,7 @@ ${infoBlock}
     setExpAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});
     setSameAddr(false);setRetraitLoft(false);setMessage('');setInfoLivraison('');
     setTariEvent(false);setPrixCoutant(false);setGratuite(false);setGratuiteRaison('');
-    setRemiseJustif('');setEditingPriceIdx(null);
+    setRemiseJustif('');setRemiseModal(null);
     setSelectedClientKey('');setRecallRef('');setRecallClient('');
     // Rechargement depuis Firestore pour inclure ce qui vient d'être créé
     getDocs(collection(db,'devis_clients')).then(snap=>{setSavedClients(snap.docs.map(d=>({key:d.id,...d.data()})).sort((a,b)=>(a.societe||'').localeCompare(b.societe||'')));});
@@ -4374,9 +4440,9 @@ ${infoBlock}
               if(line.startsWith('Code '))inProd=true;
               if(!inProd)infoLines.push(line);
             }
-            const GRD='90px 1fr 90px 36px 80px 80px 80px 80px';
-            const TH={fontSize:11,fontWeight:700,color:'#6b6560',padding:'4px 6px',textAlign:'right'};
-            const TD={fontSize:12,padding:'3px 6px',textAlign:'right',borderBottom:'1px solid #f5f3ef'};
+            const GRD='70px 1fr 80px 36px 110px 80px 44px 76px';
+            const TH={fontSize:10,fontWeight:600,color:'#6b6560',padding:'6px 6px',textAlign:'right',whiteSpace:'nowrap'};
+            const TD={fontSize:11,padding:'4px 6px',textAlign:'right',borderBottom:'1px solid #f5f3ef'};
             const totTTC=displayLignes.reduce((s,l)=>{
               const pu=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?0:getLinePU(l);
               return s+pu*parseInt(l.qty||0)*(1+(parseFloat(l.tva||0)/100));
@@ -4437,24 +4503,28 @@ ${infoBlock}
                   const ttcL=htL+tvaV;
                   const isOff=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE;
                   const isAuto=l.qtyMode==='auto';
-                  const isEditing=editingPriceIdx===i&&!isOff&&!isAuto;
+                  const isEditing=false;
                   // compute original (pre-discount) price for strikethrough display
-                  const origPU=(()=>{const p=tarif.find(t=>t.code===l.code);return p?getPU(p,l.qty):0;})();
+                  const origPU=(()=>{const p=tarif.find(t=>t.code===l.code);return p?getBasePU(p,l.qty):0;})();
                   const hasRemise=!isOff&&l.remise>0&&l.prix!==undefined;
-                  return <div key={i} style={{display:'grid',gridTemplateColumns:GRD,borderBottom:'1px solid #f5f3ef',alignItems:'center'}}>
-                    <span style={{...TD,textAlign:'left',fontFamily:'system-ui,sans-serif',fontSize:12,fontWeight:600,letterSpacing:0.3}}>{l.code}</span>
-                    <span style={{...TD,textAlign:'left'}}>{l.libelle}{l.qtyMode==='auto'?<span style={{fontSize:10,color:'#9e9890',marginLeft:4}}>(auto)</span>:null}</span>
-                    <span style={{...TD,textAlign:'left'}}>{getLineTarifBadgesRecap(l)}</span>
-                    <span style={TD}>{qty}</span>
-                    <span style={{...TD,padding:'2px 2px'}}>
-                      {isOff?'offert':<span style={{display:'inline-flex',alignItems:'center',gap:4,flexWrap:'wrap'}}>
+                  const CELL={fontSize:11,padding:'4px 6px',textAlign:'right',borderBottom:'1px solid #f5f3ef'};
+                  return <div key={i} style={{display:'grid',gridTemplateColumns:GRD,borderBottom:'1px solid #f5f3ef',alignItems:'center',background:isAuto?'#fafaf8':'#fff'}}>
+                    <span style={{...CELL,textAlign:'left',fontWeight:600,letterSpacing:'0.3px',whiteSpace:'nowrap'}}>{l.code}</span>
+                    <span style={{...CELL,textAlign:'left',whiteSpace:'nowrap'}}>
+                      {l.robe&&<span style={{display:'inline-block',width:8,height:8,borderRadius:'50%',background:getRobeDot(l.robe),marginRight:5,verticalAlign:'middle',flexShrink:0}}/>}
+                      {l.libelle}{isAuto?<span style={{fontSize:10,color:'#9e9890',marginLeft:4}}>(auto)</span>:null}
+                    </span>
+                    <span style={{...CELL,textAlign:'left'}}>{getLineTarifBadgesRecap(l)}</span>
+                    <span style={CELL}>{qty}</span>
+                    <span style={{...CELL,whiteSpace:'nowrap'}}>
+                      {isOff?<span style={{color:'#c0392b',fontWeight:600}}>offert</span>:<span style={{display:'inline-flex',alignItems:'center',gap:4,flexWrap:'nowrap',justifyContent:'flex-end'}}>
                         <span style={{fontWeight:hasRemise?700:400}}>{fmtE(pu)}</span>
                         {hasRemise&&<span style={{fontSize:10,color:'#9e9890',textDecoration:'line-through'}}>{fmtE(origPU)}</span>}
                       </span>}
                     </span>
-                    <span style={{...TD,fontWeight:700}}>{isOff?'offert':fmtE(htL)}</span>
-                    <span style={{...TD,fontSize:11,color:'#6b6560'}}>{tvaR>0?tvaR+'%':'0%'}</span>
-                    <span style={{...TD,fontWeight:600}}>{isOff?'offert':fmtE(ttcL)}</span>
+                    <span style={{...CELL,fontWeight:700}}>{isOff?<span style={{color:'#c0392b',fontWeight:600}}>offert</span>:fmtE(htL)}</span>
+                    <span style={{...CELL,color:'#6b6560'}}>{tvaR>0?tvaR+'%':'0%'}</span>
+                    <span style={CELL}>{isOff?<span style={{color:'#c0392b',fontWeight:600}}>offert</span>:fmtE(ttcL)}</span>
                   </div>;
                 })}
                 <div style={{display:'grid',gridTemplateColumns:GRD,borderTop:'2px solid #2d6a4f',marginTop:4,paddingTop:4}}>
@@ -4617,21 +4687,26 @@ ${infoBlock}
               </label>
               {canPrixCoutant&&<label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',fontWeight:prixCoutant?600:400}}>
                 <input type="checkbox" checked={prixCoutant}
-                  onChange={e=>{setPrixCoutant(e.target.checked);if(e.target.checked){setGratuite(false);setGratuiteRaison('');}}}/>
+                  onChange={e=>{
+                    setPrixCoutant(e.target.checked);
+                    if(e.target.checked){
+                      setGratuite(false);setGratuiteRaison('');
+                      // Remet les flags à zéro pour que le useEffect réapplique sur toutes les lignes
+                      setLignes(prev=>prev.map(l=>({...l,coutantRemoved:undefined})));
+                    } else {
+                      // Décochage manuel → supprime tous les labels coûtant
+                      setLignes(prev=>prev.map(l=>l.coutant?{...l,prix:undefined,remise:undefined,coutant:undefined,coutantRemoved:undefined}:l));
+                    }
+                  }}/>
                 Prix coûtant
               </label>}
               <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',fontWeight:gratuite?600:400,color:gratuite?'#c0392b':'inherit'}}>
                 <input type="checkbox" checked={gratuite}
                   onChange={e=>{
-                    if(e.target.checked){setGratuiteModal(true);setTariEvent(false);setPrixCoutant(false);}
+                    if(e.target.checked){setGratuite(true);setGratuiteRaison('');setTariEvent(false);setPrixCoutant(false);}
                     else{setGratuite(false);setGratuiteRaison('');}
                   }}/>
-                {gratuite&&gratuiteRaison
-                  ?<span>Gratuité : <span style={{fontStyle:'italic',cursor:'pointer',textDecoration:'underline dotted'}}
-                      onClick={()=>{setGratuiteModal(true);}} title="Cliquer pour modifier">
-                      {gratuiteRaison}
-                    </span></span>
-                  :'Gratuité'}
+                Gratuité
               </label>
             </div>
           </div>
@@ -4646,7 +4721,8 @@ ${infoBlock}
         {preparation&&<div style={SECT}>
           <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
             <div style={{fontSize:13,fontWeight:700}}>Produits{isCasierPrep?' (75cl uniquement)':''}</div>
-            {prixCoutant&&<span style={{fontSize:11,padding:'1px 7px',borderRadius:8,background:'#ea580c',color:'#fff',fontWeight:700}}>Coûtant</span>}
+            {prixCoutant&&coreLignes.some(l=>l.coutant)&&coreLignes.filter(l=>l.qtyMode!=='auto').every(l=>l.coutant)&&<span style={{fontSize:11,padding:'1px 7px',borderRadius:8,background:'#ea580c',color:'#fff',fontWeight:700}}>Coûtant</span>}
+            {coreLignes.some(l=>l.remise>0&&l.prix!==undefined&&!l.coutant)&&<span style={{fontSize:11,padding:'1px 7px',borderRadius:8,background:'#fef2f2',color:'#c0392b',fontWeight:700}}>Remise</span>}
             {gratuite&&<span style={{fontSize:11,padding:'1px 7px',borderRadius:8,background:'#fef2f2',color:'#c0392b',fontWeight:700}}>Gratuité</span>}
           </div>
           {loadingTarif?<div style={{color:'#9e9890',fontSize:13}}>Chargement...</div>
@@ -4657,26 +4733,30 @@ ${infoBlock}
               {filteredTarif.map(p=><option key={p.code} value={p.code}>{`${p.code} — ${p.libelle||''}${p.robe?' ('+p.robe+')':''}`}</option>)}
             </select>
             {displayLignes.length>0&&<>
-              <table style={{width:'100%',borderCollapse:'collapse'}}>
-                <thead><tr style={{background:'#f8f7f5'}}>
-                  {['Code','Produit','Tarif','Quantité','P.U. HT','Total HT',''].map((h,i)=>
-                    <th key={i} style={{padding:'6px 8px',fontSize:11,color:'#6b6560',textAlign:i>=2&&i<5?'right':'left',fontWeight:700}}>{h}</th>)}
+              <table style={{width:'100%',borderCollapse:'collapse',tableLayout:'auto'}}>
+                <thead><tr style={{background:'#f8f7f5',borderBottom:'2px solid #2d6a4f'}}>
+                  {['Code','Produit','Tarif','Qté','P.U. HT','Total HT','TVA','TTC',''].map((h,i)=>
+                    <th key={i} style={{padding:'6px 6px',fontSize:10,color:'#6b6560',textAlign:i>=3&&i<=7?'right':'left',fontWeight:600,whiteSpace:'nowrap'}}>{h}</th>)}
                 </tr></thead>
                 <tbody>{displayLignes.map((l,i)=>{
                   const isAuto=l.qtyMode==='auto';
                   const pu=getLinePU(l);
-                  const qtyOpts=Array.from({length:12},(_,k)=>(k+1)*effectivePCB);
-                  return <tr key={i} style={{borderBottom:'1px solid #f0ede8',background:isAuto?'#fafaf8':'#fff'}}>
-                    <td style={{padding:'8px',fontSize:12,color:'#6b6560'}}>{l.code}</td>
-                    <td style={{padding:'8px',fontSize:12}}>
-                      {l.robe&&<span style={{display:'inline-block',width:9,height:9,borderRadius:'50%',background:getRobeDot(l.robe),marginRight:6,verticalAlign:'middle'}}/>}
+                  const tvaRate=parseFloat(l.tva||0);
+                  const totalHT2=pu*parseInt(l.qty||0);
+                  const tvaVal=totalHT2*(tvaRate/100);
+                  const ttc=totalHT2+tvaVal;
+                  const isOffert=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE;
+                  return <tr key={i} style={{borderBottom:'1px solid #f5f3ef',background:isAuto?'#fafaf8':'#fff'}}>
+                    <td style={{padding:'4px 6px',fontSize:11,fontWeight:600,letterSpacing:'0.3px',whiteSpace:'nowrap'}}>{l.code}</td>
+                    <td style={{padding:'4px 6px',fontSize:11,whiteSpace:'nowrap'}}>
+                      {l.robe&&<span style={{display:'inline-block',width:8,height:8,borderRadius:'50%',background:getRobeDot(l.robe),marginRight:5,verticalAlign:'middle'}}/>}
                       {l.libelle}{isAuto&&<span style={{fontSize:10,color:'#9e9890',marginLeft:5}}>(auto)</span>}
                     </td>
-                    <td style={{padding:'4px 8px',textAlign:'center',whiteSpace:'nowrap'}}>
-                      {!isAuto&&renderTarifBadges(getLineTarifLabel(l))}
+                    <td style={{padding:'4px 6px',whiteSpace:'nowrap'}}>
+                      {!isAuto&&renderTarifBadgesEditable(l,i)}
                     </td>
-                    <td style={{padding:'8px',textAlign:'right'}}>
-                      {isAuto?<span style={{fontSize:12,color:'#6b6560'}}>{l.qty}</span>
+                    <td style={{padding:'4px 6px',textAlign:'right',whiteSpace:'nowrap'}}>
+                      {isAuto?<span style={{fontSize:11,color:'#6b6560'}}>{l.qty}</span>
                       :(()=>{
                         const pcb=Math.max(1,parseInt(String(l.pcb||'1').replace(/[^0-9]/g,''))||1);
                         const prodT=tarif.find(t=>t.code===l.code);
@@ -4709,57 +4789,22 @@ ${infoBlock}
                           </select>;
                       })()}
                     </td>
-                    <td style={{padding:'8px',fontSize:12,textAlign:'right',color:'#6b6560'}}>
+                    <td style={{padding:'4px 6px',fontSize:11,textAlign:'right'}}>
                       {(()=>{
-                        const origPU2=(()=>{const p=tarif.find(t=>t.code===l.code);return p?getPU(p,l.qty):0;})();
-                        const isEditing2=editingPriceIdx===i&&!isAuto;
-                        const hasRemise2=l.remise>0&&l.prix!==undefined;
-                        if(isAuto)return <span>{fmtE(pu)}</span>;
-                        if(isEditing2)return(
-                          <div style={{display:'flex',alignItems:'center',justifyContent:'flex-end',gap:3,fontSize:11,flexWrap:'nowrap'}}>
-                            <span style={{color:'#6b6560',fontWeight:600}}>R.</span>
-                            <input type="number" min="0" max="100" step="0.1"
-                              value={l.remise!==undefined?l.remise:''}
-                              placeholder="0"
-                              onChange={e=>{
-                                const r=parseFloat(e.target.value)||0;
-                                const newPrix=Math.round(origPU2*(1-r/100)*100)/100;
-                                updLigne(i,'remise',r);
-                                updLigne(i,'prix',newPrix);
-                              }}
-                              style={{width:36,fontSize:11,border:'1px solid #c0392b',borderRadius:4,padding:'1px 3px',textAlign:'center',color:'#c0392b'}}
-                            />
-                            <span style={{color:'#6b6560'}}>%</span>
-                            <input type="number" min="0" step="0.01"
-                              value={l.prix!==undefined?l.prix:''}
-                              placeholder={String(origPU2)}
-                              onChange={e=>{
-                                const newPrix=parseFloat(e.target.value)||0;
-                                const r=origPU2>0?Math.round((1-newPrix/origPU2)*10000)/100:0;
-                                updLigne(i,'prix',newPrix);
-                                updLigne(i,'remise',r<0?0:r);
-                              }}
-                              style={{width:54,fontSize:11,border:'1px solid #2d6a4f',borderRadius:4,padding:'1px 3px',textAlign:'center',fontWeight:600}}
-                            />
-                            <button onClick={()=>{updLigne(i,'prix',undefined);updLigne(i,'remise',undefined);setEditingPriceIdx(null);}}
-                              style={{background:'none',border:'none',cursor:'pointer',fontSize:12,padding:0}}>❌</button>
-                            {l.prix!==undefined&&<span style={{fontSize:10,color:'#9e9890',textDecoration:'line-through'}}>{fmtE(origPU2)}</span>}
-                          </div>
-                        );
-                        return(
-                          <span onClick={()=>setEditingPriceIdx(i)}
-                            style={{cursor:'pointer',display:'inline-flex',alignItems:'center',gap:4}}
-                            title="Cliquer pour modifier le prix">
-                            <span style={{borderBottom:'1px dashed #2d6a4f'}}>{fmtE(pu)}</span>
-                            {hasRemise2&&<span style={{fontSize:10,color:'#9e9890',textDecoration:'line-through'}}>{fmtE(origPU2)}</span>}
-                            {hasRemise2&&<span style={{fontSize:10,color:'#c0392b',fontWeight:600}}>-{Math.round(l.remise)}%</span>}
-                          </span>
-                        );
+                        const origPU2=(()=>{const p=tarif.find(t=>t.code===l.code);return p?getBasePU(p,l.qty):0;})();
+                        const hasRemise2=!isOffert&&l.remise>0&&l.prix!==undefined;
+                        if(isOffert) return <span style={{color:'#c0392b',fontWeight:600}}>offert</span>;
+                        return <span style={{display:'inline-flex',alignItems:'center',gap:4,flexWrap:'wrap',justifyContent:'flex-end'}}>
+                          <span style={{fontWeight:hasRemise2?700:400}}>{fmtE(pu)}</span>
+                          {hasRemise2&&<span style={{fontSize:10,color:'#9e9890',textDecoration:'line-through'}}>{fmtE(origPU2)}</span>}
+                        </span>;
                       })()}
                     </td>
-                    <td style={{padding:'8px',fontSize:12,textAlign:'right',fontWeight:600}}>{fmtE(pu*parseInt(l.qty||0))}</td>
-                    <td style={{padding:'4px',textAlign:'center'}}>
-                      {!isAuto&&<button onClick={()=>remLigne(i)} style={{border:'none',background:'none',color:'#c0392b',cursor:'pointer',fontSize:14,padding:'2px 6px'}}>x</button>}
+                    <td style={{padding:'4px 6px',fontSize:11,textAlign:'right',fontWeight:700}}>{isOffert?'offert':fmtE(pu*parseInt(l.qty||0))}</td>
+                    <td style={{padding:'4px 6px',fontSize:11,textAlign:'right',color:'#6b6560'}}>{tvaRate>0?(tvaRate+'%'):'0%'}</td>
+                    <td style={{padding:'4px 6px',fontSize:11,textAlign:'right'}}>{isOffert?'offert':fmtE(ttc)}</td>
+                    <td style={{padding:'4px 6px',textAlign:'center'}}>
+                      {!isAuto&&<button onClick={()=>remLigne(i)} style={{border:'none',background:'none',color:'#c0392b',cursor:'pointer',fontSize:14,padding:'2px 6px'}}>×</button>}
                     </td>
                   </tr>;
                 })}</tbody>
@@ -4768,6 +4813,10 @@ ${infoBlock}
                 <div style={{fontSize:13,color:'#6b6560'}}>Total HT : <strong>{fmtE(totalHT)}</strong></div>
                 <div style={{fontSize:13,color:'#6b6560'}}>TVA : <strong>{fmtE(totalTVA)}</strong></div>
                 <div style={{fontSize:16,fontWeight:800,color:gratuite?'#c0392b':'#2d6a4f',marginTop:6}}>{gratuite?'OFFERT — Gratuité':`Total TTC : ${fmtE(totalTTC)}`}</div>
+                {gratuite&&gratuiteRaison&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600,marginTop:6,textAlign:'right',display:'flex',alignItems:'center',justifyContent:'flex-end',gap:8}}>
+                  <span>Gratuité justifiée : {gratuiteRaison}</span>
+                  <button onClick={()=>setGratuiteRaison('')} style={{background:'none',border:'none',cursor:'pointer',fontSize:13,padding:0,lineHeight:1,color:'#c0392b'}} title="Supprimer la justification">❌</button>
+                </div>}
                 {remiseJustif&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600,marginTop:6,textAlign:'right',display:'flex',alignItems:'center',justifyContent:'flex-end',gap:8}}>
                   <span>Remise justifiée : {remiseJustif}</span>
                   <button onClick={()=>setRemiseJustif('')} style={{background:'none',border:'none',cursor:'pointer',fontSize:13,padding:0,lineHeight:1,color:'#c0392b'}} title="Supprimer la justification">❌</button>
@@ -4781,7 +4830,12 @@ ${infoBlock}
           <div style={{display:'flex',justifyContent:'flex-end',alignItems:'center',gap:12}}>
             {isCoiffePrep&&totalBouteilles>0&&!coiffeOk&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600}}>⚠️ {totalBouteilles} bouteilles — multiple de 120 requis</div>}
             {minQtyMsg&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600}}>⚠️ {minQtyMsg}</div>}
-            {hasAnyRemise&&!remiseJustif
+            {gratuite&&!gratuiteRaison
+              ?<button onClick={()=>setGratuiteModal(true)}
+                style={{padding:'12px 32px',background:'#c0392b',color:'#fff',border:'none',borderRadius:10,fontSize:15,fontWeight:700,cursor:'pointer'}}>
+                Expliquer la gratuité
+              </button>
+              :hasAnyRemise&&!remiseJustif
               ?<button onClick={()=>{setRemiseJustifDraft('');setRemiseJustifModal(true);}}
                 style={{padding:'12px 32px',background:'#c0392b',color:'#fff',border:'none',borderRadius:10,fontSize:15,fontWeight:700,cursor:'pointer'}}>
                 Expliquer la remise
@@ -4800,6 +4854,90 @@ ${infoBlock}
       </>}
     </div>
 
+    {remiseModal&&(()=>{
+      const {idx,code,libelle,qty,basePU,tarifLabel,draft}=remiseModal;
+      function setDraft(d){setRemiseModal(m=>({...m,draft:d}));}
+      function onTaux(raw){
+        const taux=Math.max(0,Math.min(100,parseFloat(raw)||0));
+        const prix=Math.round(basePU*(1-taux/100)*100)/100;
+        const valeur=Math.round((basePU-prix)*100)/100;
+        setDraft({taux,valeur,prix});
+      }
+      function onValeur(raw){
+        const valeur=Math.max(0,parseFloat(raw)||0);
+        const prix=Math.round((basePU-valeur)*100)/100;
+        const taux=basePU>0?Math.round((valeur/basePU)*10000)/100:0;
+        setDraft({taux,valeur:Math.round((basePU-prix)*100)/100,prix});
+      }
+      function onPrix(raw){
+        const prix=Math.max(0,parseFloat(raw)||0);
+        const valeur=Math.round((basePU-prix)*100)/100;
+        const taux=basePU>0?Math.round((1-prix/basePU)*10000)/100:0;
+        setDraft({taux:taux<0?0:taux,valeur:valeur<0?0:valeur,prix});
+      }
+      function annuler(){updLigne(idx,'prix',undefined);updLigne(idx,'remise',undefined);updLigne(idx,'coutant',undefined);setRemiseModal(null);}
+      function valider(){
+        updLigne(idx,'prix',draft.prix);
+        updLigne(idx,'remise',draft.taux);
+        updLigne(idx,'coutant',undefined);
+        if(draft.taux===0){updLigne(idx,'prix',undefined);updLigne(idx,'remise',undefined);}
+        setRemiseModal(null);
+      }
+      const INP_S={width:'100%',padding:'7px 10px',border:'1px solid #e2ddd6',borderRadius:8,fontSize:13,boxSizing:'border-box',textAlign:'right',MozAppearance:'textfield',WebkitAppearance:'none'};
+      return <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1100,display:'flex',alignItems:'center',justifyContent:'center'}}
+        onClick={()=>setRemiseModal(null)}>
+        <div style={{background:'#fff',borderRadius:14,padding:'24px',width:400,maxWidth:'90vw'}} onClick={e=>e.stopPropagation()}>
+          <div style={{fontSize:15,fontWeight:700,marginBottom:4}}>{libelle}</div>
+          <div style={{fontSize:12,color:'#6b6560',marginBottom:16}}>{qty} unité{qty>1?'s':''} · Tarif {tarifLabel} · Base {fmtE(basePU)}</div>
+          {(()=>{
+            const SVG_UP=<svg width="8" height="5" viewBox="0 0 8 5" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 0.5L7.5 4.5H0.5L4 0.5Z" fill="#888"/></svg>;
+            const SVG_DN=<svg width="8" height="5" viewBox="0 0 8 5" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 4.5L0.5 0.5H7.5L4 4.5Z" fill="#888"/></svg>;
+            const SPIN_WRAP={position:'absolute',right:1,top:1,bottom:1,width:18,display:'flex',flexDirection:'column',borderLeft:'1px solid #ddd',overflow:'hidden',borderRadius:'0 6px 6px 0'};
+            const BTN_S={flex:1,border:'none',background:'#f0eeeb',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',padding:0};
+            return <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:16}}>
+            <div>
+              <div style={{fontSize:11,color:'#6b6560',marginBottom:4,fontWeight:600}}>Taux de remise</div>
+              <div style={{position:'relative'}}>
+                <input type="number" min="0" max="100" step="1" value={draft.taux} onChange={e=>onTaux(e.target.value)}
+                  style={{...INP_S,paddingRight:44}}/>
+                <span style={{position:'absolute',right:22,top:'50%',transform:'translateY(-50%)',fontSize:12,color:'#6b6560',pointerEvents:'none'}}>%</span>
+                <span style={SPIN_WRAP}>
+                  <button onClick={()=>{const r=Math.round(draft.taux);onTaux(r===draft.taux?r+1:r);}} style={{...BTN_S,borderBottom:'1px solid #ddd'}}>{SVG_UP}</button>
+                  <button onClick={()=>{const r=Math.round(draft.taux);onTaux(Math.max(0,r===draft.taux?r-1:r));}} style={BTN_S}>{SVG_DN}</button>
+                </span>
+              </div>
+            </div>
+            <div>
+              <div style={{fontSize:11,color:'#6b6560',marginBottom:4,fontWeight:600}}>Valeur remise</div>
+              <div style={{position:'relative'}}>
+                <input type="number" min="0" step="0.10" value={draft.valeur} onChange={e=>onValeur(e.target.value)} style={{...INP_S,paddingRight:44}}/>
+                <span style={{position:'absolute',right:22,top:'50%',transform:'translateY(-50%)',fontSize:12,color:'#6b6560',pointerEvents:'none'}}>€</span>
+                <span style={SPIN_WRAP}>
+                  <button onClick={()=>{const r=Math.round(draft.valeur*10)/10;onValeur(r===draft.valeur?Math.round((draft.valeur+0.10)*100)/100:r);}} style={{...BTN_S,borderBottom:'1px solid #ddd'}}>{SVG_UP}</button>
+                  <button onClick={()=>{const r=Math.round(draft.valeur*10)/10;onValeur(Math.max(0,r===draft.valeur?Math.round((draft.valeur-0.10)*100)/100:r));}} style={BTN_S}>{SVG_DN}</button>
+                </span>
+              </div>
+            </div>
+            <div>
+              <div style={{fontSize:11,color:'#6b6560',marginBottom:4,fontWeight:600}}>Prix remisé</div>
+              <div style={{position:'relative'}}>
+                <input type="number" min="0" step="0.10" value={draft.prix} onChange={e=>onPrix(e.target.value)} style={{...INP_S,paddingRight:44,fontWeight:700,color:'#2d6a4f'}}/>
+                <span style={{position:'absolute',right:22,top:'50%',transform:'translateY(-50%)',fontSize:12,color:'#6b6560',pointerEvents:'none'}}>€</span>
+                <span style={SPIN_WRAP}>
+                  <button onClick={()=>{const rounded=Math.round(draft.prix*10)/10;onPrix(rounded===draft.prix?Math.round((draft.prix+0.10)*100)/100:rounded);}} style={{...BTN_S,borderBottom:'1px solid #ddd'}}>{SVG_UP}</button>
+                  <button onClick={()=>{const rounded=Math.round(draft.prix*10)/10;onPrix(rounded===draft.prix?Math.max(0,Math.round((draft.prix-0.10)*100)/100):rounded);}} style={BTN_S}>{SVG_DN}</button>
+                </span>
+              </div>
+            </div>
+          </div>;
+          })()}
+          <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+            <button onClick={annuler} style={{padding:'8px 16px',background:'#f8f7f5',border:'1px solid #e2ddd6',borderRadius:8,fontSize:13,cursor:'pointer',color:'#6b6560'}}>Annuler la remise</button>
+            <button onClick={valider} style={{padding:'8px 18px',background:'#2d6a4f',color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:700,cursor:'pointer'}}>Valider la remise</button>
+          </div>
+        </div>
+      </div>;
+    })()}
     {remiseJustifModal&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}
       onClick={()=>setRemiseJustifModal(false)}>
       <div style={{background:'#fff',borderRadius:14,padding:'24px',width:440,maxWidth:'90vw'}} onClick={e=>e.stopPropagation()}>
@@ -4825,19 +4963,20 @@ ${infoBlock}
       </div>
     </div>}
     {gratuiteModal&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}
-      onClick={()=>{setGratuiteModal(false);setGratuite(false);}}>
-      <div style={{background:'#fff',borderRadius:14,padding:'24px',width:420,maxWidth:'90vw'}} onClick={e=>e.stopPropagation()}>
-        <div style={{fontSize:15,fontWeight:700,marginBottom:16}}>Gratuité</div>
-        <div style={{fontSize:13,color:'#6b6560',marginBottom:12}}>Pourquoi ces produits sont offerts ?</div>
+      onClick={()=>setGratuiteModal(false)}>
+      <div style={{background:'#fff',borderRadius:14,padding:'24px',width:440,maxWidth:'90vw'}} onClick={e=>e.stopPropagation()}>
+        <div style={{fontSize:15,fontWeight:700,marginBottom:8}}>Justification de la gratuité</div>
+        <div style={{fontSize:13,color:'#6b6560',marginBottom:14}}>Pourquoi ces produits sont-ils offerts ?</div>
         <textarea value={gratuiteRaison} onChange={e=>setGratuiteRaison(e.target.value)}
-          placeholder="Ex: Prospection, Geste commercial, Salon XYZ..." rows={3} autoFocus
-          style={{width:'100%',fontSize:13,padding:'8px 10px',borderRadius:8,border:'1px solid #e2ddd6',outline:'none',resize:'vertical',boxSizing:'border-box'}}/>
-        <div style={{display:'flex',gap:10,marginTop:16,justifyContent:'flex-end'}}>
-          <button onClick={()=>{setGratuiteModal(false);setGratuite(false);setGratuiteRaison('');}}
-            style={{padding:'8px 16px',background:'#f8f7f5',border:'1px solid #e2ddd6',borderRadius:8,fontSize:13,cursor:'pointer'}}>Annuler</button>
-          <button onClick={()=>{if(gratuiteRaison.trim()){setGratuite(true);setGratuiteModal(false);}}}
+          rows={4} placeholder="Ex : Prospection, Geste commercial, Salon XYZ..."
+          style={{width:'100%',fontSize:13,border:'1px solid #e2ddd6',borderRadius:8,padding:'10px',resize:'vertical',fontFamily:'inherit',boxSizing:'border-box'}}
+          autoFocus/>
+        <div style={{display:'flex',gap:8,marginTop:14,justifyContent:'flex-end'}}>
+          <button onClick={()=>setGratuiteModal(false)}
+            style={{padding:'8px 18px',background:'#f8f7f5',border:'1px solid #e2ddd6',borderRadius:8,fontSize:13,cursor:'pointer'}}>Annuler</button>
+          <button onClick={()=>setGratuiteModal(false)}
             disabled={!gratuiteRaison.trim()}
-            style={{padding:'8px 16px',background:gratuiteRaison.trim()?'#2d6a4f':'#e2ddd6',color:gratuiteRaison.trim()?'#fff':'#9e9890',border:'none',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>
+            style={{padding:'8px 20px',background:gratuiteRaison.trim()?'#2d6a4f':'#e2ddd6',color:gratuiteRaison.trim()?'#fff':'#9e9890',border:'none',borderRadius:8,fontSize:13,fontWeight:700,cursor:'pointer'}}>
             Valider
           </button>
         </div>
@@ -7760,6 +7899,12 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cu
   </div>;
 }
 export default function App(){
+  React.useEffect(()=>{
+    const st=document.createElement('style');
+    st.textContent='input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}input[type=number]{-moz-appearance:textfield;}';
+    document.head.appendChild(st);
+    return()=>document.head.removeChild(st);
+  },[]);
   const [isMobile,setIsMobile]=React.useState(()=>window.innerWidth<768);
   React.useEffect(()=>{
     const h=()=>setIsMobile(window.innerWidth<768);
