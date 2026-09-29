@@ -4944,29 +4944,26 @@ ${infoBlock}
         </div>
       </div>
     </div>}
-    {gratuiteModal&&(()=>{
-      const [draft,setDraft]=React.useState(gratuiteRaison||'');
-      return <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}
-        onClick={()=>setGratuiteModal(false)}>
-        <div style={{background:'#fff',borderRadius:14,padding:'24px',width:440,maxWidth:'90vw'}} onClick={e=>e.stopPropagation()}>
-          <div style={{fontSize:15,fontWeight:700,marginBottom:8}}>Justification de la gratuité</div>
-          <div style={{fontSize:13,color:'#6b6560',marginBottom:14}}>Pourquoi ces produits sont-ils offerts ?</div>
-          <textarea value={draft} onChange={e=>setDraft(e.target.value)}
-            rows={4} placeholder="Ex : Prospection, Geste commercial, Salon XYZ..."
-            style={{width:'100%',fontSize:13,border:'1px solid #e2ddd6',borderRadius:8,padding:'10px',resize:'vertical',fontFamily:'inherit',boxSizing:'border-box'}}
-            autoFocus/>
-          <div style={{display:'flex',gap:8,marginTop:14,justifyContent:'flex-end'}}>
-            <button onClick={()=>setGratuiteModal(false)}
-              style={{padding:'8px 18px',background:'#f8f7f5',border:'1px solid #e2ddd6',borderRadius:8,fontSize:13,cursor:'pointer'}}>Annuler</button>
-            <button onClick={()=>{setGratuiteRaison(draft.trim());setGratuiteModal(false);}}
-              disabled={!draft.trim()}
-              style={{padding:'8px 20px',background:draft.trim()?'#2d6a4f':'#e2ddd6',color:draft.trim()?'#fff':'#9e9890',border:'none',borderRadius:8,fontSize:13,fontWeight:700,cursor:'pointer'}}>
-              Valider
-            </button>
-          </div>
+    {gratuiteModal&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}
+      onClick={()=>setGratuiteModal(false)}>
+      <div style={{background:'#fff',borderRadius:14,padding:'24px',width:440,maxWidth:'90vw'}} onClick={e=>e.stopPropagation()}>
+        <div style={{fontSize:15,fontWeight:700,marginBottom:8}}>Justification de la gratuité</div>
+        <div style={{fontSize:13,color:'#6b6560',marginBottom:14}}>Pourquoi ces produits sont-ils offerts ?</div>
+        <textarea value={gratuiteRaison} onChange={e=>setGratuiteRaison(e.target.value)}
+          rows={4} placeholder="Ex : Prospection, Geste commercial, Salon XYZ..."
+          style={{width:'100%',fontSize:13,border:'1px solid #e2ddd6',borderRadius:8,padding:'10px',resize:'vertical',fontFamily:'inherit',boxSizing:'border-box'}}
+          autoFocus/>
+        <div style={{display:'flex',gap:8,marginTop:14,justifyContent:'flex-end'}}>
+          <button onClick={()=>setGratuiteModal(false)}
+            style={{padding:'8px 18px',background:'#f8f7f5',border:'1px solid #e2ddd6',borderRadius:8,fontSize:13,cursor:'pointer'}}>Annuler</button>
+          <button onClick={()=>setGratuiteModal(false)}
+            disabled={!gratuiteRaison.trim()}
+            style={{padding:'8px 20px',background:gratuiteRaison.trim()?'#2d6a4f':'#e2ddd6',color:gratuiteRaison.trim()?'#fff':'#9e9890',border:'none',borderRadius:8,fontSize:13,fontWeight:700,cursor:'pointer'}}>
+            Valider
+          </button>
         </div>
-      </div>;
-    })()}
+      </div>
+    </div>}
   </div>;
 }
 
