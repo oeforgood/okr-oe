@@ -1369,12 +1369,12 @@ function Dashboard({isMobile=false,currentUser,teamMember,teamMembers=[],onGoOKR
       {/* ── SECTION OKR ── pleine largeur */}
       <div style={{display:"flex",flexDirection:"column",gap:2,marginBottom:16}}>
         {(()=>{
-          const col=progColor(avgProg);
+          const info=getSeasonInfo(seasonKey||"printemps_2026");
+          const timeProg=getSeasonProgress(seasonKey||"printemps_2026");
+          const col=avgProg>=timeProg?"#2d6a4f":progColor(avgProg);
           const colPerso=progColorRel(myPersonalProg,avgProg);
           const krCol=progColor(doneKR/Math.max(totalKR,1)*100);
           const krColPerso=progColorRel(myKRDoneOwned/Math.max(myKRsOwned.length,1)*100,avgProg);
-          const info=getSeasonInfo(seasonKey||"printemps_2026");
-          const timeProg=getSeasonProgress(seasonKey||"printemps_2026");
           const start=new Date(info.start),end=new Date(info.end);
           const fmt=d=>d.toLocaleDateString("fr-FR",{day:"numeric",month:"short"});
           return <div style={{background:"#fff",border:"1px solid #86efac",borderRadius:10,padding:"14px 20px",
@@ -6182,7 +6182,7 @@ function SeasonBanner({seasonKey,avgProg,totalKR,doneKR,onChangeSeason,isOwner})
   const info=getSeasonInfo(seasonKey),timeProg=getSeasonProgress(seasonKey);
   const start=new Date(info.start),end=new Date(info.end);
   const fmt=d=>d.toLocaleDateString("fr-FR",{day:"numeric",month:"short"});
-  const col=progColor(avgProg),krCol=progColor(doneKR/Math.max(totalKR,1)*100);
+  const col=avgProg>=timeProg?"#2d6a4f":progColor(avgProg),krCol=progColor(doneKR/Math.max(totalKR,1)*100);
   return <div style={{background:"#fff",border:"1px solid #e2ddd6",borderRadius:10,padding:"14px 20px",marginBottom:14,display:"flex",alignItems:"center",gap:20,flexWrap:"nowrap",overflow:"hidden"}}>
     <div style={{flexShrink:0,textAlign:"center",width:100}}>
       <div style={{fontSize:52,fontWeight:700,fontFamily:"monospace",color:col,lineHeight:1}}>{Math.round(avgProg)}%</div>
@@ -6480,7 +6480,7 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cur
   useEffect(()=>{
     const ref=doc(db,"okr","data");
     const unsub=onSnapshot(ref,(snap)=>{
-      if(snap.exists()){const d=snap.data();if(d.allSeasons)setAllSeasons(d.allSeasons);if(d.seasonKey)setSeasonKey(sk=>sk==="printemps_2026"?d.seasonKey:sk);}
+      if(snap.exists()){const d=snap.data();if(d.allSeasons)setAllSeasons(d.allSeasons);}
       setLoaded(true);
     },(e)=>{console.error(e);setLoaded(true);});
     return()=>unsub();
@@ -6490,7 +6490,7 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cur
   const seasonKeyRef=useRef(seasonKey);useEffect(()=>{seasonKeyRef.current=seasonKey;},[seasonKey]);
 
   function persist(aS){
-    setDoc(doc(db,"okr","data"),{allSeasons:aS,seasonKey:seasonKeyRef.current})
+    setDoc(doc(db,"okr","data"),{allSeasons:aS})
       .then(()=>{setSaved(true);setTimeout(()=>setSaved(false),1800);}).catch(e=>console.error(e));
   }
   async function logChange(type,itemId,itemTitle,owner,changes){
