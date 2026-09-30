@@ -6479,12 +6479,13 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cur
 
   const season=allSeasons[seasonKey]||allSeasons["printemps_2026"];
   const{objectives,subobjectives,keyresults}=season;
-  // Use active team members from Firebase instead of static season people
-  // Only show members who own at least one KR this season (regardless of active status)
+  // Membres visibles dans l'onglet OKR :
+  // - tous ceux dont le rôle n'est pas "inactive" (= "Fini")
+  // - OU ceux qui sont propriétaires d'au moins un KR cette saison
   const krOwners=new Set((keyresults||[]).map(k=>k.owner).filter(Boolean));
   const people=teamMembers.length>0
-    ? teamMembers.filter(m=>krOwners.has(m.prenom)).map(m=>m.prenom).sort()
-    : (season.people||[]).filter(p=>krOwners.has(p));
+    ? teamMembers.filter(m=>m.role!=='inactive'||krOwners.has(m.prenom)).map(m=>m.prenom).sort()
+    : (season.people||[]);
 
   useEffect(()=>{
     const ref=doc(db,"okr","data");
