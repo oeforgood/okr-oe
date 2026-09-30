@@ -5038,6 +5038,23 @@ ${infoBlock}
 function ClientsDbTab({db,clients,setClients}){
   const [importMsg,setImportMsg]=React.useState('');
   const [importError,setImportError]=React.useState('');
+  const [fSociete,setFSociete]=React.useState('');
+  const [fContact,setFContact]=React.useState('');
+  const [fShopify,setFShopify]=React.useState('');
+  const [fVille,setFVille]=React.useState('');
+  const [fEmail,setFEmail]=React.useState('');
+  const [fStatut,setFStatut]=React.useState('');
+  const filteredClients=clients.filter(cl=>{
+    const s=v=>(v||'').toLowerCase();
+    if(fSociete&&!s(cl.societe).includes(s(fSociete)))return false;
+    if(fContact&&!s(cl.contact).includes(s(fContact)))return false;
+    if(fShopify&&!s(cl.shopifyId).includes(s(fShopify)))return false;
+    if(fVille&&!s(cl.factAddr?.ville).includes(s(fVille)))return false;
+    if(fEmail&&!s(cl.factAddr?.email).includes(s(fEmail)))return false;
+    if(fStatut==='actif'&&cl.masked)return false;
+    if(fStatut==='masqué'&&!cl.masked)return false;
+    return true;
+  });
 
   function exportCSV(){
     const cols=['key','societe','contact','shopifyId','masked','factAddr.addr','factAddr.addr2','factAddr.cp','factAddr.ville','factAddr.pays','factAddr.tel','factAddr.email','expAddr.addr','expAddr.addr2','expAddr.cp','expAddr.ville','expAddr.pays','expAddr.tel','expAddr.email','retraitLoft','infoLivraison','updatedAt'];
@@ -5139,11 +5156,37 @@ function ClientsDbTab({db,clients,setClients}){
     </div>
     {!clients.length?<div style={{color:'#9e9890',fontSize:13}}>Chargement...</div>:
     <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',overflow:'hidden'}}>
+      <div style={{padding:'8px 10px',background:'#f8f7f5',borderBottom:'1px solid #e2ddd6',fontSize:11,color:'#9e9890'}}>
+        {filteredClients.length} / {clients.length} client(s) affiché(s)
+        {(fSociete||fContact||fShopify||fVille||fEmail||fStatut)&&<button onClick={()=>{setFSociete('');setFContact('');setFShopify('');setFVille('');setFEmail('');setFStatut('');}} style={{marginLeft:10,fontSize:11,padding:'1px 8px',borderRadius:5,border:'1px solid #e2ddd6',background:'#fff',cursor:'pointer',color:'#c0392b'}}>✕ Effacer filtres</button>}
+      </div>
       <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
-        <thead><tr style={{background:'#f8f7f5',borderBottom:'2px solid #2d6a4f'}}>
-          {['Société','Contact','ID Shopify','Ville','Email','Statut'].map((h,i)=><th key={i} style={{padding:'8px 10px',textAlign:'left',fontSize:11,fontWeight:600,color:'#6b6560',whiteSpace:'nowrap'}}>{h}</th>)}
-        </tr></thead>
-        <tbody>{clients.map((cl,i)=><tr key={cl.key} style={{borderBottom:'1px solid #f5f3ef',background:cl.masked?'#fff5f5':'#fff'}}>
+        <thead>
+          <tr style={{background:'#f8f7f5',borderBottom:'1px solid #e2ddd6'}}>
+            {['Société','Contact','ID Shopify','Ville','Email','Statut'].map((h,i)=><th key={i} style={{padding:'8px 10px',textAlign:'left',fontSize:11,fontWeight:600,color:'#6b6560',whiteSpace:'nowrap'}}>{h}</th>)}
+          </tr>
+          <tr style={{background:'#fdfcfb',borderBottom:'2px solid #2d6a4f'}}>
+            {[
+              [fSociete,setFSociete,'Filtrer...'],
+              [fContact,setFContact,'Filtrer...'],
+              [fShopify,setFShopify,'ID...'],
+              [fVille,setFVille,'Ville...'],
+              [fEmail,setFEmail,'Email...'],
+            ].map(([val,set,ph],i)=><th key={i} style={{padding:'4px 6px'}}>
+              <input value={val} onChange={e=>set(e.target.value)} placeholder={ph}
+                style={{width:'100%',fontSize:11,border:'1px solid #e2ddd6',borderRadius:5,padding:'3px 6px',boxSizing:'border-box',outline:'none',fontFamily:'inherit'}}/>
+            </th>)}
+            <th style={{padding:'4px 6px'}}>
+              <select value={fStatut} onChange={e=>setFStatut(e.target.value)}
+                style={{width:'100%',fontSize:11,border:'1px solid #e2ddd6',borderRadius:5,padding:'3px 4px',boxSizing:'border-box',fontFamily:'inherit',background:'#fff'}}>
+                <option value=''>Tous</option>
+                <option value='actif'>Actif</option>
+                <option value='masqué'>Masqué</option>
+              </select>
+            </th>
+          </tr>
+        </thead>
+        <tbody>{filteredClients.map((cl)=><tr key={cl.key} style={{borderBottom:'1px solid #f5f3ef',background:cl.masked?'#fff5f5':'#fff'}}>
           <td style={{padding:'7px 10px',fontWeight:600}}>{cl.societe}</td>
           <td style={{padding:'7px 10px',color:'#6b6560'}}>{cl.contact||'—'}</td>
           <td style={{padding:'7px 10px',color:'#2d6a4f'}}>{cl.shopifyId||'—'}</td>
