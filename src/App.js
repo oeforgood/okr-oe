@@ -5585,7 +5585,8 @@ function TarifTab({db}){
 
 // Liste des fonctionnalités gérées par permissions
 const PERMISSION_FEATURES=[
-  {key:'coutant', label:'Prix coûtant', description:'Afficher le checkbox "Prix coûtant" dans les devis/commandes'},
+  {key:'coutant',    label:'Prix coûtant',          description:'Afficher le checkbox "Prix coûtant" dans les devis/commandes'},
+  {key:'okr_import', label:'Importer OKR d\'une saison', description:'Accéder au bouton "Importer d\'un objectif d\'une saison précédente" dans l\'onglet OKR'},
 ];
 const PERMISSION_ROLES=[
   {value:'marketing',  label:'Marketing'},
@@ -6020,13 +6021,14 @@ Unités disponibles :
 • nb — batch quantifiable
   Ex : Trouver 100 leads CHR sur la zone de Lyon`;
   const [krHelpVisible,setKrHelpVisible]=useState(false);
+  const krBtnRef=React.useRef(null);
   const krHelpBtn=<div style={{position:"relative",display:"inline-flex",alignItems:"center"}}>
-    <button onMouseEnter={()=>setKrHelpVisible(true)} onMouseLeave={()=>setKrHelpVisible(false)} onClick={()=>setKrHelpVisible(v=>!v)}
+    <button ref={krBtnRef} onMouseEnter={()=>setKrHelpVisible(true)} onMouseLeave={()=>setKrHelpVisible(false)} onClick={()=>setKrHelpVisible(v=>!v)}
       style={{background:"none",border:"1px solid #e2ddd6",borderRadius:"50%",width:26,height:26,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,color:"#6b6560",flexShrink:0}}>🔍</button>
-    {krHelpVisible&&<div style={{position:"absolute",top:"calc(100% + 8px)",right:0,width:608,background:"#1a1814",color:"#f5f3ef",borderRadius:10,padding:"14px 16px",fontSize:12,lineHeight:1.6,zIndex:2000,boxShadow:"0 8px 24px rgba(0,0,0,.3)",whiteSpace:"pre-wrap"}}>
+    {krHelpVisible&&(()=>{const r=krBtnRef.current?.getBoundingClientRect();const top=r?(r.bottom+8):80;const right=r?(window.innerWidth-r.right):24;return <div style={{position:"fixed",top,right:Math.max(8,right-582),width:608,background:"#1a1814",color:"#f5f3ef",borderRadius:10,padding:"14px 16px",fontSize:12,lineHeight:1.6,zIndex:3000,boxShadow:"0 8px 24px rgba(0,0,0,.3)",whiteSpace:"pre-wrap"}}>
       {krHelp}
-      <div style={{position:"absolute",top:-6,right:10,width:0,height:0,borderLeft:"6px solid transparent",borderRight:"6px solid transparent",borderBottom:"6px solid #1a1814"}}/>
-    </div>}
+      <div style={{position:"absolute",top:-6,right:Math.min(r?(r.right-r.left)/2:10,608-20),width:0,height:0,borderLeft:"6px solid transparent",borderRight:"6px solid transparent",borderBottom:"6px solid #1a1814"}}/>
+    </div>;})()}
   </div>;
   return <Modal title={isNew?"Nouveau KR":"Mettre à jour le KR"} onClose={onClose} onSave={save} onDelete={!isNew&&!locked?onDelete:null} onDuplicate={!isNew&&!locked?handleDuplicate:null} headerExtra={isNew?krHelpBtn:null}>
     <Field label="Titre"><input style={INP} value={f.title} onChange={e=>upd("title",e.target.value)} disabled={readonlyStruct}/></Field>
@@ -6349,7 +6351,7 @@ function AppNav({current,onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDe
   </div>;
 }
 
-function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,currentUser,teamMember,isAdmin,teamMembers=[]}){
+function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,currentUser,teamMember,isAdmin,teamMembers=[],rolePermissions={}}){
   const [seasonKey,setSeasonKey]=useState("printemps_2026");
   const [dragOverSobj,setDragOverSobj]=useState(null);
   const [dragOverObj,setDragOverObj]=useState(null); // {id, before}
@@ -6701,10 +6703,10 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cur
             {isDragTarget&&!dragOverObj?.before&&<div style={{height:3,background:'#2d6a4f',borderRadius:2,margin:'0 4px'}}/>}
           </React.Fragment>;
         });})()}
-        {!allLocked&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        {!allLocked&&(()=>{const _role=(teamMember?.role||'').toLowerCase();const canImport=currentUser?.email===OWNER_EMAIL||(_role&&rolePermissions?.okr_import?.[_role]===true);return <div style={{display:"grid",gridTemplateColumns:canImport?"1fr 1fr":"1fr",gap:10}}>
           <button onClick={()=>setModal({type:"obj",item:null,isNew:true})} style={{fontSize:13,color:"#2d6a4f",background:"#d8f3dc",border:"1px dashed #2d6a4f",borderRadius:10,padding:"12px",textAlign:"center",cursor:"pointer"}}>+ Ajouter un objectif</button>
-          <button onClick={()=>setModal({type:"import"})} style={{fontSize:13,color:"#1d4ed8",background:"#eff6ff",border:"1px dashed #1d4ed8",borderRadius:10,padding:"12px",textAlign:"center",cursor:"pointer"}}>↓ Importer d'une saison</button>
-        </div>}
+          {canImport&&<button onClick={()=>setModal({type:"import"})} style={{fontSize:13,color:"#1d4ed8",background:"#eff6ff",border:"1px dashed #1d4ed8",borderRadius:10,padding:"12px",textAlign:"center",cursor:"pointer"}}>↓ Importer d'une saison</button>}
+        </div>;})()}
       </div>
     </div>
 
@@ -8340,7 +8342,7 @@ export default function App(){
   },[]);
 
   // Permissions par rôle — temps réel via onSnapshot
-  const DEFAULT_PERMISSIONS={coutant:{marketing:true,production:false,sales:false,admin:false}};
+  const DEFAULT_PERMISSIONS={coutant:{marketing:true,production:false,sales:false,admin:false},okr_import:{marketing:false,production:false,sales:false,admin:true}};
   const [rolePermissions,setRolePermissions]=useState(DEFAULT_PERMISSIONS);
   useEffect(()=>{
     const unsub=onSnapshot(doc(db,'app_config','role_permissions'),(snap)=>{
@@ -8767,7 +8769,7 @@ export default function App(){
   </div>;
   }
 
-  if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} onGoDevis={()=>setPage("devis")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers}/>;
+  if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} onGoDevis={()=>setPage("devis")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers} rolePermissions={rolePermissions}/>;
   if(page==="update")return <UpdatePage onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} onGoDevis={()=>setPage("devis")} teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} okrData={okrData} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers}/>;
   if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} onGoDevis={()=>setPage("devis")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels} savedCanalMargin={savedCanalMargin} currentUser={authUser}/>;
   if(page==="bsv3")return <Bsv3Page onBack={()=>setPage('dashboard')} onGoOKR={()=>setPage('okr')} onGoUpdate={()=>setPage('update')} onGoReporting={()=>setPage('reporting')} onGoBsv3={()=>setPage('bsv3')} onGoDevis={()=>setPage('devis')} currentUser={authUser} onUpdatePuce={updatePuceInFirebase}/>;
