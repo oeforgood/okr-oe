@@ -3945,7 +3945,8 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   const isCasierPrep=['palette_casier_coiffe','palette_casier_sans_coiffe','casier_sans_palette'].includes(preparation);
   const isPalettePrep=['palette_casier_coiffe','palette_casier_sans_coiffe','palette_cartons'].includes(preparation);
   const isCoiffePrep=preparation==='palette_casier_coiffe';
-  const effectivePCB=isPalettePrep?12:1;
+  const isPaletteCasierPrep=['palette_casier_coiffe','palette_casier_sans_coiffe'].includes(preparation);
+  const effectivePCB=isPaletteCasierPrep?12:1;
   const CASIER_CODE='CASIER-OE';const COIFFE_CODE='COIFFE-OE';
   const CASIER_PRIX=10;const COIFFE_PRIX=120;
 
@@ -4159,6 +4160,16 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   const totalTTC=totalHT+totalTVA;
   const hasAnyRemise=displayLignes.some(l=>l.remise>0&&l.prix!==undefined);
   function fmtE(v){return Number(v).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';}
+  function fmtTVA(rate){const r=parseFloat(rate||0);if(r===0)return'0%';const s=r%1===0?String(r):r.toLocaleString('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:2});return s+'%';}
+  function fmtQtyColis(qty,ligne){
+    // Affiche colis uniquement pour les lignes produit (pas casier/coiffe auto) et seulement en préparation palette casiers ou cartons
+    if(ligne.qtyMode==='auto')return String(qty);
+    const colisSize=isPaletteCasierPrep?12:(preparation==='palette_cartons'?Math.max(1,parseInt(String(ligne.pcb||'1').replace(/[^0-9]/g,''))||1):0);
+    if(colisSize<2||qty<=0)return String(qty);
+    const nb=qty/colisSize;
+    if(nb!==Math.floor(nb))return String(qty);
+    return `${qty} (${nb} colis de ${colisSize})`;
+  }
   const prepLabel=PREP_OPTIONS.find(p=>p.k===preparation)?.l||'';
   const expA=sameAddr||retraitLoft?factAddr:expAddr;
   const coiffeOk=!isCoiffePrep||totalBouteilles===0||totalBouteilles%120===0;
@@ -4260,9 +4271,9 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
       const totalLigneHT=pu*qty;
       const tvaRate=parseFloat(l.tva||0);
       const tvaVal=totalLigneHT*(tvaRate/100);
-      const tvaTxt=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?'offert':tvaRate>0?(tvaRate+'%: '+fmtE(tvaVal)):'0%';
+      const tvaTxt=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?'offert':(fmtTVA(tvaRate)+(tvaVal>0?': '+fmtE(tvaVal):''));
       const tarifLbl=getLineTarifLabelText(l);
-      return rp(l.code||'',10)+'  '+rp(l.libelle||'',32)+'  '+rp(tarifLbl,12)+'  '+lp(String(qty),5)+'  '+lp(fmtE(pu),10)+'  '+lp(fmtE(totalLigneHT),10)+'  '+tvaTxt;
+      return rp(l.code||'',10)+'  '+rp(l.libelle||'',32)+'  '+rp(tarifLbl,12)+'  '+lp(fmtQtyColis(qty,l),5)+'  '+lp(fmtE(pu),10)+'  '+lp(fmtE(totalLigneHT),10)+'  '+tvaTxt;
     }).join('\n');
     const expInfo=retraitLoft?'Retrait au Loft Oé':sameAddr?`${factAddr.addr}, ${factAddr.cp} ${factAddr.ville}`:`${expAddr.addr}, ${expAddr.cp} ${expAddr.ville}`;
     return [
@@ -4348,10 +4359,10 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
         <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;font-weight:600;letter-spacing:0.3px;white-space:nowrap">${ligne.code||''}</td>
         <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;white-space:nowrap">${robeDotHtml}${ligne.libelle||''}</td>
         <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;white-space:nowrap">${tarifHtml}</td>
-        <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;text-align:right;white-space:nowrap">${qty}</td>
+        <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;text-align:right;white-space:nowrap">${fmtQtyColis(qty,ligne)}</td>
         <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;text-align:right;white-space:nowrap">${isOffert?'offert':(ligne.remise>0&&ligne.prix!==undefined?`<span style="font-weight:600">${fmtE(pu)}</span> <span style="text-decoration:line-through;color:#9e9890;font-size:10px">${fmtE((()=>{const p=tarif.find(t=>t.code===ligne.code);return p?getPU(p,ligne.qty):0;})())}</span>`:fmtE(pu))}</td>
         <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;text-align:right;font-weight:700;white-space:nowrap">${isOffert?'offert':fmtE(totalHT2)}</td>
-        <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;text-align:right;color:#6b6560;white-space:nowrap">${isOffert?'':tvaRate>0?(tvaRate+'%'):'0%'}</td>
+        <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;text-align:right;color:#6b6560;white-space:nowrap">${isOffert?'':fmtTVA(tvaRate)}</td>
         <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;text-align:right;white-space:nowrap">${isOffert?'offert':fmtE(ttcLigne)}</td>
       </tr>`;
     }).join('');
@@ -4542,7 +4553,7 @@ ${infoBlock}
                       {l.libelle}{isAuto?<span style={{fontSize:10,color:'#9e9890',marginLeft:4}}>(auto)</span>:null}
                     </span>
                     <span style={{...CELL,textAlign:'left'}}>{getLineTarifBadgesRecap(l)}</span>
-                    <span style={CELL}>{qty}</span>
+                    <span style={CELL}>{fmtQtyColis(qty,l)}</span>
                     <span style={{...CELL,whiteSpace:'nowrap'}}>
                       {isOff?<span style={{color:'#c0392b',fontWeight:600}}>offert</span>:<span style={{display:'inline-flex',alignItems:'center',gap:4,flexWrap:'nowrap',justifyContent:'flex-end'}}>
                         <span style={{fontWeight:hasRemise?700:400}}>{fmtE(pu)}</span>
@@ -4550,7 +4561,7 @@ ${infoBlock}
                       </span>}
                     </span>
                     <span style={{...CELL,fontWeight:700}}>{isOff?<span style={{color:'#c0392b',fontWeight:600}}>offert</span>:fmtE(htL)}</span>
-                    <span style={{...CELL,color:'#6b6560'}}>{tvaR>0?tvaR+'%':'0%'}</span>
+                    <span style={{...CELL,color:'#6b6560'}}>{fmtTVA(tvaR)}</span>
                     <span style={CELL}>{isOff?<span style={{color:'#c0392b',fontWeight:600}}>offert</span>:fmtE(ttcL)}</span>
                   </div>;
                 })}
@@ -4924,7 +4935,7 @@ ${infoBlock}
                       })()}
                     </td>
                     <td style={{padding:'4px 6px',fontSize:11,textAlign:'right',fontWeight:700}}>{isOffert?'offert':fmtE(pu*parseInt(l.qty||0))}</td>
-                    <td style={{padding:'4px 6px',fontSize:11,textAlign:'right',color:'#6b6560'}}>{tvaRate>0?(tvaRate+'%'):'0%'}</td>
+                    <td style={{padding:'4px 6px',fontSize:11,textAlign:'right',color:'#6b6560'}}>{fmtTVA(tvaRate)}</td>
                     <td style={{padding:'4px 6px',fontSize:11,textAlign:'right'}}>{isOffert?'offert':fmtE(ttc)}</td>
                     <td style={{padding:'4px 6px',textAlign:'center'}}>
                       {!isAuto&&<button onClick={()=>remLigne(i)} style={{border:'none',background:'none',color:'#c0392b',cursor:'pointer',fontSize:14,padding:'2px 6px'}}>×</button>}
