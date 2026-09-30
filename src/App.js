@@ -6448,7 +6448,7 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cur
   useEffect(()=>{
     const ref=doc(db,"okr","data");
     const unsub=onSnapshot(ref,(snap)=>{
-      if(snap.exists()){const d=snap.data();if(d.allSeasons)setAllSeasons(d.allSeasons);if(d.seasonKey)setSeasonKey(d.seasonKey);if(d.collObj)setCollObj(d.collObj||{});if(d.collSobj)setCollSobj(d.collSobj||{});}
+      if(snap.exists()){const d=snap.data();if(d.allSeasons)setAllSeasons(d.allSeasons);if(d.seasonKey)setSeasonKey(sk=>sk==="printemps_2026"?d.seasonKey:sk);}
       setLoaded(true);
     },(e)=>{console.error(e);setLoaded(true);});
     return()=>unsub();
@@ -6458,7 +6458,7 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cur
   const seasonKeyRef=useRef(seasonKey);useEffect(()=>{seasonKeyRef.current=seasonKey;},[seasonKey]);
 
   function persist(aS){
-    setDoc(doc(db,"okr","data"),{allSeasons:aS,seasonKey:seasonKeyRef.current,collObj,collSobj})
+    setDoc(doc(db,"okr","data"),{allSeasons:aS,seasonKey:seasonKeyRef.current})
       .then(()=>{setSaved(true);setTimeout(()=>setSaved(false),1800);}).catch(e=>console.error(e));
   }
   async function logChange(type,itemId,itemTitle,owner,changes){
@@ -6474,11 +6474,11 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cur
     let next=allSeasonsRef.current;
     if(!next[key]){next={...next,[key]:makeFreshSeason(people)};allSeasonsRef.current=next;setAllSeasons(next);}
     seasonKeyRef.current=key;
-    setSeasonKey(key);setFilterP("");
-    setDoc(doc(db,"okr","data"),{allSeasons:next,seasonKey:key,collObj,collSobj}).catch(e=>console.error(e));
+    setSeasonKey(key);setFilterP("");setCollObj({});setCollSobj({});
+    // Ne pas sauvegarder la saison de l'onglet OKR dans Firestore — chaque teammate gère localement
   }
-  function toggleObj(id){setCollObj(c=>{const n={...c,[id]:!c[id]};setDoc(doc(db,"okr","data"),{allSeasons:allSeasonsRef.current,seasonKey:seasonKeyRef.current,collObj:n,collSobj:collSobj}).catch(e=>console.error(e));return n;});}
-  function toggleSobj(id){setCollSobj(c=>{const n={...c,[id]:!c[id]};setDoc(doc(db,"okr","data"),{allSeasons:allSeasonsRef.current,seasonKey:seasonKeyRef.current,collObj,collSobj:n}).catch(e=>console.error(e));return n;});}
+  function toggleObj(id){setCollObj(c=>({...c,[id]:!c[id]}));}
+  function toggleSobj(id){setCollSobj(c=>({...c,[id]:!c[id]}));}
   function lockObj(id){updateSeason({objectives:objectives.map(o=>o.id===id?{...o,locked:true}:o)});setModal(null);}
   function unlockObj(id){updateSeason({objectives:objectives.map(o=>o.id===id?{...o,locked:false}:o)});setModal(null);}
   function handleObjSave(data){
