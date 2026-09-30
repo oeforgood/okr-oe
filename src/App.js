@@ -4620,7 +4620,7 @@ ${infoBlock}
               const filteredClients=savedClients.filter(cl=>{
                 if(showMasked) return !!cl.masked;
                 if(cl.masked) return false;
-                if(!clientFilter.trim()) return true;
+                if(!clientFilter.trim()) return !!(cl.societe||'').trim();
                 const q=clientFilter.toLowerCase();
                 return (cl.societe||'').toLowerCase().includes(q)||(cl.contact||'').toLowerCase().includes(q)||(cl.factAddr?.ville||'').toLowerCase().includes(q)||(cl.shopifyId||'').toLowerCase().includes(q);
               });
