@@ -6480,7 +6480,7 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cur
   useEffect(()=>{
     const ref=doc(db,"okr","data");
     const unsub=onSnapshot(ref,(snap)=>{
-      if(snap.exists()){const d=snap.data();if(d.allSeasons)setAllSeasons(d.allSeasons);if(d.seasonKey)setSeasonKey(sk=>sk==="printemps_2026"?d.seasonKey:sk);}
+      if(snap.exists()){const d=snap.data();if(d.allSeasons)setAllSeasons(d.allSeasons);}
       setLoaded(true);
     },(e)=>{console.error(e);setLoaded(true);});
     return()=>unsub();
@@ -6490,7 +6490,7 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cur
   const seasonKeyRef=useRef(seasonKey);useEffect(()=>{seasonKeyRef.current=seasonKey;},[seasonKey]);
 
   function persist(aS){
-    setDoc(doc(db,"okr","data"),{allSeasons:aS,seasonKey:seasonKeyRef.current})
+    setDoc(doc(db,"okr","data"),{allSeasons:aS})
       .then(()=>{setSaved(true);setTimeout(()=>setSaved(false),1800);}).catch(e=>console.error(e));
   }
   async function logChange(type,itemId,itemTitle,owner,changes){
