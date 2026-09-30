@@ -4312,6 +4312,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
       divider,
       lignesText,
       sep,
+      `${''.padEnd(59)}Livraison : ${'offert'.padStart(12)}`,
       `${''.padEnd(59)}Total HT  : ${colR(fmtE(totalHT),12)}`,
       `${''.padEnd(59)}TVA       : ${colR(fmtE(totalTVA),12)}`,
       `${''.padEnd(59)}TOTAL TTC : ${colR(fmtE(totalTTC),12)}`,
@@ -4417,6 +4418,12 @@ ${infoBlock}
     </tr></thead>
     <tbody>${prodRows}</tbody>
     <tfoot>
+      <tr>
+        <td colspan="5" style="padding:6px 6px;font-size:11px;color:#6b6560">Livraison</td>
+        <td style="padding:6px 6px;text-align:right;font-size:11px;color:#2d6a4f;font-weight:600;white-space:nowrap">offert</td>
+        <td></td>
+        <td style="padding:6px 6px;text-align:right;font-size:11px;color:#2d6a4f;font-weight:600;white-space:nowrap">offert</td>
+      </tr>
       <tr style="border-top:2px solid ${brandGreen}">
         <td colspan="5" style="padding:6px 6px;font-size:11px;font-weight:700;color:${brandGreen}">TOTAL</td>
         <td style="padding:6px 6px;text-align:right;font-size:11px;font-weight:700;white-space:nowrap">${gratuite?'OFFERT':fmtE(totalHT)}</td>
