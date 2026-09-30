@@ -4581,12 +4581,23 @@ ${infoBlock}
                     onFocus={()=>setClientDropOpen(true)}
                     placeholder={selectedClientKey?(savedClients.find(x=>x.key===selectedClientKey)?.societe||''):'— Taper pour filtrer les clients —'}
                     style={{...INP(),flex:1,color:clientFilter?'#1a1814':'#9e9890'}}/>
-                  {selectedClientKey&&<button onClick={async()=>{
-                    if(!window.confirm('Masquer ce client ? Il n\'apparaîtra plus dans les listes mais ses données seront conservées.'))return;
-                    await updateDoc(doc(db,'devis_clients',selectedClientKey),{masked:true});
-                    setSavedClients(p=>p.map(x=>x.key===selectedClientKey?{...x,masked:true}:x));
-                    setSociete('');setContact('');setShopifyId('');setFactAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setSelectedClientKey('');setClientFilter('');
-                  }} style={{padding:'6px 10px',background:'#fff',border:'1px solid #e2ddd6',borderRadius:7,fontSize:12,color:'#c0392b',cursor:'pointer',flexShrink:0}}>Masquer</button>}
+                  {selectedClientKey&&(()=>{
+                    const selCl=savedClients.find(x=>x.key===selectedClientKey);
+                    const isMasked=selCl?.masked;
+                    return <button onClick={async()=>{
+                      if(isMasked){
+                        await updateDoc(doc(db,'devis_clients',selectedClientKey),{masked:false});
+                        setSavedClients(p=>p.map(x=>x.key===selectedClientKey?{...x,masked:false}:x));
+                      } else {
+                        if(!window.confirm('Masquer ce client ? Il n\'apparaîtra plus dans les listes mais ses données seront conservées.'))return;
+                        await updateDoc(doc(db,'devis_clients',selectedClientKey),{masked:true});
+                        setSavedClients(p=>p.map(x=>x.key===selectedClientKey?{...x,masked:true}:x));
+                        setSociete('');setContact('');setShopifyId('');setFactAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setSelectedClientKey('');setClientFilter('');
+                      }
+                    }} style={{padding:'6px 10px',background:isMasked?'#f0fdf4':'#fff',border:`1px solid ${isMasked?'#86efac':'#e2ddd6'}`,borderRadius:7,fontSize:12,color:isMasked?'#2d6a4f':'#c0392b',cursor:'pointer',flexShrink:0}}>
+                      {isMasked?'Restaurer':'Masquer'}
+                    </button>;
+                  })()}
                   <button onClick={()=>{setSociete('');setContact('');setShopifyId('');setFactAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setSelectedClientKey('');setClientFilter('');setClientDropOpen(false);}}
                     style={{padding:'6px 10px',background:'#f8f7f5',border:'1px solid #e2ddd6',borderRadius:7,fontSize:12,cursor:'pointer',flexShrink:0}}>Effacer</button>
                 </div>
@@ -4599,8 +4610,13 @@ ${infoBlock}
                   }} style={{padding:'8px 12px',cursor:'pointer',fontSize:12,borderBottom:'1px solid #f5f3ef',display:'flex',justifyContent:'space-between',alignItems:'center'}}
                     onMouseEnter={e=>e.currentTarget.style.background='#f8f7f5'}
                     onMouseLeave={e=>e.currentTarget.style.background='#fff'}>
-                    <span><strong>{cl.societe}</strong>{cl.contact&&<span style={{color:'#6b6560',marginLeft:6}}>{cl.contact}</span>}</span>
-                    <span style={{color:'#9e9890',fontSize:10}}>{cl.factAddr?.ville||''}{cl.shopifyId&&<span style={{marginLeft:6,color:'#2d6a4f'}}>#{cl.shopifyId}</span>}{cl.masked&&<span style={{marginLeft:6,color:'#c0392b'}}>masqué</span>}</span>
+                    <span style={{display:'flex',alignItems:'baseline',gap:5,flexWrap:'wrap'}}>
+                      <strong>{cl.societe}</strong>
+                      {cl.contact&&<span style={{color:'#6b6560',fontSize:11}}>{cl.contact}</span>}
+                      {cl.factAddr?.ville&&<span style={{color:'#9e9890',fontSize:11}}>({cl.factAddr.ville})</span>}
+                      {cl.masked&&<span style={{fontSize:10,padding:'0 4px',borderRadius:4,background:'#fef2f2',color:'#c0392b'}}>masqué</span>}
+                    </span>
+                    {cl.shopifyId&&<span style={{color:'#2d6a4f',fontSize:10,flexShrink:0}}>#{cl.shopifyId}</span>}
                   </div>)}
                 </div>}
                 {clientDropOpen&&<div style={{position:'fixed',inset:0,zIndex:199}} onMouseDown={()=>setClientDropOpen(false)}/>}
@@ -5071,6 +5087,11 @@ function ClientsDbTab({db}){
     const text=await file.text();
     const rows=parseCSV(text);
     if(!rows.length){setImportError('Fichier vide ou invalide.');setImportMsg('');return;}
+    if(!window.confirm(`Importer ${rows.length} client(s) ? Cela remplacera TOTALEMENT la base clients existante.`)){setImportMsg('');return;}
+    // Supprimer tous les clients existants
+    const existingSnap=await getDocs(collection(db,'devis_clients'));
+    for(const d of existingSnap.docs) await deleteDoc(doc(db,'devis_clients',d.id));
+    // Importer les nouveaux
     let count=0;
     for(const row of rows){
       const key=row['key']||row['societe'];
@@ -5082,7 +5103,7 @@ function ClientsDbTab({db}){
         expAddr:{addr:row['expAddr.addr']||'',addr2:row['expAddr.addr2']||'',cp:row['expAddr.cp']||'',ville:row['expAddr.ville']||'',pays:row['expAddr.pays']||'France',tel:row['expAddr.tel']||'',email:row['expAddr.email']||''},
         updatedAt:Date.now(),
       };
-      await setDoc(doc(db,'devis_clients',key),data,{merge:true});
+      await setDoc(doc(db,'devis_clients',key),data);
       count++;
     }
     const snap=await getDocs(collection(db,'devis_clients'));
