@@ -4900,7 +4900,14 @@ ${infoBlock}
                             {allOpts.map(q=>{
                               const isPalMult=palQtyEff>0&&q%palQtyEff===0;
                               const palNum=isPalMult?q/palQtyEff:0;
-                              return <option key={q} value={q}>{isPalMult?`${palNum} palette${palNum>1?'s':''} (${q})`:String(q)}</option>;
+                              if(isPalMult){
+                                return <option key={q} value={q}>{`${palNum} palette${palNum>1?'s':''} (${q})`}</option>;
+                              }
+                              // Afficher nb colis × taille colis
+                              const colisSize=isCasierPrep?12:pcb;
+                              const nbColis=colisSize>1?(q/colisSize):0;
+                              const colisLabel=nbColis>0?` (${nbColis} colis de ${colisSize})`:'';
+                              return <option key={q} value={q}>{`${q}${colisLabel}`}</option>;
                             })}
                           </select>;
                       })()}
