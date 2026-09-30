@@ -287,10 +287,13 @@ function SmallBar({v,w=56,h=4}){
     <span style={{fontSize:12,fontWeight:600,color:c,minWidth:32,textAlign:"right",fontFamily:"monospace"}}>{Math.round(v)}%</span>
   </div>;
 }
-function Modal({title,children,onClose,onSave,onDelete,onDuplicate,saveLabel="Enregistrer",wide=false}){
+function Modal({title,children,onClose,onSave,onDelete,onDuplicate,saveLabel="Enregistrer",wide=false,headerExtra=null}){
   return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
     <div style={{background:"#fff",borderRadius:12,padding:24,width:"90%",maxWidth:wide?700:540,maxHeight:"90vh",overflowY:"auto",boxSizing:"border-box"}}>
-      <div style={{fontSize:16,fontWeight:600,marginBottom:18}}>{title}</div>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+        <div style={{fontSize:16,fontWeight:600}}>{title}</div>
+        {headerExtra}
+      </div>
       {children}
       <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginTop:20}}>
         {onDelete&&<button onClick={onDelete} style={{marginRight:"auto",fontSize:13,fontWeight:500,background:"#fdecea",color:"#c0392b",border:"1px solid #fca5a5",padding:"7px 14px",borderRadius:6,cursor:"pointer"}}>Supprimer</button>}
@@ -5998,7 +6001,34 @@ function KRModal({kr,sobjId,people,keyresults,onClose,onSave,onDelete,locked}){
     onSave(dupKR,true); // true = is duplicate → _id will be undefined → new KR with correct numbering
     onClose();
   }
-  return <Modal title={isNew?"Nouveau KR":"Mettre à jour le KR"} onClose={onClose} onSave={save} onDelete={!isNew&&!locked?onDelete:null} onDuplicate={!isNew&&!locked?handleDuplicate:null}>
+  const krHelp=`Un KR est une action ou un ensemble d'actions — il doit donc être libellé à l'infinitif.
+Le libellé d'un KR doit être objectivement quantifiable : on doit pouvoir facilement mesurer s'il est atteint, partiellement atteint ou pas atteint.
+
+❌ "Sensibiliser le client XXX au réemploi" → pas quantifiable.
+✅ "Réaliser trois actions de sensibilisation au réemploi pour le client XXX"
+
+Le KR étant quantifiable, on définit l'unité de mesure, la cible et le point de départ.
+Dans l'exemple ci-dessus : unité = nb, cible = 3, départ = 0.
+
+Unités disponibles :
+• € — valeurs monétaires (CA, levée de fonds, stock…)
+  Ex : Obtenir la validation écrite d'investisseurs pour 300 k€
+• % — taux d'avancement estimable
+  Ex : Organiser la soirée écosystème
+• oui/non — quand l'avancement n'est pas mesurable
+  Ex : Valider en Comité Stratégique le projet CRF Restart
+• nb — batch quantifiable
+  Ex : Trouver 100 leads CHR sur la zone de Lyon`;
+  const [krHelpVisible,setKrHelpVisible]=useState(false);
+  const krHelpBtn=<div style={{position:"relative",display:"inline-flex",alignItems:"center"}}>
+    <button onMouseEnter={()=>setKrHelpVisible(true)} onMouseLeave={()=>setKrHelpVisible(false)} onClick={()=>setKrHelpVisible(v=>!v)}
+      style={{background:"none",border:"1px solid #e2ddd6",borderRadius:"50%",width:26,height:26,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,color:"#6b6560",flexShrink:0}}>🔍</button>
+    {krHelpVisible&&<div style={{position:"absolute",top:"calc(100% + 8px)",right:0,width:380,background:"#1a1814",color:"#f5f3ef",borderRadius:10,padding:"14px 16px",fontSize:12,lineHeight:1.6,zIndex:2000,boxShadow:"0 8px 24px rgba(0,0,0,.3)",whiteSpace:"pre-wrap"}}>
+      {krHelp}
+      <div style={{position:"absolute",top:-6,right:10,width:0,height:0,borderLeft:"6px solid transparent",borderRight:"6px solid transparent",borderBottom:"6px solid #1a1814"}}/>
+    </div>}
+  </div>;
+  return <Modal title={isNew?"Nouveau KR":"Mettre à jour le KR"} onClose={onClose} onSave={save} onDelete={!isNew&&!locked?onDelete:null} onDuplicate={!isNew&&!locked?handleDuplicate:null} headerExtra={krHelpBtn}>
     <Field label="Titre"><input style={INP} value={f.title} onChange={e=>upd("title",e.target.value)} disabled={readonlyStruct}/></Field>
     {!readonlyStruct&&<>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
