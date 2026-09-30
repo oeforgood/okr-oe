@@ -5088,17 +5088,22 @@ function ClientsDbTab({db}){
     const rows=parseCSV(text);
     if(!rows.length){setImportError('Fichier vide ou invalide.');setImportMsg('');return;}
     if(!window.confirm(`Importer ${rows.length} client(s) ? Cela remplacera TOTALEMENT la base clients existante.`)){setImportMsg('');return;}
-    // Supprimer tous les clients existants
+    // Charger l'état masqué existant pour le préserver
     const existingSnap=await getDocs(collection(db,'devis_clients'));
+    const existingMasked={};
+    existingSnap.docs.forEach(d=>{existingMasked[d.id]=d.data().masked||false;});
+    // Supprimer tous les clients existants
     for(const d of existingSnap.docs) await deleteDoc(doc(db,'devis_clients',d.id));
-    // Importer les nouveaux
+    // Importer les nouveaux en préservant le statut masqué existant
     let count=0;
     for(const row of rows){
       const key=row['key']||row['societe'];
       if(!key)continue;
+      // Si le client existait déjà, on conserve son statut masqué; sinon on prend celui du CSV
+      const maskedValue=key in existingMasked ? existingMasked[key] : row['masked']==='true';
       const data={
         societe:row['societe']||'',contact:row['contact']||'',shopifyId:row['shopifyId']||'',
-        masked:row['masked']==='true',retraitLoft:row['retraitLoft']==='true',infoLivraison:row['infoLivraison']||'',
+        masked:maskedValue,retraitLoft:row['retraitLoft']==='true',infoLivraison:row['infoLivraison']||'',
         factAddr:{addr:row['factAddr.addr']||'',addr2:row['factAddr.addr2']||'',cp:row['factAddr.cp']||'',ville:row['factAddr.ville']||'',pays:row['factAddr.pays']||'France',tel:row['factAddr.tel']||'',email:row['factAddr.email']||''},
         expAddr:{addr:row['expAddr.addr']||'',addr2:row['expAddr.addr2']||'',cp:row['expAddr.cp']||'',ville:row['expAddr.ville']||'',pays:row['expAddr.pays']||'France',tel:row['expAddr.tel']||'',email:row['expAddr.email']||''},
         updatedAt:Date.now(),
@@ -5761,7 +5766,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
             </>;
           })()}
         </div>}
-      {tab!=="history"&&tab!=="reporting"&&tab!=="reporting_params"&&tab!=="members"&&tab!=="bsv3"&&<><button onClick={save} style={{marginTop:20,padding:"12px 28px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600}}>
+      {tab!=="history"&&tab!=="reporting"&&tab!=="reporting_params"&&tab!=="members"&&tab!=="bsv3"&&tab!=="clients_db"&&<><button onClick={save} style={{marginTop:20,padding:"12px 28px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600}}>
         💾 Enregistrer
       </button>
       {saved&&<span style={{marginLeft:12,fontSize:13,color:"#2d6a4f"}}>✓ Sauvegardé !</span>}</>}
