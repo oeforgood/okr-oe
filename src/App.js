@@ -4107,9 +4107,9 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
       const bad=coreLignes.some(l=>(l.code||'')[1]!=='E');
       if(bad){alert('Supprimez d\'abord les produits autres que 75cl.');return;}
     }
-    const newIsPalette=['palette_casier_coiffe','palette_casier_sans_coiffe','palette_cartons'].includes(newPrep);
+    const newIsPaletteCasier=['palette_casier_coiffe','palette_casier_sans_coiffe'].includes(newPrep);
     const newIsPaletteCartons=newPrep==='palette_cartons';
-    const newPCB=newIsPalette?(newIsPaletteCartons?'tarif':12):1;
+    const newPCB=newIsPaletteCasier?12:newIsPaletteCartons?'tarif':1;
     setLignes(p=>p.filter(l=>l.qtyMode!=='auto').map(l=>{
       const prodData=tarif.find(t=>t.code===l.code);
       const pcb=newPCB==='tarif'?Math.max(1,parseInt(String(prodData?.pcb||'1').replace(/[^0-9]/g,''))||1):newPCB;
@@ -4160,7 +4160,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   const totalTTC=totalHT+totalTVA;
   const hasAnyRemise=displayLignes.some(l=>l.remise>0&&l.prix!==undefined);
   function fmtE(v){return Number(v).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';}
-  function fmtTVA(rate){const r=parseFloat(rate||0);if(r===0)return'0%';const s=r%1===0?String(r):r.toLocaleString('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:2});return s+'%';}
+  function fmtTVA(rate){const r=parseFloat(String(rate||0).replace(',','.'));if(r===0)return'0%';const s=r%1===0?String(r):r.toLocaleString('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:2});return s+'%';}
   function fmtQtyColis(qty,ligne){
     // Affiche colis uniquement pour les lignes produit (pas casier/coiffe auto) et seulement en préparation palette casiers ou cartons
     if(ligne.qtyMode==='auto')return String(qty);
@@ -4478,7 +4478,7 @@ ${infoBlock}
               if(line.startsWith('Code '))inProd=true;
               if(!inProd)infoLines.push(line);
             }
-            const GRD='70px 1fr 80px 36px 110px 80px 44px 76px';
+            const GRD='70px 1fr 80px 140px 110px 80px 44px 76px';
             const TH={fontSize:10,fontWeight:600,color:'#6b6560',padding:'6px 6px',textAlign:'right',whiteSpace:'nowrap'};
             const TD={fontSize:11,padding:'4px 6px',textAlign:'right',borderBottom:'1px solid #f5f3ef'};
             const totTTC=displayLignes.reduce((s,l)=>{
@@ -4797,12 +4797,6 @@ ${infoBlock}
                 <option key={p.k} value={p.k}>{p.l}</option>
               )}
             </select>
-            {isCoiffePrep&&totalBouteilles>0&&!coiffeOk&&<div style={{marginTop:8,fontSize:12,color:'#c0392b',fontWeight:600}}>
-              ⚠️ Rajouter {coiffeManquantes} bouteille{coiffeManquantes>1?'s':''} — multiple de 120 requis.
-            </div>}
-            {isCoffretUps&&totalEq75>24&&<div style={{marginTop:8,fontSize:12,color:'#c0392b',fontWeight:600}}>
-              ⚠️ Coffret UPS : maximum 24 équivalents 75cl ({totalEq75} actuellement). Retirez {totalEq75-24} éq. 75cl.
-            </div>}
           </div>
           <div style={{borderLeft:'1px solid #f0ede8',paddingLeft:16}}>
             <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>Tarification</div>
@@ -4960,30 +4954,31 @@ ${infoBlock}
           </>}
         </div>}
 
-        {preparation&&<div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:8}}>
-          <div style={{display:'flex',justifyContent:'flex-end',alignItems:'center',gap:12}}>
-            {isCoiffePrep&&totalBouteilles>0&&!coiffeOk&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600}}>⚠️ {totalBouteilles} bouteilles — multiple de 120 requis</div>}
+        {preparation&&<div style={{display:'flex',justifyContent:'flex-end',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+          <div style={{display:'flex',flexDirection:'column',gap:4,flex:1}}>
+            {isCoiffePrep&&totalBouteilles>0&&!coiffeOk&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600}}>⚠️ Rajouter {coiffeManquantes} bouteille{coiffeManquantes>1?'s':''} — multiple de 120 requis.</div>}
+            {isCoffretUps&&totalEq75>24&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600}}>⚠️ Coffret UPS : maximum 24 éq. 75cl ({totalEq75} actuellement). Retirez {totalEq75-24} éq. 75cl.</div>}
             {minQtyMsg&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600}}>⚠️ {minQtyMsg}</div>}
-            {gratuite&&!gratuiteRaison
-              ?<button onClick={()=>setGratuiteModal(true)}
-                style={{padding:'12px 32px',background:'#c0392b',color:'#fff',border:'none',borderRadius:10,fontSize:15,fontWeight:700,cursor:'pointer'}}>
-                Expliquer la gratuité
-              </button>
-              :hasAnyRemise&&!remiseJustif
-              ?<button onClick={()=>{setRemiseJustifDraft('');setRemiseJustifModal(true);}}
-                style={{padding:'12px 32px',background:'#c0392b',color:'#fff',border:'none',borderRadius:10,fontSize:15,fontWeight:700,cursor:'pointer'}}>
-                Expliquer la remise
-              </button>
-              :<button onClick={handleEnvoyer}
-                disabled={sending||!coreLignes.length||!coiffeOk||!minQtyOk||!coffretUpsOk}
-                style={{padding:'12px 32px',
-                  background:sending||!coreLignes.length||!coiffeOk||!minQtyOk?'#e2ddd6':'#2d6a4f',
-                  color:sending||!coreLignes.length||!coiffeOk||!minQtyOk?'#9e9890':'#fff',
-                  border:'none',borderRadius:10,fontSize:15,fontWeight:700,cursor:'pointer'}}>
-                {sending?'Envoi en cours...':(mode==='devis'?'Envoyer le devis':'Enregistrer la commande')}
-              </button>
-            }
           </div>
+          {gratuite&&!gratuiteRaison
+            ?<button onClick={()=>setGratuiteModal(true)}
+              style={{padding:'12px 32px',background:'#c0392b',color:'#fff',border:'none',borderRadius:10,fontSize:15,fontWeight:700,cursor:'pointer'}}>
+              Expliquer la gratuité
+            </button>
+            :hasAnyRemise&&!remiseJustif
+            ?<button onClick={()=>{setRemiseJustifDraft('');setRemiseJustifModal(true);}}
+              style={{padding:'12px 32px',background:'#c0392b',color:'#fff',border:'none',borderRadius:10,fontSize:15,fontWeight:700,cursor:'pointer'}}>
+              Expliquer la remise
+            </button>
+            :<button onClick={handleEnvoyer}
+              disabled={sending||!coreLignes.length||!coiffeOk||!minQtyOk||!coffretUpsOk}
+              style={{padding:'12px 32px',
+                background:sending||!coreLignes.length||!coiffeOk||!minQtyOk||!coffretUpsOk?'#e2ddd6':'#2d6a4f',
+                color:sending||!coreLignes.length||!coiffeOk||!minQtyOk||!coffretUpsOk?'#9e9890':'#fff',
+                border:'none',borderRadius:10,fontSize:15,fontWeight:700,cursor:'pointer',flexShrink:0}}>
+              {sending?'Envoi en cours...':(mode==='devis'?'Envoyer le devis':'Enregistrer la commande')}
+            </button>
+          }
         </div>}
       </>}
     </div>
