@@ -3904,6 +3904,9 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   const [selectedProd,setSelectedProd]=React.useState('');
   const [savedClients,setSavedClients]=React.useState([]);
   const [selectedClientKey,setSelectedClientKey]=React.useState('');
+  const [clientFilter,setClientFilter]=React.useState('');
+  const [clientDropOpen,setClientDropOpen]=React.useState(false);
+  const [shopifyId,setShopifyId]=React.useState('');
   const [savedOrders,setSavedOrders]=React.useState([]);
   const [recallTeammate,setRecallTeammate]=React.useState(currentUser?.email||'');
   const [recallClient,setRecallClient]=React.useState('');
@@ -4268,7 +4271,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   }
 
   async function saveCoords(){
-    await setDoc(doc(db,'devis_clients',societe.trim()||'_'),{societe,contact,factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,infoLivraison,updatedAt:Date.now()});
+    await setDoc(doc(db,'devis_clients',societe.trim()||'_'),{societe,contact,shopifyId:shopifyId||'',factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,infoLivraison,masked:false,updatedAt:Date.now()});
     setStep('produits');
   }
 
@@ -4562,21 +4565,51 @@ ${infoBlock}
           <div style={{fontSize:13,fontWeight:700,marginBottom:14}}>Informations client</div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:14}}>
             <div style={{gridColumn:'1/-1',marginBottom:4}}>
-            <label style={LBL}>Clients sauvegardés</label>
-            <div style={{display:'flex',gap:8}}>
-              <select value={selectedClientKey} onChange={e=>{const key=e.target.value;setSelectedClientKey(key);if(!key)return;const cl=savedClients.find(x=>x.key===key);if(!cl)return;setSociete(cl.societe||'');setContact(cl.contact||'');setFactAddr(cl.factAddr||{addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''}); }}
-                style={{...INP(),flex:1,color:selectedClientKey?'#1a1814':'#9e9890'}}>
-                <option value=''>— Choisir un client —</option>
-                {savedClients.map(cl=><option key={cl.key} value={cl.key}>{cl.societe}</option>)}
-              </select>
-              {selectedClientKey&&<button onClick={async()=>{if(!window.confirm('Supprimer ce client ?'))return;await deleteDoc(doc(db,'devis_clients',selectedClientKey));setSavedClients(p=>p.filter(x=>x.key!==selectedClientKey));setSelectedClientKey('');}}
-                style={{padding:'6px 10px',background:'#fff',border:'1px solid #e2ddd6',borderRadius:7,fontSize:12,color:'#c0392b',cursor:'pointer',flexShrink:0}}>Supprimer</button>}
-              <button onClick={()=>{setSociete('');setContact('');setFactAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setSelectedClientKey('');}}
-                style={{padding:'6px 10px',background:'#f8f7f5',border:'1px solid #e2ddd6',borderRadius:7,fontSize:12,cursor:'pointer',flexShrink:0}}>Effacer</button>
-            </div>
+            <label style={LBL}>Rechercher un client</label>
+            {(()=>{
+              const showMasked=clientFilter.trim().toLowerCase()==='clients masqués';
+              const filteredClients=savedClients.filter(cl=>{
+                if(showMasked) return !!cl.masked;
+                if(cl.masked) return false;
+                if(!clientFilter.trim()) return true;
+                const q=clientFilter.toLowerCase();
+                return (cl.societe||'').toLowerCase().includes(q)||(cl.contact||'').toLowerCase().includes(q)||(cl.factAddr?.ville||'').toLowerCase().includes(q)||(cl.shopifyId||'').toLowerCase().includes(q);
+              });
+              return <div style={{position:'relative'}}>
+                <div style={{display:'flex',gap:8}}>
+                  <input value={clientFilter} onChange={e=>{setClientFilter(e.target.value);setClientDropOpen(true);}}
+                    onFocus={()=>setClientDropOpen(true)}
+                    placeholder={selectedClientKey?(savedClients.find(x=>x.key===selectedClientKey)?.societe||''):'— Taper pour filtrer les clients —'}
+                    style={{...INP(),flex:1,color:clientFilter?'#1a1814':'#9e9890'}}/>
+                  {selectedClientKey&&<button onClick={async()=>{
+                    if(!window.confirm('Masquer ce client ? Il n\'apparaîtra plus dans les listes mais ses données seront conservées.'))return;
+                    await updateDoc(doc(db,'devis_clients',selectedClientKey),{masked:true});
+                    setSavedClients(p=>p.map(x=>x.key===selectedClientKey?{...x,masked:true}:x));
+                    setSociete('');setContact('');setShopifyId('');setFactAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setSelectedClientKey('');setClientFilter('');
+                  }} style={{padding:'6px 10px',background:'#fff',border:'1px solid #e2ddd6',borderRadius:7,fontSize:12,color:'#c0392b',cursor:'pointer',flexShrink:0}}>Masquer</button>}
+                  <button onClick={()=>{setSociete('');setContact('');setShopifyId('');setFactAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setSelectedClientKey('');setClientFilter('');setClientDropOpen(false);}}
+                    style={{padding:'6px 10px',background:'#f8f7f5',border:'1px solid #e2ddd6',borderRadius:7,fontSize:12,cursor:'pointer',flexShrink:0}}>Effacer</button>
+                </div>
+                {clientDropOpen&&(clientFilter.trim()||selectedClientKey===''&&clientDropOpen)&&filteredClients.length>0&&<div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:200,background:'#fff',border:'1px solid #e2ddd6',borderRadius:8,boxShadow:'0 4px 16px rgba(0,0,0,0.10)',maxHeight:220,overflowY:'auto',marginTop:2}}>
+                  {filteredClients.map(cl=><div key={cl.key} onMouseDown={()=>{
+                    setSelectedClientKey(cl.key);
+                    setSociete(cl.societe||'');setContact(cl.contact||'');setShopifyId(cl.shopifyId||'');
+                    setFactAddr(cl.factAddr||{addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});
+                    setClientFilter('');setClientDropOpen(false);
+                  }} style={{padding:'8px 12px',cursor:'pointer',fontSize:12,borderBottom:'1px solid #f5f3ef',display:'flex',justifyContent:'space-between',alignItems:'center'}}
+                    onMouseEnter={e=>e.currentTarget.style.background='#f8f7f5'}
+                    onMouseLeave={e=>e.currentTarget.style.background='#fff'}>
+                    <span><strong>{cl.societe}</strong>{cl.contact&&<span style={{color:'#6b6560',marginLeft:6}}>{cl.contact}</span>}</span>
+                    <span style={{color:'#9e9890',fontSize:10}}>{cl.factAddr?.ville||''}{cl.shopifyId&&<span style={{marginLeft:6,color:'#2d6a4f'}}>#{cl.shopifyId}</span>}{cl.masked&&<span style={{marginLeft:6,color:'#c0392b'}}>masqué</span>}</span>
+                  </div>)}
+                </div>}
+                {clientDropOpen&&<div style={{position:'fixed',inset:0,zIndex:199}} onMouseDown={()=>setClientDropOpen(false)}/>}
+              </div>;
+            })()}
           </div>
           <div><label style={LBL}>Nom de la société *</label><input value={societe} onChange={e=>{setSociete(e.target.value);setSelectedClientKey('');}} style={INP()}/></div>
             <div><label style={LBL}>Prénom et Nom du contact</label><input value={contact} onChange={e=>setContact(e.target.value)} style={INP()}/></div>
+            <div><label style={LBL}>ID Shopify</label><input value={shopifyId} onChange={e=>setShopifyId(e.target.value)} placeholder="ex: 123456789" style={INP()}/></div>
           </div>
           <div style={{fontSize:12,fontWeight:700,color:'#6b6560',marginBottom:8}}>Adresse de facturation</div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:14}}>
@@ -4981,6 +5014,120 @@ ${infoBlock}
           </button>
         </div>
       </div>
+    </div>}
+  </div>;
+}
+
+function ClientsDbTab({db}){
+  const [clients,setClients]=React.useState([]);
+  const [loading,setLoading]=React.useState(true);
+  const [importMsg,setImportMsg]=React.useState('');
+  const [importError,setImportError]=React.useState('');
+
+  React.useEffect(()=>{
+    getDocs(collection(db,'devis_clients')).then(snap=>{
+      setClients(snap.docs.map(d=>({key:d.id,...d.data()})).sort((a,b)=>(a.societe||'').localeCompare(b.societe||'')));
+      setLoading(false);
+    });
+  },[]);
+
+  function exportCSV(){
+    const cols=['key','societe','contact','shopifyId','masked','factAddr.addr','factAddr.addr2','factAddr.cp','factAddr.ville','factAddr.pays','factAddr.tel','factAddr.email','expAddr.addr','expAddr.addr2','expAddr.cp','expAddr.ville','expAddr.pays','expAddr.tel','expAddr.email','retraitLoft','infoLivraison','updatedAt'];
+    const escape=v=>{const s=String(v==null?'':v);return s.includes(',')||s.includes('"')||s.includes('\n')?'"'+s.replace(/"/g,'""')+'"':s;};
+    const header=cols.join(',');
+    const rows=clients.map(cl=>{
+      const fa=cl.factAddr||{};const ea=cl.expAddr||{};
+      return [cl.key,cl.societe,cl.contact,cl.shopifyId,cl.masked?'true':'false',fa.addr,fa.addr2,fa.cp,fa.ville,fa.pays,fa.tel,fa.email,ea.addr,ea.addr2,ea.cp,ea.ville,ea.pays,ea.tel,ea.email,cl.retraitLoft?'true':'false',cl.infoLivraison,cl.updatedAt].map(escape).join(',');
+    });
+    const csv='﻿'+[header,...rows].join('\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download=`clients_oé_${new Date().toISOString().slice(0,10)}.csv`;a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function parseCSV(text){
+    const lines=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
+    const headers=parseCSVLine(lines[0]);
+    return lines.slice(1).filter(l=>l.trim()).map(l=>{
+      const vals=parseCSVLine(l);
+      const obj={};headers.forEach((h,i)=>obj[h]=vals[i]||'');
+      return obj;
+    });
+  }
+  function parseCSVLine(line){
+    const result=[];let cur='';let inQ=false;
+    for(let i=0;i<line.length;i++){
+      if(line[i]==='"'){if(inQ&&line[i+1]==='"'){cur+='"';i++;}else inQ=!inQ;}
+      else if(line[i]===','&&!inQ){result.push(cur);cur='';}
+      else cur+=line[i];
+    }
+    result.push(cur);return result;
+  }
+
+  async function handleImport(file){
+    if(!file)return;
+    setImportMsg('Lecture...');setImportError('');
+    const text=await file.text();
+    const rows=parseCSV(text);
+    if(!rows.length){setImportError('Fichier vide ou invalide.');setImportMsg('');return;}
+    let count=0;
+    for(const row of rows){
+      const key=row['key']||row['societe'];
+      if(!key)continue;
+      const data={
+        societe:row['societe']||'',contact:row['contact']||'',shopifyId:row['shopifyId']||'',
+        masked:row['masked']==='true',retraitLoft:row['retraitLoft']==='true',infoLivraison:row['infoLivraison']||'',
+        factAddr:{addr:row['factAddr.addr']||'',addr2:row['factAddr.addr2']||'',cp:row['factAddr.cp']||'',ville:row['factAddr.ville']||'',pays:row['factAddr.pays']||'France',tel:row['factAddr.tel']||'',email:row['factAddr.email']||''},
+        expAddr:{addr:row['expAddr.addr']||'',addr2:row['expAddr.addr2']||'',cp:row['expAddr.cp']||'',ville:row['expAddr.ville']||'',pays:row['expAddr.pays']||'France',tel:row['expAddr.tel']||'',email:row['expAddr.email']||''},
+        updatedAt:Date.now(),
+      };
+      await setDoc(doc(db,'devis_clients',key),data,{merge:true});
+      count++;
+    }
+    const snap=await getDocs(collection(db,'devis_clients'));
+    setClients(snap.docs.map(d=>({key:d.id,...d.data()})).sort((a,b)=>(a.societe||'').localeCompare(b.societe||'')));
+    setImportMsg(`✅ ${count} client(s) importé(s) avec succès.`);
+  }
+
+  const total=clients.length;
+  const masked=clients.filter(c=>c.masked).length;
+
+  return <div style={{padding:'16px 0'}}>
+    <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'20px 24px',marginBottom:16}}>
+      <div style={{fontSize:14,fontWeight:700,marginBottom:4}}>Base clients</div>
+      <div style={{fontSize:12,color:'#6b6560',marginBottom:16}}>{total} clients au total · {masked} masqué(s) · {total-masked} actif(s)</div>
+      <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+        <button onClick={exportCSV} style={{padding:'8px 18px',background:'#2d6a4f',color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>
+          ⬇ Exporter en CSV
+        </button>
+        <label style={{padding:'8px 18px',background:'#fff',color:'#2d6a4f',border:'1px solid #2d6a4f',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>
+          ⬆ Importer un CSV
+          <input type="file" accept=".csv" style={{display:'none'}} onChange={e=>{if(e.target.files[0])handleImport(e.target.files[0]);e.target.value='';}}/>
+        </label>
+      </div>
+      {importMsg&&<div style={{marginTop:10,fontSize:12,color:'#2d6a4f',fontWeight:600}}>{importMsg}</div>}
+      {importError&&<div style={{marginTop:10,fontSize:12,color:'#c0392b',fontWeight:600}}>{importError}</div>}
+      <div style={{fontSize:11,color:'#9e9890',marginTop:10}}>Le CSV doit avoir les mêmes colonnes que l'export (séparateur virgule, valeurs entre guillemets si besoin). Le champ "key" sert d'identifiant unique.</div>
+    </div>
+    {loading?<div style={{color:'#9e9890',fontSize:13}}>Chargement...</div>:
+    <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',overflow:'hidden'}}>
+      <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+        <thead><tr style={{background:'#f8f7f5',borderBottom:'2px solid #2d6a4f'}}>
+          {['Société','Contact','ID Shopify','Ville','Email','Statut'].map((h,i)=><th key={i} style={{padding:'8px 10px',textAlign:'left',fontSize:11,fontWeight:600,color:'#6b6560',whiteSpace:'nowrap'}}>{h}</th>)}
+        </thead>
+        <tbody>{clients.map((cl,i)=><tr key={cl.key} style={{borderBottom:'1px solid #f5f3ef',background:cl.masked?'#fff5f5':'#fff'}}>
+          <td style={{padding:'7px 10px',fontWeight:600}}>{cl.societe}</td>
+          <td style={{padding:'7px 10px',color:'#6b6560'}}>{cl.contact||'—'}</td>
+          <td style={{padding:'7px 10px',color:'#2d6a4f'}}>{cl.shopifyId||'—'}</td>
+          <td style={{padding:'7px 10px',color:'#6b6560'}}>{cl.factAddr?.ville||'—'}</td>
+          <td style={{padding:'7px 10px',color:'#6b6560'}}>{cl.factAddr?.email||'—'}</td>
+          <td style={{padding:'7px 10px'}}>{cl.masked
+            ?<span style={{fontSize:11,padding:'1px 7px',borderRadius:6,background:'#fef2f2',color:'#c0392b',fontWeight:600}}>masqué</span>
+            :<span style={{fontSize:11,padding:'1px 7px',borderRadius:6,background:'#f0fdf4',color:'#2d6a4f',fontWeight:600}}>actif</span>}
+          </td>
+        </tr>)}</tbody>
+      </table>
     </div>}
   </div>;
 }
@@ -5448,7 +5595,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
     <TopBar onBack={onBack} title="⚙️ Paramètres"/>
     <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
       <div style={{display:"flex",gap:10,marginBottom:20}}>
-        {([{k:"members",l:"👥 Membres & rôles"},{k:"absences",l:"🌴 Absences"},...(currentUser?.email===OWNER_EMAIL?[{k:"permissions",l:"🔐 Permissions"},{k:"questions",l:"❓ Questions Update"},{k:"history",l:"📋 Historique Updates"},{k:"feedback",l:"💡 Feedback"},{k:"reporting_params",l:"⚙️ Reporting"},{k:"bsv3",l:"📊 Base Sales v3"},{k:"tarif",l:"💰 Tarif"}]:[])]).map(t=><button key={t.k} onClick={()=>setTab(t.k)}
+        {([{k:"members",l:"👥 Membres & rôles"},{k:"absences",l:"🌴 Absences"},...(currentUser?.email===OWNER_EMAIL?[{k:"permissions",l:"🔐 Permissions"},{k:"questions",l:"❓ Questions Update"},{k:"history",l:"📋 Historique Updates"},{k:"feedback",l:"💡 Feedback"},{k:"reporting_params",l:"⚙️ Reporting"},{k:"bsv3",l:"📊 Base Sales v3"},{k:"tarif",l:"💰 Tarif"},{k:"clients_db",l:"🏢 Base clients"}]:[])]).map(t=><button key={t.k} onClick={()=>setTab(t.k)}
           style={{padding:"8px 16px",borderRadius:8,border:`1px solid ${tab===t.k?"#2d6a4f":"#e2ddd6"}`,background:tab===t.k?"#2d6a4f":"#fff",color:tab===t.k?"#fff":"#6b6560",cursor:"pointer",fontSize:13,fontWeight:500}}>
           {t.l}
         </button>)}
@@ -5554,6 +5701,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
         </div>
       </div>}
       {tab==="tarif"&&<TarifTab db={db}/>}
+      {tab==="clients_db"&&<ClientsDbTab db={db}/>}
       {tab==="bsv3"&&<div style={{padding:"16px 0"}}>
         <div style={{fontSize:15,fontWeight:600,marginBottom:8}}>📊 Base Sales v3</div>
         <p style={{fontSize:13,color:"#6b6560",marginBottom:16}}>Importez le fichier CSV mensuel pour mettre à jour les données de marge nette commerciale.</p>
