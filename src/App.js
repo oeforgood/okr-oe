@@ -5192,9 +5192,15 @@ function ClientsDbTab({db,clients,setClients}){
           <td style={{padding:'7px 10px',color:'#2d6a4f'}}>{cl.shopifyId||'—'}</td>
           <td style={{padding:'7px 10px',color:'#6b6560'}}>{cl.factAddr?.ville||'—'}</td>
           <td style={{padding:'7px 10px',color:'#6b6560'}}>{cl.factAddr?.email||'—'}</td>
-          <td style={{padding:'7px 10px'}}>{cl.masked
-            ?<span style={{fontSize:11,padding:'1px 7px',borderRadius:6,background:'#fef2f2',color:'#c0392b',fontWeight:600}}>masqué</span>
-            :<span style={{fontSize:11,padding:'1px 7px',borderRadius:6,background:'#f0fdf4',color:'#2d6a4f',fontWeight:600}}>actif</span>}
+          <td style={{padding:'7px 10px'}}>
+            <span onClick={async()=>{
+              await updateDoc(doc(db,'devis_clients',cl.key),{masked:!cl.masked});
+              setClients(prev=>prev.map(c=>c.key===cl.key?{...c,masked:!c.masked}:c));
+            }} style={{fontSize:11,padding:'1px 7px',borderRadius:6,fontWeight:600,cursor:'pointer',userSelect:'none',
+              ...(cl.masked?{background:'#fef2f2',color:'#c0392b'}:{background:'#f0fdf4',color:'#2d6a4f'})}}
+              title={cl.masked?'Cliquer pour restaurer':'Cliquer pour masquer'}>
+              {cl.masked?'masqué':'actif'}
+            </span>
           </td>
         </tr>)}</tbody>
       </table>
