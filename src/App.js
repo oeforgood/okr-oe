@@ -16,7 +16,7 @@ function sendNotifEmail(toEmail, toName, title) {
   }, EMAILJS_KEY).catch(e => console.warn('EmailJS error:', e));
 }
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, getDocs, getDoc, query, where, updateDoc, deleteDoc, arrayUnion } from "firebase/firestore";
+import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, getDocs, getDoc, query, where, updateDoc, deleteDoc, arrayUnion, runTransaction } from "firebase/firestore";
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "firebase/auth";
 
 const firebaseConfig = {
@@ -4166,9 +4166,26 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   const minQtyMsg=coreLignes.length>0&&!gratuite&&!minQtyOk?(tariEvent?'Il faut au moins 6 bouteilles ou équivalent.':'Il faut au moins 24 bouteilles ou équivalent (ou choisir le tarif Events).'):'';
 
 
-  function genRef(){
+  async function genRef(){
     const d=new Date();
-    return (mode==='devis'?'DEV':'CMD')+`-${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}-${String(Math.floor(Math.random()*900)+100)}`;
+    const prefix=mode==='devis'?'DEV':'CMD';
+    const yymm=String(d.getFullYear()).slice(2)+String(d.getMonth()+1).padStart(2,'0');
+    const field=`${prefix}-${yymm}`;
+    const counterRef=doc(db,'devis_counters','current');
+    let next=100;
+    try{
+      await runTransaction(db,async tx=>{
+        const snap=await tx.get(counterRef);
+        const data=snap.exists()?snap.data():{};
+        // Réinitialise si le mois a changé (clé différente = nouveau mois)
+        next=(data[field]||99)+1;
+        tx.set(counterRef,{...data,[field]:next},{merge:true});
+      });
+    }catch(e){
+      // Fallback aléatoire si transaction échoue
+      next=Math.floor(Math.random()*9000)+1000;
+    }
+    return `${prefix}-${yymm}-${String(next).padStart(4,'0')}`;
   }
 
   function getLineTarifBadgesRecap(l){
@@ -4284,7 +4301,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
     if(!coiffeOk){alert(`Le nombre de bouteilles (${totalBouteilles}) doit être un multiple de 120.`);return;}
     if(!minQtyOk){alert(tariEvent?'Il faut au moins 6 bouteilles ou équivalent.':'Il faut au moins 24 bouteilles ou équivalent (ou choisir le tarif Events).');return;}
     setSending(true);
-    const ref=genRef();
+    const ref=await genRef();
     const tarifLabel=gratuite?('GRATUITÉ — '+gratuiteRaison):prixCoutant?'Prix Coûtant':tariEvent?'Tarif Events':totalEq75>=600?'Tarif 600+':totalEq75>=360?'Tarif 360+':totalEq75>=240?'Tarif 240+':totalEq75>=120?'Tarif 120+':'Tarif 24+';
     const textContent=buildText(ref);
     const prenom=teamMember?.prenom||'Oé';
