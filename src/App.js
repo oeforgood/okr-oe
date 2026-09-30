@@ -6353,6 +6353,8 @@ function AppNav({current,onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDe
 
 function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,currentUser,teamMember,isAdmin,teamMembers=[],rolePermissions={},initialSeasonKey}){
   const [seasonKey,setSeasonKey]=useState(initialSeasonKey||"printemps_2026");
+  const appliedInitRef=useRef(false);
+  useEffect(()=>{if(!appliedInitRef.current&&initialSeasonKey){setSeasonKey(initialSeasonKey);appliedInitRef.current=true;}},[initialSeasonKey]);
   const [dragOverSobj,setDragOverSobj]=useState(null);
   const [dragOverObj,setDragOverObj]=useState(null); // {id, before}
   function handleSobjDrop(e,targetSobj,allSobjs,objId){
