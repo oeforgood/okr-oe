@@ -4271,7 +4271,8 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   }
 
   async function saveCoords(){
-    await setDoc(doc(db,'devis_clients',societe.trim()||'_'),{societe,contact,shopifyId:shopifyId||'',factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,infoLivraison,masked:false,updatedAt:Date.now()});
+    const clientKey=shopifyId.trim()?`shopify_${shopifyId.trim()}`:(societe.trim()||'_');
+    await setDoc(doc(db,'devis_clients',clientKey),{societe,contact,shopifyId:shopifyId||'',factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,infoLivraison,masked:false,updatedAt:Date.now()});
     setStep('produits');
   }
 
@@ -5097,7 +5098,8 @@ function ClientsDbTab({db}){
     // Importer les nouveaux en préservant le statut masqué existant
     let count=0;
     for(const row of rows){
-      const key=row['key']||row['societe'];
+      const shopifyIdRow=(row['shopifyId']||'').trim();
+      const key=shopifyIdRow?`shopify_${shopifyIdRow}`:(row['societe']||'').trim()||(row['key']||'').trim();
       if(!key)continue;
       // Si le client existait déjà, on conserve son statut masqué; sinon on prend celui du CSV
       const maskedValue=key in existingMasked ? existingMasked[key] : row['masked']==='true';
