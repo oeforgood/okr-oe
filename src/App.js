@@ -4156,11 +4156,12 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   }
   function getLinePU(l){return l.prix!==undefined?l.prix:(()=>{const p=tarif.find(t=>t.code===l.code);return p?getPU(p,l.qty):0;})();}
   const totalHT=displayLignes.reduce((s,l)=>s+getLinePU(l)*parseInt(l.qty||0),0);
-  const totalTVA=displayLignes.reduce((s,l)=>s+getLinePU(l)*parseInt(l.qty||0)*(parseFloat(l.tva||0)/100),0);
+  const totalTVA=displayLignes.reduce((s,l)=>s+getLinePU(l)*parseInt(l.qty||0)*(parseTVA(l.tva)/100),0);
   const totalTTC=totalHT+totalTVA;
   const hasAnyRemise=displayLignes.some(l=>l.remise>0&&l.prix!==undefined);
   function fmtE(v){return Number(v).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';}
-  function fmtTVA(rate){const r=parseFloat(String(rate||0).replace(',','.'));if(r===0)return'0%';const s=r%1===0?String(r):r.toLocaleString('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:2});return s+'%';}
+  function parseTVA(v){return parseFloat(String(v||0).replace(',','.'));}
+  function fmtTVA(rate){const r=parseTVA(rate);if(r===0)return'0%';const s=r%1===0?String(r):r.toLocaleString('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:2});return s+'%';}
   function fmtQtyColis(qty,ligne){
     // Affiche colis uniquement pour les lignes produit (pas casier/coiffe auto) et seulement en préparation palette casiers ou cartons
     if(ligne.qtyMode==='auto')return String(qty);
@@ -4269,7 +4270,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
       const pu=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?0:getLinePU(l);
       const qty=parseInt(l.qty||0);
       const totalLigneHT=pu*qty;
-      const tvaRate=parseFloat(l.tva||0);
+      const tvaRate=parseTVA(l.tva);
       const tvaVal=totalLigneHT*(tvaRate/100);
       const tvaTxt=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?'offert':(fmtTVA(tvaRate)+(tvaVal>0?': '+fmtE(tvaVal):''));
       const tarifLbl=getLineTarifLabelText(l);
@@ -4349,7 +4350,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
       const pu=gratuite&&ligne.code!==CASIER_CODE&&ligne.code!==COIFFE_CODE?0:getLinePU(ligne);
       const qty=parseInt(ligne.qty||0);
       const totalHT2=pu*qty;
-      const tvaRate=parseFloat(ligne.tva||0);
+      const tvaRate=parseTVA(ligne.tva);
       const tvaVal=totalHT2*(tvaRate/100);
       const ttcLigne=totalHT2+tvaVal;
       const isOffert=gratuite&&ligne.code!==CASIER_CODE&&ligne.code!==COIFFE_CODE;
@@ -4483,7 +4484,7 @@ ${infoBlock}
             const TD={fontSize:11,padding:'4px 6px',textAlign:'right',borderBottom:'1px solid #f5f3ef'};
             const totTTC=displayLignes.reduce((s,l)=>{
               const pu=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?0:getLinePU(l);
-              return s+pu*parseInt(l.qty||0)*(1+(parseFloat(l.tva||0)/100));
+              return s+pu*parseInt(l.qty||0)*(1+(parseTVA(l.tva)/100));
             },0);
             // Regrouper les lignes de message en un seul bloc
             const renderedInfoLines=[];
@@ -4536,7 +4537,7 @@ ${infoBlock}
                   const pu=basePU;
                   const qty=parseInt(l.qty||0);
                   const htL=pu*qty;
-                  const tvaR=parseFloat(l.tva||0);
+                  const tvaR=parseTVA(l.tva);
                   const tvaV=htL*(tvaR/100);
                   const ttcL=htL+tvaV;
                   const isOff=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE;
@@ -4862,7 +4863,7 @@ ${infoBlock}
                 <tbody>{displayLignes.map((l,i)=>{
                   const isAuto=l.qtyMode==='auto';
                   const pu=getLinePU(l);
-                  const tvaRate=parseFloat(l.tva||0);
+                  const tvaRate=parseTVA(l.tva);
                   const totalHT2=pu*parseInt(l.qty||0);
                   const tvaVal=totalHT2*(tvaRate/100);
                   const ttc=totalHT2+tvaVal;
@@ -4887,9 +4888,11 @@ ${infoBlock}
                         // Build options based on preparation type
                         let allOpts=[];
                         if(isCasierPrep){
-                          // 12 to 480 by 12, then 960,1440,...,9600 (palettes)
-                          const byPCB=Array.from({length:40},(_,k)=>(k+1)*12); // 12..480
-                          const byPal=Array.from({length:19},(_,k)=>(k+2)*480); // 960..9600
+                          // casier_sans_palette: pcb=1, palette_casier*: pcb=12
+                          const casierPCB=pcb>1?pcb:1;
+                          const casierPal=casierPCB>1?480:0; // pas de palette pour casier_sans_palette
+                          const byPCB=Array.from({length:casierPCB>1?40:100},(_,k)=>(k+1)*casierPCB);
+                          const byPal=casierPal>0?Array.from({length:19},(_,k)=>(k+2)*casierPal):[];
                           allOpts=[...byPCB,...byPal];
                         } else if(isPalettePrep&&palQty>0){
                           // PCB to Qpalette, then 2*Qpalette..20*Qpalette
@@ -4909,7 +4912,7 @@ ${infoBlock}
                                 return <option key={q} value={q}>{`${palNum} palette${palNum>1?'s':''} (${q})`}</option>;
                               }
                               // Afficher nb colis × taille colis
-                              const colisSize=isCasierPrep?12:pcb;
+                              const colisSize=pcb>1?pcb:0;
                               const nbColis=colisSize>1?(q/colisSize):0;
                               const colisLabel=nbColis>0?` (${nbColis} colis de ${colisSize})`:'';
                               return <option key={q} value={q}>{`${q}${colisLabel}`}</option>;
