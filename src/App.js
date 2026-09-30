@@ -5115,7 +5115,7 @@ function ClientsDbTab({db}){
       <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
         <thead><tr style={{background:'#f8f7f5',borderBottom:'2px solid #2d6a4f'}}>
           {['Société','Contact','ID Shopify','Ville','Email','Statut'].map((h,i)=><th key={i} style={{padding:'8px 10px',textAlign:'left',fontSize:11,fontWeight:600,color:'#6b6560',whiteSpace:'nowrap'}}>{h}</th>)}
-        </thead>
+        </tr></thead>
         <tbody>{clients.map((cl,i)=><tr key={cl.key} style={{borderBottom:'1px solid #f5f3ef',background:cl.masked?'#fff5f5':'#fff'}}>
           <td style={{padding:'7px 10px',fontWeight:600}}>{cl.societe}</td>
           <td style={{padding:'7px 10px',color:'#6b6560'}}>{cl.contact||'—'}</td>
