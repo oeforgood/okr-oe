@@ -5035,18 +5035,9 @@ ${infoBlock}
   </div>;
 }
 
-function ClientsDbTab({db}){
-  const [clients,setClients]=React.useState([]);
-  const [loading,setLoading]=React.useState(true);
+function ClientsDbTab({db,clients,setClients}){
   const [importMsg,setImportMsg]=React.useState('');
   const [importError,setImportError]=React.useState('');
-
-  React.useEffect(()=>{
-    getDocs(collection(db,'devis_clients')).then(snap=>{
-      setClients(snap.docs.map(d=>({key:d.id,...d.data()})).sort((a,b)=>(a.societe||'').localeCompare(b.societe||'')));
-      setLoading(false);
-    });
-  },[]);
 
   function exportCSV(){
     const cols=['key','societe','contact','shopifyId','masked','factAddr.addr','factAddr.addr2','factAddr.cp','factAddr.ville','factAddr.pays','factAddr.tel','factAddr.email','expAddr.addr','expAddr.addr2','expAddr.cp','expAddr.ville','expAddr.pays','expAddr.tel','expAddr.email','retraitLoft','infoLivraison','updatedAt'];
@@ -5088,21 +5079,29 @@ function ClientsDbTab({db}){
     const text=await file.text();
     const rows=parseCSV(text);
     if(!rows.length){setImportError('Fichier vide ou invalide.');setImportMsg('');return;}
-    if(!window.confirm(`Importer ${rows.length} client(s) ? Cela remplacera TOTALEMENT la base clients existante.`)){setImportMsg('');return;}
-    // Charger l'état masqué existant pour le préserver
-    const existingSnap=await getDocs(collection(db,'devis_clients'));
-    const existingMasked={};
-    existingSnap.docs.forEach(d=>{existingMasked[d.id]=d.data().masked||false;});
-    // Supprimer tous les clients existants
-    for(const d of existingSnap.docs) await deleteDoc(doc(db,'devis_clients',d.id));
-    // Importer les nouveaux en préservant le statut masqué existant
-    let count=0;
-    for(const row of rows){
+    // Calculer les clés de la nouvelle base (ignorer les lignes sans clé)
+    const newRows=rows.map(row=>{
       const shopifyIdRow=(row['shopifyId']||'').trim();
       const key=shopifyIdRow?`shopify_${shopifyIdRow}`:(row['societe']||'').trim()||(row['key']||'').trim();
-      if(!key)continue;
-      // Si le client existait déjà, on conserve son statut masqué; sinon on prend celui du CSV
-      const maskedValue=key in existingMasked ? existingMasked[key] : row['masked']==='true';
+      return key?{...row,_key:key}:null;
+    }).filter(Boolean);
+    if(!newRows.length){setImportError('Aucune ligne valide (clé manquante).');setImportMsg('');return;}
+    if(!window.confirm(`Importer ${newRows.length} client(s) ? Cela remplacera TOTALEMENT la base clients existante.`)){setImportMsg('');return;}
+    // 1. Lire la base précédente et récupérer les statuts masqués pour les clés qui existent dans la nouvelle base
+    const existingSnap=await getDocs(collection(db,'devis_clients'));
+    const newKeys=new Set(newRows.map(r=>r._key));
+    const preservedMasked={};
+    existingSnap.docs.forEach(d=>{
+      // Ne conserver le statut que si la clé a une key valide ET existe dans la nouvelle base
+      if(d.id&&newKeys.has(d.id)) preservedMasked[d.id]=d.data().masked||false;
+    });
+    // 2. Supprimer TOUTE la base précédente (y compris les lignes sans key valide)
+    for(const d of existingSnap.docs) await deleteDoc(doc(db,'devis_clients',d.id));
+    // 3. Implanter la nouvelle base
+    let count=0;
+    for(const row of newRows){
+      const key=row._key;
+      const maskedValue=key in preservedMasked ? preservedMasked[key] : row['masked']==='true';
       const data={
         societe:row['societe']||'',contact:row['contact']||'',shopifyId:row['shopifyId']||'',
         masked:maskedValue,retraitLoft:row['retraitLoft']==='true',infoLivraison:row['infoLivraison']||'',
@@ -5138,7 +5137,7 @@ function ClientsDbTab({db}){
       {importError&&<div style={{marginTop:10,fontSize:12,color:'#c0392b',fontWeight:600}}>{importError}</div>}
       <div style={{fontSize:11,color:'#9e9890',marginTop:10}}>Le CSV doit avoir les mêmes colonnes que l'export (séparateur virgule, valeurs entre guillemets si besoin). Le champ "key" sert d'identifiant unique.</div>
     </div>
-    {loading?<div style={{color:'#9e9890',fontSize:13}}>Chargement...</div>:
+    {!clients.length?<div style={{color:'#9e9890',fontSize:13}}>Chargement...</div>:
     <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',overflow:'hidden'}}>
       <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
         <thead><tr style={{background:'#f8f7f5',borderBottom:'2px solid #2d6a4f'}}>
@@ -5537,6 +5536,12 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
   const [newPrenom,setNewPrenom]=useState("");
   const [newManager,setNewManager]=useState("");
   const [tab,setTab]=useState("members");
+  const [dbClients,setDbClients]=useState([]);
+  useEffect(()=>{
+    getDocs(collection(db,'devis_clients')).then(snap=>{
+      setDbClients(snap.docs.map(d=>({key:d.id,...d.data()})).sort((a,b)=>(a.societe||'').localeCompare(b.societe||'')));
+    }).catch(()=>{});
+  },[]);
   const [bsv3Uploading,setBsv3Uploading]=useState(false);
   const [bsv3Msg,setBsv3Msg]=useState('');
   const [bsv3History,setBsv3History]=useState([]);
@@ -5729,7 +5734,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
         </div>
       </div>}
       {tab==="tarif"&&<TarifTab db={db}/>}
-      {tab==="clients_db"&&<ClientsDbTab db={db}/>}
+      {tab==="clients_db"&&<ClientsDbTab db={db} clients={dbClients} setClients={setDbClients}/>}
       {tab==="bsv3"&&<div style={{padding:"16px 0"}}>
         <div style={{fontSize:15,fontWeight:600,marginBottom:8}}>📊 Base Sales v3</div>
         <p style={{fontSize:13,color:"#6b6560",marginBottom:16}}>Importez le fichier CSV mensuel pour mettre à jour les données de marge nette commerciale.</p>
