@@ -6023,12 +6023,12 @@ Unités disponibles :
   const krHelpBtn=<div style={{position:"relative",display:"inline-flex",alignItems:"center"}}>
     <button onMouseEnter={()=>setKrHelpVisible(true)} onMouseLeave={()=>setKrHelpVisible(false)} onClick={()=>setKrHelpVisible(v=>!v)}
       style={{background:"none",border:"1px solid #e2ddd6",borderRadius:"50%",width:26,height:26,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,color:"#6b6560",flexShrink:0}}>🔍</button>
-    {krHelpVisible&&<div style={{position:"absolute",top:"calc(100% + 8px)",right:0,width:380,background:"#1a1814",color:"#f5f3ef",borderRadius:10,padding:"14px 16px",fontSize:12,lineHeight:1.6,zIndex:2000,boxShadow:"0 8px 24px rgba(0,0,0,.3)",whiteSpace:"pre-wrap"}}>
+    {krHelpVisible&&<div style={{position:"absolute",top:"calc(100% + 8px)",right:0,width:608,background:"#1a1814",color:"#f5f3ef",borderRadius:10,padding:"14px 16px",fontSize:12,lineHeight:1.6,zIndex:2000,boxShadow:"0 8px 24px rgba(0,0,0,.3)",whiteSpace:"pre-wrap"}}>
       {krHelp}
       <div style={{position:"absolute",top:-6,right:10,width:0,height:0,borderLeft:"6px solid transparent",borderRight:"6px solid transparent",borderBottom:"6px solid #1a1814"}}/>
     </div>}
   </div>;
-  return <Modal title={isNew?"Nouveau KR":"Mettre à jour le KR"} onClose={onClose} onSave={save} onDelete={!isNew&&!locked?onDelete:null} onDuplicate={!isNew&&!locked?handleDuplicate:null} headerExtra={krHelpBtn}>
+  return <Modal title={isNew?"Nouveau KR":"Mettre à jour le KR"} onClose={onClose} onSave={save} onDelete={!isNew&&!locked?onDelete:null} onDuplicate={!isNew&&!locked?handleDuplicate:null} headerExtra={isNew?krHelpBtn:null}>
     <Field label="Titre"><input style={INP} value={f.title} onChange={e=>upd("title",e.target.value)} disabled={readonlyStruct}/></Field>
     {!readonlyStruct&&<>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
