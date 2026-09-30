@@ -287,10 +287,13 @@ function SmallBar({v,w=56,h=4}){
     <span style={{fontSize:12,fontWeight:600,color:c,minWidth:32,textAlign:"right",fontFamily:"monospace"}}>{Math.round(v)}%</span>
   </div>;
 }
-function Modal({title,children,onClose,onSave,onDelete,onDuplicate,saveLabel="Enregistrer",wide=false}){
+function Modal({title,children,onClose,onSave,onDelete,onDuplicate,saveLabel="Enregistrer",wide=false,headerExtra=null}){
   return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
     <div style={{background:"#fff",borderRadius:12,padding:24,width:"90%",maxWidth:wide?700:540,maxHeight:"90vh",overflowY:"auto",boxSizing:"border-box"}}>
-      <div style={{fontSize:16,fontWeight:600,marginBottom:18}}>{title}</div>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+        <div style={{fontSize:16,fontWeight:600}}>{title}</div>
+        {headerExtra}
+      </div>
       {children}
       <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginTop:20}}>
         {onDelete&&<button onClick={onDelete} style={{marginRight:"auto",fontSize:13,fontWeight:500,background:"#fdecea",color:"#c0392b",border:"1px solid #fca5a5",padding:"7px 14px",borderRadius:6,cursor:"pointer"}}>Supprimer</button>}
@@ -3945,7 +3948,8 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   const isCasierPrep=['palette_casier_coiffe','palette_casier_sans_coiffe','casier_sans_palette'].includes(preparation);
   const isPalettePrep=['palette_casier_coiffe','palette_casier_sans_coiffe','palette_cartons'].includes(preparation);
   const isCoiffePrep=preparation==='palette_casier_coiffe';
-  const effectivePCB=isPalettePrep?12:1;
+  const isPaletteCasierPrep=['palette_casier_coiffe','palette_casier_sans_coiffe'].includes(preparation);
+  const effectivePCB=isPaletteCasierPrep?12:1;
   const CASIER_CODE='CASIER-OE';const COIFFE_CODE='COIFFE-OE';
   const CASIER_PRIX=10;const COIFFE_PRIX=120;
 
@@ -4106,9 +4110,9 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
       const bad=coreLignes.some(l=>(l.code||'')[1]!=='E');
       if(bad){alert('Supprimez d\'abord les produits autres que 75cl.');return;}
     }
-    const newIsPalette=['palette_casier_coiffe','palette_casier_sans_coiffe','palette_cartons'].includes(newPrep);
+    const newIsPaletteCasier=['palette_casier_coiffe','palette_casier_sans_coiffe'].includes(newPrep);
     const newIsPaletteCartons=newPrep==='palette_cartons';
-    const newPCB=newIsPalette?(newIsPaletteCartons?'tarif':12):1;
+    const newPCB=newIsPaletteCasier?12:newIsPaletteCartons?'tarif':1;
     setLignes(p=>p.filter(l=>l.qtyMode!=='auto').map(l=>{
       const prodData=tarif.find(t=>t.code===l.code);
       const pcb=newPCB==='tarif'?Math.max(1,parseInt(String(prodData?.pcb||'1').replace(/[^0-9]/g,''))||1):newPCB;
@@ -4155,13 +4159,40 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   }
   function getLinePU(l){return l.prix!==undefined?l.prix:(()=>{const p=tarif.find(t=>t.code===l.code);return p?getPU(p,l.qty):0;})();}
   const totalHT=displayLignes.reduce((s,l)=>s+getLinePU(l)*parseInt(l.qty||0),0);
-  const totalTVA=displayLignes.reduce((s,l)=>s+getLinePU(l)*parseInt(l.qty||0)*(parseFloat(l.tva||0)/100),0);
+  const totalTVA=displayLignes.reduce((s,l)=>s+getLinePU(l)*parseInt(l.qty||0)*(parseTVA(l.tva)/100),0);
   const totalTTC=totalHT+totalTVA;
   const hasAnyRemise=displayLignes.some(l=>l.remise>0&&l.prix!==undefined);
   function fmtE(v){return Number(v).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';}
+  function parseTVA(v){return parseFloat(String(v||0).replace(',','.'));}
+  function fmtTVA(rate){const r=parseTVA(rate);if(r===0)return'0%';const s=r%1===0?String(r):r.toLocaleString('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:2});return s+'%';}
+  function fmtQtyColis(qty,ligne){
+    // Affiche colis/palettes pour les lignes produit (pas casier/coiffe auto)
+    if(ligne.qtyMode==='auto')return String(qty);
+    if(qty<=0)return String(qty);
+    if(isPaletteCasierPrep){
+      // Palette casiers : 480 bouteilles = 1 palette
+      const palQty=480;
+      if(qty%palQty===0){const nb=qty/palQty;return `${qty} (${nb} palette${nb>1?'s':''})`;}
+      const nb=qty/12;
+      if(nb===Math.floor(nb))return `${qty} (${nb} colis de 12)`;
+      return String(qty);
+    }
+    if(preparation==='palette_cartons'){
+      const prodData=tarif.find(t=>t.code===ligne.code);
+      const palQty=parseInt(String(prodData?.qpalette||'0').replace(/[^0-9]/g,''))||0;
+      const pcb=Math.max(1,parseInt(String(ligne.pcb||'1').replace(/[^0-9]/g,''))||1);
+      if(palQty>0&&qty%palQty===0){const nb=qty/palQty;return `${qty} (${nb} palette${nb>1?'s':''})`;}
+      if(pcb>1){const nb=qty/pcb;if(nb===Math.floor(nb))return `${qty} (${nb} colis de ${pcb})`;}
+      return String(qty);
+    }
+    return String(qty);
+  }
   const prepLabel=PREP_OPTIONS.find(p=>p.k===preparation)?.l||'';
   const expA=sameAddr||retraitLoft?factAddr:expAddr;
   const coiffeOk=!isCoiffePrep||totalBouteilles===0||totalBouteilles%120===0;
+  const coiffeManquantes=isCoiffePrep&&!coiffeOk?(120-totalBouteilles%120):0;
+  const isCoffretUps=preparation==='coffret_ups';
+  const coffretUpsOk=!isCoffretUps||totalEq75<=24;
   const minQtyOk=gratuite||(tariEvent?totalEq75>=6:totalEq75>=24);
   const minQtyMsg=coreLignes.length>0&&!gratuite&&!minQtyOk?(tariEvent?'Il faut au moins 6 bouteilles ou équivalent.':'Il faut au moins 24 bouteilles ou équivalent (ou choisir le tarif Events).'):'';
 
@@ -4255,11 +4286,11 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
       const pu=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?0:getLinePU(l);
       const qty=parseInt(l.qty||0);
       const totalLigneHT=pu*qty;
-      const tvaRate=parseFloat(l.tva||0);
+      const tvaRate=parseTVA(l.tva);
       const tvaVal=totalLigneHT*(tvaRate/100);
-      const tvaTxt=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?'offert':tvaRate>0?(tvaRate+'%: '+fmtE(tvaVal)):'0%';
+      const tvaTxt=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?'offert':(fmtTVA(tvaRate)+(tvaVal>0?': '+fmtE(tvaVal):''));
       const tarifLbl=getLineTarifLabelText(l);
-      return rp(l.code||'',10)+'  '+rp(l.libelle||'',32)+'  '+rp(tarifLbl,12)+'  '+lp(String(qty),5)+'  '+lp(fmtE(pu),10)+'  '+lp(fmtE(totalLigneHT),10)+'  '+tvaTxt;
+      return rp(l.code||'',10)+'  '+rp(l.libelle||'',32)+'  '+rp(tarifLbl,12)+'  '+lp(fmtQtyColis(qty,l),5)+'  '+lp(fmtE(pu),10)+'  '+lp(fmtE(totalLigneHT),10)+'  '+tvaTxt;
     }).join('\n');
     const expInfo=retraitLoft?'Retrait au Loft Oé':sameAddr?`${factAddr.addr}, ${factAddr.cp} ${factAddr.ville}`:`${expAddr.addr}, ${expAddr.cp} ${expAddr.ville}`;
     return [
@@ -4298,7 +4329,8 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   async function handleEnvoyer(){
     if(!coreLignes.length){alert('Ajoutez au moins un produit.');return;}
     if(!preparation){alert('Choisissez un mode de préparation.');return;}
-    if(!coiffeOk){alert(`Le nombre de bouteilles (${totalBouteilles}) doit être un multiple de 120.`);return;}
+    if(!coiffeOk){alert(`Rajouter ${coiffeManquantes} bouteille(s) — le total doit être un multiple de 120.`);return;}
+    if(!coffretUpsOk){alert(`Coffret UPS : maximum 24 équivalents 75cl (actuellement ${totalEq75}).`);return;}
     if(!minQtyOk){alert(tariEvent?'Il faut au moins 6 bouteilles ou équivalent.':'Il faut au moins 24 bouteilles ou équivalent (ou choisir le tarif Events).');return;}
     setSending(true);
     const ref=await genRef();
@@ -4334,7 +4366,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
       const pu=gratuite&&ligne.code!==CASIER_CODE&&ligne.code!==COIFFE_CODE?0:getLinePU(ligne);
       const qty=parseInt(ligne.qty||0);
       const totalHT2=pu*qty;
-      const tvaRate=parseFloat(ligne.tva||0);
+      const tvaRate=parseTVA(ligne.tva);
       const tvaVal=totalHT2*(tvaRate/100);
       const ttcLigne=totalHT2+tvaVal;
       const isOffert=gratuite&&ligne.code!==CASIER_CODE&&ligne.code!==COIFFE_CODE;
@@ -4344,10 +4376,10 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
         <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;font-weight:600;letter-spacing:0.3px;white-space:nowrap">${ligne.code||''}</td>
         <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;white-space:nowrap">${robeDotHtml}${ligne.libelle||''}</td>
         <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;white-space:nowrap">${tarifHtml}</td>
-        <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;text-align:right;white-space:nowrap">${qty}</td>
+        <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;text-align:right;white-space:nowrap">${fmtQtyColis(qty,ligne)}</td>
         <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;text-align:right;white-space:nowrap">${isOffert?'offert':(ligne.remise>0&&ligne.prix!==undefined?`<span style="font-weight:600">${fmtE(pu)}</span> <span style="text-decoration:line-through;color:#9e9890;font-size:10px">${fmtE((()=>{const p=tarif.find(t=>t.code===ligne.code);return p?getPU(p,ligne.qty):0;})())}</span>`:fmtE(pu))}</td>
         <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;text-align:right;font-weight:700;white-space:nowrap">${isOffert?'offert':fmtE(totalHT2)}</td>
-        <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;text-align:right;color:#6b6560;white-space:nowrap">${isOffert?'':tvaRate>0?(tvaRate+'%'):'0%'}</td>
+        <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;text-align:right;color:#6b6560;white-space:nowrap">${isOffert?'':fmtTVA(tvaRate)}</td>
         <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;text-align:right;white-space:nowrap">${isOffert?'offert':fmtE(ttcLigne)}</td>
       </tr>`;
     }).join('');
@@ -4463,12 +4495,12 @@ ${infoBlock}
               if(line.startsWith('Code '))inProd=true;
               if(!inProd)infoLines.push(line);
             }
-            const GRD='70px 1fr 80px 36px 110px 80px 44px 76px';
+            const GRD='70px 1fr 80px 140px 110px 80px 44px 76px';
             const TH={fontSize:10,fontWeight:600,color:'#6b6560',padding:'6px 6px',textAlign:'right',whiteSpace:'nowrap'};
             const TD={fontSize:11,padding:'4px 6px',textAlign:'right',borderBottom:'1px solid #f5f3ef'};
             const totTTC=displayLignes.reduce((s,l)=>{
               const pu=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?0:getLinePU(l);
-              return s+pu*parseInt(l.qty||0)*(1+(parseFloat(l.tva||0)/100));
+              return s+pu*parseInt(l.qty||0)*(1+(parseTVA(l.tva)/100));
             },0);
             // Regrouper les lignes de message en un seul bloc
             const renderedInfoLines=[];
@@ -4521,7 +4553,7 @@ ${infoBlock}
                   const pu=basePU;
                   const qty=parseInt(l.qty||0);
                   const htL=pu*qty;
-                  const tvaR=parseFloat(l.tva||0);
+                  const tvaR=parseTVA(l.tva);
                   const tvaV=htL*(tvaR/100);
                   const ttcL=htL+tvaV;
                   const isOff=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE;
@@ -4538,7 +4570,7 @@ ${infoBlock}
                       {l.libelle}{isAuto?<span style={{fontSize:10,color:'#9e9890',marginLeft:4}}>(auto)</span>:null}
                     </span>
                     <span style={{...CELL,textAlign:'left'}}>{getLineTarifBadgesRecap(l)}</span>
-                    <span style={CELL}>{qty}</span>
+                    <span style={CELL}>{fmtQtyColis(qty,l)}</span>
                     <span style={{...CELL,whiteSpace:'nowrap'}}>
                       {isOff?<span style={{color:'#c0392b',fontWeight:600}}>offert</span>:<span style={{display:'inline-flex',alignItems:'center',gap:4,flexWrap:'nowrap',justifyContent:'flex-end'}}>
                         <span style={{fontWeight:hasRemise?700:400}}>{fmtE(pu)}</span>
@@ -4546,7 +4578,7 @@ ${infoBlock}
                       </span>}
                     </span>
                     <span style={{...CELL,fontWeight:700}}>{isOff?<span style={{color:'#c0392b',fontWeight:600}}>offert</span>:fmtE(htL)}</span>
-                    <span style={{...CELL,color:'#6b6560'}}>{tvaR>0?tvaR+'%':'0%'}</span>
+                    <span style={{...CELL,color:'#6b6560'}}>{fmtTVA(tvaR)}</span>
                     <span style={CELL}>{isOff?<span style={{color:'#c0392b',fontWeight:600}}>offert</span>:fmtE(ttcL)}</span>
                   </div>;
                 })}
@@ -4591,7 +4623,7 @@ ${infoBlock}
               const filteredClients=savedClients.filter(cl=>{
                 if(showMasked) return !!cl.masked;
                 if(cl.masked) return false;
-                if(!clientFilter.trim()) return true;
+                if(!clientFilter.trim()) return !!(cl.societe||'').trim();
                 const q=clientFilter.toLowerCase();
                 return (cl.societe||'').toLowerCase().includes(q)||(cl.contact||'').toLowerCase().includes(q)||(cl.factAddr?.ville||'').toLowerCase().includes(q)||(cl.shopifyId||'').toLowerCase().includes(q);
               });
@@ -4782,9 +4814,6 @@ ${infoBlock}
                 <option key={p.k} value={p.k}>{p.l}</option>
               )}
             </select>
-            {isCoiffePrep&&totalBouteilles>0&&!coiffeOk&&<div style={{marginTop:8,fontSize:12,color:'#c0392b',fontWeight:600}}>
-              {totalBouteilles} bouteilles — doit être un multiple de 120.
-            </div>}
           </div>
           <div style={{borderLeft:'1px solid #f0ede8',paddingLeft:16}}>
             <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>Tarification</div>
@@ -4850,7 +4879,7 @@ ${infoBlock}
                 <tbody>{displayLignes.map((l,i)=>{
                   const isAuto=l.qtyMode==='auto';
                   const pu=getLinePU(l);
-                  const tvaRate=parseFloat(l.tva||0);
+                  const tvaRate=parseTVA(l.tva);
                   const totalHT2=pu*parseInt(l.qty||0);
                   const tvaVal=totalHT2*(tvaRate/100);
                   const ttc=totalHT2+tvaVal;
@@ -4875,9 +4904,11 @@ ${infoBlock}
                         // Build options based on preparation type
                         let allOpts=[];
                         if(isCasierPrep){
-                          // 12 to 480 by 12, then 960,1440,...,9600 (palettes)
-                          const byPCB=Array.from({length:40},(_,k)=>(k+1)*12); // 12..480
-                          const byPal=Array.from({length:19},(_,k)=>(k+2)*480); // 960..9600
+                          // casier_sans_palette: pcb=1, palette_casier*: pcb=12
+                          const casierPCB=pcb>1?pcb:1;
+                          const casierPal=casierPCB>1?480:0; // pas de palette pour casier_sans_palette
+                          const byPCB=Array.from({length:casierPCB>1?40:100},(_,k)=>(k+1)*casierPCB);
+                          const byPal=casierPal>0?Array.from({length:19},(_,k)=>(k+2)*casierPal):[];
                           allOpts=[...byPCB,...byPal];
                         } else if(isPalettePrep&&palQty>0){
                           // PCB to Qpalette, then 2*Qpalette..20*Qpalette
@@ -4893,7 +4924,14 @@ ${infoBlock}
                             {allOpts.map(q=>{
                               const isPalMult=palQtyEff>0&&q%palQtyEff===0;
                               const palNum=isPalMult?q/palQtyEff:0;
-                              return <option key={q} value={q}>{isPalMult?`${palNum} palette${palNum>1?'s':''} (${q})`:String(q)}</option>;
+                              if(isPalMult){
+                                return <option key={q} value={q}>{`${palNum} palette${palNum>1?'s':''} (${q})`}</option>;
+                              }
+                              // Afficher nb colis × taille colis
+                              const colisSize=pcb>1?pcb:0;
+                              const nbColis=colisSize>1?(q/colisSize):0;
+                              const colisLabel=nbColis>0?` (${nbColis} colis de ${colisSize})`:'';
+                              return <option key={q} value={q}>{`${q}${colisLabel}`}</option>;
                             })}
                           </select>;
                       })()}
@@ -4910,7 +4948,7 @@ ${infoBlock}
                       })()}
                     </td>
                     <td style={{padding:'4px 6px',fontSize:11,textAlign:'right',fontWeight:700}}>{isOffert?'offert':fmtE(pu*parseInt(l.qty||0))}</td>
-                    <td style={{padding:'4px 6px',fontSize:11,textAlign:'right',color:'#6b6560'}}>{tvaRate>0?(tvaRate+'%'):'0%'}</td>
+                    <td style={{padding:'4px 6px',fontSize:11,textAlign:'right',color:'#6b6560'}}>{fmtTVA(tvaRate)}</td>
                     <td style={{padding:'4px 6px',fontSize:11,textAlign:'right'}}>{isOffert?'offert':fmtE(ttc)}</td>
                     <td style={{padding:'4px 6px',textAlign:'center'}}>
                       {!isAuto&&<button onClick={()=>remLigne(i)} style={{border:'none',background:'none',color:'#c0392b',cursor:'pointer',fontSize:14,padding:'2px 6px'}}>×</button>}
@@ -4935,30 +4973,31 @@ ${infoBlock}
           </>}
         </div>}
 
-        {preparation&&<div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:8}}>
-          <div style={{display:'flex',justifyContent:'flex-end',alignItems:'center',gap:12}}>
-            {isCoiffePrep&&totalBouteilles>0&&!coiffeOk&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600}}>⚠️ {totalBouteilles} bouteilles — multiple de 120 requis</div>}
+        {preparation&&<div style={{display:'flex',justifyContent:'flex-end',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+          <div style={{display:'flex',flexDirection:'column',gap:4,flex:1}}>
+            {isCoiffePrep&&totalBouteilles>0&&!coiffeOk&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600}}>⚠️ Rajouter {coiffeManquantes} bouteille{coiffeManquantes>1?'s':''} — multiple de 120 requis.</div>}
+            {isCoffretUps&&totalEq75>24&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600}}>⚠️ Coffret UPS : maximum 24 éq. 75cl ({totalEq75} actuellement). Retirez {totalEq75-24} éq. 75cl.</div>}
             {minQtyMsg&&<div style={{fontSize:12,color:'#c0392b',fontWeight:600}}>⚠️ {minQtyMsg}</div>}
-            {gratuite&&!gratuiteRaison
-              ?<button onClick={()=>setGratuiteModal(true)}
-                style={{padding:'12px 32px',background:'#c0392b',color:'#fff',border:'none',borderRadius:10,fontSize:15,fontWeight:700,cursor:'pointer'}}>
-                Expliquer la gratuité
-              </button>
-              :hasAnyRemise&&!remiseJustif
-              ?<button onClick={()=>{setRemiseJustifDraft('');setRemiseJustifModal(true);}}
-                style={{padding:'12px 32px',background:'#c0392b',color:'#fff',border:'none',borderRadius:10,fontSize:15,fontWeight:700,cursor:'pointer'}}>
-                Expliquer la remise
-              </button>
-              :<button onClick={handleEnvoyer}
-                disabled={sending||!coreLignes.length||!coiffeOk||!minQtyOk}
-                style={{padding:'12px 32px',
-                  background:sending||!coreLignes.length||!coiffeOk||!minQtyOk?'#e2ddd6':'#2d6a4f',
-                  color:sending||!coreLignes.length||!coiffeOk||!minQtyOk?'#9e9890':'#fff',
-                  border:'none',borderRadius:10,fontSize:15,fontWeight:700,cursor:'pointer'}}>
-                {sending?'Envoi en cours...':(mode==='devis'?'Envoyer le devis':'Enregistrer la commande')}
-              </button>
-            }
           </div>
+          {gratuite&&!gratuiteRaison
+            ?<button onClick={()=>setGratuiteModal(true)}
+              style={{padding:'12px 32px',background:'#c0392b',color:'#fff',border:'none',borderRadius:10,fontSize:15,fontWeight:700,cursor:'pointer'}}>
+              Expliquer la gratuité
+            </button>
+            :hasAnyRemise&&!remiseJustif
+            ?<button onClick={()=>{setRemiseJustifDraft('');setRemiseJustifModal(true);}}
+              style={{padding:'12px 32px',background:'#c0392b',color:'#fff',border:'none',borderRadius:10,fontSize:15,fontWeight:700,cursor:'pointer'}}>
+              Expliquer la remise
+            </button>
+            :<button onClick={handleEnvoyer}
+              disabled={sending||!coreLignes.length||!coiffeOk||!minQtyOk||!coffretUpsOk}
+              style={{padding:'12px 32px',
+                background:sending||!coreLignes.length||!coiffeOk||!minQtyOk||!coffretUpsOk?'#e2ddd6':'#2d6a4f',
+                color:sending||!coreLignes.length||!coiffeOk||!minQtyOk||!coffretUpsOk?'#9e9890':'#fff',
+                border:'none',borderRadius:10,fontSize:15,fontWeight:700,cursor:'pointer',flexShrink:0}}>
+              {sending?'Envoi en cours...':(mode==='devis'?'Envoyer le devis':'Enregistrer la commande')}
+            </button>
+          }
         </div>}
       </>}
     </div>
@@ -5546,7 +5585,8 @@ function TarifTab({db}){
 
 // Liste des fonctionnalités gérées par permissions
 const PERMISSION_FEATURES=[
-  {key:'coutant', label:'Prix coûtant', description:'Afficher le checkbox "Prix coûtant" dans les devis/commandes'},
+  {key:'coutant',    label:'Prix coûtant',          description:'Afficher le checkbox "Prix coûtant" dans les devis/commandes'},
+  {key:'okr_import', label:'Importer OKR d\'une saison', description:'Accéder au bouton "Importer d\'un objectif d\'une saison précédente" dans l\'onglet OKR'},
 ];
 const PERMISSION_ROLES=[
   {value:'marketing',  label:'Marketing'},
@@ -5962,7 +6002,35 @@ function KRModal({kr,sobjId,people,keyresults,onClose,onSave,onDelete,locked}){
     onSave(dupKR,true); // true = is duplicate → _id will be undefined → new KR with correct numbering
     onClose();
   }
-  return <Modal title={isNew?"Nouveau KR":"Mettre à jour le KR"} onClose={onClose} onSave={save} onDelete={!isNew&&!locked?onDelete:null} onDuplicate={!isNew&&!locked?handleDuplicate:null}>
+  const krHelp=`Un KR est une action ou un ensemble d'actions — il doit donc être libellé à l'infinitif.
+Le libellé d'un KR doit être objectivement quantifiable : on doit pouvoir facilement mesurer s'il est atteint, partiellement atteint ou pas atteint.
+
+❌ "Sensibiliser le client XXX au réemploi" → pas quantifiable.
+✅ "Réaliser trois actions de sensibilisation au réemploi pour le client XXX"
+
+Le KR étant quantifiable, on définit l'unité de mesure, la cible et le point de départ.
+Dans l'exemple ci-dessus : unité = nb, cible = 3, départ = 0.
+
+Unités disponibles :
+• € — valeurs monétaires (CA, levée de fonds, stock…)
+  Ex : Obtenir la validation écrite d'investisseurs pour 300 k€
+• % — taux d'avancement estimable
+  Ex : Organiser la soirée écosystème
+• oui/non — quand l'avancement n'est pas mesurable
+  Ex : Valider en Comité Stratégique le projet CRF Restart
+• nb — batch quantifiable
+  Ex : Trouver 100 leads CHR sur la zone de Lyon`;
+  const [krHelpVisible,setKrHelpVisible]=useState(false);
+  const krBtnRef=React.useRef(null);
+  const krHelpBtn=<div style={{position:"relative",display:"inline-flex",alignItems:"center"}}>
+    <button ref={krBtnRef} onMouseEnter={()=>setKrHelpVisible(true)} onMouseLeave={()=>setKrHelpVisible(false)} onClick={()=>setKrHelpVisible(v=>!v)}
+      style={{background:"none",border:"1px solid #e2ddd6",borderRadius:"50%",width:26,height:26,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,color:"#6b6560",flexShrink:0}}>🔍</button>
+    {krHelpVisible&&(()=>{const r=krBtnRef.current?.getBoundingClientRect();const top=r?(r.bottom+8):80;const right=r?(window.innerWidth-r.right):24;return <div style={{position:"fixed",top,right:Math.max(8,right-582),width:608,background:"#1a1814",color:"#f5f3ef",borderRadius:10,padding:"14px 16px",fontSize:12,lineHeight:1.6,zIndex:3000,boxShadow:"0 8px 24px rgba(0,0,0,.3)",whiteSpace:"pre-wrap"}}>
+      {krHelp}
+      <div style={{position:"absolute",top:-6,right:Math.min(r?(r.right-r.left)/2:10,608-20),width:0,height:0,borderLeft:"6px solid transparent",borderRight:"6px solid transparent",borderBottom:"6px solid #1a1814"}}/>
+    </div>;})()}
+  </div>;
+  return <Modal title={isNew?"Nouveau KR":"Mettre à jour le KR"} onClose={onClose} onSave={save} onDelete={!isNew&&!locked?onDelete:null} onDuplicate={!isNew&&!locked?handleDuplicate:null} headerExtra={isNew?krHelpBtn:null}>
     <Field label="Titre"><input style={INP} value={f.title} onChange={e=>upd("title",e.target.value)} disabled={readonlyStruct}/></Field>
     {!readonlyStruct&&<>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
@@ -6283,7 +6351,7 @@ function AppNav({current,onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDe
   </div>;
 }
 
-function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,currentUser,teamMember,isAdmin,teamMembers=[]}){
+function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,currentUser,teamMember,isAdmin,teamMembers=[],rolePermissions={}}){
   const [seasonKey,setSeasonKey]=useState("printemps_2026");
   const [dragOverSobj,setDragOverSobj]=useState(null);
   const [dragOverObj,setDragOverObj]=useState(null); // {id, before}
@@ -6412,7 +6480,7 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cur
   useEffect(()=>{
     const ref=doc(db,"okr","data");
     const unsub=onSnapshot(ref,(snap)=>{
-      if(snap.exists()){const d=snap.data();if(d.allSeasons)setAllSeasons(d.allSeasons);if(d.seasonKey)setSeasonKey(d.seasonKey);if(d.collObj)setCollObj(d.collObj||{});if(d.collSobj)setCollSobj(d.collSobj||{});}
+      if(snap.exists()){const d=snap.data();if(d.allSeasons)setAllSeasons(d.allSeasons);if(d.seasonKey)setSeasonKey(sk=>sk==="printemps_2026"?d.seasonKey:sk);}
       setLoaded(true);
     },(e)=>{console.error(e);setLoaded(true);});
     return()=>unsub();
@@ -6422,7 +6490,7 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cur
   const seasonKeyRef=useRef(seasonKey);useEffect(()=>{seasonKeyRef.current=seasonKey;},[seasonKey]);
 
   function persist(aS){
-    setDoc(doc(db,"okr","data"),{allSeasons:aS,seasonKey:seasonKeyRef.current,collObj,collSobj})
+    setDoc(doc(db,"okr","data"),{allSeasons:aS,seasonKey:seasonKeyRef.current})
       .then(()=>{setSaved(true);setTimeout(()=>setSaved(false),1800);}).catch(e=>console.error(e));
   }
   async function logChange(type,itemId,itemTitle,owner,changes){
@@ -6438,11 +6506,11 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cur
     let next=allSeasonsRef.current;
     if(!next[key]){next={...next,[key]:makeFreshSeason(people)};allSeasonsRef.current=next;setAllSeasons(next);}
     seasonKeyRef.current=key;
-    setSeasonKey(key);setFilterP("");
-    setDoc(doc(db,"okr","data"),{allSeasons:next,seasonKey:key,collObj,collSobj}).catch(e=>console.error(e));
+    setSeasonKey(key);setFilterP("");setCollObj({});setCollSobj({});
+    // Ne pas sauvegarder la saison de l'onglet OKR dans Firestore — chaque teammate gère localement
   }
-  function toggleObj(id){setCollObj(c=>{const n={...c,[id]:!c[id]};setDoc(doc(db,"okr","data"),{allSeasons:allSeasonsRef.current,seasonKey:seasonKeyRef.current,collObj:n,collSobj:collSobj}).catch(e=>console.error(e));return n;});}
-  function toggleSobj(id){setCollSobj(c=>{const n={...c,[id]:!c[id]};setDoc(doc(db,"okr","data"),{allSeasons:allSeasonsRef.current,seasonKey:seasonKeyRef.current,collObj,collSobj:n}).catch(e=>console.error(e));return n;});}
+  function toggleObj(id){setCollObj(c=>({...c,[id]:!c[id]}));}
+  function toggleSobj(id){setCollSobj(c=>({...c,[id]:!c[id]}));}
   function lockObj(id){updateSeason({objectives:objectives.map(o=>o.id===id?{...o,locked:true}:o)});setModal(null);}
   function unlockObj(id){updateSeason({objectives:objectives.map(o=>o.id===id?{...o,locked:false}:o)});setModal(null);}
   function handleObjSave(data){
@@ -6635,10 +6703,10 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cur
             {isDragTarget&&!dragOverObj?.before&&<div style={{height:3,background:'#2d6a4f',borderRadius:2,margin:'0 4px'}}/>}
           </React.Fragment>;
         });})()}
-        {!allLocked&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        {!allLocked&&(()=>{const _role=(teamMember?.role||'').toLowerCase();const canImport=currentUser?.email===OWNER_EMAIL||(_role&&rolePermissions?.okr_import?.[_role]===true);return <div style={{display:"grid",gridTemplateColumns:canImport?"1fr 1fr":"1fr",gap:10}}>
           <button onClick={()=>setModal({type:"obj",item:null,isNew:true})} style={{fontSize:13,color:"#2d6a4f",background:"#d8f3dc",border:"1px dashed #2d6a4f",borderRadius:10,padding:"12px",textAlign:"center",cursor:"pointer"}}>+ Ajouter un objectif</button>
-          <button onClick={()=>setModal({type:"import"})} style={{fontSize:13,color:"#1d4ed8",background:"#eff6ff",border:"1px dashed #1d4ed8",borderRadius:10,padding:"12px",textAlign:"center",cursor:"pointer"}}>↓ Importer d'une saison</button>
-        </div>}
+          {canImport&&<button onClick={()=>setModal({type:"import"})} style={{fontSize:13,color:"#1d4ed8",background:"#eff6ff",border:"1px dashed #1d4ed8",borderRadius:10,padding:"12px",textAlign:"center",cursor:"pointer"}}>↓ Importer d'une saison</button>}
+        </div>;})()}
       </div>
     </div>
 
@@ -8274,7 +8342,7 @@ export default function App(){
   },[]);
 
   // Permissions par rôle — temps réel via onSnapshot
-  const DEFAULT_PERMISSIONS={coutant:{marketing:true,production:false,sales:false,admin:false}};
+  const DEFAULT_PERMISSIONS={coutant:{marketing:true,production:false,sales:false,admin:false},okr_import:{marketing:false,production:false,sales:false,admin:true}};
   const [rolePermissions,setRolePermissions]=useState(DEFAULT_PERMISSIONS);
   useEffect(()=>{
     const unsub=onSnapshot(doc(db,'app_config','role_permissions'),(snap)=>{
@@ -8701,7 +8769,7 @@ export default function App(){
   </div>;
   }
 
-  if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} onGoDevis={()=>setPage("devis")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers}/>;
+  if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} onGoDevis={()=>setPage("devis")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers} rolePermissions={rolePermissions}/>;
   if(page==="update")return <UpdatePage onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} onGoDevis={()=>setPage("devis")} teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} okrData={okrData} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers}/>;
   if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} onGoDevis={()=>setPage("devis")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels} savedCanalMargin={savedCanalMargin} currentUser={authUser}/>;
   if(page==="bsv3")return <Bsv3Page onBack={()=>setPage('dashboard')} onGoOKR={()=>setPage('okr')} onGoUpdate={()=>setPage('update')} onGoReporting={()=>setPage('reporting')} onGoBsv3={()=>setPage('bsv3')} onGoDevis={()=>setPage('devis')} currentUser={authUser} onUpdatePuce={updatePuceInFirebase}/>;
