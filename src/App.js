@@ -16,7 +16,7 @@ function sendNotifEmail(toEmail, toName, title) {
   }, EMAILJS_KEY).catch(e => console.warn('EmailJS error:', e));
 }
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, getDocs, getDoc, query, where, updateDoc, deleteDoc, arrayUnion } from "firebase/firestore";
+import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, getDocs, getDoc, query, where, updateDoc, deleteDoc, arrayUnion, runTransaction } from "firebase/firestore";
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "firebase/auth";
 
 const firebaseConfig = {
@@ -3912,6 +3912,8 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   const [recallClient,setRecallClient]=React.useState('');
   const [recallMode,setRecallMode]=React.useState('commande');
   const [recallRef,setRecallRef]=React.useState('');
+  const [recallFilter,setRecallFilter]=React.useState('');
+  const [recallDropOpen,setRecallDropOpen]=React.useState(false);
   React.useEffect(()=>{
     if(mode==='devis'){
       const prenom=teamMember?.prenom||'';
@@ -3923,7 +3925,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   const [echantillons,setEchantillons]=React.useState(false);
   const [tariEvent,setTariEvent]=React.useState(false);
   const [prixCoutant,setPrixCoutant]=React.useState(false);
-  const userRole=currentUser?.email===OWNER_EMAIL?'owner':(teamMember?.role||'');
+  const userRole=currentUser?.email===OWNER_EMAIL?'owner':((teamMember?.role||'').toLowerCase());
   const perms=rolePermissions||{};
   const canPrixCoutant=userRole==='owner'||(perms.coutant?.[userRole]===true);
   const [gratuite,setGratuite]=React.useState(false);
@@ -4164,9 +4166,26 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   const minQtyMsg=coreLignes.length>0&&!gratuite&&!minQtyOk?(tariEvent?'Il faut au moins 6 bouteilles ou équivalent.':'Il faut au moins 24 bouteilles ou équivalent (ou choisir le tarif Events).'):'';
 
 
-  function genRef(){
+  async function genRef(){
     const d=new Date();
-    return (mode==='devis'?'DEV':'CMD')+`-${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}-${String(Math.floor(Math.random()*900)+100)}`;
+    const prefix=mode==='devis'?'DEV':'CMD';
+    const yymm=String(d.getFullYear()).slice(2)+String(d.getMonth()+1).padStart(2,'0');
+    const field=`${prefix}-${yymm}`;
+    const counterRef=doc(db,'devis_counters','current');
+    let next=100;
+    try{
+      await runTransaction(db,async tx=>{
+        const snap=await tx.get(counterRef);
+        const data=snap.exists()?snap.data():{};
+        // Réinitialise si le mois a changé (clé différente = nouveau mois)
+        next=(data[field]||99)+1;
+        tx.set(counterRef,{...data,[field]:next},{merge:true});
+      });
+    }catch(e){
+      // Fallback aléatoire si transaction échoue
+      next=Math.floor(Math.random()*9000)+1000;
+    }
+    return `${prefix}-${yymm}-${String(next).padStart(4,'0')}`;
   }
 
   function getLineTarifBadgesRecap(l){
@@ -4271,7 +4290,8 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   }
 
   async function saveCoords(){
-    await setDoc(doc(db,'devis_clients',societe.trim()||'_'),{societe,contact,shopifyId:shopifyId||'',factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,infoLivraison,masked:false,updatedAt:Date.now()});
+    const clientKey=shopifyId.trim()?`shopify_${shopifyId.trim()}`:(societe.trim()||'_');
+    await setDoc(doc(db,'devis_clients',clientKey),{societe,contact,shopifyId:shopifyId||'',factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,infoLivraison,masked:false,updatedAt:Date.now()});
     setStep('produits');
   }
 
@@ -4281,7 +4301,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
     if(!coiffeOk){alert(`Le nombre de bouteilles (${totalBouteilles}) doit être un multiple de 120.`);return;}
     if(!minQtyOk){alert(tariEvent?'Il faut au moins 6 bouteilles ou équivalent.':'Il faut au moins 24 bouteilles ou équivalent (ou choisir le tarif Events).');return;}
     setSending(true);
-    const ref=genRef();
+    const ref=await genRef();
     const tarifLabel=gratuite?('GRATUITÉ — '+gratuiteRaison):prixCoutant?'Prix Coûtant':tariEvent?'Tarif Events':totalEq75>=600?'Tarif 600+':totalEq75>=360?'Tarif 360+':totalEq75>=240?'Tarif 240+':totalEq75>=120?'Tarif 120+':'Tarif 24+';
     const textContent=buildText(ref);
     const prenom=teamMember?.prenom||'Oé';
@@ -4581,12 +4601,23 @@ ${infoBlock}
                     onFocus={()=>setClientDropOpen(true)}
                     placeholder={selectedClientKey?(savedClients.find(x=>x.key===selectedClientKey)?.societe||''):'— Taper pour filtrer les clients —'}
                     style={{...INP(),flex:1,color:clientFilter?'#1a1814':'#9e9890'}}/>
-                  {selectedClientKey&&<button onClick={async()=>{
-                    if(!window.confirm('Masquer ce client ? Il n\'apparaîtra plus dans les listes mais ses données seront conservées.'))return;
-                    await updateDoc(doc(db,'devis_clients',selectedClientKey),{masked:true});
-                    setSavedClients(p=>p.map(x=>x.key===selectedClientKey?{...x,masked:true}:x));
-                    setSociete('');setContact('');setShopifyId('');setFactAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setSelectedClientKey('');setClientFilter('');
-                  }} style={{padding:'6px 10px',background:'#fff',border:'1px solid #e2ddd6',borderRadius:7,fontSize:12,color:'#c0392b',cursor:'pointer',flexShrink:0}}>Masquer</button>}
+                  {selectedClientKey&&(()=>{
+                    const selCl=savedClients.find(x=>x.key===selectedClientKey);
+                    const isMasked=selCl?.masked;
+                    return <button onClick={async()=>{
+                      if(isMasked){
+                        await updateDoc(doc(db,'devis_clients',selectedClientKey),{masked:false});
+                        setSavedClients(p=>p.map(x=>x.key===selectedClientKey?{...x,masked:false}:x));
+                      } else {
+                        if(!window.confirm('Masquer ce client ? Il n\'apparaîtra plus dans les listes mais ses données seront conservées.'))return;
+                        await updateDoc(doc(db,'devis_clients',selectedClientKey),{masked:true});
+                        setSavedClients(p=>p.map(x=>x.key===selectedClientKey?{...x,masked:true}:x));
+                        setSociete('');setContact('');setShopifyId('');setFactAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setSelectedClientKey('');setClientFilter('');
+                      }
+                    }} style={{padding:'6px 10px',background:isMasked?'#f0fdf4':'#fff',border:`1px solid ${isMasked?'#86efac':'#e2ddd6'}`,borderRadius:7,fontSize:12,color:isMasked?'#2d6a4f':'#c0392b',cursor:'pointer',flexShrink:0}}>
+                      {isMasked?'Restaurer':'Masquer'}
+                    </button>;
+                  })()}
                   <button onClick={()=>{setSociete('');setContact('');setShopifyId('');setFactAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setSelectedClientKey('');setClientFilter('');setClientDropOpen(false);}}
                     style={{padding:'6px 10px',background:'#f8f7f5',border:'1px solid #e2ddd6',borderRadius:7,fontSize:12,cursor:'pointer',flexShrink:0}}>Effacer</button>
                 </div>
@@ -4599,8 +4630,13 @@ ${infoBlock}
                   }} style={{padding:'8px 12px',cursor:'pointer',fontSize:12,borderBottom:'1px solid #f5f3ef',display:'flex',justifyContent:'space-between',alignItems:'center'}}
                     onMouseEnter={e=>e.currentTarget.style.background='#f8f7f5'}
                     onMouseLeave={e=>e.currentTarget.style.background='#fff'}>
-                    <span><strong>{cl.societe}</strong>{cl.contact&&<span style={{color:'#6b6560',marginLeft:6}}>{cl.contact}</span>}</span>
-                    <span style={{color:'#9e9890',fontSize:10}}>{cl.factAddr?.ville||''}{cl.shopifyId&&<span style={{marginLeft:6,color:'#2d6a4f'}}>#{cl.shopifyId}</span>}{cl.masked&&<span style={{marginLeft:6,color:'#c0392b'}}>masqué</span>}</span>
+                    <span style={{display:'flex',alignItems:'baseline',gap:5,flexWrap:'wrap'}}>
+                      <strong>{cl.societe}</strong>
+                      {cl.contact&&<span style={{color:'#6b6560',fontSize:11}}>{cl.contact}</span>}
+                      {cl.factAddr?.ville&&<span style={{color:'#9e9890',fontSize:11}}>({cl.factAddr.ville})</span>}
+                      {cl.masked&&<span style={{fontSize:10,padding:'0 4px',borderRadius:4,background:'#fef2f2',color:'#c0392b'}}>masqué</span>}
+                    </span>
+                    {cl.shopifyId&&<span style={{color:'#2d6a4f',fontSize:10,flexShrink:0}}>#{cl.shopifyId}</span>}
                   </div>)}
                 </div>}
                 {clientDropOpen&&<div style={{position:'fixed',inset:0,zIndex:199}} onMouseDown={()=>setClientDropOpen(false)}/>}
@@ -4680,20 +4716,60 @@ ${infoBlock}
         <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'14px 16px',marginBottom:16}}>
           <div style={{fontSize:11,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:.5,marginBottom:10}}>Rappeler un devis ou une commande</div>
           <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
-            <select value={recallTeammate} onChange={e=>{setRecallTeammate(e.target.value);setRecallClient('');setRecallRef('');}} style={{fontSize:12,padding:'5px 8px',borderRadius:7,border:'1px solid #e2ddd6',minWidth:110}}>
+            <select value={recallTeammate} onChange={e=>{setRecallTeammate(e.target.value);setRecallClient('');setRecallRef('');setRecallFilter('');}} style={{fontSize:12,padding:'5px 8px',borderRadius:7,border:'1px solid #e2ddd6',minWidth:110}}>
               <option value=''>Tous</option>
               {[...new Set(savedOrders.map(o=>o.createdBy||'').filter(Boolean))].map(email=>{const tm=(window._teamMembers||[]).find(m=>m.email===email);return<option key={email} value={email}>{tm?.prenom||email}</option>;})}
             </select>
-            <select value={recallClient} onChange={e=>{setRecallClient(e.target.value);setRecallRef('');}} style={{fontSize:12,padding:'5px 8px',borderRadius:7,border:'1px solid #e2ddd6',minWidth:140}}>
+            <select value={recallClient} onChange={e=>{setRecallClient(e.target.value);setRecallRef('');setRecallFilter('');}} style={{fontSize:12,padding:'5px 8px',borderRadius:7,border:'1px solid #e2ddd6',minWidth:140}}>
               <option value=''>— Client —</option>
               {[...new Set(savedOrders.filter(o=>!recallTeammate||o.createdBy===recallTeammate).map(o=>o.societe||'').filter(s=>s&&savedClients.some(sc=>sc.societe===s)))].sort().map(s=><option key={s} value={s}>{s}</option>)}
             </select>
-            {['commande','devis'].map(m=><button key={m} onClick={()=>{setRecallMode(m);setRecallRef('');}} style={{padding:'5px 10px',borderRadius:6,fontSize:11,fontWeight:500,cursor:'pointer',border:`1px solid ${recallMode===m?'#2d6a4f':'#e2ddd6'}`,background:recallMode===m?'#2d6a4f':'#fff',color:recallMode===m?'#fff':'#6b6560'}}>{m==='commande'?'Commande':'Devis'}</button>)}
-            <select value={recallRef} onChange={e=>{const ref=e.target.value;setRecallRef(ref);if(!ref)return;const o=savedOrders.find(x=>x.ref===ref);if(!o)return;setSociete(o.societe||'');setContact(o.contact||'');setFactAddr(o.factAddr||{addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setExpAddr(o.expAddr||{addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setSameAddr(false);setRetraitLoft(o.retraitLoft||false);setPreparation(o.preparation||'');setMessage(o.message||'');setTariEvent(o.tariEvent||false);setPrixCoutant(false);setGratuite(false);setGratuiteRaison('');setLignes((o.lignes||[]).filter(l=>l.qtyMode!=='auto').map(l=>({...l,qtyMode:'select'})));setRemiseJustif(o.remiseJustif||'');}}
-              style={{flex:1,fontSize:11,padding:'5px 8px',borderRadius:7,border:'1px solid #e2ddd6',minWidth:200,color:recallRef?'#1a1814':'#9e9890'}}>
-              <option value=''>— Choisir —</option>
-              {savedOrders.filter(o=>(!recallTeammate||o.createdBy===recallTeammate)&&(!recallClient||o.societe===recallClient)&&o.mode===recallMode).map(o=>{const d=o.createdAt?new Date(o.createdAt).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'';const tm=(window._teamMembers||[]).find(m=>m.email===o.createdBy);return<option key={o.ref} value={o.ref}>{o.ref} · {o.societe} · {d}{tm?' ('+tm.prenom+')':''}</option>;})}
-            </select>
+            {['commande','devis'].map(m=><button key={m} onClick={()=>{setRecallMode(m);setRecallRef('');setRecallFilter('');}} style={{padding:'5px 10px',borderRadius:6,fontSize:11,fontWeight:500,cursor:'pointer',border:`1px solid ${recallMode===m?'#2d6a4f':'#e2ddd6'}`,background:recallMode===m?'#2d6a4f':'#fff',color:recallMode===m?'#fff':'#6b6560'}}>{m==='commande'?'Commande':'Devis'}</button>)}
+            {(()=>{
+              function applyRecall(o){
+                setRecallRef(o.ref);
+                setRecallFilter(o.ref+' · '+(o.societe||''));
+                setRecallDropOpen(false);
+                setSociete(o.societe||'');setContact(o.contact||'');
+                setFactAddr(o.factAddr||{addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});
+                setExpAddr(o.expAddr||{addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});
+                setSameAddr(false);setRetraitLoft(o.retraitLoft||false);setPreparation(o.preparation||'');
+                setMessage(o.message||'');setTariEvent(o.tariEvent||false);setPrixCoutant(false);
+                setGratuite(false);setGratuiteRaison('');
+                setLignes((o.lignes||[]).filter(l=>l.qtyMode!=='auto').map(l=>({...l,qtyMode:'select'})));
+                setRemiseJustif(o.remiseJustif||'');
+              }
+              const baseList=savedOrders.filter(o=>(!recallTeammate||o.createdBy===recallTeammate)&&(!recallClient||o.societe===recallClient)&&o.mode===recallMode);
+              const q=(recallFilter||'').toLowerCase().trim();
+              const filteredList=q?baseList.filter(o=>{
+                const d=o.createdAt?new Date(o.createdAt).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'';
+                const tm=(window._teamMembers||[]).find(m=>m.email===o.createdBy);
+                const hay=[(o.ref||''),(o.societe||''),(o.contact||''),d,(tm?.prenom||'')].join(' ').toLowerCase();
+                return hay.includes(q);
+              }):baseList;
+              return <div style={{flex:1,position:'relative',minWidth:200}}>
+                {recallDropOpen&&<div onClick={()=>setRecallDropOpen(false)} style={{position:'fixed',inset:0,zIndex:199}}/>}
+                <input
+                  value={recallFilter}
+                  onChange={e=>{setRecallFilter(e.target.value);setRecallRef('');setRecallDropOpen(true);}}
+                  onFocus={()=>setRecallDropOpen(true)}
+                  placeholder='— Rechercher un devis / commande —'
+                  style={{width:'100%',fontSize:11,padding:'5px 8px',borderRadius:7,border:`1px solid ${recallRef?'#2d6a4f':'#e2ddd6'}`,boxSizing:'border-box',outline:'none',fontFamily:'inherit',color:recallRef?'#1a1814':'#1a1814',background:'#fff'}}
+                />
+                {recallDropOpen&&filteredList.length>0&&<div style={{position:'absolute',top:'calc(100% + 3px)',left:0,right:0,background:'#fff',border:'1px solid #e2ddd6',borderRadius:8,boxShadow:'0 4px 16px rgba(0,0,0,.10)',zIndex:200,maxHeight:240,overflowY:'auto'}}>
+                  {filteredList.map(o=>{
+                    const d=o.createdAt?new Date(o.createdAt).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'';
+                    const tm=(window._teamMembers||[]).find(m=>m.email===o.createdBy);
+                    return <div key={o.ref} onMouseDown={e=>{e.preventDefault();applyRecall(o);}}
+                      style={{padding:'7px 12px',cursor:'pointer',borderBottom:'1px solid #f5f3ef',fontSize:11,display:'flex',flexDirection:'column',gap:1,background:recallRef===o.ref?'#f0fdf4':'#fff'}}>
+                      <span style={{fontWeight:700,color:'#1a1814'}}>{o.ref}</span>
+                      <span style={{color:'#6b6560'}}>{o.societe}{o.contact?' · '+o.contact:''}{d?' · '+d:''}{tm?' ('+tm.prenom+')':''}</span>
+                    </div>;
+                  })}
+                </div>}
+                {recallDropOpen&&filteredList.length===0&&<div style={{position:'absolute',top:'calc(100% + 3px)',left:0,right:0,background:'#fff',border:'1px solid #e2ddd6',borderRadius:8,padding:'10px 12px',fontSize:11,color:'#9e9890',zIndex:200}}>Aucun résultat</div>}
+              </div>;
+            })()}
           </div>
         </div>
                 <div style={{...SECT,display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
@@ -5018,18 +5094,26 @@ ${infoBlock}
   </div>;
 }
 
-function ClientsDbTab({db}){
-  const [clients,setClients]=React.useState([]);
-  const [loading,setLoading]=React.useState(true);
+function ClientsDbTab({db,clients,setClients}){
   const [importMsg,setImportMsg]=React.useState('');
   const [importError,setImportError]=React.useState('');
-
-  React.useEffect(()=>{
-    getDocs(collection(db,'devis_clients')).then(snap=>{
-      setClients(snap.docs.map(d=>({key:d.id,...d.data()})).sort((a,b)=>(a.societe||'').localeCompare(b.societe||'')));
-      setLoading(false);
-    });
-  },[]);
+  const [fSociete,setFSociete]=React.useState('');
+  const [fContact,setFContact]=React.useState('');
+  const [fShopify,setFShopify]=React.useState('');
+  const [fVille,setFVille]=React.useState('');
+  const [fEmail,setFEmail]=React.useState('');
+  const [fStatut,setFStatut]=React.useState('');
+  const filteredClients=clients.filter(cl=>{
+    const s=v=>(v||'').toLowerCase();
+    if(fSociete&&!s(cl.societe).includes(s(fSociete)))return false;
+    if(fContact&&!s(cl.contact).includes(s(fContact)))return false;
+    if(fShopify&&!s(cl.shopifyId).includes(s(fShopify)))return false;
+    if(fVille&&!s(cl.factAddr?.ville).includes(s(fVille)))return false;
+    if(fEmail&&!s(cl.factAddr?.email).includes(s(fEmail)))return false;
+    if(fStatut==='actif'&&cl.masked)return false;
+    if(fStatut==='masqué'&&!cl.masked)return false;
+    return true;
+  });
 
   function exportCSV(){
     const cols=['key','societe','contact','shopifyId','masked','factAddr.addr','factAddr.addr2','factAddr.cp','factAddr.ville','factAddr.pays','factAddr.tel','factAddr.email','expAddr.addr','expAddr.addr2','expAddr.cp','expAddr.ville','expAddr.pays','expAddr.tel','expAddr.email','retraitLoft','infoLivraison','updatedAt'];
@@ -5071,18 +5155,37 @@ function ClientsDbTab({db}){
     const text=await file.text();
     const rows=parseCSV(text);
     if(!rows.length){setImportError('Fichier vide ou invalide.');setImportMsg('');return;}
+    // Calculer les clés de la nouvelle base (ignorer les lignes sans clé)
+    const newRows=rows.map(row=>{
+      const shopifyIdRow=(row['shopifyId']||'').trim();
+      const key=shopifyIdRow?`shopify_${shopifyIdRow}`:(row['societe']||'').trim()||(row['key']||'').trim();
+      return key?{...row,_key:key}:null;
+    }).filter(Boolean);
+    if(!newRows.length){setImportError('Aucune ligne valide (clé manquante).');setImportMsg('');return;}
+    if(!window.confirm(`Importer ${newRows.length} client(s) ? Cela remplacera TOTALEMENT la base clients existante.`)){setImportMsg('');return;}
+    // 1. Lire la base précédente et récupérer les statuts masqués pour les clés qui existent dans la nouvelle base
+    const existingSnap=await getDocs(collection(db,'devis_clients'));
+    const newKeys=new Set(newRows.map(r=>r._key));
+    const preservedMasked={};
+    existingSnap.docs.forEach(d=>{
+      // Ne conserver le statut que si la clé a une key valide ET existe dans la nouvelle base
+      if(d.id&&newKeys.has(d.id)) preservedMasked[d.id]=d.data().masked||false;
+    });
+    // 2. Supprimer TOUTE la base précédente (y compris les lignes sans key valide)
+    for(const d of existingSnap.docs) await deleteDoc(doc(db,'devis_clients',d.id));
+    // 3. Implanter la nouvelle base
     let count=0;
-    for(const row of rows){
-      const key=row['key']||row['societe'];
-      if(!key)continue;
+    for(const row of newRows){
+      const key=row._key;
+      const maskedValue=key in preservedMasked ? preservedMasked[key] : row['masked']==='true';
       const data={
         societe:row['societe']||'',contact:row['contact']||'',shopifyId:row['shopifyId']||'',
-        masked:row['masked']==='true',retraitLoft:row['retraitLoft']==='true',infoLivraison:row['infoLivraison']||'',
+        masked:maskedValue,retraitLoft:row['retraitLoft']==='true',infoLivraison:row['infoLivraison']||'',
         factAddr:{addr:row['factAddr.addr']||'',addr2:row['factAddr.addr2']||'',cp:row['factAddr.cp']||'',ville:row['factAddr.ville']||'',pays:row['factAddr.pays']||'France',tel:row['factAddr.tel']||'',email:row['factAddr.email']||''},
         expAddr:{addr:row['expAddr.addr']||'',addr2:row['expAddr.addr2']||'',cp:row['expAddr.cp']||'',ville:row['expAddr.ville']||'',pays:row['expAddr.pays']||'France',tel:row['expAddr.tel']||'',email:row['expAddr.email']||''},
         updatedAt:Date.now(),
       };
-      await setDoc(doc(db,'devis_clients',key),data,{merge:true});
+      await setDoc(doc(db,'devis_clients',key),data);
       count++;
     }
     const snap=await getDocs(collection(db,'devis_clients'));
@@ -5110,21 +5213,53 @@ function ClientsDbTab({db}){
       {importError&&<div style={{marginTop:10,fontSize:12,color:'#c0392b',fontWeight:600}}>{importError}</div>}
       <div style={{fontSize:11,color:'#9e9890',marginTop:10}}>Le CSV doit avoir les mêmes colonnes que l'export (séparateur virgule, valeurs entre guillemets si besoin). Le champ "key" sert d'identifiant unique.</div>
     </div>
-    {loading?<div style={{color:'#9e9890',fontSize:13}}>Chargement...</div>:
+    {!clients.length?<div style={{color:'#9e9890',fontSize:13}}>Chargement...</div>:
     <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',overflow:'hidden'}}>
+      <div style={{padding:'8px 10px',background:'#f8f7f5',borderBottom:'1px solid #e2ddd6',fontSize:11,color:'#9e9890'}}>
+        {filteredClients.length} / {clients.length} client(s) affiché(s)
+        {(fSociete||fContact||fShopify||fVille||fEmail||fStatut)&&<button onClick={()=>{setFSociete('');setFContact('');setFShopify('');setFVille('');setFEmail('');setFStatut('');}} style={{marginLeft:10,fontSize:11,padding:'1px 8px',borderRadius:5,border:'1px solid #e2ddd6',background:'#fff',cursor:'pointer',color:'#c0392b'}}>✕ Effacer filtres</button>}
+      </div>
       <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
-        <thead><tr style={{background:'#f8f7f5',borderBottom:'2px solid #2d6a4f'}}>
-          {['Société','Contact','ID Shopify','Ville','Email','Statut'].map((h,i)=><th key={i} style={{padding:'8px 10px',textAlign:'left',fontSize:11,fontWeight:600,color:'#6b6560',whiteSpace:'nowrap'}}>{h}</th>)}
+        <thead>
+          <tr style={{background:'#f8f7f5',borderBottom:'1px solid #e2ddd6'}}>
+            {['Société','Contact','ID Shopify','Ville','Email','Statut'].map((h,i)=><th key={i} style={{padding:'8px 10px',textAlign:'left',fontSize:11,fontWeight:600,color:'#6b6560',whiteSpace:'nowrap'}}>{h}</th>)}
+          </tr>
+          <tr style={{background:'#fdfcfb',borderBottom:'2px solid #2d6a4f'}}>
+            {[
+              [fSociete,setFSociete,'Filtrer...'],
+              [fContact,setFContact,'Filtrer...'],
+              [fShopify,setFShopify,'ID...'],
+              [fVille,setFVille,'Ville...'],
+              [fEmail,setFEmail,'Email...'],
+            ].map(([val,set,ph],i)=><th key={i} style={{padding:'4px 6px'}}>
+              <input value={val} onChange={e=>set(e.target.value)} placeholder={ph}
+                style={{width:'100%',fontSize:11,border:'1px solid #e2ddd6',borderRadius:5,padding:'3px 6px',boxSizing:'border-box',outline:'none',fontFamily:'inherit'}}/>
+            </th>)}
+            <th style={{padding:'4px 6px'}}>
+              <select value={fStatut} onChange={e=>setFStatut(e.target.value)}
+                style={{width:'100%',fontSize:11,border:'1px solid #e2ddd6',borderRadius:5,padding:'3px 4px',boxSizing:'border-box',fontFamily:'inherit',background:'#fff'}}>
+                <option value=''>Tous</option>
+                <option value='actif'>Actif</option>
+                <option value='masqué'>Masqué</option>
+              </select>
+            </th>
+          </tr>
         </thead>
-        <tbody>{clients.map((cl,i)=><tr key={cl.key} style={{borderBottom:'1px solid #f5f3ef',background:cl.masked?'#fff5f5':'#fff'}}>
+        <tbody>{filteredClients.map((cl)=><tr key={cl.key} style={{borderBottom:'1px solid #f5f3ef',background:cl.masked?'#fff5f5':'#fff'}}>
           <td style={{padding:'7px 10px',fontWeight:600}}>{cl.societe}</td>
           <td style={{padding:'7px 10px',color:'#6b6560'}}>{cl.contact||'—'}</td>
           <td style={{padding:'7px 10px',color:'#2d6a4f'}}>{cl.shopifyId||'—'}</td>
           <td style={{padding:'7px 10px',color:'#6b6560'}}>{cl.factAddr?.ville||'—'}</td>
           <td style={{padding:'7px 10px',color:'#6b6560'}}>{cl.factAddr?.email||'—'}</td>
-          <td style={{padding:'7px 10px'}}>{cl.masked
-            ?<span style={{fontSize:11,padding:'1px 7px',borderRadius:6,background:'#fef2f2',color:'#c0392b',fontWeight:600}}>masqué</span>
-            :<span style={{fontSize:11,padding:'1px 7px',borderRadius:6,background:'#f0fdf4',color:'#2d6a4f',fontWeight:600}}>actif</span>}
+          <td style={{padding:'7px 10px'}}>
+            <span onClick={async()=>{
+              await updateDoc(doc(db,'devis_clients',cl.key),{masked:!cl.masked});
+              setClients(prev=>prev.map(c=>c.key===cl.key?{...c,masked:!c.masked}:c));
+            }} style={{fontSize:11,padding:'1px 7px',borderRadius:6,fontWeight:600,cursor:'pointer',userSelect:'none',
+              ...(cl.masked?{background:'#fef2f2',color:'#c0392b'}:{background:'#f0fdf4',color:'#2d6a4f'})}}
+              title={cl.masked?'Cliquer pour restaurer':'Cliquer pour masquer'}>
+              {cl.masked?'masqué':'actif'}
+            </span>
           </td>
         </tr>)}</tbody>
       </table>
@@ -5509,6 +5644,12 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
   const [newPrenom,setNewPrenom]=useState("");
   const [newManager,setNewManager]=useState("");
   const [tab,setTab]=useState("members");
+  const [dbClients,setDbClients]=useState([]);
+  useEffect(()=>{
+    getDocs(collection(db,'devis_clients')).then(snap=>{
+      setDbClients(snap.docs.map(d=>({key:d.id,...d.data()})).sort((a,b)=>(a.societe||'').localeCompare(b.societe||'')));
+    }).catch(()=>{});
+  },[]);
   const [bsv3Uploading,setBsv3Uploading]=useState(false);
   const [bsv3Msg,setBsv3Msg]=useState('');
   const [bsv3History,setBsv3History]=useState([]);
@@ -5701,7 +5842,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
         </div>
       </div>}
       {tab==="tarif"&&<TarifTab db={db}/>}
-      {tab==="clients_db"&&<ClientsDbTab db={db}/>}
+      {tab==="clients_db"&&<ClientsDbTab db={db} clients={dbClients} setClients={setDbClients}/>}
       {tab==="bsv3"&&<div style={{padding:"16px 0"}}>
         <div style={{fontSize:15,fontWeight:600,marginBottom:8}}>📊 Base Sales v3</div>
         <p style={{fontSize:13,color:"#6b6560",marginBottom:16}}>Importez le fichier CSV mensuel pour mettre à jour les données de marge nette commerciale.</p>
@@ -5740,7 +5881,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
             </>;
           })()}
         </div>}
-      {tab!=="history"&&tab!=="reporting"&&tab!=="reporting_params"&&tab!=="members"&&tab!=="bsv3"&&<><button onClick={save} style={{marginTop:20,padding:"12px 28px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600}}>
+      {tab!=="history"&&tab!=="reporting"&&tab!=="reporting_params"&&tab!=="members"&&tab!=="bsv3"&&tab!=="clients_db"&&<><button onClick={save} style={{marginTop:20,padding:"12px 28px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600}}>
         💾 Enregistrer
       </button>
       {saved&&<span style={{marginLeft:12,fontSize:13,color:"#2d6a4f"}}>✓ Sauvegardé !</span>}</>}
