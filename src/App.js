@@ -3925,7 +3925,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   const [echantillons,setEchantillons]=React.useState(false);
   const [tariEvent,setTariEvent]=React.useState(false);
   const [prixCoutant,setPrixCoutant]=React.useState(false);
-  const userRole=currentUser?.email===OWNER_EMAIL?'owner':(teamMember?.role||'');
+  const userRole=currentUser?.email===OWNER_EMAIL?'owner':((teamMember?.role||'').toLowerCase());
   const perms=rolePermissions||{};
   const canPrixCoutant=userRole==='owner'||(perms.coutant?.[userRole]===true);
   const [gratuite,setGratuite]=React.useState(false);
