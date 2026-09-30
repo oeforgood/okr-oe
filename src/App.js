@@ -6351,8 +6351,8 @@ function AppNav({current,onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDe
   </div>;
 }
 
-function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,currentUser,teamMember,isAdmin,teamMembers=[],rolePermissions={}}){
-  const [seasonKey,setSeasonKey]=useState("printemps_2026");
+function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,currentUser,teamMember,isAdmin,teamMembers=[],rolePermissions={},initialSeasonKey}){
+  const [seasonKey,setSeasonKey]=useState(initialSeasonKey||"printemps_2026");
   const [dragOverSobj,setDragOverSobj]=useState(null);
   const [dragOverObj,setDragOverObj]=useState(null); // {id, before}
   function handleSobjDrop(e,targetSobj,allSobjs,objId){
@@ -6490,7 +6490,7 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cur
   const seasonKeyRef=useRef(seasonKey);useEffect(()=>{seasonKeyRef.current=seasonKey;},[seasonKey]);
 
   function persist(aS){
-    setDoc(doc(db,"okr","data"),{allSeasons:aS})
+    setDoc(doc(db,"okr","data"),{allSeasons:aS},{merge:true})
       .then(()=>{setSaved(true);setTimeout(()=>setSaved(false),1800);}).catch(e=>console.error(e));
   }
   async function logChange(type,itemId,itemTitle,owner,changes){
@@ -8769,7 +8769,7 @@ export default function App(){
   </div>;
   }
 
-  if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} onGoDevis={()=>setPage("devis")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers} rolePermissions={rolePermissions}/>;
+  if(page==="okr")return <OKRPage onBack={()=>setPage("dashboard")} onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} onGoDevis={()=>setPage("devis")} currentUser={authUser} teamMember={currentTeamMember} isAdmin={isAdmin} teamMembers={teamMembers} rolePermissions={rolePermissions} initialSeasonKey={okrData?.seasonKey}/>;
   if(page==="update")return <UpdatePage onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} onGoDevis={()=>setPage("devis")} teamMember={currentTeamMember} questions={questions} onSubmit={handleUpdateSubmit} onDelete={handleDeleteUpdate} onBack={()=>setPage("dashboard")} okrData={okrData} myUpdates={myUpdates} allUpdates={allUpdates} teamMembers={teamMembers}/>;
   if(page==="reporting")return <ReportingPagePublic onBack={()=>setPage("dashboard")} onGoOKR={()=>setPage("okr")} onGoUpdate={()=>setPage("update")} onGoReporting={()=>setPage("reporting")} onGoBsv3={()=>setPage("bsv3")} onGoDevis={()=>setPage("devis")} catTypes={catTypes} codeMap={codeMap} customSubcatLabels={customSubcatLabels} savedCanalMargin={savedCanalMargin} currentUser={authUser}/>;
   if(page==="bsv3")return <Bsv3Page onBack={()=>setPage('dashboard')} onGoOKR={()=>setPage('okr')} onGoUpdate={()=>setPage('update')} onGoReporting={()=>setPage('reporting')} onGoBsv3={()=>setPage('bsv3')} onGoDevis={()=>setPage('devis')} currentUser={authUser} onUpdatePuce={updatePuceInFirebase}/>;
