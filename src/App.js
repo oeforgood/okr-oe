@@ -3912,6 +3912,8 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   const [recallClient,setRecallClient]=React.useState('');
   const [recallMode,setRecallMode]=React.useState('commande');
   const [recallRef,setRecallRef]=React.useState('');
+  const [recallFilter,setRecallFilter]=React.useState('');
+  const [recallDropOpen,setRecallDropOpen]=React.useState(false);
   React.useEffect(()=>{
     if(mode==='devis'){
       const prenom=teamMember?.prenom||'';
@@ -4697,20 +4699,60 @@ ${infoBlock}
         <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'14px 16px',marginBottom:16}}>
           <div style={{fontSize:11,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:.5,marginBottom:10}}>Rappeler un devis ou une commande</div>
           <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
-            <select value={recallTeammate} onChange={e=>{setRecallTeammate(e.target.value);setRecallClient('');setRecallRef('');}} style={{fontSize:12,padding:'5px 8px',borderRadius:7,border:'1px solid #e2ddd6',minWidth:110}}>
+            <select value={recallTeammate} onChange={e=>{setRecallTeammate(e.target.value);setRecallClient('');setRecallRef('');setRecallFilter('');}} style={{fontSize:12,padding:'5px 8px',borderRadius:7,border:'1px solid #e2ddd6',minWidth:110}}>
               <option value=''>Tous</option>
               {[...new Set(savedOrders.map(o=>o.createdBy||'').filter(Boolean))].map(email=>{const tm=(window._teamMembers||[]).find(m=>m.email===email);return<option key={email} value={email}>{tm?.prenom||email}</option>;})}
             </select>
-            <select value={recallClient} onChange={e=>{setRecallClient(e.target.value);setRecallRef('');}} style={{fontSize:12,padding:'5px 8px',borderRadius:7,border:'1px solid #e2ddd6',minWidth:140}}>
+            <select value={recallClient} onChange={e=>{setRecallClient(e.target.value);setRecallRef('');setRecallFilter('');}} style={{fontSize:12,padding:'5px 8px',borderRadius:7,border:'1px solid #e2ddd6',minWidth:140}}>
               <option value=''>— Client —</option>
               {[...new Set(savedOrders.filter(o=>!recallTeammate||o.createdBy===recallTeammate).map(o=>o.societe||'').filter(s=>s&&savedClients.some(sc=>sc.societe===s)))].sort().map(s=><option key={s} value={s}>{s}</option>)}
             </select>
-            {['commande','devis'].map(m=><button key={m} onClick={()=>{setRecallMode(m);setRecallRef('');}} style={{padding:'5px 10px',borderRadius:6,fontSize:11,fontWeight:500,cursor:'pointer',border:`1px solid ${recallMode===m?'#2d6a4f':'#e2ddd6'}`,background:recallMode===m?'#2d6a4f':'#fff',color:recallMode===m?'#fff':'#6b6560'}}>{m==='commande'?'Commande':'Devis'}</button>)}
-            <select value={recallRef} onChange={e=>{const ref=e.target.value;setRecallRef(ref);if(!ref)return;const o=savedOrders.find(x=>x.ref===ref);if(!o)return;setSociete(o.societe||'');setContact(o.contact||'');setFactAddr(o.factAddr||{addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setExpAddr(o.expAddr||{addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});setSameAddr(false);setRetraitLoft(o.retraitLoft||false);setPreparation(o.preparation||'');setMessage(o.message||'');setTariEvent(o.tariEvent||false);setPrixCoutant(false);setGratuite(false);setGratuiteRaison('');setLignes((o.lignes||[]).filter(l=>l.qtyMode!=='auto').map(l=>({...l,qtyMode:'select'})));setRemiseJustif(o.remiseJustif||'');}}
-              style={{flex:1,fontSize:11,padding:'5px 8px',borderRadius:7,border:'1px solid #e2ddd6',minWidth:200,color:recallRef?'#1a1814':'#9e9890'}}>
-              <option value=''>— Choisir —</option>
-              {savedOrders.filter(o=>(!recallTeammate||o.createdBy===recallTeammate)&&(!recallClient||o.societe===recallClient)&&o.mode===recallMode).map(o=>{const d=o.createdAt?new Date(o.createdAt).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'';const tm=(window._teamMembers||[]).find(m=>m.email===o.createdBy);return<option key={o.ref} value={o.ref}>{o.ref} · {o.societe} · {d}{tm?' ('+tm.prenom+')':''}</option>;})}
-            </select>
+            {['commande','devis'].map(m=><button key={m} onClick={()=>{setRecallMode(m);setRecallRef('');setRecallFilter('');}} style={{padding:'5px 10px',borderRadius:6,fontSize:11,fontWeight:500,cursor:'pointer',border:`1px solid ${recallMode===m?'#2d6a4f':'#e2ddd6'}`,background:recallMode===m?'#2d6a4f':'#fff',color:recallMode===m?'#fff':'#6b6560'}}>{m==='commande'?'Commande':'Devis'}</button>)}
+            {(()=>{
+              function applyRecall(o){
+                setRecallRef(o.ref);
+                setRecallFilter(o.ref+' · '+(o.societe||''));
+                setRecallDropOpen(false);
+                setSociete(o.societe||'');setContact(o.contact||'');
+                setFactAddr(o.factAddr||{addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});
+                setExpAddr(o.expAddr||{addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});
+                setSameAddr(false);setRetraitLoft(o.retraitLoft||false);setPreparation(o.preparation||'');
+                setMessage(o.message||'');setTariEvent(o.tariEvent||false);setPrixCoutant(false);
+                setGratuite(false);setGratuiteRaison('');
+                setLignes((o.lignes||[]).filter(l=>l.qtyMode!=='auto').map(l=>({...l,qtyMode:'select'})));
+                setRemiseJustif(o.remiseJustif||'');
+              }
+              const baseList=savedOrders.filter(o=>(!recallTeammate||o.createdBy===recallTeammate)&&(!recallClient||o.societe===recallClient)&&o.mode===recallMode);
+              const q=(recallFilter||'').toLowerCase().trim();
+              const filteredList=q?baseList.filter(o=>{
+                const d=o.createdAt?new Date(o.createdAt).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'';
+                const tm=(window._teamMembers||[]).find(m=>m.email===o.createdBy);
+                const hay=[(o.ref||''),(o.societe||''),(o.contact||''),d,(tm?.prenom||'')].join(' ').toLowerCase();
+                return hay.includes(q);
+              }):baseList;
+              return <div style={{flex:1,position:'relative',minWidth:200}}>
+                {recallDropOpen&&<div onClick={()=>setRecallDropOpen(false)} style={{position:'fixed',inset:0,zIndex:199}}/>}
+                <input
+                  value={recallFilter}
+                  onChange={e=>{setRecallFilter(e.target.value);setRecallRef('');setRecallDropOpen(true);}}
+                  onFocus={()=>setRecallDropOpen(true)}
+                  placeholder='— Rechercher un devis / commande —'
+                  style={{width:'100%',fontSize:11,padding:'5px 8px',borderRadius:7,border:`1px solid ${recallRef?'#2d6a4f':'#e2ddd6'}`,boxSizing:'border-box',outline:'none',fontFamily:'inherit',color:recallRef?'#1a1814':'#1a1814',background:'#fff'}}
+                />
+                {recallDropOpen&&filteredList.length>0&&<div style={{position:'absolute',top:'calc(100% + 3px)',left:0,right:0,background:'#fff',border:'1px solid #e2ddd6',borderRadius:8,boxShadow:'0 4px 16px rgba(0,0,0,.10)',zIndex:200,maxHeight:240,overflowY:'auto'}}>
+                  {filteredList.map(o=>{
+                    const d=o.createdAt?new Date(o.createdAt).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'';
+                    const tm=(window._teamMembers||[]).find(m=>m.email===o.createdBy);
+                    return <div key={o.ref} onMouseDown={e=>{e.preventDefault();applyRecall(o);}}
+                      style={{padding:'7px 12px',cursor:'pointer',borderBottom:'1px solid #f5f3ef',fontSize:11,display:'flex',flexDirection:'column',gap:1,background:recallRef===o.ref?'#f0fdf4':'#fff'}}>
+                      <span style={{fontWeight:700,color:'#1a1814'}}>{o.ref}</span>
+                      <span style={{color:'#6b6560'}}>{o.societe}{o.contact?' · '+o.contact:''}{d?' · '+d:''}{tm?' ('+tm.prenom+')':''}</span>
+                    </div>;
+                  })}
+                </div>}
+                {recallDropOpen&&filteredList.length===0&&<div style={{position:'absolute',top:'calc(100% + 3px)',left:0,right:0,background:'#fff',border:'1px solid #e2ddd6',borderRadius:8,padding:'10px 12px',fontSize:11,color:'#9e9890',zIndex:200}}>Aucun résultat</div>}
+              </div>;
+            })()}
           </div>
         </div>
                 <div style={{...SECT,display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
