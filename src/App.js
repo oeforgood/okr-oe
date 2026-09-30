@@ -4162,6 +4162,9 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   const prepLabel=PREP_OPTIONS.find(p=>p.k===preparation)?.l||'';
   const expA=sameAddr||retraitLoft?factAddr:expAddr;
   const coiffeOk=!isCoiffePrep||totalBouteilles===0||totalBouteilles%120===0;
+  const coiffeManquantes=isCoiffePrep&&!coiffeOk?(120-totalBouteilles%120):0;
+  const isCoffretUps=preparation==='coffret_ups';
+  const coffretUpsOk=!isCoffretUps||totalEq75<=24;
   const minQtyOk=gratuite||(tariEvent?totalEq75>=6:totalEq75>=24);
   const minQtyMsg=coreLignes.length>0&&!gratuite&&!minQtyOk?(tariEvent?'Il faut au moins 6 bouteilles ou équivalent.':'Il faut au moins 24 bouteilles ou équivalent (ou choisir le tarif Events).'):'';
 
@@ -4298,7 +4301,8 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   async function handleEnvoyer(){
     if(!coreLignes.length){alert('Ajoutez au moins un produit.');return;}
     if(!preparation){alert('Choisissez un mode de préparation.');return;}
-    if(!coiffeOk){alert(`Le nombre de bouteilles (${totalBouteilles}) doit être un multiple de 120.`);return;}
+    if(!coiffeOk){alert(`Rajouter ${coiffeManquantes} bouteille(s) — le total doit être un multiple de 120.`);return;}
+    if(!coffretUpsOk){alert(`Coffret UPS : maximum 24 équivalents 75cl (actuellement ${totalEq75}).`);return;}
     if(!minQtyOk){alert(tariEvent?'Il faut au moins 6 bouteilles ou équivalent.':'Il faut au moins 24 bouteilles ou équivalent (ou choisir le tarif Events).');return;}
     setSending(true);
     const ref=await genRef();
@@ -4783,7 +4787,10 @@ ${infoBlock}
               )}
             </select>
             {isCoiffePrep&&totalBouteilles>0&&!coiffeOk&&<div style={{marginTop:8,fontSize:12,color:'#c0392b',fontWeight:600}}>
-              {totalBouteilles} bouteilles — doit être un multiple de 120.
+              ⚠️ Rajouter {coiffeManquantes} bouteille{coiffeManquantes>1?'s':''} — multiple de 120 requis.
+            </div>}
+            {isCoffretUps&&totalEq75>24&&<div style={{marginTop:8,fontSize:12,color:'#c0392b',fontWeight:600}}>
+              ⚠️ Coffret UPS : maximum 24 équivalents 75cl ({totalEq75} actuellement). Retirez {totalEq75-24} éq. 75cl.
             </div>}
           </div>
           <div style={{borderLeft:'1px solid #f0ede8',paddingLeft:16}}>
@@ -4950,7 +4957,7 @@ ${infoBlock}
                 Expliquer la remise
               </button>
               :<button onClick={handleEnvoyer}
-                disabled={sending||!coreLignes.length||!coiffeOk||!minQtyOk}
+                disabled={sending||!coreLignes.length||!coiffeOk||!minQtyOk||!coffretUpsOk}
                 style={{padding:'12px 32px',
                   background:sending||!coreLignes.length||!coiffeOk||!minQtyOk?'#e2ddd6':'#2d6a4f',
                   color:sending||!coreLignes.length||!coiffeOk||!minQtyOk?'#9e9890':'#fff',
