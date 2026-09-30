@@ -4163,13 +4163,26 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   function parseTVA(v){return parseFloat(String(v||0).replace(',','.'));}
   function fmtTVA(rate){const r=parseTVA(rate);if(r===0)return'0%';const s=r%1===0?String(r):r.toLocaleString('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:2});return s+'%';}
   function fmtQtyColis(qty,ligne){
-    // Affiche colis uniquement pour les lignes produit (pas casier/coiffe auto) et seulement en préparation palette casiers ou cartons
+    // Affiche colis/palettes pour les lignes produit (pas casier/coiffe auto)
     if(ligne.qtyMode==='auto')return String(qty);
-    const colisSize=isPaletteCasierPrep?12:(preparation==='palette_cartons'?Math.max(1,parseInt(String(ligne.pcb||'1').replace(/[^0-9]/g,''))||1):0);
-    if(colisSize<2||qty<=0)return String(qty);
-    const nb=qty/colisSize;
-    if(nb!==Math.floor(nb))return String(qty);
-    return `${qty} (${nb} colis de ${colisSize})`;
+    if(qty<=0)return String(qty);
+    if(isPaletteCasierPrep){
+      // Palette casiers : 480 bouteilles = 1 palette
+      const palQty=480;
+      if(qty%palQty===0){const nb=qty/palQty;return `${qty} (${nb} palette${nb>1?'s':''})`;}
+      const nb=qty/12;
+      if(nb===Math.floor(nb))return `${qty} (${nb} colis de 12)`;
+      return String(qty);
+    }
+    if(preparation==='palette_cartons'){
+      const prodData=tarif.find(t=>t.code===ligne.code);
+      const palQty=parseInt(String(prodData?.qpalette||'0').replace(/[^0-9]/g,''))||0;
+      const pcb=Math.max(1,parseInt(String(ligne.pcb||'1').replace(/[^0-9]/g,''))||1);
+      if(palQty>0&&qty%palQty===0){const nb=qty/palQty;return `${qty} (${nb} palette${nb>1?'s':''})`;}
+      if(pcb>1){const nb=qty/pcb;if(nb===Math.floor(nb))return `${qty} (${nb} colis de ${pcb})`;}
+      return String(qty);
+    }
+    return String(qty);
   }
   const prepLabel=PREP_OPTIONS.find(p=>p.k===preparation)?.l||'';
   const expA=sameAddr||retraitLoft?factAddr:expAddr;
