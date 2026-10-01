@@ -3889,6 +3889,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   const [loadingTarif,setLoadingTarif]=React.useState(true);
   const [sending,setSending]=React.useState(false);
   const [testMode,setTestMode]=React.useState(false);
+  const [confirmDevis,setConfirmDevis]=React.useState(false);
   const [sent,setSent]=React.useState(false);
   const [sentRecap,setSentRecap]=React.useState('');
   const [step,setStep]=React.useState('coords');
@@ -4338,6 +4339,8 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
     if(!coiffeOk){alert(`Rajouter ${coiffeManquantes} bouteille(s) — le total doit être un multiple de 120.`);return;}
     if(!coffretUpsOk){alert(`Coffret UPS : maximum 24 équivalents 75cl (actuellement ${totalEq75}).`);return;}
     if(!minQtyOk){alert(tariEvent?'Il faut au moins 6 bouteilles ou équivalent.':'Il faut au moins 24 bouteilles ou équivalent (ou choisir le tarif Events).');return;}
+    if(mode==='devis'&&!confirmDevis){setConfirmDevis(true);return;}
+    setConfirmDevis(false);
     setSending(true);
     const ref=await genRef();
     const tarifLabel=gratuite?('GRATUITÉ — '+gratuiteRaison):prixCoutant?'Prix Coûtant':tariEvent?'Tarif Events':totalEq75>=600?'Tarif 600+':totalEq75>=360?'Tarif 360+':totalEq75>=240?'Tarif 240+':totalEq75>=120?'Tarif 120+':'Tarif 24+';
@@ -5017,6 +5020,25 @@ ${infoBlock}
       </>}
     </div>
 
+    {confirmDevis&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <div style={{background:'#fff',borderRadius:14,padding:'32px 36px',maxWidth:420,width:'90%',boxShadow:'0 8px 32px rgba(0,0,0,0.18)'}}>
+        <div style={{fontSize:15,fontWeight:700,color:'#1a1814',marginBottom:16}}>Confirmer l'envoi du devis</div>
+        <div style={{fontSize:13,color:'#6b6560',lineHeight:1.6,marginBottom:24}}>
+          En confirmant, le devis sera envoyé par mail à <strong style={{color:'#1a1814'}}>{contact||'le client'}</strong> sur <strong style={{color:'#1a1814'}}>{testMode?'fx@oeforgood.com':(factAddr.email||'(aucun email renseigné)')}</strong>.
+          <br/>Est-ce bien okay ?
+        </div>
+        <div style={{display:'flex',gap:12,justifyContent:'flex-end'}}>
+          <button onClick={()=>setConfirmDevis(false)}
+            style={{padding:'9px 20px',background:'#f5f3ef',color:'#6b6560',border:'1px solid #e2ddd6',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>
+            Annuler
+          </button>
+          <button onClick={handleEnvoyer}
+            style={{padding:'9px 20px',background:'#2d6a4f',color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>
+            Confirmer et envoyer
+          </button>
+        </div>
+      </div>
+    </div>}
     {remiseModal&&(()=>{
       const {idx,code,libelle,qty,basePU,tarifLabel,draft}=remiseModal;
       function setDraft(d){setRemiseModal(m=>({...m,draft:d}));}
