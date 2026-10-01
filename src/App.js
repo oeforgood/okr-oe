@@ -3877,8 +3877,8 @@ function QuestionsEditor({qs,onSave}){
 
 const EMAILJS_TEMPLATE_DEVIS = 'template_2cltjij';
 const ROBE_COLORS = {
-  rouge: {dot:'#dc2626'},rosé:{dot:'#fda4af'},rose:{dot:'#fda4af'},
-  blanc: {dot:'#16a34a'},moelleux:{dot:'#9ca3af'},effervescent:{dot:'#ffffff',dotBorder:'1px solid #9ca3af'},essence:{dot:'#facc15'},essences:{dot:'#facc15'},
+  rouge: {dot:'#dc2626',dotBorder:'1px solid #dc2626'},rosé:{dot:'#fda4af',dotBorder:'1px solid #fda4af'},rose:{dot:'#fda4af',dotBorder:'1px solid #fda4af'},
+  blanc: {dot:'#16a34a',dotBorder:'1px solid #16a34a'},moelleux:{dot:'#9ca3af',dotBorder:'1px solid #9ca3af'},effervescent:{dot:'#ffffff',dotBorder:'1px solid #9ca3af'},essence:{dot:'#facc15',dotBorder:'1px solid #facc15'},essences:{dot:'#facc15',dotBorder:'1px solid #facc15'},
 };
 function getRobeDot(robe){return (ROBE_COLORS[(robe||'').toLowerCase()]||{dot:'#9e9890'}).dot;}
 function getRobeStyle(robe){const c=ROBE_COLORS[(robe||'').toLowerCase()]||{dot:'#9e9890'};return {display:'inline-block',width:8,height:8,borderRadius:'50%',background:c.dot,border:c.dotBorder||'none',flexShrink:0,verticalAlign:'middle'};}
