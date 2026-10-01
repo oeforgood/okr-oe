@@ -3878,15 +3878,17 @@ function QuestionsEditor({qs,onSave}){
 const EMAILJS_TEMPLATE_DEVIS = 'template_2cltjij';
 const ROBE_COLORS = {
   rouge: {dot:'#dc2626'},rosé:{dot:'#fda4af'},rose:{dot:'#fda4af'},
-  blanc: {dot:'#16a34a'},moelleux:{dot:'#f97316'},effervescent:{dot:'#9ca3af'},essence:{dot:'#facc15'},essences:{dot:'#facc15'},
+  blanc: {dot:'#16a34a'},moelleux:{dot:'#9ca3af'},effervescent:{dot:'#ffffff',dotBorder:'1px solid #9ca3af'},essence:{dot:'#facc15'},essences:{dot:'#facc15'},
 };
 function getRobeDot(robe){return (ROBE_COLORS[(robe||'').toLowerCase()]||{dot:'#9e9890'}).dot;}
+function getRobeStyle(robe){const c=ROBE_COLORS[(robe||'').toLowerCase()]||{dot:'#9e9890'};return {display:'inline-block',width:8,height:8,borderRadius:'50%',background:c.dot,border:c.dotBorder||'none',flexShrink:0,verticalAlign:'middle'};}
 
 function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3}){
   const [mode,setMode]=React.useState('commande');
   const [tarif,setTarif]=React.useState([]);
   const [loadingTarif,setLoadingTarif]=React.useState(true);
   const [sending,setSending]=React.useState(false);
+  const [testMode,setTestMode]=React.useState(false);
   const [sent,setSent]=React.useState(false);
   const [sentRecap,setSentRecap]=React.useState('');
   const [step,setStep]=React.useState('coords');
@@ -4373,7 +4375,8 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
       const ttcLigne=totalHT2+tvaVal;
       const isOffert=gratuite&&ligne.code!==CASIER_CODE&&ligne.code!==COIFFE_CODE;
       const tarifHtml=getLineTarifLabelHtml(ligne);
-      const robeDotHtml=ligne.robe?`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${getRobeDot(ligne.robe)};margin-right:5px;vertical-align:middle;flex-shrink:0"></span>`:'';
+      const robeC=ROBE_COLORS[(ligne.robe||'').toLowerCase()]||{dot:'#9e9890'};
+      const robeDotHtml=ligne.robe?`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${robeC.dot};border:${robeC.dotBorder||'none'};margin-right:5px;vertical-align:middle;flex-shrink:0"></span>`:'';
       return `<tr>
         <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;font-weight:600;letter-spacing:0.3px;white-space:nowrap">${ligne.code||''}</td>
         <td style="padding:4px 6px;border-bottom:1px solid #f5f3ef;font-size:11px;white-space:nowrap">${robeDotHtml}${ligne.libelle||''}</td>
@@ -4451,7 +4454,7 @@ ${infoBlock}
     }
     await setDoc(doc(db,'devis_commandes',ref),cleanForFirestore({ref,mode,societe,contact,factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,preparation,tariEvent,infoLivraison,message,lignes:displayLignes,totalHT,totalTVA,totalTTC,remiseJustif:remiseJustif||'',createdAt:Date.now(),createdBy:currentUser?.email}));
     try{
-      const toEmail=mode==='devis'
+      const toEmail=testMode?'fx@oeforgood.com':mode==='devis'
         ?(factAddr.email||'')
         :'pro@oeforgood.com';
       await emailjs.send(EMAILJS_SERVICE,EMAILJS_TEMPLATE_DEVIS,{
@@ -4574,7 +4577,7 @@ ${infoBlock}
                   return <div key={i} style={{display:'grid',gridTemplateColumns:GRD,borderBottom:'1px solid #f5f3ef',alignItems:'center',background:isAuto?'#fafaf8':'#fff'}}>
                     <span style={{...CELL,textAlign:'left',fontWeight:600,letterSpacing:'0.3px',whiteSpace:'nowrap'}}>{l.code}</span>
                     <span style={{...CELL,textAlign:'left',whiteSpace:'nowrap'}}>
-                      {l.robe&&<span style={{display:'inline-block',width:8,height:8,borderRadius:'50%',background:getRobeDot(l.robe),marginRight:5,verticalAlign:'middle',flexShrink:0}}/>}
+                      {l.robe&&<span style={{...getRobeStyle(l.robe),marginRight:5}}/>}
                       {l.libelle}{isAuto?<span style={{fontSize:10,color:'#9e9890',marginLeft:4}}>(auto)</span>:null}
                     </span>
                     <span style={{...CELL,textAlign:'left'}}>{getLineTarifBadgesRecap(l)}</span>
@@ -4891,7 +4894,7 @@ ${infoBlock}
                   return <tr key={i} style={{borderBottom:'1px solid #f5f3ef',background:isAuto?'#fafaf8':'#fff'}}>
                     <td style={{padding:'4px 6px',fontSize:11,fontWeight:600,letterSpacing:'0.3px',whiteSpace:'nowrap'}}>{l.code}</td>
                     <td style={{padding:'4px 6px',fontSize:11,whiteSpace:'nowrap'}}>
-                      {l.robe&&<span style={{display:'inline-block',width:8,height:8,borderRadius:'50%',background:getRobeDot(l.robe),marginRight:5,verticalAlign:'middle'}}/>}
+                      {l.robe&&<span style={{...getRobeStyle(l.robe),marginRight:5}}/>}
                       {l.libelle}{isAuto&&<span style={{fontSize:10,color:'#9e9890',marginLeft:5}}>(auto)</span>}
                     </td>
                     <td style={{padding:'4px 6px',whiteSpace:'nowrap'}}>
@@ -4993,14 +4996,20 @@ ${infoBlock}
               style={{padding:'12px 32px',background:'#c0392b',color:'#fff',border:'none',borderRadius:10,fontSize:15,fontWeight:700,cursor:'pointer'}}>
               Expliquer la remise
             </button>
-            :<button onClick={handleEnvoyer}
-              disabled={sending||!coreLignes.length||!coiffeOk||!minQtyOk||!coffretUpsOk}
-              style={{padding:'12px 32px',
-                background:sending||!coreLignes.length||!coiffeOk||!minQtyOk||!coffretUpsOk?'#e2ddd6':'#2d6a4f',
-                color:sending||!coreLignes.length||!coiffeOk||!minQtyOk||!coffretUpsOk?'#9e9890':'#fff',
-                border:'none',borderRadius:10,fontSize:15,fontWeight:700,cursor:'pointer',flexShrink:0}}>
-              {sending?'Envoi en cours...':(mode==='devis'?'Envoyer le devis':'Enregistrer la commande')}
-            </button>
+            :<div style={{display:'flex',alignItems:'center',gap:10}}>
+              {currentUser?.email==='fx@oeforgood.com'&&<label style={{display:'flex',alignItems:'center',gap:5,fontSize:12,color:'#9e9890',cursor:'pointer',userSelect:'none',padding:'4px 8px',border:'1px solid #e2ddd6',borderRadius:8,background:testMode?'#fef3c7':'#fff'}}>
+                <input type="checkbox" checked={testMode} onChange={e=>setTestMode(e.target.checked)} style={{accentColor:'#f59e0b',cursor:'pointer'}}/>
+                Test
+              </label>}
+              <button onClick={handleEnvoyer}
+                disabled={sending||!coreLignes.length||!coiffeOk||!minQtyOk||!coffretUpsOk}
+                style={{padding:'12px 32px',
+                  background:sending||!coreLignes.length||!coiffeOk||!minQtyOk||!coffretUpsOk?'#e2ddd6':'#2d6a4f',
+                  color:sending||!coreLignes.length||!coiffeOk||!minQtyOk||!coffretUpsOk?'#9e9890':'#fff',
+                  border:'none',borderRadius:10,fontSize:15,fontWeight:700,cursor:'pointer',flexShrink:0}}>
+                {sending?'Envoi en cours...':(mode==='devis'?'Envoyer le devis':'Enregistrer la commande')}
+              </button>
+            </div>
           }
         </div>}
       </>}
@@ -5343,7 +5352,7 @@ function ProduitPicker({tarif,onAdd,inpStyle}){
           style={{display:'flex',alignItems:'center',gap:8,padding:'8px 14px',fontSize:12,cursor:'pointer',borderBottom:'1px solid #f8f7f5'}}
           onMouseEnter={e=>e.currentTarget.style.background='#f5f3ef'}
           onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-          <span style={{display:'inline-block',width:8,height:8,borderRadius:'50%',background:getRobeDot(p.robe),flexShrink:0}}/>
+          <span style={getRobeStyle(p.robe)}/>
           <span style={{fontWeight:600,color:'#6b6560',minWidth:40}}>{p.code}</span>
           <span style={{color:'#1a1814'}}>{p.libelle||''}</span>
           {p.robe&&<span style={{fontSize:10,color:'#9e9890',marginLeft:'auto',flexShrink:0}}>{p.robe}</span>}
