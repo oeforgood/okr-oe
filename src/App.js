@@ -4283,17 +4283,19 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
       if(l.qtyMode==='auto')return '';
       return getLineTarifLabel(l).join(' ');
     }
-    const header=rp('Code',10)+'  '+rp('Produit',32)+'  '+rp('Tarif',12)+'  '+lp('Qté',5)+'  '+lp('P.U. HT',10)+'  '+lp('Total HT',10)+'  TVA';
-    const divider='-'.repeat(105);
+    const header=rp('Code',10)+'  '+rp('Produit',32)+'  '+rp('Tarif',12)+'  '+lp('Qté',5)+'  '+lp('P.U. HT',10)+'  '+lp('Total HT',10)+'  '+lp('TVA',10)+'  '+lp('TTC',10);
+    const divider='-'.repeat(120);
     const lignesText=displayLignes.map(l=>{
       const pu=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?0:getLinePU(l);
       const qty=parseInt(l.qty||0);
       const totalLigneHT=pu*qty;
       const tvaRate=parseTVA(l.tva);
       const tvaVal=totalLigneHT*(tvaRate/100);
+      const ttcLigne=totalLigneHT+tvaVal;
       const tvaTxt=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?'offert':(fmtTVA(tvaRate)+(tvaVal>0?': '+fmtE(tvaVal):''));
+      const ttcTxt=gratuite&&l.code!==CASIER_CODE&&l.code!==COIFFE_CODE?'offert':fmtE(ttcLigne);
       const tarifLbl=getLineTarifLabelText(l);
-      return rp(l.code||'',10)+'  '+rp(l.libelle||'',32)+'  '+rp(tarifLbl,12)+'  '+lp(fmtQtyColis(qty,l),5)+'  '+lp(fmtE(pu),10)+'  '+lp(fmtE(totalLigneHT),10)+'  '+tvaTxt;
+      return rp(l.code||'',10)+'  '+rp(l.libelle||'',32)+'  '+rp(tarifLbl,12)+'  '+lp(fmtQtyColis(qty,l),5)+'  '+lp(fmtE(pu),10)+'  '+lp(fmtE(totalLigneHT),10)+'  '+lp(tvaTxt,10)+'  '+lp(ttcTxt,10);
     }).join('\n');
     const expInfo=retraitLoft?'Retrait au Loft Oé':sameAddr?`${factAddr.addr}, ${factAddr.cp} ${factAddr.ville}`:`${expAddr.addr}, ${expAddr.cp} ${expAddr.ville}`;
     return [
