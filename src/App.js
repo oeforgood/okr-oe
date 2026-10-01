@@ -5323,37 +5323,42 @@ function TarifTab({db}){
   const [activeId,setActiveId]=React.useState('current');
   const [editingId,setEditingId]=React.useState(null);
   const [editName,setEditName]=React.useState('');
+  const [dragIdx,setDragIdx]=React.useState(null);
+  const [dragOverIdx,setDragOverIdx]=React.useState(null);
   const fileRef=React.useRef();
+
+  async function saveTarif(next){
+    const CHUNK=100;
+    for(let i=0;i<next.length;i+=CHUNK){
+      await setDoc(doc(db,'tarif',`chunk_${Math.floor(i/CHUNK)}`),{rows:next.slice(i,i+CHUNK)});
+    }
+  }
+  function handleDragStart(i){setDragIdx(i);}
+  function handleDragOver(e,i){e.preventDefault();setDragOverIdx(i);}
+  function handleDrop(e,i){
+    e.preventDefault();
+    if(dragIdx===null||dragIdx===i){setDragIdx(null);setDragOverIdx(null);return;}
+    const next=[...tarif];
+    const [moved]=next.splice(dragIdx,1);
+    next.splice(i,0,moved);
+    setTarif(next);saveTarif(next);
+    setDragIdx(null);setDragOverIdx(null);
+  }
+  function handleDragEnd(){setDragIdx(null);setDragOverIdx(null);}
   const COLS=['code','libelle','robe','contenant','tariEvents','prix24','prix120','prix240','prix360','prix600','prixPalette','pcb','eq75','qpalette','tva'];
   const COL_LABELS={'code':'Code','libelle':'Libellé','robe':'Robe','contenant':'Contenant','tariEvents':'Tarif Events','prix24':'Prix/24','prix120':'Prix/120','prix240':'Prix/240','prix360':'Prix/360','prix600':'Prix/600','prixPalette':'Prix palette','pcb':'PCB','eq75':'Éq.75','qpalette':'Q.palette','tva':'TVA'};
 
   async function addRow(){
     const newRow={code:'',libelle:'',robe:'',contenant:'',tariEvents:'',prix24:'',prix120:'',prix240:'',prix360:'',prix600:'',prixPalette:'',pcb:'',eq75:'',qpalette:'',tva:'5,5',disponible:true};
-    const next=[...tarif,newRow];
-    setTarif(next);
-    const CHUNK=100;
-    for(let i=0;i<next.length;i+=CHUNK){
-      await setDoc(doc(db,'tarif',`chunk_${Math.floor(i/CHUNK)}`),{rows:next.slice(i,i+CHUNK)});
-    }
+    const next=[...tarif,newRow];setTarif(next);saveTarif(next);
   }
-
   async function toggleDisponible(rowIdx){
     const next=tarif.map((r,i)=>i===rowIdx?{...r,disponible:r.disponible===false?true:false}:r);
-    setTarif(next);
-    const CHUNK=100;
-    for(let i=0;i<next.length;i+=CHUNK){
-      await setDoc(doc(db,'tarif',`chunk_${Math.floor(i/CHUNK)}`),{rows:next.slice(i,i+CHUNK)});
-    }
+    setTarif(next);saveTarif(next);
   }
-
   async function deleteRow(rowIdx){
     if(!window.confirm('Supprimer cette ligne ?'))return;
-    const next=tarif.filter((_,i)=>i!==rowIdx);
-    setTarif(next);
-    const CHUNK=100;
-    for(let i=0;i<next.length;i+=CHUNK){
-      await setDoc(doc(db,'tarif',`chunk_${Math.floor(i/CHUNK)}`),{rows:next.slice(i,i+CHUNK)});
-    }
+    const next=tarif.filter((_,i)=>i!==rowIdx);setTarif(next);saveTarif(next);
   }
 
   // Load active tarif + history
@@ -5606,16 +5611,30 @@ function TarifTab({db}){
     :<div style={{overflowX:'auto',maxHeight:'60vh',overflowY:'auto',border:'1px solid #e2ddd6',borderRadius:8}}>
       <table style={{borderCollapse:'collapse',minWidth:'100%'}}>
         <thead><tr>
+          <th style={{...th,width:24}}></th>
           {COLS.map(c=><th key={c} style={th}>{COL_LABELS[c]}</th>)}
           <th style={{...th,textAlign:'center'}}>Dispo</th>
           <th style={th}></th>
         </tr></thead>
         <tbody>{tarif.map((row,i)=>{
           const dispo=row.disponible!==false;
-          return <tr key={i} style={{background:dispo?(i%2===0?'#fff':'#fafaf8'):'#fff5f5',opacity:dispo?1:0.7}}>
+          const isDragOver=dragOverIdx===i&&dragIdx!==null&&dragIdx!==i;
+          return <tr key={i}
+            draggable={true}
+            onDragStart={()=>handleDragStart(i)}
+            onDragOver={e=>handleDragOver(e,i)}
+            onDrop={e=>handleDrop(e,i)}
+            onDragEnd={handleDragEnd}
+            style={{
+              background:dragIdx===i?'#f0fdf4':dispo?(i%2===0?'#fff':'#fafaf8'):'#fff5f5',
+              opacity:dragIdx===i?0.5:dispo?1:0.7,
+              borderTop:isDragOver?'2px solid #2d6a4f':undefined,
+              cursor:'grab'
+            }}>
+            <td style={{...td,textAlign:'center',cursor:'grab',color:'#c0bbb3',userSelect:'none',fontSize:14}} title="Glisser pour réordonner">⠿</td>
             {COLS.map(c=><td key={c} style={td}>
               <input value={row[c]||''} onChange={e=>updateCell(i,c,e.target.value)}
-                style={{...inp,width:c==='libelle'?180:c==='code'?80:c==='robe'?80:70}}
+                style={{...inp,width:c==='libelle'?180:c==='code'?80:c==='robe'?80:70,cursor:'text'}}
                 onFocus={e=>e.target.style.border='1px solid #2d6a4f'}
                 onBlur={e=>e.target.style.border='1px solid transparent'}/>
             </td>)}
