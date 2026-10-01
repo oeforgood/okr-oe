@@ -5352,7 +5352,7 @@ function ProduitPicker({tarif,onAdd,inpStyle}){
           style={{display:'flex',alignItems:'center',gap:8,padding:'8px 14px',fontSize:12,cursor:'pointer',borderBottom:'1px solid #f8f7f5'}}
           onMouseEnter={e=>e.currentTarget.style.background='#f5f3ef'}
           onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-          <span style={getRobeStyle(p.robe)}/>
+          <span style={{...getRobeStyle(p.robe),marginRight:0}}/>
           <span style={{fontWeight:600,color:'#6b6560',minWidth:40}}>{p.code}</span>
           <span style={{color:'#1a1814'}}>{p.libelle||''}</span>
           {p.robe&&<span style={{fontSize:10,color:'#9e9890',marginLeft:'auto',flexShrink:0}}>{p.robe}</span>}
