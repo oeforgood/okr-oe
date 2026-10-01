@@ -4873,11 +4873,48 @@ ${infoBlock}
           </div>
           {loadingTarif?<div style={{color:'#9e9890',fontSize:13}}>Chargement...</div>
           :<>
-            <select value={selectedProd} onChange={e=>{if(e.target.value)addProduit(e.target.value);}}
-              style={{...INP(),marginBottom:16,color:selectedProd?'#1a1814':'#9e9890'}}>
-              <option value=''>Ajouter un produit</option>
-              {filteredTarif.map(p=><option key={p.code} value={p.code}>{`${p.code} — ${p.libelle||''}${p.robe?' ('+p.robe+')':''}`}</option>)}
-            </select>
+            {(()=>{
+              const [prodOpen,setProdOpen]=React.useState(false);
+              const [prodSearch,setProdSearch]=React.useState('');
+              const prodRef=React.useRef();
+              React.useEffect(()=>{
+                if(!prodOpen)return;
+                function onClickOut(e){if(prodRef.current&&!prodRef.current.contains(e.target)){setProdOpen(false);setProdSearch('');}}
+                document.addEventListener('mousedown',onClickOut);
+                return()=>document.removeEventListener('mousedown',onClickOut);
+              },[prodOpen]);
+              const prodFiltered=filteredTarif.filter(p=>{
+                if(!prodSearch)return true;
+                const s=prodSearch.toLowerCase();
+                return (p.code||'').toLowerCase().includes(s)||(p.libelle||'').toLowerCase().includes(s)||(p.robe||'').toLowerCase().includes(s);
+              });
+              return <div ref={prodRef} style={{position:'relative',marginBottom:16}}>
+                <div onClick={()=>setProdOpen(o=>!o)}
+                  style={{...INP(),display:'flex',alignItems:'center',cursor:'pointer',userSelect:'none',color:'#9e9890',justifyContent:'space-between'}}>
+                  <span>Ajouter un produit</span>
+                  <span style={{fontSize:10,color:'#9e9890'}}>▼</span>
+                </div>
+                {prodOpen&&<div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:999,background:'#fff',border:'1px solid #d1cdc7',borderRadius:8,boxShadow:'0 4px 16px rgba(0,0,0,0.12)',maxHeight:280,display:'flex',flexDirection:'column'}}>
+                  <div style={{padding:'8px 10px',borderBottom:'1px solid #f0ede8'}}>
+                    <input autoFocus value={prodSearch} onChange={e=>setProdSearch(e.target.value)}
+                      placeholder="Rechercher..." style={{width:'100%',border:'none',outline:'none',fontSize:12,fontFamily:'inherit',background:'transparent'}}/>
+                  </div>
+                  <div style={{overflowY:'auto',flex:1}}>
+                    {prodFiltered.length===0&&<div style={{padding:'12px 14px',fontSize:12,color:'#9e9890'}}>Aucun résultat</div>}
+                    {prodFiltered.map(p=><div key={p.code}
+                      onMouseDown={()=>{addProduit(p.code);setProdOpen(false);setProdSearch('');}}
+                      style={{display:'flex',alignItems:'center',gap:8,padding:'8px 14px',fontSize:12,cursor:'pointer',borderBottom:'1px solid #f8f7f5'}}
+                      onMouseEnter={e=>e.currentTarget.style.background='#f5f3ef'}
+                      onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                      <span style={{display:'inline-block',width:8,height:8,borderRadius:'50%',background:getRobeDot(p.robe),flexShrink:0}}/>
+                      <span style={{fontWeight:600,color:'#6b6560',minWidth:40}}>{p.code}</span>
+                      <span style={{color:'#1a1814'}}>{p.libelle||''}</span>
+                      {p.robe&&<span style={{fontSize:10,color:'#9e9890',marginLeft:'auto',flexShrink:0}}>{p.robe}</span>}
+                    </div>)}
+                  </div>
+                </div>}
+              </div>;
+            })()}
             {displayLignes.length>0&&<>
               <table style={{width:'100%',borderCollapse:'collapse',tableLayout:'auto'}}>
                 <thead><tr style={{background:'#f8f7f5',borderBottom:'2px solid #2d6a4f'}}>
