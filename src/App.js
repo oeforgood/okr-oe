@@ -3877,8 +3877,8 @@ function QuestionsEditor({qs,onSave}){
 
 const EMAILJS_TEMPLATE_DEVIS = 'template_2cltjij';
 const ROBE_COLORS = {
-  rouge: {dot:'#dc2626'},rosé:{dot:'#db2777'},rose:{dot:'#db2777'},
-  blanc: {dot:'#16a34a'},effervescent:{dot:'#64748b'},essence:{dot:'#2563eb'},essences:{dot:'#2563eb'},
+  rouge: {dot:'#dc2626'},rosé:{dot:'#fda4af'},rose:{dot:'#fda4af'},
+  blanc: {dot:'#16a34a'},moelleux:{dot:'#f97316'},effervescent:{dot:'#9ca3af'},essence:{dot:'#facc15'},essences:{dot:'#facc15'},
 };
 function getRobeDot(robe){return (ROBE_COLORS[(robe||'').toLowerCase()]||{dot:'#9e9890'}).dot;}
 
