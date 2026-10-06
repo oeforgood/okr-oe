@@ -16,7 +16,7 @@ function sendNotifEmail(toEmail, toName, title) {
   }, EMAILJS_KEY).catch(e => console.warn('EmailJS error:', e));
 }
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, getDocs, getDoc, query, where, updateDoc, deleteDoc, arrayUnion, runTransaction } from "firebase/firestore";
+import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, getDocs, getDoc, query, where, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch } from "firebase/firestore";
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "firebase/auth";
 
 const firebaseConfig = {
@@ -3527,6 +3527,74 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
   const [activeSubcats, setActiveSubcats] = useState({});
   const [localCodeMap, setLocalCodeMap] = useState(codeMap || DEFAULT_CODE_TO_CAT);
   const [localCustomLabels, setLocalCustomLabels] = useState(customSubcatLabels || {});
+  const [glImportMsg, setGlImportMsg] = React.useState('');
+  const [glImportError, setGlImportError] = React.useState('');
+  const [glImporting, setGlImporting] = React.useState(false);
+
+  async function handleGLImport(file) {
+    setGlImportMsg('Lecture du fichier…'); setGlImportError(''); setGlImporting(true);
+    try {
+      const text = await file.text();
+      function parseCSVLine(line) {
+        const result=[]; let cur='', inQ=false;
+        for(let i=0;i<line.length;i++){
+          const c=line[i];
+          if(c==='"'){inQ=!inQ;}
+          else if(c===','&&!inQ){result.push(cur.trim());cur='';}
+          else{cur+=c;}
+        }
+        result.push(cur.trim()); return result;
+      }
+      function parseAmount(s){
+        if(!s)return 0;
+        const cleaned=s.replace(/€/g,'').replace(/\s/g,'').replace(/,/g,'.');
+        const n=parseFloat(cleaned); return isNaN(n)?0:n;
+      }
+      const lines=text.split('\n').filter(l=>l.trim());
+      const headers=parseCSVLine(lines[0]);
+      const rows=[];
+      for(let i=1;i<lines.length;i++){
+        const cols=parseCSVLine(lines[i]);
+        if(cols.length<5)continue;
+        const obj={}; headers.forEach((h,idx)=>{obj[h]=cols[idx]||'';});
+        rows.push({
+          idFacture:obj['Id facture']||'',date:obj['Date']||'',
+          codeJournal:obj['Code journal']||'',numCompte:obj['Numéro de compte']||'',
+          libelleCompte:obj['Libellé de compte']||'',tauxTVA:obj['Taux de TVA du compte']||'',
+          libellePiece:obj['Libellé de pièce']||'',libelleLigne:obj['Libellé de ligne']||'',
+          numPiece:obj['Numéro de pièce']||'',numFacture:obj['Numéro de facture']||'',
+          idTiers:obj['Identifiant du tiers']||'',tiers:obj['Tiers']||'',siren:obj['SIREN']||'',
+          familleCategories:obj['Famille de catégories']||'',categorie:obj['Catégorie']||'',
+          codeAnalytique:obj['Code analytique']||'',devise:obj['Devise']||'',
+          debit:parseAmount(obj['Débit']||obj['Débit (Devise)']||''),
+          credit:parseAmount(obj['Crédit']||obj['Crédit (Devise)']||''),
+          solde:parseAmount(obj['Solde']||obj['Solde (Devise)']||''),
+        });
+      }
+      setGlImportMsg(`${rows.length} lignes lues — suppression de l'ancien grand livre…`);
+      // Supprimer l'ancienne collection
+      const existing=await getDocs(collection(db,'grandLivre2026'));
+      const BATCH_SIZE=400;
+      for(let i=0;i<existing.docs.length;i+=BATCH_SIZE){
+        const batch=writeBatch(db);
+        existing.docs.slice(i,i+BATCH_SIZE).forEach(d=>batch.delete(d.ref));
+        await batch.commit();
+      }
+      setGlImportMsg(`Ancien grand livre supprimé — upload de ${rows.length} lignes…`);
+      // Uploader les nouvelles lignes
+      for(let i=0;i<rows.length;i+=BATCH_SIZE){
+        const batch=writeBatch(db);
+        rows.slice(i,i+BATCH_SIZE).forEach((row,j)=>batch.set(doc(db,'grandLivre2026',String(i+j)),row));
+        await batch.commit();
+        setGlImportMsg(`Upload… ${Math.min(i+BATCH_SIZE,rows.length)} / ${rows.length}`);
+      }
+      setGlImportMsg(`✅ ${rows.length} lignes importées avec succès !`);
+    } catch(e) {
+      setGlImportError('Erreur : '+e.message);
+      setGlImportMsg('');
+    }
+    setGlImporting(false);
+  }
 
   useEffect(()=>{
     const u1 = onSnapshot(doc(db,'reporting','charges'),(snap)=>{if(snap.exists())setChargeData(snap.data().chargeData);});
@@ -3545,16 +3613,15 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
   return <>
     {/* Upload CSV button */}
     {/* Import note */}
-    <div style={{marginBottom:16,padding:'14px 16px',background:'#fefce8',border:'1px solid #fde68a',borderRadius:8,fontSize:12,color:'#92400e',lineHeight:1.6}}>
-      <div style={{fontWeight:600,marginBottom:6}}>📋 Comment mettre à jour le Reporting</div>
-      <ol style={{margin:0,paddingLeft:18}}>
-        <li>Dans le fichier <em>Reporting basé sur les écritures comptables</em>, télécharger l'onglet <em>GL_analytique_ligne 2026</em> au format .csv</li>
-        <li>Renommer le fichier <code>import_reporting.csv</code></li>
-        <li>Demander à Claude de générer le script pour créer et intégrer le fichier <code>reporting_data.json</code></li>
-        <li>Ouvrir Firebase et modifier la règle en : <code>if true;</code></li>
-        <li>Copier-coller le script dans le Terminal</li>
-        <li>Remettre la règle Firebase en : <code>if request.auth != null;</code></li>
-      </ol>
+    <div style={{marginBottom:16,padding:'14px 16px',background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:8,fontSize:12,color:'#166534',lineHeight:1.6}}>
+      <div style={{fontWeight:600,marginBottom:8}}>📂 Mettre à jour le Grand Livre</div>
+      <div style={{marginBottom:10,color:'#374151'}}>Téléchargez l'onglet <em>GL_analytique_ligne 2026</em> au format CSV depuis le fichier Reporting, puis importez-le ici.</div>
+      <label style={{display:'inline-flex',alignItems:'center',gap:8,padding:'8px 16px',background:glImporting?'#e5e7eb':'#2d6a4f',color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:600,cursor:glImporting?'not-allowed':'pointer',opacity:glImporting?0.7:1}}>
+        {glImporting?'⏳ Import en cours…':'⬆ Importer le Grand Livre CSV'}
+        <input type="file" accept=".csv" style={{display:'none'}} disabled={glImporting} onChange={e=>{if(e.target.files[0])handleGLImport(e.target.files[0]);e.target.value='';}}/>
+      </label>
+      {glImportMsg&&<div style={{marginTop:8,fontSize:12,color:'#2d6a4f',fontWeight:500}}>{glImportMsg}</div>}
+      {glImportError&&<div style={{marginTop:8,fontSize:12,color:'#c0392b',fontWeight:600}}>{glImportError}</div>}
     </div>
     <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'16px 20px',marginBottom:20,overflowX:'auto'}}>
       <div style={{fontSize:12,fontWeight:600,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:12}}>Taux de marge brute par canal (%)</div>
