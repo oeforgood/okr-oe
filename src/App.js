@@ -3559,10 +3559,11 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
         if(cols.length<5)continue;
         const obj={}; headers.forEach((h,idx)=>{obj[h]=cols[idx]||'';});
         const stableId=[
-          obj['Code journal']||'',
-          (obj['Numéro de pièce']||'').replace(/[/\\.]/g,'-'),
-          String(rows.length).padStart(6,'0')
-        ].join('_');
+          obj['Id facture']||'',
+          obj['Numéro de compte']||'',
+          obj['Code analytique']||'NOANA',
+          (obj['Famille de catégories']||'NOFAM').substring(0,6)
+        ].join('_').replace(/[/\\ .(),]/g,'-').substring(0,100);
         rows.push({
           _id:stableId,
           idFacture:obj['Id facture']||'',date:obj['Date']||'',
