@@ -3582,12 +3582,12 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
       }
       setGlImportMsg(`Ancien grand livre supprimé — upload de ${rows.length} lignes…`);
       // Uploader les nouvelles lignes
-      const UPLOAD_BATCH=200;
+      const UPLOAD_BATCH=50;
       for(let i=0;i<rows.length;i+=UPLOAD_BATCH){
         const batch=writeBatch(db);
         rows.slice(i,i+UPLOAD_BATCH).forEach((row,j)=>batch.set(doc(db,'grandLivre2026',String(i+j)),row));
         await batch.commit();
-        await new Promise(r=>setTimeout(r,300));
+        await new Promise(r=>setTimeout(r,500));
         setGlImportMsg(`Upload… ${Math.min(i+UPLOAD_BATCH,rows.length)} / ${rows.length}`);
       }
       setGlImportMsg(`✅ ${rows.length} lignes importées avec succès !`);
