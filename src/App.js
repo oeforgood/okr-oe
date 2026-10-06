@@ -3532,7 +3532,8 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
   const [glImporting, setGlImporting] = React.useState(false);
 
   async function handleGLImport(file) {
-    setGlImportMsg('Lecture du fichier…'); setGlImportError(''); setGlImporting(true);
+    setGlImportMsg('Lecture du fichier CSV…'); setGlImportError(''); setGlImporting(true);
+    const QUOTA_LIMIT = 18000; // marge de sécurité sous les 20 000/jour
     try {
       const text = await file.text();
       function parseCSVLine(line) {
@@ -3557,7 +3558,13 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
         const cols=parseCSVLine(lines[i]);
         if(cols.length<5)continue;
         const obj={}; headers.forEach((h,idx)=>{obj[h]=cols[idx]||'';});
+        const stableId=[
+          obj['Code journal']||'',
+          (obj['Numéro de pièce']||'').replace(/[/\\.]/g,'-'),
+          String(rows.length).padStart(6,'0')
+        ].join('_');
         rows.push({
+          _id:stableId,
           idFacture:obj['Id facture']||'',date:obj['Date']||'',
           codeJournal:obj['Code journal']||'',numCompte:obj['Numéro de compte']||'',
           libelleCompte:obj['Libellé de compte']||'',tauxTVA:obj['Taux de TVA du compte']||'',
@@ -3571,14 +3578,42 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
           solde:parseAmount(obj['Solde']||obj['Solde (Devise)']||''),
         });
       }
-      // Générer et télécharger le JSON (pas d'upload Firebase — quota limité)
-      const json = JSON.stringify(rows, null, 2);
-      const blob = new Blob([json], {type: 'application/json'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = 'reporting_data.json'; a.click();
-      URL.revokeObjectURL(url);
-      setGlImportMsg(`✅ ${rows.length} lignes — reporting_data.json téléchargé. Lancez maintenant le script Terminal ci-dessous.`);
+      setGlImportMsg(`${rows.length} lignes lues — récupération des lignes déjà en base…`);
+
+      // Récupérer les IDs déjà présents (reads seulement, pas de writes)
+      const existingSnap = await getDocs(collection(db,'grandLivre2026'));
+      const existingIds = new Set(existingSnap.docs.map(d=>d.id));
+      setGlImportMsg(`${existingIds.size} lignes déjà en base — calcul des nouvelles lignes…`);
+
+      const newRows = rows.filter(r=>!existingIds.has(r._id));
+      if(newRows.length===0){
+        setGlImportMsg('✅ Aucune nouvelle ligne — le Grand Livre est déjà à jour !');
+        setGlImporting(false); return;
+      }
+
+      // Importer par batch, en s'arrêtant si on approche du quota
+      const BATCH_SIZE=400;
+      let written=0;
+      let quotaReached=false;
+      for(let i=0;i<newRows.length;i+=BATCH_SIZE){
+        if(written>=QUOTA_LIMIT){quotaReached=true;break;}
+        const slice=newRows.slice(i,i+Math.min(BATCH_SIZE,QUOTA_LIMIT-written));
+        const batch=writeBatch(db);
+        slice.forEach(row=>{
+          const {_id,...data}=row;
+          batch.set(doc(db,'grandLivre2026',_id),data);
+        });
+        await batch.commit();
+        written+=slice.length;
+        setGlImportMsg(`Import en cours… ${written} / ${newRows.length} nouvelles lignes`);
+      }
+
+      if(quotaReached){
+        const remaining=newRows.length-written;
+        setGlImportMsg(`⏸ ${written} lignes importées aujourd'hui. Il reste ${remaining} lignes — revenez demain et relancez le même CSV, l'import reprendra automatiquement là où il s'est arrêté.`);
+      } else {
+        setGlImportMsg(`✅ ${written} nouvelles lignes importées ! Total en base : ${existingIds.size+written}`);
+      }
     } catch(e) {
       setGlImportError('Erreur : '+e.message);
       setGlImportMsg('');
@@ -3600,71 +3635,21 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
     setActiveSubcats(a);
   }
 
-  const glTerminalScript = `# 1. Placez reporting_data.json dans ~/Desktop/Calendula/
-# 2. Ouvrez un Terminal et lancez ce script :
-
-cd ~/Desktop/Calendula
-
-node -e "
-const { initializeApp, cert } = require('firebase-admin/app');
-const { getFirestore } = require('firebase-admin/firestore');
-const fs = require('fs');
-
-initializeApp({ credential: cert('./serviceAccountKey.json') });
-const db = getFirestore();
-
-async function run() {
-  const rows = JSON.parse(fs.readFileSync('./reporting_data.json', 'utf8'));
-  console.log('Rows to import:', rows.length);
-
-  // Supprimer l'ancienne collection
-  const snap = await db.collection('grandLivre2026').get();
-  const DEL = 500;
-  for (let i = 0; i < snap.docs.length; i += DEL) {
-    const batch = db.batch();
-    snap.docs.slice(i, i + DEL).forEach(d => batch.delete(d.ref));
-    await batch.commit();
-    console.log('Deleted', Math.min(i + DEL, snap.docs.length), '/', snap.docs.length);
-  }
-
-  // Importer les nouvelles lignes
-  const BATCH = 500;
-  for (let i = 0; i < rows.length; i += BATCH) {
-    const batch = db.batch();
-    rows.slice(i, i + BATCH).forEach((row, j) => {
-      batch.set(db.collection('grandLivre2026').doc(String(i + j)), row);
-    });
-    await batch.commit();
-    console.log('Imported', Math.min(i + BATCH, rows.length), '/', rows.length);
-  }
-  console.log('Done!');
-}
-
-run().catch(console.error);
-"`;
-
   return <>
-    {/* Grand Livre — mode d'emploi + script Terminal */}
+    {/* Grand Livre — import incrémental */}
     <div style={{marginBottom:20,padding:'16px 18px',background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:10,fontSize:13,color:'#166534',lineHeight:1.7}}>
-      <div style={{fontWeight:700,fontSize:14,marginBottom:10}}>📂 Mettre à jour le Grand Livre</div>
-      <div style={{marginBottom:12,color:'#374151',fontSize:12}}>
-        <strong>Mode d'emploi :</strong>
-        <ol style={{margin:'6px 0 0 16px',padding:0,lineHeight:2}}>
-          <li>Téléchargez l'onglet <em>GL_analytique_ligne 2026</em> en CSV depuis le fichier Reporting.</li>
-          <li>Importez-le ci-dessous → un fichier <code>reporting_data.json</code> sera téléchargé automatiquement.</li>
-          <li>Déplacez ce fichier dans <code>~/Desktop/Calendula/</code>.</li>
-          <li>Assurez-vous que <code>serviceAccountKey.json</code> est aussi dans <code>~/Desktop/Calendula/</code>.</li>
-          <li>Ouvrez un Terminal et lancez le script affiché ci-dessous.</li>
-        </ol>
+      <div style={{fontWeight:700,fontSize:14,marginBottom:6}}>📂 Mettre à jour le Grand Livre</div>
+      <div style={{marginBottom:12,color:'#6b7280',fontSize:12}}>
+        Téléchargez l'onglet <em>GL_analytique_ligne 2026</em> en CSV depuis le fichier Reporting et importez-le ici.<br/>
+        <strong>Seules les nouvelles lignes sont ajoutées</strong> — aucune ligne existante n'est jamais effacée.<br/>
+        Si le quota journalier est atteint, l'import s'arrête et vous indique de reprendre le lendemain avec le même CSV.
       </div>
       <label style={{display:'inline-flex',alignItems:'center',gap:8,padding:'8px 16px',background:glImporting?'#e5e7eb':'#2d6a4f',color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:600,cursor:glImporting?'not-allowed':'pointer',opacity:glImporting?0.7:1}}>
-        {glImporting?'⏳ Génération en cours…':'⬇ Générer le JSON (étape 2)'}
+        {glImporting?'⏳ Import en cours…':'⬆ Importer le Grand Livre CSV'}
         <input type="file" accept=".csv" style={{display:'none'}} disabled={glImporting} onChange={e=>{if(e.target.files[0])handleGLImport(e.target.files[0]);e.target.value='';}}/>
       </label>
-      {glImportMsg&&<div style={{marginTop:8,fontSize:12,color:'#2d6a4f',fontWeight:500}}>{glImportMsg}</div>}
-      {glImportError&&<div style={{marginTop:8,fontSize:12,color:'#c0392b',fontWeight:600}}>{glImportError}</div>}
-      <div style={{marginTop:14,fontSize:12,fontWeight:600,color:'#374151',marginBottom:6}}>📟 Script Terminal (étape 5) :</div>
-      <pre style={{background:'#1e293b',color:'#e2e8f0',borderRadius:8,padding:'12px 14px',fontSize:11,lineHeight:1.6,overflowX:'auto',margin:0,whiteSpace:'pre-wrap',wordBreak:'break-all'}}>{glTerminalScript}</pre>
+      {glImportMsg&&<div style={{marginTop:10,fontSize:12,color:'#2d6a4f',fontWeight:500,lineHeight:1.6}}>{glImportMsg}</div>}
+      {glImportError&&<div style={{marginTop:10,fontSize:12,color:'#c0392b',fontWeight:600}}>{glImportError}</div>}
     </div>
     <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2ddd6',padding:'16px 20px',marginBottom:20,overflowX:'auto'}}>
       <div style={{fontSize:12,fontWeight:600,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:12}}>Taux de marge brute par canal (%)</div>
