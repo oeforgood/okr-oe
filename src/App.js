@@ -6852,7 +6852,7 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cur
         <select value={filterP} onChange={e=>setFilterP(e.target.value)} style={{fontFamily:"inherit",fontSize:12,border:"1px solid #e2ddd6",background:"#fff",borderRadius:20,padding:"4px 14px",outline:"none",cursor:"pointer"}}>
           <option value="">Toute l'équipe</option>{people.map(p=><option key={p}>{p}</option>)}
         </select>
-        <button onClick={()=>{
+        {isOwner&&<button onClick={()=>{
           // Export CSV de toute la saison courante
           const season=allSeasons[seasonKey]||{};
           const objs=season.objectives||[];
@@ -6878,7 +6878,7 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cur
           const a=document.createElement('a');
           a.href=url; a.download=`OKR_${seasonKey}_export.csv`; a.click();
           setTimeout(()=>URL.revokeObjectURL(url),1000);
-        }} style={{fontFamily:"inherit",fontSize:12,border:"1px solid #1b4332",background:"#fff",borderRadius:20,padding:"4px 14px",outline:"none",cursor:"pointer",color:"#1b4332",fontWeight:600}}>⬇ Export CSV</button>
+        }} style={{fontFamily:"inherit",fontSize:12,border:"1px solid #1b4332",background:"#fff",borderRadius:20,padding:"4px 14px",outline:"none",cursor:"pointer",color:"#1b4332",fontWeight:600}}>⬇ Export CSV</button>}
       </div>
       <div style={{padding:"16px 0 0"}}>
         <SeasonBanner seasonKey={seasonKey} avgProg={avgProg} totalKR={totalKR} doneKR={doneKR}/>
