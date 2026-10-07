@@ -6852,6 +6852,33 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cur
         <select value={filterP} onChange={e=>setFilterP(e.target.value)} style={{fontFamily:"inherit",fontSize:12,border:"1px solid #e2ddd6",background:"#fff",borderRadius:20,padding:"4px 14px",outline:"none",cursor:"pointer"}}>
           <option value="">Toute l'équipe</option>{people.map(p=><option key={p}>{p}</option>)}
         </select>
+        <button onClick={()=>{
+          // Export CSV de toute la saison courante
+          const season=allSeasons[seasonKey]||{};
+          const objs=season.objectives||[];
+          const sobjs=season.subobjectives||[];
+          const krs=season.keyresults||[];
+          const rows=[];
+          const esc=v=>'"'+(String(v||'').replace(/"/g,'""'))+'"';
+          const headers=['Type','ID','Parent','Titre','Owner','Poids','ETP','Priorité','Val départ','Val actuel','Val révisé','Val cible','Unité','Taux %','Taux land %','Contributeurs','Stop'];
+          rows.push(headers.join(';'));
+          objs.forEach(o=>{
+            rows.push([esc('Objectif'),esc(o.id),esc(''),esc(o.title||o.titre||''),esc(o.owner||''),esc(''),esc(o.etp||''),esc(o.priorite||''),esc(''),esc(''),esc(''),esc(''),esc(''),esc(''),esc(''),esc((o.contributors||[]).join(',')),esc('')].join(';'));
+          });
+          sobjs.forEach(s=>{
+            const parentObj=objs.find(o=>o.id===s.parent);
+            rows.push([esc('Sous-objectif'),esc(s.id),esc(s.parent),esc(s.title||s.titre||''),esc(s.owner||''),esc(s.poids||''),esc(''),esc(s.priorite||''),esc(''),esc(''),esc(''),esc(''),esc(''),esc(''),esc(''),esc((s.contributors||[]).join(',')),esc('')].join(';'));
+          });
+          krs.forEach(k=>{
+            rows.push([esc('KR'),esc(k.id),esc(k.parent),esc(k.title||k.titre||''),esc(k.owner||''),esc(k.poids||''),esc(''),esc(k.priorite||''),esc(k.val_depart||0),esc(k.val_actuel||0),esc(k.val_revise||''),esc(k.val_cible||0),esc(k.unite||''),esc(k.taux||0),esc(k.taux_land||''),esc((k.contributors||k.contribs||[]).join(',')),esc(k.stop?'oui':'')].join(';'));
+          });
+          const bom='﻿';
+          const blob=new Blob([bom+rows.join('\n')],{type:'text/csv;charset=utf-8;'});
+          const url=URL.createObjectURL(blob);
+          const a=document.createElement('a');
+          a.href=url; a.download=`OKR_${seasonKey}_export.csv`; a.click();
+          setTimeout(()=>URL.revokeObjectURL(url),1000);
+        }} style={{fontFamily:"inherit",fontSize:12,border:"1px solid #1b4332",background:"#fff",borderRadius:20,padding:"4px 14px",outline:"none",cursor:"pointer",color:"#1b4332",fontWeight:600}}>⬇ Export CSV</button>
       </div>
       <div style={{padding:"16px 0 0"}}>
         <SeasonBanner seasonKey={seasonKey} avgProg={avgProg} totalKR={totalKR} doneKR={doneKR}/>
