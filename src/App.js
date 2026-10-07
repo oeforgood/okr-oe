@@ -8690,11 +8690,20 @@ export default function App(){
               _backupAt:timestamp,
               _backupId:backupId,
             });
-            // Clean up: keep only last 20 backups
+            // Clean up: keep last 20 + the last backup of each calendar day
             const {getDocs,collection:col,query:q,orderBy:ob,limit:lim,deleteDoc:delDoc}=
               await import('firebase/firestore');
-            const all=await getDocs(q(col(db,'okr_backups'),ob('_backupAt','desc'),lim(100)));
-            const toDelete=all.docs.slice(20);
+            const all=await getDocs(q(col(db,'okr_backups'),ob('_backupAt','desc'),lim(500)));
+            const docs=all.docs;
+            // Keep the 20 most recent unconditionally
+            const keepIds=new Set(docs.slice(0,20).map(d=>d.id));
+            // Also keep the last backup of each calendar day
+            const seenDays=new Set();
+            docs.forEach(d=>{
+              const day=(d.data()._backupAt||'').slice(0,10);
+              if(day&&!seenDays.has(day)){seenDays.add(day);keepIds.add(d.id);}
+            });
+            const toDelete=docs.filter(d=>!keepIds.has(d.id));
             await Promise.all(toDelete.map(d=>delDoc(d.ref)));
             console.log('✅ Auto-backup OKR créé:',backupId);
           }catch(e){console.warn('Auto-backup failed:',e);}
