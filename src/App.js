@@ -6596,6 +6596,7 @@ function AppNav({current,onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDe
 }
 
 function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,currentUser,teamMember,isAdmin,teamMembers=[],rolePermissions={},initialSeasonKey}){
+  const isOwner=currentUser?.email===OWNER_EMAIL;
   const [seasonKey,setSeasonKey]=useState(initialSeasonKey||"printemps_2026");
   const appliedInitRef=useRef(false);
   useEffect(()=>{if(!appliedInitRef.current&&initialSeasonKey){setSeasonKey(initialSeasonKey);appliedInitRef.current=true;}},[initialSeasonKey]);
