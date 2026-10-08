@@ -3735,10 +3735,15 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
             if(!caRows[canalNorm])caRows[canalNorm]=[];
             caRows[canalNorm].push({tiers,libLigne,facture,compte,libCompte,month,year,amount});
           }
-          // Charges
+          // Charges (60-65x)
           if(compte.startsWith('6')&&subcat&&subcat!=='#N/A'&&subcat!=='FALSE'&&String(subcat).match(/^[A-Z]\d/)){
             if(!chargeData[subcat])chargeData[subcat]={months:{}};
             chargeData[subcat].months[mKey]=(chargeData[subcat].months[mKey]||0)+amount;
+          }
+          // Subventions d'exploitation (74x) → charges négatives dans leur subcat
+          if(compte.startsWith('74')&&subcat&&subcat!=='#N/A'&&subcat!=='FALSE'&&String(subcat).match(/^[A-Z]\d/)){
+            if(!chargeData[subcat])chargeData[subcat]={months:{}};
+            chargeData[subcat].months[mKey]=(chargeData[subcat].months[mKey]||0)-amount;
           }
           // Bilan
           const bilKey=getBilKey(compte);
@@ -9098,6 +9103,11 @@ export default function App(){
         if(famille==='Analytique \u00e9critures comptables'&&compte.startsWith('6')&&subcat&&subcat!=='#N/A'&&subcat!=='FALSE'&&String(subcat).match(/^[A-Z]\d/)){
           if(!chargeData[subcat])chargeData[subcat]={months:{}};
           chargeData[subcat].months[mKey]=(chargeData[subcat].months[mKey]||0)+amount;
+        }
+        // Subventions d'exploitation (74x) \u2192 charges n\u00e9gatives dans leur subcat
+        if(famille==='Analytique \u00e9critures comptables'&&compte.startsWith('74')&&subcat&&subcat!=='#N/A'&&subcat!=='FALSE'&&String(subcat).match(/^[A-Z]\d/)){
+          if(!chargeData[subcat])chargeData[subcat]={months:{}};
+          chargeData[subcat].months[mKey]=(chargeData[subcat].months[mKey]||0)-amount;
         }
         const bilKey=getBilKey(compte);
         if(bilKey&&famille==='Analytique \u00e9critures comptables'){
