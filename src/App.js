@@ -3558,25 +3558,32 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
         const cols=parseCSVLine(lines[i]);
         if(cols.length<5)continue;
         const obj={}; headers.forEach((h,idx)=>{obj[h]=cols[idx]||'';});
+        // Identifiant stable : idFacture + compte + codeAnalytiqueEcritures + index
         const stableId=[
           obj['Id facture']||'',
           obj['Numéro de compte']||'',
-          obj['Code analytique']||'NOANA',
-          (obj['Famille de catégories']||'NOFAM').substring(0,6)
-        ].join('_').replace(/[/\\ .(),]/g,'-').substring(0,100);
+          obj['Code analytique écritures']||'NOANA',
+          String(i).padStart(6,'0')
+        ].join('_').replace(/[/\\ .(),]/g,'-').substring(0,120);
         rows.push({
           _id:stableId,
-          idFacture:obj['Id facture']||'',date:obj['Date']||'',
-          codeJournal:obj['Code journal']||'',numCompte:obj['Numéro de compte']||'',
-          libelleCompte:obj['Libellé de compte']||'',tauxTVA:obj['Taux de TVA du compte']||'',
-          libellePiece:obj['Libellé de pièce']||'',libelleLigne:obj['Libellé de ligne']||'',
-          numPiece:obj['Numéro de pièce']||'',numFacture:obj['Numéro de facture']||'',
-          idTiers:obj['Identifiant du tiers']||'',tiers:obj['Tiers']||'',siren:obj['SIREN']||'',
-          familleCategories:obj['Famille de catégories']||'',categorie:obj['Catégorie']||'',
-          codeAnalytique:obj['Code analytique']||'',devise:obj['Devise']||'',
-          debit:parseAmount(obj['Débit']||obj['Débit (Devise)']||''),
-          credit:parseAmount(obj['Crédit']||obj['Crédit (Devise)']||''),
-          solde:parseAmount(obj['Solde']||obj['Solde (Devise)']||''),
+          // Champs de base
+          idFacture:obj['Id facture']||'',
+          date:obj['Date']||'',
+          codeJournal:obj['Code journal']||'',
+          compte:obj['Numéro de compte']||'',
+          libCompte:obj['Libellé de compte']||'',
+          libLigne:obj['Libellé de ligne']||'',
+          facture:obj['Numéro de facture']||'',
+          tiers:obj['Tiers']||'',
+          famille:obj['Famille de catégories']||'',
+          // Champs analytiques clés (colonnes calculées Google Sheets)
+          canal:obj['Canal vente']||'',                         // r[37] → canal CA
+          subcat:obj['Code analytique écritures']||'',          // r[31] → sous-catégorie charges
+          // Montant et période
+          amount:parseAmount(obj['Débit-Crédit']||obj['Solde']||obj['Débit']||obj['Crédit']||''),
+          month:parseInt(obj['Mois']||'0')||0,
+          year:parseInt(obj['Année']||'0')||0,
         });
       }
       setGlImportMsg(`${rows.length} lignes lues — récupération des lignes déjà en base…`);
@@ -3605,12 +3612,10 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
         setGlImportMsg(`Import en cours… ${written} / ${newRows.length} nouvelles lignes`);
       }
 
-      if(quotaReached){
-        const remaining=newRows.length-written;
-        setGlImportMsg(`⏸ ${written} lignes importées aujourd'hui. Il reste ${remaining} lignes — revenez demain et relancez le même CSV, l'import reprendra automatiquement là où il s'est arrêté.`);
-      } else {
+      const remainingAfterQuota=quotaReached?newRows.length-written:0;
+      {
         const totalInBase=existingIds.size+written;
-        setGlImportMsg(`${written>0?written+' nouvelles lignes importées — ':''}Recalcul du reporting en cours… (${totalInBase} lignes)`);
+        setGlImportMsg(`${quotaReached?`⏸ Quota atteint — ${written} lignes importées aujourd'hui, ${remainingAfterQuota} restantes pour demain — `:''}Recalcul du reporting en cours… (${totalInBase} lignes en base)`);
         // ── Recalcul des agrégats depuis grandLivre2026 complet ──────────
         const allSnap=await getDocs(collection(db,'grandLivre2026'));
         const RCANALS=['E-commerce B2C','CHR','Grands Comptes','Retail','Export','Autres B2B','Régénération'];
@@ -3636,26 +3641,28 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
         }
         allSnap.docs.forEach(d=>{
           const g=d.data();
-          const famille=g.familleCategories||'';
-          const compte=g.numCompte||'';
-          const canal=g.categorie||'';
-          const subcat=g.codeAnalytique||'';
+          const famille=g.famille||g.familleCategories||'';
+          const compte=g.compte||g.numCompte||'';
+          const canal=g.canal||'';
+          const subcat=g.subcat||g.codeAnalytique||'';
           const tiers=g.tiers||'';
-          const libLigne=g.libelleLigne||'';
-          const libCompte=g.libelleCompte||'';
-          const facture=g.numFacture||'';
+          const libLigne=g.libLigne||g.libelleLigne||'';
+          const libCompte=g.libCompte||g.libelleCompte||'';
+          const facture=g.facture||g.numFacture||'';
           const dateStr=g.date||'';
-          const amount=g.solde||0;
-          let month=0,year=0;
-          const dp=dateStr.split('/');
-          if(dp.length===3){month=parseInt(dp[1]);year=parseInt(dp[2]);}
+          const amount=g.amount||g.solde||0;
+          // Priorité : champs month/year stockés, sinon extraction depuis date
+          let month=g.month||0;
+          let year=g.year||0;
+          if(!month||!year){
+            const dp=dateStr.split('/');
+            if(dp.length===3){month=parseInt(dp[1]);year=parseInt(dp[2]);}
+          }
           if(g.codeJournal==='AN')return;
           if(!month||month<1||month>12||!year)return;
           if(famille!=='Analytique écritures comptables')return;
           const mKey=`${year}-${month}`;
           // CA
-          if(compte.startsWith('7')&&!caData['__debug'])caData['__debug']={};
-          if(compte.startsWith('7'))caData['__debug'][subcat+'|'+canal]=(caData['__debug'][subcat+'|'+canal]||0)+1;
           if(compte.startsWith('7')&&RCANALS.includes(canal)){
             if(!caData[canal])caData[canal]={};
             caData[canal][mKey]=(caData[canal][mKey]||0)+amount;
@@ -3688,9 +3695,8 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
         for(const[k,entries] of Object.entries(bilEntriesDocs)){
           await setDoc(doc(db,'bfr_entries',k),{entries,importedAt});
         }
-        const debugCanaux=Object.entries(caData['__debug']||{}).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([k,v])=>`"${k}"(${v})`).join(', ');
-        delete caData['__debug'];
-        setGlImportMsg(`✅ ${written>0?written+' nouvelles lignes importées — ':'Aucune nouvelle ligne — '}Reporting recalculé depuis ${allSnap.size.toLocaleString('fr-FR')} lignes — CA : ${Object.keys(caData).length} canaux, Charges : ${Object.keys(chargeData).length} sous-catégories${debugCanaux?' | Catégories 7x: '+debugCanaux:''}`);
+        const partialWarning=remainingAfterQuota>0?` ⚠️ Reporting partiel — ${remainingAfterQuota} lignes manquantes, relancez le même CSV demain pour compléter.`:'';
+        setGlImportMsg(`✅ ${written>0?written+' nouvelles lignes importées — ':'Aucune nouvelle ligne — '}Reporting recalculé depuis ${allSnap.size.toLocaleString('fr-FR')} lignes — CA : ${Object.keys(caData).length} canaux, Charges : ${Object.keys(chargeData).length} sous-catégories${partialWarning}`);
       }
     } catch(e) {
       setGlImportError('Erreur : '+e.message);
