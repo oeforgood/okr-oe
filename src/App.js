@@ -842,7 +842,6 @@ function ReportingBanner({onGoReporting}) {
 
   // Compute YTD from CA data
   const REPORTING_CANALS_ALL = ['E-commerce B2C','CHR','Grands Comptes','Retail','Export','Autres B2B','Régénération'];
-  const CANAL_CSV_MAP2 = {'E-commerce B2C':'B2C','CHR':'CHR','Grands Comptes':'Grands Comptes','Retail':'Retail','Export':'Export','Autres B2B':'Autres B2B','Régénération':'Régénération'};
   const CANAL_MARGIN2 = {'E-commerce B2C':0.270,'CHR':0.293,'Grands Comptes':0.266,'Retail':0.292,'Export':0.231,'Autres B2B':0.225,'Régénération':1.0};
 
   function sumYTD(dataByKey) {
@@ -852,8 +851,8 @@ function ReportingBanner({onGoReporting}) {
   let caYTD = 0, mbYTD = 0;
   const effectiveMargin = liveCanalMargin || {};
   REPORTING_CANALS_ALL.forEach(canal => {
-    const csvKey = CANAL_CSV_MAP2[canal]||canal;
-    const canalData = caData[csvKey]||{};
+    // caData est indexé par le nom normalisé (ex: 'E-commerce B2C'), pas par le code CSV
+    const canalData = caData[canal]||{};
     const canalTotal = Object.values(canalData).reduce((a,b)=>a+b,0);
     caYTD += canalTotal;
     const defaultRate = CANAL_MARGIN2[canal]??0.263;
@@ -2450,7 +2449,7 @@ const DEFAULT_SUBCAT_LABELS = {
 };
 
 const REPORTING_CANALS = ['E-commerce B2C','CHR','Grands Comptes','Retail','Export','Autres B2B','Régénération'];
-const CANAL_CSV_MAP = {'E-commerce B2C':'B2C','CHR':'CHR','Grands Comptes':'Grands Comptes','Retail':'Retail','Export':'Export','Autres B2B':'Autres B2B','Régénération':'Régénération'};
+const CANAL_CSV_MAP = {'E-commerce B2C':'E-commerce B2C','CHR':'CHR','Grands Comptes':'Grands Comptes','Retail':'Retail','Export':'Export','Autres B2B':'Autres B2B','Régénération':'Régénération'}; // clés normalisées
 const CANAL_MARGIN = {
   'E-commerce B2C': 0.270,
   'CHR': 0.293,
