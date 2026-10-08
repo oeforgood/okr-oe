@@ -2892,9 +2892,28 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
     if(chargeEntries[subcat]!==undefined)return;
     setChargeEntries(p=>({...p,[subcat]:[]}));
     try{
-      const q=query(collection(db,'grandLivre2026'),where('subcat','==',subcat));
-      const snap=await getDocs(q);
-      const entries=snap.docs.map(d=>{const g=d.data();return{date:g.date||'',compte:g.compte||'',libCompte:g.libCompte||'',tiers:g.tiers||'',facture:g.facture||'',libLigne:g.libLigne||'',month:g.month||0,year:g.year||0,amount:g.amount||0};});
+      const isAUBucket=subcat.endsWith('-AU');
+      let entries=[];
+      if(isAUBucket){
+        // Bucket virtuel XX-AU : charger toutes les lignes du préfixe XX dont la subcat est inactive
+        const prefix=subcat.slice(0,2);
+        const q=query(collection(db,'grandLivre2026'),
+          where('subcat','>=',prefix+'-'),
+          where('subcat','<',prefix+'-'));
+        const snap=await getDocs(q);
+        snap.docs.forEach(d=>{
+          const g=d.data();
+          const sc=g.subcat||'';
+          // Ne garder que les subcats réellement inactives (pas dans DEFAULT ni customLabels)
+          const isNew=!DEFAULT_SUBCAT_LABELS[sc]&&!(customLabels||{})[sc];
+          const isInactive=isNew?activeSubcats[sc]!==true:activeSubcats[sc]===false;
+          if(isInactive) entries.push({date:g.date||'',compte:g.compte||'',libCompte:g.libCompte||'',tiers:g.tiers||'',facture:g.facture||'',libLigne:g.libLigne||'',month:g.month||0,year:g.year||0,amount:g.amount||0,subcat:sc});
+        });
+      } else {
+        const q=query(collection(db,'grandLivre2026'),where('subcat','==',subcat));
+        const snap=await getDocs(q);
+        entries=snap.docs.map(d=>{const g=d.data();return{date:g.date||'',compte:g.compte||'',libCompte:g.libCompte||'',tiers:g.tiers||'',facture:g.facture||'',libLigne:g.libLigne||'',month:g.month||0,year:g.year||0,amount:g.amount||0};});
+      }
       setChargeEntries(p=>({...p,[subcat]:entries}));
     }catch(e){console.warn('loadChargeEntries',e);}
   };
