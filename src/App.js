@@ -3727,9 +3727,8 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
           }
           if(g.codeJournal==='AN')return;
           if(!month||month<1||month>12||!year)return;
-          if(famille!=='Analytique écritures comptables')return;
           const mKey=`${year}-${month}`;
-          // CA
+          // CA : pas de filtre famille, on se fie au compte 7xx et au canal reconnu
           const canalNorm=CANAL_NORM[canal]||canal;
           if(compte.startsWith('7')&&RCANALS.includes(canal)){
             if(!caData[canalNorm])caData[canalNorm]={};
