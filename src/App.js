@@ -3740,10 +3740,10 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
             if(!chargeData[subcat])chargeData[subcat]={months:{}};
             chargeData[subcat].months[mKey]=(chargeData[subcat].months[mKey]||0)+amount;
           }
-          // Subventions d'exploitation (74x) → charges négatives dans leur subcat
+          // Subventions d'exploitation (74x) → s'ajoutent telles quelles (montant négatif en comptabilité → réduit les charges)
           if(compte.startsWith('74')&&subcat&&subcat!=='#N/A'&&subcat!=='FALSE'&&String(subcat).match(/^[A-Z]\d/)){
             if(!chargeData[subcat])chargeData[subcat]={months:{}};
-            chargeData[subcat].months[mKey]=(chargeData[subcat].months[mKey]||0)-amount;
+            chargeData[subcat].months[mKey]=(chargeData[subcat].months[mKey]||0)+amount;
           }
           // Bilan
           const bilKey=getBilKey(compte);
@@ -9104,10 +9104,10 @@ export default function App(){
           if(!chargeData[subcat])chargeData[subcat]={months:{}};
           chargeData[subcat].months[mKey]=(chargeData[subcat].months[mKey]||0)+amount;
         }
-        // Subventions d'exploitation (74x) \u2192 charges n\u00e9gatives dans leur subcat
+        // Subventions d'exploitation (74x) \u2192 s'ajoutent telles quelles (montant n\u00e9gatif en comptabilit\u00e9 \u2192 r\u00e9duit les charges)
         if(famille==='Analytique \u00e9critures comptables'&&compte.startsWith('74')&&subcat&&subcat!=='#N/A'&&subcat!=='FALSE'&&String(subcat).match(/^[A-Z]\d/)){
           if(!chargeData[subcat])chargeData[subcat]={months:{}};
-          chargeData[subcat].months[mKey]=(chargeData[subcat].months[mKey]||0)-amount;
+          chargeData[subcat].months[mKey]=(chargeData[subcat].months[mKey]||0)+amount;
         }
         const bilKey=getBilKey(compte);
         if(bilKey&&famille==='Analytique \u00e9critures comptables'){
