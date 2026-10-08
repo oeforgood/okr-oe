@@ -3533,7 +3533,7 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
 
   async function handleGLImport(file) {
     setGlImportMsg('Lecture du fichier CSV…'); setGlImportError(''); setGlImporting(true);
-    const QUOTA_LIMIT = 18000; // marge de sécurité sous les 20 000/jour
+    const QUOTA_LIMIT = Infinity; // Blaze : pas de limite journalière
     try {
       const text = await file.text();
       function parseCSVLine(line) {
@@ -3595,13 +3595,12 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
 
       const newRows = rows.filter(r=>!existingIds.has(r._id));
 
-      // Importer par batch, en s'arrêtant si on approche du quota
+      // Importer par batch
       const BATCH_SIZE=400;
       let written=0;
       let quotaReached=false;
       for(let i=0;i<newRows.length;i+=BATCH_SIZE){
-        if(written>=QUOTA_LIMIT){quotaReached=true;break;}
-        const slice=newRows.slice(i,i+Math.min(BATCH_SIZE,QUOTA_LIMIT-written));
+        const slice=newRows.slice(i,i+BATCH_SIZE);
         const batch=writeBatch(db);
         slice.forEach(row=>{
           const {_id,...data}=row;
