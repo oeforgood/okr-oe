@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import emailjs from '@emailjs/browser';
 
+const APP_VERSION = process.env.REACT_APP_GIT_SHA || 'dev';
 const EMAILJS_SERVICE = 'Calendula';
 const EMAILJS_TEMPLATE = 'template_p9o0yz2';
 const EMAILJS_KEY = 'fM4M-dqj2372G9wj5';
@@ -315,6 +316,7 @@ function LoginPage({onLogin,error}){
       <div style={{fontSize:40,marginBottom:8}}>🌼</div>
       <div style={{fontSize:28,fontWeight:700,color:"#2d6a4f",marginBottom:4}}>Calendula</div>
       <div style={{fontSize:14,color:"#6b6560",marginBottom:32}}>Outil de pilotage OKR & Updates Oé</div>
+      <div style={{fontSize:11,color:"#b0aca6",marginBottom:8}}>v1.{APP_VERSION}</div>
       <button onClick={onLogin} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:12,width:"100%",padding:"13px 20px",background:"#fff",border:"2px solid #e2ddd6",borderRadius:10,cursor:"pointer",fontSize:14,fontWeight:500,color:"#1a1814",transition:"border-color .2s"}}
         onMouseEnter={e=>e.currentTarget.style.borderColor="#2d6a4f"}
         onMouseLeave={e=>e.currentTarget.style.borderColor="#e2ddd6"}>
@@ -1164,7 +1166,7 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
 
     {/* Header */}
     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
-      <span style={{fontSize:18,fontWeight:700,color:'#2d6a4f',letterSpacing:'-.3px'}}>🌼 Calendula</span>
+      <span style={{fontSize:18,fontWeight:700,color:'#2d6a4f',letterSpacing:'-.3px'}}>🌼 Calendula <span style={{fontSize:11,fontWeight:400,color:'#b0aca6'}}>v1.{APP_VERSION}</span></span>
       <div style={{display:'flex',alignItems:'center',gap:10}}>
         {allNotifs.length>0&&<span style={{background:'#dc2626',color:'#fff',borderRadius:10,padding:'2px 8px',fontSize:11,fontWeight:700}}>{allNotifs.length}</span>}
         <div style={{width:34,height:34,borderRadius:'50%',background:'#2d6a4f',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:14,fontWeight:800}}>
@@ -3551,10 +3553,11 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
         const cleaned=s.replace(/€/g,'').replace(/\s/g,'').replace(/,/g,'.');
         const n=parseFloat(cleaned); return isNaN(n)?0:n;
       }
-      const lines=text.split('\n').filter(l=>l.trim());
+      const lines=text.split('\n');
       const headers=parseCSVLine(lines[0]);
       const rows=[];
       for(let i=1;i<lines.length;i++){
+        if(!lines[i].trim())continue;
         const cols=parseCSVLine(lines[i]);
         if(cols.length<5)continue;
         // Ignorer les lignes vides (que des virgules, aucune valeur réelle)
@@ -3683,8 +3686,9 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
           if(bilKey){
             const{section,key}=bilKey;
             if(!bilData[section])bilData[section]={};
-            if(!bilData[section][key])bilData[section][key]={months:{},rows:[]};
+            if(!bilData[section][key])bilData[section][key]={months:{}};
             bilData[section][key].months[mKey]=(bilData[section][key].months[mKey]||0)+amount;
+            // Détail stocké dans bfr_entries/<section>_<key> (évite dépassement 1MB)
             const dk=`${section}_${key}`;
             if(!bilEntriesDocs[dk])bilEntriesDocs[dk]=[];
             bilEntriesDocs[dk].push({date:dateStr,compte,libCompte,tiers,facture,libLigne,month,year,amount});
