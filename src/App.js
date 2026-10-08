@@ -3557,6 +3557,8 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
       for(let i=1;i<lines.length;i++){
         const cols=parseCSVLine(lines[i]);
         if(cols.length<5)continue;
+        // Ignorer les lignes vides (que des virgules, aucune valeur réelle)
+        if(cols.every(c=>!c.trim()))continue;
         const obj={}; headers.forEach((h,idx)=>{obj[h]=cols[idx]||'';});
         // Identifiant stable : idFacture + compte + codeAnalytiqueEcritures + index
         const stableId=[
@@ -3619,7 +3621,7 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
         const allSnap=await getDocs(collection(db,'grandLivre2026'));
         const RCANALS=['E-commerce B2C','CHR','Grands Comptes','Retail','Export','Autres B2B','Régénération'];
         const caData={},caRows={},chargeData={},bilData={};
-        const bilEntriesDocs={};
+        const bilEntriesDocs={},chargeEntriesDocs={};
         function getBilKey(c){
           if(!c)return null;
           if(c.startsWith('3'))return{section:'bfr',key:'stocks'};
@@ -3670,9 +3672,11 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
           }
           // Charges
           if(compte.startsWith('6')&&subcat&&subcat!=='#N/A'&&subcat!=='FALSE'&&String(subcat).match(/^[A-Z]\d/)){
-            if(!chargeData[subcat])chargeData[subcat]={months:{},rows:[]};
+            if(!chargeData[subcat])chargeData[subcat]={months:{}};
             chargeData[subcat].months[mKey]=(chargeData[subcat].months[mKey]||0)+amount;
-            chargeData[subcat].rows.push({date:dateStr,compte,libCompte,tiers,facture,libLigne,month,year,amount});
+            // Détail stocké dans charge_entries/<subcat> (évite dépassement 1MB)
+            if(!chargeEntriesDocs[subcat])chargeEntriesDocs[subcat]=[];
+            chargeEntriesDocs[subcat].push({date:dateStr,compte,libCompte,tiers,facture,libLigne,month,year,amount});
           }
           // Bilan
           const bilKey=getBilKey(compte);
@@ -3693,6 +3697,9 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
         await setDoc(doc(db,'reporting','meta'),{importedAt,source:'grandLivre2026',totalRows:allSnap.size});
         for(const[k,entries] of Object.entries(bilEntriesDocs)){
           await setDoc(doc(db,'bfr_entries',k),{entries,importedAt});
+        }
+        for(const[k,entries] of Object.entries(chargeEntriesDocs)){
+          await setDoc(doc(db,'charge_entries',k),{entries,importedAt});
         }
         const partialWarning=remainingAfterQuota>0?` ⚠️ Reporting partiel — ${remainingAfterQuota} lignes manquantes, relancez le même CSV demain pour compléter.`:'';
         setGlImportMsg(`✅ ${written>0?written+' nouvelles lignes importées — ':'Aucune nouvelle ligne — '}Reporting recalculé depuis ${allSnap.size.toLocaleString('fr-FR')} lignes — CA : ${Object.keys(caData).length} canaux, Charges : ${Object.keys(chargeData).length} sous-catégories${partialWarning}`);
