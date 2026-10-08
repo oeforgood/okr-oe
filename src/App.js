@@ -3654,6 +3654,8 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
           if(famille!=='Analytique écritures comptables')return;
           const mKey=`${year}-${month}`;
           // CA
+          if(compte.startsWith('7')&&!caData['__debug'])caData['__debug']={};
+          if(compte.startsWith('7'))caData['__debug'][canal]=(caData['__debug'][canal]||0)+1;
           if(compte.startsWith('7')&&RCANALS.includes(canal)){
             if(!caData[canal])caData[canal]={};
             caData[canal][mKey]=(caData[canal][mKey]||0)+amount;
@@ -3686,7 +3688,9 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
         for(const[k,entries] of Object.entries(bilEntriesDocs)){
           await setDoc(doc(db,'bfr_entries',k),{entries,importedAt});
         }
-        setGlImportMsg(`✅ ${written>0?written+' nouvelles lignes importées — ':'Aucune nouvelle ligne — '}Reporting recalculé depuis ${allSnap.size.toLocaleString('fr-FR')} lignes — CA : ${Object.keys(caData).length} canaux, Charges : ${Object.keys(chargeData).length} sous-catégories`);
+        const debugCanaux=Object.entries(caData['__debug']||{}).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([k,v])=>`"${k}"(${v})`).join(', ');
+        delete caData['__debug'];
+        setGlImportMsg(`✅ ${written>0?written+' nouvelles lignes importées — ':'Aucune nouvelle ligne — '}Reporting recalculé depuis ${allSnap.size.toLocaleString('fr-FR')} lignes — CA : ${Object.keys(caData).length} canaux, Charges : ${Object.keys(chargeData).length} sous-catégories${debugCanaux?' | Catégories 7x: '+debugCanaux:''}`);
       }
     } catch(e) {
       setGlImportError('Erreur : '+e.message);
