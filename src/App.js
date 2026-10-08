@@ -3655,7 +3655,7 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
           const mKey=`${year}-${month}`;
           // CA
           if(compte.startsWith('7')&&!caData['__debug'])caData['__debug']={};
-          if(compte.startsWith('7'))caData['__debug'][canal]=(caData['__debug'][canal]||0)+1;
+          if(compte.startsWith('7'))caData['__debug'][subcat+'|'+canal]=(caData['__debug'][subcat+'|'+canal]||0)+1;
           if(compte.startsWith('7')&&RCANALS.includes(canal)){
             if(!caData[canal])caData[canal]={};
             caData[canal][mKey]=(caData[canal][mKey]||0)+amount;
