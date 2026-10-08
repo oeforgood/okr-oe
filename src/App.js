@@ -8891,14 +8891,46 @@ export default function App(){
       function parseAmount(s){const clean=String(s||'').replace(/[\u202f\u00a0\u20ac \u2019\u2018'\'"\s]/g,'').replace(',','.').trim();return parseFloat(clean)||0;}
       const REPORTING_CANALS=['Autres B2B','B2C','CHR','Export','Grands Comptes','Retail','R\u00e9g\u00e9n\u00e9ration'];
       const rawLines=text.replace(/^\uFEFF/,'').split('\n');
-      const rows=[];
-      for(let i=1;i<rawLines.length;i++){if(!rawLines[i].trim())continue;const r=parseCSVLine(rawLines[i]);if(r.length>=32)rows.push(r);}
-      if(rows.length===0)return '\u274c Aucune ligne valide';
+      const csvRows=[];
+      for(let i=1;i<rawLines.length;i++){if(!rawLines[i].trim())continue;const r=parseCSVLine(rawLines[i]);if(r.length>=32)csvRows.push({_raw:r,_idx:i-1});}
+      if(csvRows.length===0)return '\u274c Aucune ligne valide';
       const hdrs=parseCSVLine(rawLines[0]);
       if(!hdrs.some(h=>h.includes('bit')||h.includes('Canal')))return '\u274c Format non reconnu';
-      const caData={},caRows={},chargeData={},bilData={bfr:{clients:0,fournisseurs:0,stocks:0},autres:{},banques:{banques:0}};
-      const bilEntriesDocs={};
+
+      // \u2500\u2500 1. Sauvegarder les nouvelles lignes dans grandLivre2026 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+      const {getDocs:_gd,collection:_col,writeBatch:_wb,doc:_doc,query:_q,select:_sel}=await import('firebase/firestore');
+      // R\u00e9cup\u00e9rer les IDs d\u00e9j\u00e0 en base (select() sans champs = l\u00e9ger)
+      const existSnap=await _gd(_q(_col(db,'grandLivre2026')));
+      const existIds=new Set(existSnap.docs.map(d=>d.id));
+      // Construire les docs \u00e0 ins\u00e9rer
+      const toInsert=[];
+      csvRows.forEach(({_raw:r,_idx:idx})=>{
+        const stableId=[(r[2]||''),(r[10]||''),String(idx).padStart(6,'0')].join('_').replace(/[/\\. ]/g,'-');
+        if(!existIds.has(stableId)){
+          toInsert.push({id:stableId,data:{
+            codeJournal:r[2]||'',date:r[1]||'',compte:r[3]||'',libCompte:r[4]||'',
+            libLigne:r[8]||'',facture:r[10]||'',tiers:r[12]||'',famille:r[14]||'',
+            amount:parseAmount(r[29]),month:parseInt(r[30])||0,subcat:r[31]||'',
+            year:parseInt(r[32])||0,canal:r[37]||''
+          }});
+        }
+      });
+      // \u00c9criture par batch de 500
+      if(toInsert.length>0){
+        for(let i=0;i<toInsert.length;i+=500){
+          const batch=_wb(db);
+          toInsert.slice(i,i+500).forEach(({id,data})=>batch.set(_doc(db,'grandLivre2026',id),data));
+          await batch.commit();
+        }
+      }
+
+      // \u2500\u2500 2. Lire tout grandLivre2026 pour recalculer les agr\u00e9gats \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+      const allSnap=await _gd(_col(db,'grandLivre2026'));
+      const allGlRows=allSnap.docs.map(d=>d.data());
+
+      // \u2500\u2500 3. Calculer les agr\u00e9gats depuis la collection compl\u00e8te \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
       function getBilKey(c){
+        if(!c)return null;
         if(c.startsWith('3'))return{section:'bfr',key:'stocks'};
         if(c.startsWith('40'))return{section:'bfr',key:'fournisseurs'};
         if(c.startsWith('41'))return{section:'bfr',key:'clients'};
@@ -8906,44 +8938,49 @@ export default function App(){
         if(c.startsWith('5'))return{section:'banques',key:'banques'};
         return null;
       }
-      for(const r of rows){
-        const famille=r[14],compte=r[3],canal=r[37],subcat=r[31];
-        let month=parseInt(r[30]),year=parseInt(r[32]);
-        if(isNaN(month)||month<1||month>12||isNaN(year)){const dp=(r[1]||'').split('/');if(dp.length===3){month=parseInt(dp[1]);year=parseInt(dp[2]);}}
-        const amount=parseAmount(r[29]);
-        if(r[2]==='AN')continue;
-        if(isNaN(month)||month<1||month>12||isNaN(year))continue;
+      const caData={},caRows={},chargeData={},bilData={bfr:{clients:0,fournisseurs:0,stocks:0},autres:{},banques:{banques:0}};
+      const bilEntriesDocs={};
+      for(const g of allGlRows){
+        const famille=g.famille,compte=g.compte||'',canal=g.canal,subcat=g.subcat;
+        let month=g.month,year=g.year;
+        if(!month||month<1||month>12||!year){const dp=(g.date||'').split('/');if(dp.length===3){month=parseInt(dp[1]);year=parseInt(dp[2]);}}
+        const amount=g.amount||0;
+        if(g.codeJournal==='AN')continue;
+        if(!month||month<1||month>12||!year)continue;
         const mKey=`${year}-${month}`;
         if(famille==='Analytique \u00e9critures comptables'&&compte.startsWith('7')&&REPORTING_CANALS.includes(canal)){
           if(!caData[canal])caData[canal]={};
           caData[canal][mKey]=(caData[canal][mKey]||0)+amount;
           if(!caRows[canal])caRows[canal]=[];
-          caRows[canal].push({tiers:r[12]||'',libLigne:r[8]||'',facture:r[10]||'',compte:r[3],libCompte:r[4]||'',month,year,amount});
+          caRows[canal].push({tiers:g.tiers||'',libLigne:g.libLigne||'',facture:g.facture||'',compte,libCompte:g.libCompte||'',month,year,amount});
         }
-        if(famille==='Analytique \u00e9critures comptables'&&compte.startsWith('6')&&subcat&&subcat!=='#N/A'&&subcat!=='FALSE'&&subcat.match(/^[A-Z]\d/)){
+        if(famille==='Analytique \u00e9critures comptables'&&compte.startsWith('6')&&subcat&&subcat!=='#N/A'&&subcat!=='FALSE'&&String(subcat).match(/^[A-Z]\d/)){
           if(!chargeData[subcat])chargeData[subcat]={months:{},rows:[]};
           chargeData[subcat].months[mKey]=(chargeData[subcat].months[mKey]||0)+amount;
-          chargeData[subcat].rows.push({date:r[1],compte:r[3],libCompte:r[4],tiers:r[12]||'',facture:r[10]||'',libLigne:r[8]||'',month,year,amount});
+          chargeData[subcat].rows.push({date:g.date||'',compte,libCompte:g.libCompte||'',tiers:g.tiers||'',facture:g.facture||'',libLigne:g.libLigne||'',month,year,amount});
         }
         const bilKey=getBilKey(compte);
         if(bilKey&&famille==='Analytique \u00e9critures comptables'){
-          const {section,key}=bilKey;
+          const{section,key}=bilKey;
           if(!bilData[section])bilData[section]={};
           bilData[section][key]=(bilData[section][key]||0)+amount;
           const docPath=`${section}_${key}`;
           if(!bilEntriesDocs[docPath])bilEntriesDocs[docPath]=[];
-          bilEntriesDocs[docPath].push({date:r[1],compte:r[3],libCompte:r[4],tiers:r[12]||'',facture:r[10]||'',libLigne:r[8]||'',month,year,amount});
+          bilEntriesDocs[docPath].push({date:g.date||'',compte,libCompte:g.libCompte||'',tiers:g.tiers||'',facture:g.facture||'',libLigne:g.libLigne||'',month,year,amount});
         }
       }
+
+      // \u2500\u2500 4. \u00c9crire les agr\u00e9gats dans reporting/ \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
       const importedAt=new Date().toISOString();
       await setDoc(doc(db,'reporting','ca'),{caData,caRows,importedAt});
       if(Object.keys(chargeData).length>0)await setDoc(doc(db,'reporting','charges'),{chargeData,importedAt});
       await setDoc(doc(db,'reporting','bfr'),{bilData,importedAt});
-      await setDoc(doc(db,'reporting','meta'),{importedAt});
+      await setDoc(doc(db,'reporting','meta'),{importedAt,source:'grandLivre2026',totalRows:allGlRows.length});
       for(const[k,entries] of Object.entries(bilEntriesDocs)){
-        const[col,...rest]=k.split('_');await setDoc(doc(db,'bfr_entries',k),{entries,importedAt});
+        await setDoc(doc(db,'bfr_entries',k),{entries,importedAt});
       }
-      return `\u2705 ${rows.length.toLocaleString('fr-FR')} lignes import\u00e9es\u00a0\u2014\u00a0CA\u00a0: ${Object.keys(caData).length} canaux, Charges\u00a0: ${Object.keys(chargeData).length} sous-cat\u00e9gories`;
+      const newCount=toInsert.length;
+      return `\u2705 ${newCount>0?newCount.toLocaleString('fr-FR')+' nouvelles lignes ajout\u00e9es \u2014 ':''}Reporting recalcul\u00e9 depuis ${allGlRows.length.toLocaleString('fr-FR')} lignes \u2014 CA\u00a0: ${Object.keys(caData).length} canaux, Charges\u00a0: ${Object.keys(chargeData).length} sous-cat\u00e9gories`;
     }catch(e){return '\u274c '+e.message;}
   }
   async function handleChangeSeasonKey(newKey){
