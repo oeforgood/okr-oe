@@ -3684,7 +3684,9 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
         setGlImportMsg(`${quotaReached?`⏸ Quota atteint — ${written} lignes importées aujourd'hui, ${remainingAfterQuota} restantes pour demain — `:''}Recalcul du reporting en cours… (${totalInBase} lignes en base)`);
         // ── Recalcul des agrégats depuis grandLivre2026 complet ──────────
         const allSnap=await getDocs(collection(db,'grandLivre2026'));
-        const RCANALS=['E-commerce B2C','CHR','Grands Comptes','Retail','Export','Autres B2B','Régénération'];
+        const RCANALS=['E-commerce B2C','B2C','CHR','Grands Comptes','Retail','Export','Autres B2B','Régénération'];
+        // Normaliser B2C → E-commerce B2C (valeur CSV GSheets)
+        const CANAL_NORM={'B2C':'E-commerce B2C'};
         const caData={},caRows={},chargeData={},bilData={};
         function getBilKey(c){
           if(!c)return null;
@@ -3728,11 +3730,12 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
           if(famille!=='Analytique écritures comptables')return;
           const mKey=`${year}-${month}`;
           // CA
+          const canalNorm=CANAL_NORM[canal]||canal;
           if(compte.startsWith('7')&&RCANALS.includes(canal)){
-            if(!caData[canal])caData[canal]={};
-            caData[canal][mKey]=(caData[canal][mKey]||0)+amount;
-            if(!caRows[canal])caRows[canal]=[];
-            caRows[canal].push({tiers,libLigne,facture,compte,libCompte,month,year,amount});
+            if(!caData[canalNorm])caData[canalNorm]={};
+            caData[canalNorm][mKey]=(caData[canalNorm][mKey]||0)+amount;
+            if(!caRows[canalNorm])caRows[canalNorm]=[];
+            caRows[canalNorm].push({tiers,libLigne,facture,compte,libCompte,month,year,amount});
           }
           // Charges
           if(compte.startsWith('6')&&subcat&&subcat!=='#N/A'&&subcat!=='FALSE'&&String(subcat).match(/^[A-Z]\d/)){
