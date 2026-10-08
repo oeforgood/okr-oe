@@ -3587,10 +3587,6 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
       setGlImportMsg(`${existingIds.size} lignes déjà en base — calcul des nouvelles lignes…`);
 
       const newRows = rows.filter(r=>!existingIds.has(r._id));
-      if(newRows.length===0){
-        setGlImportMsg('✅ Aucune nouvelle ligne — le Grand Livre est déjà à jour !');
-        setGlImporting(false); return;
-      }
 
       // Importer par batch, en s'arrêtant si on approche du quota
       const BATCH_SIZE=400;
