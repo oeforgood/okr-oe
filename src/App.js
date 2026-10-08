@@ -6110,7 +6110,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
   }
 
   return <div style={{minHeight:"100vh",background:"#f5f3ef",fontFamily:"system-ui,sans-serif"}}>
-    <TopBar onBack={onBack} title="⚙️ Paramètres"/>
+    <TopBar onBack={onBack} title="⚙️ Paramètres" extra={<span style={{fontSize:11,color:'#b0aca6',whiteSpace:'nowrap'}}>v1.{APP_VERSION}</span>}/>
     <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
       <div style={{display:"flex",gap:10,marginBottom:20}}>
         {([{k:"members",l:"👥 Membres & rôles"},{k:"absences",l:"🌴 Absences"},...(currentUser?.email===OWNER_EMAIL?[{k:"permissions",l:"🔐 Permissions"},{k:"questions",l:"❓ Questions Update"},{k:"history",l:"📋 Historique Updates"},{k:"feedback",l:"💡 Feedback"},{k:"reporting_params",l:"⚙️ Reporting"},{k:"bsv3",l:"📊 Base Sales v3"},{k:"tarif",l:"💰 Tarif"},{k:"clients_db",l:"🏢 Base clients"}]:[])]).map(t=><button key={t.k} onClick={()=>setTab(t.k)}
