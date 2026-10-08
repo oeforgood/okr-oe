@@ -3613,7 +3613,84 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
         const remaining=newRows.length-written;
         setGlImportMsg(`⏸ ${written} lignes importées aujourd'hui. Il reste ${remaining} lignes — revenez demain et relancez le même CSV, l'import reprendra automatiquement là où il s'est arrêté.`);
       } else {
-        setGlImportMsg(`✅ ${written} nouvelles lignes importées ! Total en base : ${existingIds.size+written}`);
+        const totalInBase=existingIds.size+written;
+        setGlImportMsg(`${written>0?written+' nouvelles lignes importées — ':''}Recalcul du reporting en cours… (${totalInBase} lignes)`);
+        // ── Recalcul des agrégats depuis grandLivre2026 complet ──────────
+        const allSnap=await getDocs(collection(db,'grandLivre2026'));
+        const RCANALS=['E-commerce B2C','CHR','Grands Comptes','Retail','Export','Autres B2B','Régénération'];
+        const caData={},caRows={},chargeData={},bilData={};
+        const bilEntriesDocs={};
+        function getBilKey(c){
+          if(!c)return null;
+          if(c.startsWith('3'))return{section:'bfr',key:'stocks'};
+          if(c.startsWith('40'))return{section:'bfr',key:'fournisseurs'};
+          if(c.startsWith('41')||c.startsWith('49'))return{section:'bfr',key:'clients'};
+          const p2=c.slice(0,2);
+          if(['10','11','12','13'].includes(p2))return{section:'autres',key:'capitaux'};
+          if(['14','15'].includes(p2))return{section:'autres',key:'provisions'};
+          if(p2==='16')return{section:'autres',key:'emprunts'};
+          if(c.startsWith('2'))return{section:'autres',key:'immobilisations'};
+          if(['42','43'].includes(p2))return{section:'autres',key:'dette_sociale'};
+          if(p2==='44')return{section:'autres',key:'dette_etat'};
+          if(p2==='45')return{section:'autres',key:'comptes_courants'};
+          if(['46','47','48'].includes(p2))return{section:'autres',key:'autre'};
+          if(c.startsWith('51'))return{section:'banques',key:'banques'};
+          if(c.startsWith('5'))return{section:'autres',key:'autre'};
+          return null;
+        }
+        allSnap.docs.forEach(d=>{
+          const g=d.data();
+          const famille=g.familleCategories||'';
+          const compte=g.numCompte||'';
+          const canal=g.categorie||'';
+          const subcat=g.codeAnalytique||'';
+          const tiers=g.tiers||'';
+          const libLigne=g.libelleLigne||'';
+          const libCompte=g.libelleCompte||'';
+          const facture=g.numFacture||'';
+          const dateStr=g.date||'';
+          const amount=g.solde||0;
+          let month=0,year=0;
+          const dp=dateStr.split('/');
+          if(dp.length===3){month=parseInt(dp[1]);year=parseInt(dp[2]);}
+          if(g.codeJournal==='AN')return;
+          if(!month||month<1||month>12||!year)return;
+          if(famille!=='Analytique écritures comptables')return;
+          const mKey=`${year}-${month}`;
+          // CA
+          if(compte.startsWith('7')&&RCANALS.includes(canal)){
+            if(!caData[canal])caData[canal]={};
+            caData[canal][mKey]=(caData[canal][mKey]||0)+amount;
+            if(!caRows[canal])caRows[canal]=[];
+            caRows[canal].push({tiers,libLigne,facture,compte,libCompte,month,year,amount});
+          }
+          // Charges
+          if(compte.startsWith('6')&&subcat&&subcat!=='#N/A'&&subcat!=='FALSE'&&String(subcat).match(/^[A-Z]\d/)){
+            if(!chargeData[subcat])chargeData[subcat]={months:{},rows:[]};
+            chargeData[subcat].months[mKey]=(chargeData[subcat].months[mKey]||0)+amount;
+            chargeData[subcat].rows.push({date:dateStr,compte,libCompte,tiers,facture,libLigne,month,year,amount});
+          }
+          // Bilan
+          const bilKey=getBilKey(compte);
+          if(bilKey){
+            const{section,key}=bilKey;
+            if(!bilData[section])bilData[section]={};
+            if(!bilData[section][key])bilData[section][key]={months:{},rows:[]};
+            bilData[section][key].months[mKey]=(bilData[section][key].months[mKey]||0)+amount;
+            const dk=`${section}_${key}`;
+            if(!bilEntriesDocs[dk])bilEntriesDocs[dk]=[];
+            bilEntriesDocs[dk].push({date:dateStr,compte,libCompte,tiers,facture,libLigne,month,year,amount});
+          }
+        });
+        const importedAt=new Date().toISOString();
+        await setDoc(doc(db,'reporting','ca'),{caData,caRows,importedAt});
+        if(Object.keys(chargeData).length>0)await setDoc(doc(db,'reporting','charges'),{chargeData,importedAt});
+        await setDoc(doc(db,'reporting','bfr'),{bilData,importedAt});
+        await setDoc(doc(db,'reporting','meta'),{importedAt,source:'grandLivre2026',totalRows:allSnap.size});
+        for(const[k,entries] of Object.entries(bilEntriesDocs)){
+          await setDoc(doc(db,'bfr_entries',k),{entries,importedAt});
+        }
+        setGlImportMsg(`✅ ${written>0?written+' nouvelles lignes importées — ':'Aucune nouvelle ligne — '}Reporting recalculé depuis ${allSnap.size.toLocaleString('fr-FR')} lignes — CA : ${Object.keys(caData).length} canaux, Charges : ${Object.keys(chargeData).length} sous-catégories`);
       }
     } catch(e) {
       setGlImportError('Erreur : '+e.message);
