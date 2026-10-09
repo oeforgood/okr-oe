@@ -6462,17 +6462,16 @@ function UnlockModal({objTitle,onClose,onUnlock}){
 
 // ─── OKR SUB-COMPONENTS ───────────────────────────────────────────────────────
 // ─── STATUS DOT ───────────────────────────────────────────────────────────────
+const STATUS_DOT_COLORS={green:'#16a34a',orange:'#f97316',gray:'#d1d5db'};
 function StatusDot({status,onClick,clickable=false,title=''}){
-  const colors={green:'#2d6a4f',orange:'#b5680f',gray:'#c8c3bc'};
-  const bgs={green:'#d8f3dc',orange:'#fef3c7',gray:'#f0ede8'};
   const s=status||'gray';
   return <span
     onClick={clickable?onClick:undefined}
     title={title}
     style={{
-      display:'inline-block',width:10,height:10,borderRadius:'50%',
-      background:bgs[s],border:`1.5px solid ${colors[s]}`,flexShrink:0,
-      cursor:clickable?'pointer':'default',transition:'background .15s,border-color .15s',
+      display:'inline-block',width:10,height:10,borderRadius:'50%',flexShrink:0,
+      background:STATUS_DOT_COLORS[s],border:'1px solid rgba(0,0,0,0.1)',
+      cursor:clickable?'pointer':'default',transition:'background .15s',
       verticalAlign:'middle',
     }}/>;
 }
@@ -8456,6 +8455,41 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cu
   const [mainTab,setMainTab]=React.useState('ventes');
   const [clientFilter,setClientFilter]=React.useState('');
   const [proprietaireFilter,setProprietaireFilter]=React.useState('');
+
+  // ── Groupes clients ──────────────────────────────────────────────────────
+  const [groups,setGroups]=React.useState({}); // {groupName:[clientName,...]}
+  const [groupModal,setGroupModal]=React.useState(null); // {clientName}
+  const [newGroupName,setNewGroupName]=React.useState('');
+  const isOwner=currentUser?.email===OWNER_EMAIL;
+
+  React.useEffect(()=>{
+    getDoc(doc(db,'bsv3_groups','data')).then(snap=>{if(snap.exists())setGroups(snap.data().groups||{});});
+  },[]);
+
+  async function saveGroups(next){
+    setGroups(next);
+    await setDoc(doc(db,'bsv3_groups','data'),{groups:next});
+  }
+  function getClientGroups(clientName){
+    return Object.entries(groups).filter(([,members])=>members.includes(clientName)).map(([g])=>g);
+  }
+  async function addToGroup(clientName,groupName){
+    const g=groupName.trim();if(!g)return;
+    const next={...groups,[g]:[...new Set([...(groups[g]||[]),clientName])]};
+    await saveGroups(next);
+  }
+  async function removeFromGroup(clientName,groupName){
+    const members=(groups[groupName]||[]).filter(m=>m!==clientName);
+    const next={...groups};
+    if(members.length===0)delete next[groupName];else next[groupName]=members;
+    await saveGroups(next);
+  }
+
+  // Résoudre le filtre "E: Nom Groupe"
+  const clientFilterLowerRaw=clientFilter.trim();
+  const groupMatch=clientFilterLowerRaw.match(/^[Ee]:\s*(.+)$/);
+  const groupFilterName=groupMatch?groupMatch[1].trim():null;
+  const groupFilterMembers=groupFilterName?(groups[groupFilterName]||[]):null;
   const [levels,setLevels]=React.useState(['client','produit','facture']);
   const [ytdMode,setYtdMode]=React.useState(false);
   const [activeVentesCanaux,setActiveVentesCanaux]=React.useState(null);
@@ -8475,11 +8509,19 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cu
   const prevYear=year-1;
 
   const CA_CANAUX=['CHR','Grands Comptes','Retail','Export'];
-  const clientFilterLower=clientFilter.trim().toLowerCase();
-  const baseFilter=r=>!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe'])
-    &&CA_CANAUX.includes(r['Canal'])
-    &&(!clientFilterLower||(r['Client PL']||r['Tiers']||'').toLowerCase().includes(clientFilterLower))
-    &&(!proprietaireFilter||(r['Propriétaire HS']||'')===proprietaireFilter);
+  const clientFilterLower=clientFilterLowerRaw.toLowerCase();
+  const baseFilter=r=>{
+    if(BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']))return false;
+    if(!CA_CANAUX.includes(r['Canal']))return false;
+    if(proprietaireFilter&&(r['Propriétaire HS']||'')!==proprietaireFilter)return false;
+    const cl=r['Client PL']||r['Tiers']||'';
+    if(groupFilterMembers!==null){
+      // Filtre E: groupe
+      return groupFilterMembers.some(m=>cl.toLowerCase()===m.toLowerCase());
+    }
+    if(clientFilterLower) return cl.toLowerCase().includes(clientFilterLower);
+    return true;
+  };
   // Ventes-specific filters (canal + mois)
   const CA_AUTRES=r=>!CA_CANAUX.includes(r['Canal']);
   const ventesBaseFilter=r=>baseFilter(r)
@@ -8552,10 +8594,23 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cu
           </select>}
           <span style={{fontSize:11,color:'#9e9890'}}>🔍</span>
           <input value={clientFilter} onChange={e=>setClientFilter(e.target.value)}
-            placeholder="Filtrer par client..."
-            style={{fontSize:12,padding:'5px 10px',borderRadius:6,border:'1px solid #e2ddd6',outline:'none',width:180,background:'#fff'}}/>
+            placeholder="Filtrer par client… ou E: Groupe"
+            style={{fontSize:12,padding:'5px 10px',borderRadius:6,border:'1px solid #e2ddd6',outline:'none',width:210,background:'#fff'}}/>
           {clientFilter&&<button onClick={()=>setClientFilter('')}
             style={{fontSize:11,padding:'3px 7px',borderRadius:6,border:'1px solid #e2ddd6',background:'#fff',cursor:'pointer',color:'#6b6560'}}>✕</button>}
+          {/* Bouton + groupes : visible si filtre texte non vide, non-groupe, et owner */}
+          {isOwner&&clientFilterLowerRaw&&!groupFilterName&&(()=>{
+            // Trouver les clients distincts matchés par le filtre texte
+            const matchedClients=[...new Set(rows
+              .filter(r=>CA_CANAUX.includes(r['Canal'])&&!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']))
+              .map(r=>r['Client PL']||r['Tiers']||'')
+              .filter(cl=>cl&&cl.toLowerCase().includes(clientFilterLower))
+            )].sort();
+            if(matchedClients.length===0)return null;
+            return <button onClick={()=>setGroupModal({clients:matchedClients})}
+              title="Gérer les groupes pour ces clients"
+              style={{fontSize:13,fontWeight:600,padding:'3px 9px',borderRadius:6,border:'1px solid #2d6a4f',background:'#d8f3dc',color:'#2d6a4f',cursor:'pointer'}}>＋ Groupe</button>;
+          })()}
         </div>
       </div>
 
@@ -8721,6 +8776,60 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cu
         })()}
         {activeAppelations&&<button onClick={()=>setActiveAppelations(null)}
           style={{padding:'2px 7px',borderRadius:5,border:'1px solid #e2ddd6',background:'#fff',color:'#9e9890',fontSize:10,cursor:'pointer'}}>✕ Tout</button>}
+      </div>}
+
+      {/* Modal groupes clients */}
+      {groupModal&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}
+        onClick={e=>{if(e.target===e.currentTarget)setGroupModal(null);}}>
+        <div style={{background:'#fff',borderRadius:12,padding:24,maxWidth:480,width:'90%',maxHeight:'80vh',overflowY:'auto',boxShadow:'0 8px 32px rgba(0,0,0,0.18)'}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
+            <div style={{fontWeight:600,fontSize:15}}>Groupes clients</div>
+            <button onClick={()=>setGroupModal(null)} style={{border:'none',background:'none',fontSize:18,cursor:'pointer',color:'#9e9890'}}>✕</button>
+          </div>
+          {groupModal.clients.map(clientName=>{
+            const clientGroups=getClientGroups(clientName);
+            return <div key={clientName} style={{marginBottom:16,padding:12,background:'#f8f7f5',borderRadius:8,border:'1px solid #e2ddd6'}}>
+              <div style={{fontSize:13,fontWeight:600,color:'#1a1814',marginBottom:8}}>{clientName}</div>
+              {/* Groupes actuels */}
+              {clientGroups.length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:8}}>
+                {clientGroups.map(g=><span key={g} style={{display:'inline-flex',alignItems:'center',gap:4,fontSize:11,background:'#dbeafe',color:'#1d4ed8',borderRadius:20,padding:'2px 10px',border:'1px solid #bfdbfe'}}>
+                  {g}
+                  <button onClick={()=>removeFromGroup(clientName,g)}
+                    style={{border:'none',background:'none',cursor:'pointer',color:'#93c5fd',fontSize:12,padding:0,lineHeight:1}}>✕</button>
+                </span>)}
+              </div>}
+              {clientGroups.length===0&&<div style={{fontSize:11,color:'#9e9890',marginBottom:8}}>Aucun groupe</div>}
+              {/* Groupes existants à rejoindre */}
+              {Object.keys(groups).filter(g=>!clientGroups.includes(g)).length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>
+                <span style={{fontSize:10,color:'#9e9890',alignSelf:'center'}}>Ajouter à :</span>
+                {Object.keys(groups).filter(g=>!clientGroups.includes(g)).map(g=><button key={g}
+                  onClick={()=>addToGroup(clientName,g)}
+                  style={{fontSize:11,padding:'2px 8px',borderRadius:20,border:'1px solid #e2ddd6',background:'#fff',color:'#6b6560',cursor:'pointer'}}>+ {g}</button>)}
+              </div>}
+              {/* Créer un nouveau groupe */}
+              <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                <input value={newGroupName} onChange={e=>setNewGroupName(e.target.value)}
+                  placeholder="Nouveau groupe…"
+                  onKeyDown={e=>{if(e.key==='Enter'&&newGroupName.trim()){addToGroup(clientName,newGroupName.trim());setNewGroupName('');}}}
+                  style={{fontSize:11,padding:'4px 8px',borderRadius:6,border:'1px solid #e2ddd6',outline:'none',flex:1}}/>
+                <button onClick={()=>{if(newGroupName.trim()){addToGroup(clientName,newGroupName.trim());setNewGroupName('');}}}
+                  style={{fontSize:11,padding:'4px 10px',borderRadius:6,border:'1px solid #2d6a4f',background:'#2d6a4f',color:'#fff',cursor:'pointer'}}>Créer</button>
+              </div>
+            </div>;
+          })}
+          {/* Liste de tous les groupes */}
+          {Object.keys(groups).length>0&&<div style={{marginTop:8,paddingTop:12,borderTop:'1px solid #e2ddd6'}}>
+            <div style={{fontSize:11,color:'#9e9890',marginBottom:6}}>Tous les groupes :</div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+              {Object.entries(groups).map(([g,members])=><span key={g}
+                onClick={()=>{setGroupModal(null);setClientFilter(`E: ${g}`);}}
+                title={`${members.length} client(s) — cliquer pour filtrer`}
+                style={{fontSize:11,background:'#f0fdf4',color:'#166534',borderRadius:20,padding:'2px 10px',border:'1px solid #bbf7d0',cursor:'pointer'}}>
+                {g} <span style={{opacity:.6}}>({members.length})</span>
+              </span>)}
+            </div>
+          </div>}
+        </div>
       </div>}
 
       {/* Content */}
