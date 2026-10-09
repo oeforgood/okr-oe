@@ -6469,7 +6469,7 @@ function StatusDot({status,onClick,clickable=false,title=''}){
     onClick={clickable?onClick:undefined}
     title={title}
     style={{
-      display:'inline-block',width:10,height:10,borderRadius:'50%',flexShrink:0,
+      display:'inline-block',width:5,height:5,borderRadius:'50%',flexShrink:0,
       background:STATUS_DOT_COLORS[s],border:'1px solid rgba(0,0,0,0.1)',
       cursor:clickable?'pointer':'default',transition:'background .15s',
       verticalAlign:'middle',
