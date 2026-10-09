@@ -8599,7 +8599,7 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cu
           {clientFilter&&<button onClick={()=>setClientFilter('')}
             style={{fontSize:11,padding:'3px 7px',borderRadius:6,border:'1px solid #e2ddd6',background:'#fff',cursor:'pointer',color:'#6b6560'}}>✕</button>}
           {/* Bouton + groupes : visible si filtre texte non vide, non-groupe, et owner */}
-          {isOwner&&clientFilterLowerRaw&&!groupFilterName&&(()=>{
+          {clientFilterLowerRaw&&!groupFilterName&&(()=>{
             // Trouver les clients distincts matchés par le filtre texte
             const matchedClients=[...new Set(rows
               .filter(r=>CA_CANAUX.includes(r['Canal'])&&!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']))
