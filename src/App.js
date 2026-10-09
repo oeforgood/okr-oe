@@ -6085,6 +6085,43 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
   const [bsv3Msg,setBsv3Msg]=useState('');
   const [bsv3History,setBsv3History]=useState([]);
   const [histExpanded,setHistExpanded]=useState(false);
+  const [groupsUploading,setGroupsUploading]=useState(false);
+  const [groupsMsg,setGroupsMsg]=useState('');
+
+  async function handleGroupsCsvUpload(file){
+    if(!file)return;
+    setGroupsUploading(true);setGroupsMsg('Lecture du fichier...');
+    try{
+      const text=await file.text();
+      const lines=text.split('\n').filter(l=>l.trim());
+      // Ligne 1 = titre (ignorée), ligne 2 = headers, données à partir de ligne 3
+      const rawHeaders=lines[1]?.split(',').map(h=>h.trim().replace(/^"|"$/g,''))||[];
+      // Trouver indices des colonnes
+      const iHs=rawHeaders.findIndex(h=>h.toLowerCase().includes('hubspot')||h.toLowerCase().includes('identifiant'));
+      const iCode=rawHeaders.findIndex(h=>h.toLowerCase().includes('code'));
+      const iClient=rawHeaders.findIndex(h=>h.toLowerCase().includes('client'));
+      if(iHs<0||iCode<0||iClient<0){setGroupsMsg('❌ Colonnes introuvables (HubSpot ID, Code, Client)');setGroupsUploading(false);return;}
+      const csvGroups={};
+      lines.slice(2).forEach(l=>{
+        const fields=[];let cur='',inQ=false;
+        for(const ch of l){if(ch==='"'){inQ=!inQ;}else if(ch===','&&!inQ){fields.push(cur.trim());cur='';}else cur+=ch;}
+        fields.push(cur.trim());
+        const hsId=(fields[iHs]||'').replace(/^"|"$/g,'').trim();
+        const code=(fields[iCode]||'').replace(/^"|"$/g,'').trim();
+        const client=(fields[iClient]||'').replace(/^"|"$/g,'').trim();
+        if(!hsId||!client)return;
+        if(!csvGroups[client])csvGroups[client]={code,members:[]};
+        if(!csvGroups[client].members.includes(hsId))csvGroups[client].members.push(hsId);
+      });
+      const snap=await getDoc(doc(db,'bsv3_groups','data'));
+      const existing=snap.exists()?snap.data():{};
+      await setDoc(doc(db,'bsv3_groups','data'),{...existing,csvGroups});
+      const nb=Object.keys(csvGroups).length;
+      const total=Object.values(csvGroups).reduce((s,g)=>s+g.members.length,0);
+      setGroupsMsg(`✅ ${nb} groupe${nb>1?'s':''} importé${nb>1?'s':''} — ${total} association${total>1?'s':''}`);
+    }catch(e){setGroupsMsg('❌ Erreur: '+e.message);}
+    setGroupsUploading(false);
+  }
   useEffect(()=>{
     if(tab!=='bsv3')return;
     getDoc(doc(db,'bsv3_history','log')).then(snap=>{
@@ -6285,6 +6322,17 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
             onChange={e=>e.target.files[0]&&handleBsv3Upload(e.target.files[0])}/>
         </label>
         {bsv3Msg&&<div style={{marginTop:12,fontSize:13,color:bsv3Msg.startsWith('❌')?'#c0392b':'#2d6a4f'}}>{bsv3Msg}</div>}
+
+        <div style={{marginTop:24,paddingTop:20,borderTop:'1px solid #e2ddd6'}}>
+          <div style={{fontSize:14,fontWeight:600,marginBottom:6}}>👥 Groupes clients (CSV)</div>
+          <p style={{fontSize:12,color:'#6b6560',marginBottom:12}}>Importez un CSV avec 3 colonnes : <b>Hubspot ID</b>, <b>Code regroupement</b>, <b>Client</b> (nom du groupe). Les groupes existants seront remplacés.</p>
+          <label style={{display:'inline-block',padding:'8px 16px',background:'#1d4ed8',color:'#fff',borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:500}}>
+            {groupsUploading?'Importation...':'📂 Importer les groupes CSV'}
+            <input type="file" accept=".csv" style={{display:'none'}} disabled={groupsUploading}
+              onChange={e=>e.target.files[0]&&handleGroupsCsvUpload(e.target.files[0])}/>
+          </label>
+          {groupsMsg&&<div style={{marginTop:10,fontSize:12,color:groupsMsg.startsWith('❌')?'#c0392b':'#2d6a4f'}}>{groupsMsg}</div>}
+        </div>
       </div>}
         {bsv3History.length>0&&<div style={{marginTop:16}}>
           {(()=>{
@@ -8459,18 +8507,24 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cu
   const [proprietaireFilter,setProprietaireFilter]=React.useState('');
 
   // ── Groupes clients ──────────────────────────────────────────────────────
-  const [groups,setGroups]=React.useState({}); // {groupName:[clientName,...]}
+  const [groups,setGroups]=React.useState({}); // {groupName:[clientName,...]} groupes manuels
+  const [csvGroups,setCsvGroups]=React.useState({}); // {groupName:{code, members:[hsId,...]}} groupes CSV
   const [groupModal,setGroupModal]=React.useState(null); // {clientName}
   const [newGroupName,setNewGroupName]=React.useState('');
   const isOwner=currentUser?.email===OWNER_EMAIL;
 
   React.useEffect(()=>{
-    getDoc(doc(db,'bsv3_groups','data')).then(snap=>{if(snap.exists())setGroups(snap.data().groups||{});});
+    getDoc(doc(db,'bsv3_groups','data')).then(snap=>{
+      if(snap.exists()){
+        setGroups(snap.data().groups||{});
+        setCsvGroups(snap.data().csvGroups||{});
+      }
+    });
   },[]);
 
   async function saveGroups(next){
     setGroups(next);
-    await setDoc(doc(db,'bsv3_groups','data'),{groups:next});
+    await setDoc(doc(db,'bsv3_groups','data'),{groups:next,csvGroups},{merge:false});
   }
   function getClientGroups(clientName){
     return Object.entries(groups).filter(([,members])=>members.includes(clientName)).map(([g])=>g);
@@ -8487,11 +8541,27 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cu
     await saveGroups(next);
   }
 
+  // Liste ordonnée de tous les groupes pour le menu déroulant
+  // groupes CSV (avec code) triés alpha, puis groupes manuels triés alpha
+  const allGroupsSorted=React.useMemo(()=>{
+    const csv=Object.entries(csvGroups).map(([name,{code}])=>({name,code,isCsv:true})).sort((a,b)=>a.name.localeCompare(b.name,'fr',{sensitivity:'base'}));
+    const manual=Object.keys(groups).filter(g=>!csvGroups[g]).map(name=>({name,code:null,isCsv:false})).sort((a,b)=>a.name.localeCompare(b.name,'fr',{sensitivity:'base'}));
+    return [...csv,...manual];
+  },[csvGroups,groups]);
+
   // Résoudre le filtre "E: Nom Groupe"
   const clientFilterLowerRaw=clientFilter.trim();
-  const groupMatch=clientFilterLowerRaw.match(/^[Ee]:\s*(.+)$/);
+  const groupMatch=clientFilterLowerRaw.match(/^[Ee]:\s*(.*)$/);
   const groupFilterName=groupMatch?groupMatch[1].trim():null;
-  const groupFilterMembers=groupFilterName?(groups[groupFilterName]||[]):null;
+  // groupFilterName peut être vide (juste "E:") — dans ce cas on affiche le select sans filtrer
+  const groupFilterActive=groupMatch!==null; // true dès qu'on tape "E:"
+
+  // Membres du groupe sélectionné pour le filtre
+  // Groupes CSV : membres = hsIds → on compare à r['ID HubSpot']
+  // Groupes manuels : membres = noms clients → on compare à cl
+  const groupFilterIsCsv=groupFilterName&&csvGroups[groupFilterName]!==undefined;
+  const groupFilterCsvIds=groupFilterIsCsv?(csvGroups[groupFilterName]?.members||[]):null;
+  const groupFilterManualMembers=groupFilterName&&!groupFilterIsCsv?(groups[groupFilterName]||[]):null;
   const [levels,setLevels]=React.useState(['client','produit','facture']);
   const [ytdMode,setYtdMode]=React.useState(false);
   const [activeVentesCanaux,setActiveVentesCanaux]=React.useState(null);
@@ -8517,9 +8587,22 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cu
     if(!CA_CANAUX.includes(r['Canal']))return false;
     if(proprietaireFilter&&(r['Propriétaire HS']||'')!==proprietaireFilter)return false;
     const cl=r['Client PL']||r['Tiers']||'';
-    if(groupFilterMembers!==null){
-      // Filtre E: groupe
-      return groupFilterMembers.some(m=>cl.toLowerCase()===m.toLowerCase());
+    if(groupFilterIsCsv&&groupFilterCsvIds){
+      // Filtre E: groupe CSV → par ID HubSpot
+      const hsId=r['ID HubSpot']||'';
+      return groupFilterCsvIds.includes(hsId);
+    }
+    if(groupFilterManualMembers){
+      // Filtre E: groupe manuel → par nom client
+      return groupFilterManualMembers.some(m=>cl.toLowerCase()===m.toLowerCase());
+    }
+    if(groupFilterActive&&groupFilterName){
+      // Groupe tapé mais inconnu → aucune correspondance
+      return false;
+    }
+    if(groupFilterActive&&!groupFilterName){
+      // Juste "E:" sans nom → on montre tout (le select est affiché)
+      return true;
     }
     if(clientFilterLower) return cl.toLowerCase().includes(clientFilterLower);
     return true;
@@ -8600,9 +8683,22 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cu
             style={{fontSize:12,padding:'5px 10px',borderRadius:6,border:'1px solid #e2ddd6',outline:'none',width:210,background:'#fff'}}/>
           {clientFilter&&<button onClick={()=>setClientFilter('')}
             style={{fontSize:11,padding:'3px 7px',borderRadius:6,border:'1px solid #e2ddd6',background:'#fff',cursor:'pointer',color:'#6b6560'}}>✕</button>}
-          {/* Bouton + groupes : visible si filtre texte non vide, non-groupe, et owner */}
-          {clientFilterLowerRaw&&!groupFilterName&&(()=>{
-            // Trouver les clients distincts matchés par le filtre texte
+          {/* Si "E:" : menu déroulant des groupes. Sinon : bouton +Groupe si filtre texte */}
+          {groupFilterActive?(
+            <select value={groupFilterName||''}
+              onChange={e=>setClientFilter(e.target.value?`E: ${e.target.value}`:'E:')}
+              style={{fontSize:12,padding:'4px 8px',borderRadius:6,border:'1px solid #2d6a4f',background:'#d8f3dc',color:'#2d6a4f',cursor:'pointer',fontWeight:600,outline:'none',minWidth:180}}>
+              <option value=''>— Choisir un groupe —</option>
+              {allGroupsSorted.length>0&&<>
+                {allGroupsSorted.filter(g=>g.isCsv).length>0&&<optgroup label="Groupes CSV">
+                  {allGroupsSorted.filter(g=>g.isCsv).map(g=><option key={g.name} value={g.name}>{g.name} / {g.code}</option>)}
+                </optgroup>}
+                {allGroupsSorted.filter(g=>!g.isCsv).length>0&&<optgroup label="Groupes manuels">
+                  {allGroupsSorted.filter(g=>!g.isCsv).map(g=><option key={g.name} value={g.name}>{g.name}</option>)}
+                </optgroup>}
+              </>}
+            </select>
+          ):clientFilterLowerRaw&&(()=>{
             const matchedClients=[...new Set(rows
               .filter(r=>CA_CANAUX.includes(r['Canal'])&&!BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']))
               .map(r=>r['Client PL']||r['Tiers']||'')
