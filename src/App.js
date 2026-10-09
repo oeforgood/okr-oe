@@ -6546,9 +6546,14 @@ function SobjSection({sobj,krs,people,objLocked,onEditKR,onAddKR,onEditSobj,coll
     const targetIdx=without.indexOf(targetKR);
     const insertAt=insertBefore?targetIdx:targetIdx+1;
     without.splice(insertAt,0,dragKR);
-    const newKRs=without.map((kr,idx)=>({...kr,id:`${sobj.id}.${idx+1}`,parent:sobj.id}));
+    const oldToNew={};
+    const newKRs=without.map((kr,idx)=>{
+      const newId=`${sobj.id}.${idx+1}`;
+      if(kr.id!==newId)oldToNew[kr.id]=newId;
+      return {...kr,id:newId,parent:sobj.id};
+    });
     const otherKRs=krs.filter(k=>k.parent!==sobj.id||!k.title);
-    onReorderKRs([...otherKRs,...newKRs]);
+    onReorderKRs([...otherKRs,...newKRs],oldToNew);
   }
   function handleDragOverKR(e,targetId){
     e.preventDefault();
@@ -7219,7 +7224,19 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cur
                     onEditKR={kr=>setModal({type:"kr",item:kr,sobjId:kr.parent,locked:objLocked})}
                     onAddKR={sid=>setModal({type:"kr",item:null,sobjId:sid,locked:objLocked})}
                     onEditSobj={s=>setModal({type:"sobj",item:s,isNew:false,parentObjId:obj.id})}
-                    collapsed={collSobj} toggle={toggleSobj} onReorderKRs={newKRs=>updateSeason({keyresults:newKRs})}
+                    collapsed={collSobj} toggle={toggleSobj} onReorderKRs={(newKRs,oldToNew)=>{
+                      // Migrer krStatus : les anciens IDs → nouveaux IDs
+                      if(oldToNew&&Object.keys(oldToNew).length){
+                        const next={};
+                        Object.entries(krStatus).forEach(([oldId,st])=>{
+                          const newId=oldToNew[oldId]||oldId;
+                          if(st&&st!=='gray')next[newId]=st;
+                        });
+                        updateSeason({keyresults:newKRs,krStatus:next});
+                      } else {
+                        updateSeason({keyresults:newKRs});
+                      }
+                    }}
                     krStatus={krStatus} onSetKRStatus={setKRStatus} isOwner={isOwner}
                     sobjStatus={getSobjStatus(sobj.id)}/>
                 </div>;
