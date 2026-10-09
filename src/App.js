@@ -6461,7 +6461,23 @@ function UnlockModal({objTitle,onClose,onUnlock}){
 }
 
 // ─── OKR SUB-COMPONENTS ───────────────────────────────────────────────────────
-function SobjSection({sobj,krs,people,objLocked,onEditKR,onAddKR,onEditSobj,collapsed,toggle,onReorderKRs,filterP}){
+// ─── STATUS DOT ───────────────────────────────────────────────────────────────
+function StatusDot({status,onClick,clickable=false,title=''}){
+  const colors={green:'#2d6a4f',orange:'#b5680f',gray:'#c8c3bc'};
+  const bgs={green:'#d8f3dc',orange:'#fef3c7',gray:'#f0ede8'};
+  const s=status||'gray';
+  return <span
+    onClick={clickable?onClick:undefined}
+    title={title}
+    style={{
+      display:'inline-block',width:10,height:10,borderRadius:'50%',
+      background:bgs[s],border:`1.5px solid ${colors[s]}`,flexShrink:0,
+      cursor:clickable?'pointer':'default',transition:'background .15s,border-color .15s',
+      verticalAlign:'middle',
+    }}/>;
+}
+
+function SobjSection({sobj,krs,people,objLocked,onEditKR,onAddKR,onEditSobj,collapsed,toggle,onReorderKRs,filterP,krStatus={},onSetKRStatus,isOwner=false,sobjStatus='gray'}){
   const open=!collapsed[sobj.id];
   const prog=calcSobj(sobj.id,krs);
   const myKRs=krs.filter(k=>k.parent===sobj.id&&k.title&&(!filterP||k.owner===filterP));
@@ -6510,6 +6526,7 @@ function SobjSection({sobj,krs,people,objLocked,onEditKR,onAddKR,onEditSobj,coll
         {!objLocked&&<button onClick={()=>onEditSobj(sobj)} style={{width:22,height:22,borderRadius:5,border:"none",background:"none",cursor:"pointer",color:"#9e9890"}}>
           <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>}
+        <StatusDot status={sobjStatus} clickable={false} title="Statut sous-objectif"/>
         <span onClick={()=>toggle(sobj.id)} style={{fontSize:11,color:"#9e9890",cursor:"pointer",display:"inline-block",transform:open?"rotate(180deg)":"none",transition:"transform .2s"}}>▾</span>
       </div>
     </div>
@@ -6551,9 +6568,23 @@ function SobjSection({sobj,krs,people,objLocked,onEditKR,onAddKR,onEditSobj,coll
                 <div style={{width:48,height:4,background:"#e2ddd6",borderRadius:2,overflow:"hidden"}}><div style={{width:`${Math.min(p,100)}%`,height:"100%",background:col,borderRadius:2}}/></div>
                 <span style={{fontSize:11,fontWeight:600,color:col,fontFamily:"monospace",minWidth:26}}>{Math.round(p)}%</span>
               </div></td>
-              <td style={cell}><button onClick={()=>onEditKR(kr)} style={{width:22,height:22,borderRadius:5,border:"none",background:"none",cursor:"pointer",color:"#9e9890"}}>
-                <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-              </button></td>
+              <td style={{...cell,whiteSpace:'nowrap'}}>
+                <div style={{display:'flex',alignItems:'center',gap:6}}>
+                  <button onClick={()=>onEditKR(kr)} style={{width:22,height:22,borderRadius:5,border:"none",background:"none",cursor:"pointer",color:"#9e9890"}}>
+                    <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </button>
+                  <StatusDot
+                    status={krStatus[kr.id]||'gray'}
+                    clickable={isOwner}
+                    title={isOwner?'Cliquer pour changer le statut':''}
+                    onClick={()=>{
+                      const cur=krStatus[kr.id]||'gray';
+                      const next=cur==='gray'?'green':cur==='green'?'orange':'gray';
+                      onSetKRStatus(kr.id,next);
+                    }}
+                  />
+                </div>
+              </td>
             </tr>
             {dragOverKR?.id===kr.id&&!dragOverKR?.before&&<tr><td colSpan={20} style={{height:2,background:'#2d6a4f',padding:0}}/></tr>}
           </React.Fragment>;
@@ -6864,6 +6895,31 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cur
 
   const season=allSeasons[seasonKey]||allSeasons["printemps_2026"];
   const{objectives,subobjectives,keyresults}=season;
+  const krStatus=season.krStatus||{};
+  function setKRStatus(krId,status){
+    const next={...krStatus,[krId]:status==='gray'?undefined:status};
+    // Nettoyer les undefined
+    Object.keys(next).forEach(k=>{if(!next[k])delete next[k];});
+    updateSeason({krStatus:next});
+  }
+  // Calcul automatique du statut sobj : all green→green, any orange→orange, sinon gray
+  function getSobjStatus(sobjId){
+    const myKRs=keyresults.filter(k=>k.parent===sobjId&&k.title);
+    if(!myKRs.length)return'gray';
+    const statuses=myKRs.map(k=>krStatus[k.id]||'gray');
+    if(statuses.every(s=>s==='green'))return'green';
+    if(statuses.some(s=>s==='orange'))return'orange';
+    return'gray';
+  }
+  // Calcul automatique du statut obj
+  function getObjStatus(objId){
+    const mySobjs=subobjectives.filter(s=>s.parent===objId);
+    if(!mySobjs.length)return'gray';
+    const statuses=mySobjs.map(s=>getSobjStatus(s.id));
+    if(statuses.every(s=>s==='green'))return'green';
+    if(statuses.some(s=>s==='orange'))return'orange';
+    return'gray';
+  }
   // Membres visibles dans l'onglet OKR :
   // - tous ceux dont le rôle n'est pas "inactive" (= "Fini")
   // - OU ceux qui sont propriétaires d'au moins un KR cette saison
@@ -7094,6 +7150,7 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cur
                   style={{width:24,height:24,borderRadius:5,border:"none",background:"none",cursor:"pointer",color:objLocked?"#f59e0b":"#9e9890"}}>
                   {objLocked?<span style={{fontSize:16}}>🔒</span>:<svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>}
                 </button>
+                <StatusDot status={getObjStatus(obj.id)} clickable={false} title="Statut objectif"/>
                 <span style={{fontSize:11,color:"#9e9890",display:"inline-block",transform:open?"rotate(180deg)":"none",transition:"transform .2s"}}>▾</span>
               </div>
             </div>
@@ -7113,7 +7170,9 @@ function OKRPage({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cur
                     onEditKR={kr=>setModal({type:"kr",item:kr,sobjId:kr.parent,locked:objLocked})}
                     onAddKR={sid=>setModal({type:"kr",item:null,sobjId:sid,locked:objLocked})}
                     onEditSobj={s=>setModal({type:"sobj",item:s,isNew:false,parentObjId:obj.id})}
-                    collapsed={collSobj} toggle={toggleSobj} onReorderKRs={newKRs=>updateSeason({keyresults:newKRs})}/>
+                    collapsed={collSobj} toggle={toggleSobj} onReorderKRs={newKRs=>updateSeason({keyresults:newKRs})}
+                    krStatus={krStatus} onSetKRStatus={setKRStatus} isOwner={isOwner}
+                    sobjStatus={getSobjStatus(sobj.id)}/>
                 </div>;
               })}
               {!objLocked&&<button onClick={()=>setModal({type:"sobj",item:null,isNew:true,parentObjId:obj.id})}
