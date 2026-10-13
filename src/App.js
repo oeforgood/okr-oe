@@ -3599,14 +3599,46 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
         if(c.startsWith('5'))return'autres_autre';
         return null;
       }
-      const lines=text.split('\n');
-      const headers=parseCSVLine(lines[0]);
+      // Parser CSV complet gérant les champs multiligne entre guillemets
+      function parseCSVFull(text){
+        const records=[];
+        let i=0,n=text.length;
+        while(i<n){
+          // Lire un enregistrement (une ligne logique, potentiellement multiligne)
+          const fields=[];
+          while(i<n){
+            if(text[i]==='"'){
+              // Champ entre guillemets — peut contenir des \n
+              i++; let val='';
+              while(i<n){
+                if(text[i]==='"'){
+                  if(text[i+1]==='"'){val+='"';i+=2;} // guillemet échappé ""
+                  else{i++;break;} // fin du champ
+                } else {val+=text[i];i++;}
+              }
+              fields.push(val.trim());
+            } else {
+              // Champ sans guillemets
+              let val='';
+              while(i<n&&text[i]!==','&&text[i]!=='\n'&&text[i]!=='\r'){val+=text[i];i++;}
+              fields.push(val.trim());
+            }
+            // Après le champ : virgule → champ suivant, \r\n ou \n → fin d'enregistrement
+            if(i<n&&text[i]===','){i++;continue;}
+            if(i<n&&text[i]==='\r')i++;
+            if(i<n&&text[i]==='\n')i++;
+            break;
+          }
+          if(fields.length>1||fields[0])records.push(fields);
+        }
+        return records;
+      }
+      const records=parseCSVFull(text);
+      const headers=records[0]||[];
       const rows=[];
-      for(let i=1;i<lines.length;i++){
-        if(!lines[i].trim())continue;
-        const cols=parseCSVLine(lines[i]);
-        if(cols.length<5)continue;
-        // Ignorer les lignes vides (que des virgules, aucune valeur réelle)
+      for(let i=1;i<records.length;i++){
+        const cols=records[i];
+        if(!cols||cols.length<5)continue;
         if(cols.every(c=>!c.trim()))continue;
         const obj={}; headers.forEach((h,idx)=>{obj[h]=cols[idx]||'';});
         // Ignorer les lignes sans données comptables (26 premières colonnes toutes vides = lignes de calcul GSheets)
