@@ -512,14 +512,17 @@ function UpdateStreak({myUpdates, allUpdates=[], onGoUpdate}){
 
 function NotifDetail({notif, teamMember, teamMembers=[], onSendMessage, onMarkAsRead, onClose}) {
   const answers=notif?.answers||{};
-  const moodVal=answers.q7||"";
+  // q6 is stored separately as notif.confidentiel (not in answers)
+  const answersWithConfidentiel={...answers};
+  if(notif?.confidentiel&&!answersWithConfidentiel.q6)answersWithConfidentiel.q6=notif.confidentiel;
+  const moodVal=answersWithConfidentiel.q7||"";
   // q6 visible if viewer is author's manager
   const viewerEmail=teamMember?.email;
   const authorEmail=notif?.fromEmail||notif?.email;
   const isManager=!!(viewerEmail&&authorEmail&&
     teamMembers.find(m=>m.email===authorEmail&&m.managerEmail===viewerEmail));
   const allQs=notif?.weekQuestions||DEFAULT_QUESTIONS;
-  const visibleQs=allQs.filter(q=>answers[q.id]&&(q.id!=='q6'||isManager));
+  const visibleQs=allQs.filter(q=>answersWithConfidentiel[q.id]&&(q.id!=='q6'||isManager));
   const [replyText,setReplyText]=useState('');
   const [replySent,setReplySent]=useState(false);
   const [marked,setMarked]=useState(!!(notif?.markedRead||notif?.read));
@@ -544,7 +547,7 @@ function NotifDetail({notif, teamMember, teamMembers=[], onSendMessage, onMarkAs
   return <div>
     {moodVal&&<div style={{fontSize:28,marginBottom:8}}>{moodVal}</div>}
     {visibleQs.map(q=>{
-      const val=answers[q.id];if(!val)return null;
+      const val=answersWithConfidentiel[q.id];if(!val)return null;
       if(q.type==="mood")return null;
       if(q.type==="presence")return <div key={q.id} style={{marginBottom:10}}>
         <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:3}}>{q.text.replace(" *","")}</div>
@@ -1749,7 +1752,10 @@ function UpdateCalendar({myUpdates,onView}){
 function UpdateViewModal({notif,onClose,onRead,teamMembers=[],readOnly=false}){
   const u=notif.updateData||notif;
   const weekLabel=notif.weekKey?fmtWeekLabel(notif.weekKey):"";
-  const answers=u.answers||u.updateData?.answers||{};
+  const rawAnswers=u.answers||u.updateData?.answers||{};
+  // q6 is stored separately as notif.confidentiel (not in answers) to hide it from non-managers
+  const answers={...rawAnswers};
+  if((notif.confidentiel||u.confidentiel)&&!answers.q6)answers.q6=notif.confidentiel||u.confidentiel;
   const moodVal=answers.q7||"";
   // Show questions in DEFAULT_QUESTIONS order, skip q7 (shown in title)
   // q6 visible only if own update or viewer is the manager
@@ -3638,10 +3644,11 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
       }
       setGlImportMsg(`${rows.length} lignes lues — récupération des lignes déjà en base…`);
 
-      // Récupérer les lignes déjà présentes
+      // Récupérer les lignes déjà présentes (1 seul getDocs — sert aussi pour le recalcul agrégats)
       const existingSnap = await getDocs(collection(db,'grandLivre2026'));
-      const existingIds = new Set(existingSnap.docs.map(d=>d.id));
-      setGlImportMsg(`${existingIds.size} lignes déjà en base — calcul des nouvelles lignes…`);
+      // Map id → data pour comparer les champs modifiés (upsert)
+      const existingMap = new Map(existingSnap.docs.map(d=>[d.id, d.data()]));
+      setGlImportMsg(`${existingMap.size} lignes déjà en base — calcul des lignes à importer…`);
 
       // Patcher les lignes existantes sans bilKey (migration transparente)
       const docsWithoutBilKey = existingSnap.docs.filter(d=>!d.data().bilKey && d.data().compte);
@@ -3656,17 +3663,32 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
           });
           await batch.commit();
         }
-        setGlImportMsg(`Migration bilKey terminée — calcul des nouvelles lignes…`);
+        setGlImportMsg(`Migration bilKey terminée — calcul des lignes à importer…`);
       }
 
-      const newRows = rows.filter(r=>!existingIds.has(r._id));
+      // Séparer nouvelles lignes et lignes modifiées (upsert sur champs clés)
+      const newRows = [];
+      const updatedRows = [];
+      rows.forEach(r=>{
+        const existing=existingMap.get(r._id);
+        if(!existing){
+          newRows.push(r);
+        } else {
+          // Comparer les champs analytiques susceptibles d'être modifiés dans le Grand Livre
+          const changed=existing.subcat!==r.subcat||existing.canal!==r.canal||
+            existing.amount!==r.amount||existing.bilKey!==r.bilKey||
+            existing.month!==r.month||existing.year!==r.year;
+          if(changed) updatedRows.push(r);
+        }
+      });
+      const toWrite=[...newRows,...updatedRows];
 
-      // Importer par batch
+      // Importer par batch (nouvelles lignes + lignes modifiées)
       const BATCH_SIZE=400;
       let written=0;
-      let quotaReached=false;
-      for(let i=0;i<newRows.length;i+=BATCH_SIZE){
-        const slice=newRows.slice(i,i+BATCH_SIZE);
+      const quotaReached=false;
+      for(let i=0;i<toWrite.length;i+=BATCH_SIZE){
+        const slice=toWrite.slice(i,i+BATCH_SIZE);
         const batch=writeBatch(db);
         slice.forEach(row=>{
           const {_id,...data}=row;
@@ -3674,15 +3696,19 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
         });
         await batch.commit();
         written+=slice.length;
-        setGlImportMsg(`Import en cours… ${written} / ${newRows.length} nouvelles lignes`);
+        setGlImportMsg(`Import en cours… ${written} / ${toWrite.length} lignes (${newRows.length} nouvelles, ${updatedRows.length} modifiées)`);
       }
 
-      const remainingAfterQuota=quotaReached?newRows.length-written:0;
       {
-        const totalInBase=existingIds.size+written;
-        setGlImportMsg(`${quotaReached?`⏸ Quota atteint — ${written} lignes importées aujourd'hui, ${remainingAfterQuota} restantes pour demain — `:''}Recalcul du reporting en cours… (${totalInBase} lignes en base)`);
-        // ── Recalcul des agrégats depuis grandLivre2026 complet ──────────
-        const allSnap=await getDocs(collection(db,'grandLivre2026'));
+        const totalInBase=existingMap.size+newRows.length;
+        setGlImportMsg(`Recalcul du reporting en cours… (${totalInBase} lignes en base)`);
+        // ── Recalcul des agrégats depuis les données en mémoire (pas de 2ème getDocs) ──
+        // Construire une map id→data fusionnant existingSnap + lignes écrites (nouvelles/modifiées)
+        const writtenMap=new Map(toWrite.map(r=>{const{_id,...data}=r;return[_id,data];}));
+        // allDocs = docs existants mis à jour avec les écrits, + nouveaux
+        const allDocsData=existingSnap.docs.map(d=>writtenMap.has(d.id)?writtenMap.get(d.id):d.data());
+        newRows.forEach(r=>{const{_id,...data}=r;allDocsData.push(data);});
+        const totalSize=allDocsData.length;
         const RCANALS=['E-commerce B2C','B2C','CHR','Grands Comptes','Retail','Export','Autres B2B','Régénération'];
         // Normaliser B2C → E-commerce B2C (valeur CSV GSheets)
         const CANAL_NORM={'B2C':'E-commerce B2C'};
@@ -3705,8 +3731,7 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
           if(c.startsWith('5'))return{section:'autres',key:'autre'};
           return null;
         }
-        allSnap.docs.forEach(d=>{
-          const g=d.data();
+        allDocsData.forEach(g=>{
           const famille=g.famille||g.familleCategories||'';
           const compte=g.compte||g.numCompte||'';
           const canal=g.canal||'';
@@ -3758,9 +3783,11 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
         await setDoc(doc(db,'reporting','ca'),{caData,caRows,importedAt});
         if(Object.keys(chargeData).length>0)await setDoc(doc(db,'reporting','charges'),{chargeData,importedAt});
         await setDoc(doc(db,'reporting','bfr'),{bilData,importedAt});
-        await setDoc(doc(db,'reporting','meta'),{importedAt,source:'grandLivre2026',totalRows:allSnap.size});
-        const partialWarning=remainingAfterQuota>0?` ⚠️ Reporting partiel — ${remainingAfterQuota} lignes manquantes, relancez le même CSV demain pour compléter.`:'';
-        setGlImportMsg(`✅ ${written>0?written+' nouvelles lignes importées — ':'Aucune nouvelle ligne — '}Reporting recalculé depuis ${allSnap.size.toLocaleString('fr-FR')} lignes — CA : ${Object.keys(caData).length} canaux, Charges : ${Object.keys(chargeData).length} sous-catégories${partialWarning}`);
+        await setDoc(doc(db,'reporting','meta'),{importedAt,source:'grandLivre2026',totalRows:totalSize});
+        const summary=newRows.length>0||updatedRows.length>0
+          ?`${newRows.length>0?newRows.length+' nouvelles':''}${newRows.length>0&&updatedRows.length>0?' + ':''}${updatedRows.length>0?updatedRows.length+' modifiée(s)':''} — `
+          :'Aucune ligne nouvelle ou modifiée — ';
+        setGlImportMsg(`✅ ${summary}Reporting recalculé depuis ${totalSize.toLocaleString('fr-FR')} lignes — CA : ${Object.keys(caData).length} canaux, Charges : ${Object.keys(chargeData).length} sous-catégories`);
       }
     } catch(e) {
       setGlImportError('Erreur : '+e.message);
