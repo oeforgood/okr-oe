@@ -3457,6 +3457,137 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                 </ReportingRow>
               </>;
             })()}
+            {/* ── BFR DÉTAILLÉ v2 : variation mensuelle + solde réel YTD + drill-down 3 niveaux ── */}
+            {bfrData&&(()=>{
+              // Helpers
+              const toArr12=(monthsObj)=>{
+                const arr=Array(12).fill(0);
+                Object.entries(monthsObj||{}).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]+=v;});
+                return arr;
+              };
+              // Pour une section/key : variation par mois (hors AN)
+              const getVarArr=(section,key)=>toArr12(bfrData?.[section]?.[key]?.months||{});
+              // Solde AN d'une section/key (somme de tous les comptes AN)
+              const getAN=(section,key)=>Object.values(bfrData?.[section]?.[key]?.an||{}).reduce((s,v)=>s+v,0);
+              // YTD solde réel = AN + somme cumulative des variations jusqu'au mois courant
+              const getSoldeArr=(section,key)=>{
+                const varArr=getVarArr(section,key);
+                const an=getAN(section,key);
+                let cum=an;
+                return varArr.map(v=>{cum+=v;return cum;});
+              };
+
+              // Bloc pour BFR + Autres + Banques
+              const BfrSection=({sectionKey,label,composantes})=>{
+                const totalVarArr=Array(12).fill(0);
+                composantes.forEach(({section,key})=>{getVarArr(section,key).forEach((v,i)=>totalVarArr[i]+=v);});
+                const totalSoldeArr=Array(12).fill(0);
+                composantes.forEach(({section,key})=>{getSoldeArr(section,key).forEach((v,i)=>totalSoldeArr[i]+=v);});
+                return <>
+                  <tr><td colSpan={lastMonth+4} style={{padding:'20px 6px 4px',fontSize:11,fontWeight:700,color:'#6b6560',textTransform:'uppercase',letterSpacing:'.06em',background:'#fafaf8',borderTop:'2px solid #e2ddd6'}}>{label} — Nouveau</td></tr>
+                  {/* Ligne totale : variation mensuelle */}
+                  <ReportingRow label={`${label} (variation)`} months={totalVarArr} lastMonth={lastMonth} bold inKeur={inKeur}
+                    onClick={()=>toggle('v2_'+sectionKey)} isOpen={expanded['v2_'+sectionKey]}>
+                    {composantes.map(({section,key,label:compLabel})=>{
+                      const varArr=getVarArr(section,key);
+                      const byCompte=bfrData?.[section]?.[key]?.byCompte||{};
+                      const anByCompte=bfrData?.[section]?.[key]?.anByCompte||{};
+                      // Toutes les clés de compte (union variations + AN)
+                      const allComptes=[...new Set([...Object.keys(byCompte),...Object.keys(anByCompte)])].sort();
+                      return <ReportingRow key={key} label={compLabel} months={varArr} lastMonth={lastMonth} indent={1} inKeur={inKeur}
+                        onClick={()=>toggle('v2_'+sectionKey+'_'+key)} isOpen={expanded['v2_'+sectionKey+'_'+key]}>
+                        {allComptes.map(compte=>{
+                          const cpData=byCompte[compte]||{};
+                          const libC=cpData.libCompte||(anByCompte[compte]?.libCompte)||'';
+                          const cpVarArr=toArr12(cpData.months||{});
+                          const cpAN=anByCompte[compte]?.amount||0;
+                          const cpKey='v2_'+sectionKey+'_'+key+'_'+compte;
+                          // Solde cumulatif par compte : AN + Σ variations
+                          const cpSoldeArr=(()=>{let c=cpAN;return cpVarArr.map(v=>{c+=v;return c;});})();
+                          const hasAny=cpVarArr.some(v=>v!==0)||cpAN!==0;
+                          if(!hasAny)return null;
+                          return <ReportingRow key={compte} label={`${compte} · ${libC}`}
+                            months={cpVarArr} lastMonth={lastMonth} indent={2} inKeur={inKeur}
+                            onClick={()=>toggle(cpKey)} isOpen={expanded[cpKey]}>
+                            {expanded[cpKey]&&(()=>{
+                              // Charger les écritures à la demande depuis grandLivre2026
+                              const docKey=`${section}_${key}`;
+                              if(!bilEntries[docKey]&&loadBilEntriesRef.current){loadBilEntriesRef.current(section,key);}
+                              const allEntries=bilEntries[docKey]||[];
+                              const cpEntries=allEntries.filter(e=>e.compte===compte&&e.month<=lastMonth);
+                              if(bilEntries[docKey]===undefined)return <tr><td colSpan={20} style={{padding:'4px 40px',fontSize:11,color:'#9e9890'}}>Chargement…</td></tr>;
+                              // Afficher AN en tête si existant
+                              const anAmt=cpAN;
+                              return <>
+                                {anAmt!==0&&<tr style={{background:'#f0f9ff'}}>
+                                  <td style={{padding:'3px 4px 3px 52px',fontSize:10,color:'#0369a1',position:'sticky',left:0,background:'#f0f9ff',zIndex:1,borderBottom:'1px solid #e0f2fe',minWidth:220,maxWidth:220,width:220,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>Report à nouveau (AN)</td>
+                                  {Array(12).fill(null).map((v,i)=><React.Fragment key={i}>
+                                    {i===lastMonth&&<td style={{borderLeft:'2px solid #2d6a4f',borderRight:'2px solid #2d6a4f',background:'#f0fdf4',borderBottom:'1px solid #e0f2fe'}}></td>}
+                                    <td style={{padding:'3px 10px',fontSize:10,textAlign:'right',fontFamily:'system-ui,sans-serif',color:'#0369a1',borderBottom:'1px solid #e0f2fe',background:'transparent'}}></td>
+                                  </React.Fragment>)}
+                                  {lastMonth===12&&<td style={{borderLeft:'2px solid #2d6a4f',background:'#f0fdf4',borderBottom:'1px solid #e0f2fe'}}></td>}
+                                  <td style={{padding:'3px 10px',fontSize:10,textAlign:'right',fontFamily:'system-ui,sans-serif',color:'#0369a1',fontWeight:600,borderLeft:'1px solid #e2ddd6',borderBottom:'1px solid #e0f2fe'}}>{fmtAmount(anAmt,inKeur)}</td>
+                                </tr>}
+                                {cpEntries.sort((a,b)=>a.month-b.month||(a.date||'').localeCompare(b.date||'')).map((e,ei)=>{
+                                  const mArr=Array(12).fill(null);mArr[e.month-1]=e.amount;
+                                  const lbl=`${e.date||''} · ${e.tiers||e.libLigne||'—'}`;
+                                  return <tr key={ei} style={{background:'#efecea'}}>
+                                    <td style={{padding:'3px 4px 3px 52px',fontSize:10,color:'#6b6560',position:'sticky',left:0,background:'#efecea',zIndex:1,borderBottom:'1px solid #f0ede8',minWidth:220,maxWidth:220,width:220,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={lbl}>{lbl}</td>
+                                    {mArr.map((v,mi)=><React.Fragment key={mi}>
+                                      {mi===lastMonth&&<td style={{borderLeft:'2px solid #2d6a4f',borderRight:'2px solid #2d6a4f',background:'#f0fdf4',borderBottom:'1px solid #f0ede8'}}></td>}
+                                      <td style={{padding:'3px 10px',fontSize:10,textAlign:'right',fontFamily:'system-ui,sans-serif',color:v===null?'transparent':v<0?'#c0392b':'#1a1814',borderBottom:'1px solid #f0ede8',background:mi>=lastMonth?'#fafafa':'transparent'}}>{v===null?(mi>=lastMonth?'—':''):fmtAmount(v,inKeur)}</td>
+                                    </React.Fragment>)}
+                                    {lastMonth===12&&<td style={{borderLeft:'2px solid #2d6a4f',background:'#f0fdf4',borderBottom:'1px solid #f0ede8'}}></td>}
+                                    <td style={{padding:'3px 10px',fontSize:10,textAlign:'right',borderLeft:'1px solid #e2ddd6',borderBottom:'1px solid #f0ede8',color:'transparent'}}></td>
+                                  </tr>;
+                                })}
+                                {cpEntries.length===0&&anAmt===0&&<tr><td colSpan={20} style={{padding:'4px 52px',fontSize:10,color:'#9e9890'}}>Aucune écriture</td></tr>}
+                                {/* Solde cumulatif par compte */}
+                                <tr style={{background:'#f0fdf4'}}>
+                                  <td style={{padding:'3px 4px 3px 52px',fontSize:10,fontWeight:600,color:'#166534',position:'sticky',left:0,background:'#f0fdf4',zIndex:1,borderBottom:'1px solid #d1fae5',minWidth:220,maxWidth:220,width:220,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>→ Solde {compte}</td>
+                                  {cpSoldeArr.map((v,i)=><React.Fragment key={i}>
+                                    {i===lastMonth&&<td style={{borderLeft:'2px solid #2d6a4f',borderRight:'2px solid #2d6a4f',background:'#f0fdf4',borderBottom:'1px solid #d1fae5',padding:'3px 10px',fontSize:10,textAlign:'right',fontWeight:700,color:cpSoldeArr[lastMonth-1]<0?'#c0392b':'#166534'}}>{fmtAmount(cpSoldeArr[lastMonth-1],inKeur)}</td>}
+                                    <td style={{padding:'3px 10px',fontSize:10,textAlign:'right',fontFamily:'system-ui,sans-serif',fontWeight:600,color:i>=lastMonth?'#c5c0b8':v<0?'#c0392b':'#166534',borderBottom:'1px solid #d1fae5',background:i>=lastMonth?'#fafafa':'#f0fdf4'}}>{i>=lastMonth?'—':fmtAmount(v,inKeur)}</td>
+                                  </React.Fragment>)}
+                                  {lastMonth===12&&<td style={{borderLeft:'2px solid #2d6a4f',background:'#f0fdf4',borderBottom:'1px solid #d1fae5',padding:'3px 10px',fontSize:10,textAlign:'right',fontWeight:700,color:cpSoldeArr[11]<0?'#c0392b':'#166534'}}>{fmtAmount(cpSoldeArr[11],inKeur)}</td>}
+                                  <td style={{padding:'3px 10px',fontSize:10,textAlign:'right',fontWeight:600,borderLeft:'1px solid #e2ddd6',borderBottom:'1px solid #d1fae5',color:cpSoldeArr[11]<0?'#c0392b':'#166534'}}>{fmtAmount(cpSoldeArr[11],inKeur)}</td>
+                                </tr>
+                              </>;
+                            })()}
+                          </ReportingRow>;
+                        })}
+                      </ReportingRow>;
+                    })}
+                  </ReportingRow>
+                  {/* Ligne solde réel YTD */}
+                  <ReportingRow label={`${label} (solde réel)`} months={totalSoldeArr} lastMonth={lastMonth} bold isTotal inKeur={inKeur} useLastForYTD/>
+                </>;
+              };
+
+              const bfrComposantes=[
+                {section:'bfr',key:'clients',label:'Clients et comptes rattachés (41x, 49x)'},
+                {section:'bfr',key:'fournisseurs',label:'Fournisseurs et comptes rattachés (40x)'},
+                {section:'bfr',key:'stocks',label:'Stocks (3x)'},
+              ];
+              const autresComposantes=[
+                {section:'autres',key:'capitaux',label:'Capitaux propres (10-13)'},
+                {section:'autres',key:'provisions',label:'Provisions (14-15)'},
+                {section:'autres',key:'emprunts',label:'Emprunts (16)'},
+                {section:'autres',key:'immobilisations',label:'Immobilisations (2x)'},
+                {section:'autres',key:'dette_sociale',label:'Dette sociale (42-43)'},
+                {section:'autres',key:'dette_etat',label:"Dettes État (44)"},
+                {section:'autres',key:'comptes_courants',label:'Comptes courants (45)'},
+                {section:'autres',key:'autre',label:'Autres (46-48, 5x sauf 51)'},
+              ];
+              const banquesComposantes=[
+                {section:'banques',key:'banques',label:'Banques (51x)'},
+              ];
+              return <>
+                <BfrSection sectionKey="bfr2" label="Variation de BFR" composantes={bfrComposantes}/>
+                <BfrSection sectionKey="autres2" label="Variations autres comptes bilan" composantes={autresComposantes}/>
+                <BfrSection sectionKey="banques2" label="Variation de Trésorerie" composantes={banquesComposantes}/>
+              </>;
+            })()}
             {/* ── STOCKS ── */}
             {chargeData&&bfrData&&(()=>{
               const COGS_KEYS=['Z2-01','Z2-02','Z2-03','Z2-25','Z2-32','Z2-33','Z2-AU'];
@@ -3781,7 +3912,22 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
             const dp=dateStr.split('/');
             if(dp.length===3){month=parseInt(dp[1]);year=parseInt(dp[2]);}
           }
-          if(g.codeJournal==='AN')return;
+          // Écritures AN : stocker le solde de report par section/compte/clé pour le niveau réel YTD
+          if(g.codeJournal==='AN'){
+            const bilKey=getBilKey(compte);
+            if(bilKey){
+              const{section,key}=bilKey;
+              if(!bilData[section])bilData[section]={};
+              if(!bilData[section][key])bilData[section][key]={months:{}};
+              if(!bilData[section][key].an)bilData[section][key].an={};
+              bilData[section][key].an[compte]=(bilData[section][key].an[compte]||0)+amount;
+              // Also store AN by compte for detail
+              if(!bilData[section][key].anByCompte)bilData[section][key].anByCompte={};
+              if(!bilData[section][key].anByCompte[compte])bilData[section][key].anByCompte[compte]={libCompte,amount:0};
+              bilData[section][key].anByCompte[compte].amount+=amount;
+            }
+            return;
+          }
           if(!month||month<1||month>12||!year)return;
           const mKey=`${year}-${month}`;
           // CA : pas de filtre famille, on se fie au compte 7xx et au canal reconnu
@@ -3802,13 +3948,17 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
             if(!chargeData[subcat])chargeData[subcat]={months:{}};
             chargeData[subcat].months[mKey]=(chargeData[subcat].months[mKey]||0)+amount;
           }
-          // Bilan
+          // Bilan : stocker par mois ET par compte (pour le niveau 3 du drill-down)
           const bilKey=getBilKey(compte);
           if(bilKey){
             const{section,key}=bilKey;
             if(!bilData[section])bilData[section]={};
             if(!bilData[section][key])bilData[section][key]={months:{}};
             bilData[section][key].months[mKey]=(bilData[section][key].months[mKey]||0)+amount;
+            // Par compte : stocker les mois pour le drill-down niveau 3
+            if(!bilData[section][key].byCompte)bilData[section][key].byCompte={};
+            if(!bilData[section][key].byCompte[compte])bilData[section][key].byCompte[compte]={libCompte,months:{}};
+            bilData[section][key].byCompte[compte].months[mKey]=(bilData[section][key].byCompte[compte].months[mKey]||0)+amount;
           }
         });
         const importedAt=new Date().toISOString();
