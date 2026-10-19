@@ -106,6 +106,13 @@ function calcWeightedAvg(objectives,sobjs,krs){
   const totalETP=objectives.reduce((s,o)=>s+(o.etp||0),0);if(!totalETP)return 0;
   return objectives.reduce((s,o)=>s+calcObj(o.id,sobjs,krs)*(o.etp||0),0)/totalETP;
 }
+// Libellé d'une écriture GL dans les drill-down : Libellé de pièce · Libellé de ligne (ou Tiers)
+function glEntryLabel(e){
+  const piece=(e.libPiece||'').trim();
+  const ligne=(e.libLigne||e.tiers||'').trim();
+  const parts=[piece,ligne&&ligne!==piece?ligne:''].filter(Boolean);
+  return parts.length?parts.join(' · '):'—';
+}
 function calcTaux(dep,act,cib,u){
   if(u==="oui/non")return act>=1?100:0;
   // For %: normalize to same scale
@@ -2577,7 +2584,7 @@ function DetailEcritures({rows, lastMonth, monthActive, isAU=false}) {
     });
   return <>
     {sorted.map((r,i)=>{
-      const label=`${isAU&&r.subcat?r.subcat+' · ':''}${r.date||''} · ${r.libPiece||r.libLigne||r.tiers||'—'}`;
+      const label=`${isAU&&r.subcat?r.subcat+' · ':''}${r.date||''} · ${glEntryLabel(r)}`;
       return <tr key={i} style={{background:'#fafaf8'}}>
       <td style={{padding:'3px 4px 3px 40px',fontSize:10,color:'#6b6560',
         position:'sticky',left:0,background:'#fafaf8',zIndex:1,
@@ -2897,7 +2904,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
     try{
       const q=query(collection(db,'grandLivre2026'),where('bilKey','==',docKey));
       const snap=await getDocs(q);
-      const entries=snap.docs.map(d=>{const g=d.data();return{date:g.date||'',compte:g.compte||'',libCompte:g.libCompte||'',tiers:g.tiers||'',facture:g.facture||'',libLigne:g.libLigne||'',month:g.month||0,year:g.year||0,amount:g.amount||0};});
+      const entries=snap.docs.map(d=>{const g=d.data();return{date:g.date||'',compte:g.compte||'',libCompte:g.libCompte||'',tiers:g.tiers||'',facture:g.facture||'',libPiece:g.libPiece||'',libLigne:g.libLigne||'',month:g.month||0,year:g.year||0,amount:g.amount||0};});
       setBilEntries(p=>({...p,[docKey]:entries}));
     }catch(e){console.warn('loadBilEntries',e);}
   };
@@ -2920,12 +2927,12 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
           // Ne garder que les subcats réellement inactives (pas dans DEFAULT ni customLabels)
           const isNew=!DEFAULT_SUBCAT_LABELS[sc]&&!(customLabels||{})[sc];
           const isInactive=isNew?activeSubcats[sc]!==true:activeSubcats[sc]===false;
-          if(isInactive) entries.push({date:g.date||'',compte:g.compte||'',libCompte:g.libCompte||'',tiers:g.tiers||'',facture:g.facture||'',libLigne:g.libLigne||'',month:g.month||0,year:g.year||0,amount:g.amount||0,subcat:sc});
+          if(isInactive) entries.push({date:g.date||'',compte:g.compte||'',libCompte:g.libCompte||'',tiers:g.tiers||'',facture:g.facture||'',libPiece:g.libPiece||'',libLigne:g.libLigne||'',month:g.month||0,year:g.year||0,amount:g.amount||0,subcat:sc});
         });
       } else {
         const q=query(collection(db,'grandLivre2026'),where('subcat','==',subcat));
         const snap=await getDocs(q);
-        entries=snap.docs.map(d=>{const g=d.data();return{date:g.date||'',compte:g.compte||'',libCompte:g.libCompte||'',tiers:g.tiers||'',facture:g.facture||'',libLigne:g.libLigne||'',month:g.month||0,year:g.year||0,amount:g.amount||0};});
+        entries=snap.docs.map(d=>{const g=d.data();return{date:g.date||'',compte:g.compte||'',libCompte:g.libCompte||'',tiers:g.tiers||'',facture:g.facture||'',libPiece:g.libPiece||'',libLigne:g.libLigne||'',month:g.month||0,year:g.year||0,amount:g.amount||0};});
       }
       setChargeEntries(p=>({...p,[subcat]:entries}));
     }catch(e){console.warn('loadChargeEntries',e);}
@@ -3067,7 +3074,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                   // Transaction level for Exploitation
                   const rows=(d.rows||[]).filter(r=>r.month<=lastMonth);
                   rows.sort((a,b)=>a.month-b.month).forEach(r=>{
-                    const txLabel=`${r.date||''} · ${r.libLigne||r.tiers||r.libPiece||'—'}`;
+                    const txLabel=`${r.date||''} · ${glEntryLabel(r)}`;
                     const txM=Array(12).fill(0);
                     if(r.month>=1&&r.month<=12)txM[r.month-1]=r.amount||0;
                     addRow(txLabel,txM,3);
@@ -3096,7 +3103,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
             if(expanded[subcatKey]){
               const rows=(d.rows||[]).filter(r=>r.month<=lastMonth);
               rows.sort((a,b)=>a.month-b.month).forEach(r=>{
-                const txLabel=`${r.date||''} · ${r.libLigne||r.tiers||r.libPiece||'—'}`;
+                const txLabel=`${r.date||''} · ${glEntryLabel(r)}`;
                 const txM=Array(12).fill(0);
                 if(r.month>=1&&r.month<=12)txM[r.month-1]=r.amount||0;
                 addRow(txLabel,txM,3);
@@ -3316,7 +3323,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
                     <td style={{padding:'3px 4px 3px 40px',fontSize:10,color:'#6b6560',
                       position:'sticky',left:0,background:'#f5f5f2',zIndex:1,
                       borderBottom:'1px solid #f0ede8',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:220}}>
-                      {e.date} · {e.libPiece||e.libLigne||e.tiers||'—'}
+                      {e.date} · {glEntryLabel(e)}
                     </td>
                     {mArr.map((v,mi)=>{
                       const isEmpty=mi>=lastMonth;
@@ -3799,6 +3806,7 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
           codeJournal:obj['Code journal']||'',
           compte:compte_,
           libCompte:obj['Libellé de compte']||'',
+          libPiece:obj['Libellé de pièce']||'',
           libLigne:obj['Libellé de ligne']||'',
           facture:obj['Numéro de facture']||'',
           tiers:obj['Tiers']||'',
@@ -3848,7 +3856,8 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
           // Comparer les champs analytiques susceptibles d'être modifiés dans le Grand Livre
           const changed=existing.subcat!==r.subcat||existing.canal!==r.canal||
             existing.amount!==r.amount||existing.bilKey!==r.bilKey||
-            existing.month!==r.month||existing.year!==r.year;
+            existing.month!==r.month||existing.year!==r.year||
+            (existing.libPiece||'')!==r.libPiece;
           if(changed) updatedRows.push(r);
         }
       });
@@ -9572,7 +9581,7 @@ export default function App(){
         if(!existIds.has(stableId)){
           toInsert.push({id:stableId,data:{
             codeJournal:r[2]||'',date:r[1]||'',compte:r[3]||'',libCompte:r[4]||'',
-            libLigne:r[8]||'',facture:r[10]||'',tiers:r[12]||'',famille:r[14]||'',
+            libPiece:r[7]||'',libLigne:r[8]||'',facture:r[10]||'',tiers:r[12]||'',famille:r[14]||'',
             amount:parseAmount(r[29]),month:parseInt(r[30])||0,subcat:r[31]||'',
             year:parseInt(r[32])||0,canal:r[37]||''
           }});
