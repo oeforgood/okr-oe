@@ -2542,7 +2542,7 @@ function ReportingRow({label, months, lastMonth, bold=false, highlight=false, is
       <td style={{padding:`5px 6px 5px ${6+indent*12}px`,fontSize:11,fontWeight:bold?600:400,
         position:'sticky',left:0,background:bg||'#fff',zIndex:1,
         borderBottom:'1px solid #f0ede8',minWidth:220,maxWidth:220,width:220,
-        overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+        overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={typeof label==='string'?label:undefined}>
         <div style={{display:'flex',alignItems:'center',gap:4}}>
           {onClick&&<span style={{fontSize:9,color:'#9e9890',flexShrink:0,
             transform:isOpen?'rotate(90deg)':'none',transition:'transform .15s',display:'inline-block'}}>▶</span>}
@@ -2969,7 +2969,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
               {compteEntries.length>0
                 ? compteEntries.map(([compte,cpd])=>{
                     const cpKey=subcatKey+'-'+compte;
-                    const loadedEntries=(chargeEntries[subcat]||[]).find(e=>e.compte===compte)?.entries||[];
+                    const loadedEntries=(chargeEntries[subcat]||[]).filter(e=>e.compte===compte);
                     const hasEntries=chargeEntries[subcat]!==undefined?loadedEntries.length>0:cpd.months.slice(0,lastMonth).some(v=>v!==0);
                     return <ReportingRow key={compte} label={`${compte} · ${cpd.libCompte||''}`}
                       months={cpd.months} lastMonth={lastMonth} indent={3} inKeur={inKeur}
@@ -2988,180 +2988,242 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
   }
 
 
-  // ── EXPORT CSV ──
-  function exportCSV(){
-    const MOIS=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
-    // Always export in € with comma as decimal separator
-    const fmt=v=>{if(v===0||v===null||v===undefined)return '';return String(Math.round(v*100)/100).replace('.',',');};
-    const ytdFn=arr=>arr.slice(0,lastMonth).reduce((a,b)=>a+b,0);
-    const lastFn=arr=>[...arr.slice(0,lastMonth)].reverse().find(v=>v!==0)??0;
+  // ── EXPORT CSV : déplie tout le tableau + exporte toutes les écritures ──
+  // Les écritures viennent de la copie compacte grandLivre2026_detail (≈ 10 reads) écrite à chaque import GL,
+  // et non de la collection grandLivre2026 (≈ 1 read par écriture).
+  const glDetailRef=React.useRef(null);
+  const [exporting,setExporting]=useState(false);
+  async function loadGlDetail(){
+    if(glDetailRef.current)return glDetailRef.current;
+    const metaSnap=await getDoc(doc(db,'grandLivre2026_detail','meta'));
+    if(!metaSnap.exists())return null;
+    const meta=metaSnap.data();
+    const libComptes=meta.libComptes||{};
+    const snaps=await Promise.all(Array.from({length:meta.count||0},(_,i)=>getDoc(doc(db,'grandLivre2026_detail',`chunk_${String(i).padStart(3,'0')}`))));
+    const entries=[];
+    snaps.forEach(s=>{
+      if(!s.exists())return;
+      JSON.parse(s.data().data||'[]').forEach(p=>entries.push({
+        date:p[0]||'',compte:p[1]||'',libCompte:libComptes[p[1]]||'',libPiece:p[2]||'',libLigne:p[3]||'',
+        tiers:p[4]||'',facture:p[5]||'',subcat:p[6]||'',bilKey:p[7]||'',codeJournal:p[8]||'',
+        month:p[9]||0,year:p[10]||0,amount:p[11]||0}));
+    });
+    glDetailRef.current={entries,importedAt:meta.importedAt};
+    return glDetailRef.current;
+  }
+  function isInactiveSubcat(sc){
+    const isNew=!DEFAULT_SUBCAT_LABELS[sc]&&!(customLabels||{})[sc];
+    return isNew?activeSubcats[sc]!==true:activeSubcats[sc]===false;
+  }
 
-    // bil helpers
-    function bilM(section,key){
-      const d=bfrData?.[section]?.[key]?.months||{};
-      const arr=Array(12).fill(0);
-      Object.entries(d).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]-=v;});
-      return arr;
-    }
-    function bilRowsByCompte(section,key){
-      // Les détails sont dans bilEntries[section_key] chargé depuis grandLivre2026
-      const entries=bilEntries[`${section}_${key}`]||[];
-      // Agrège par compte
-      const byCompte={};
-      entries.forEach(e=>{
-        if(!byCompte[e.compte])byCompte[e.compte]={compte:e.compte,libCompte:e.libCompte||'',months:Array(12).fill(0)};
-        const m=(e.month||0)-1;
-        if(m>=0&&m<12)byCompte[e.compte].months[m]-=e.amount||0;
+  async function exportCSV(){
+    if(exporting)return;
+    setExporting(true);
+    try{
+      const detail=await loadGlDetail();
+      if(!detail){
+        alert("L'export détaillé nécessite de réimporter une fois le Grand Livre (création de la copie compacte des écritures).");
+        return;
+      }
+      // ── Ventilation des écritures (même logique que les drill-down à l'écran) ──
+      const ce={}; // écritures par sous-catégorie (+ buckets XX-AU)
+      const be={}; // écritures par clé bilan (section_key)
+      detail.entries.forEach(e=>{
+        if(e.subcat){
+          (ce[e.subcat]||(ce[e.subcat]=[])).push(e);
+          if(isInactiveSubcat(e.subcat)){const au=e.subcat.slice(0,2)+'-AU';(ce[au]||(ce[au]=[])).push(e);}
+        }
+        if(e.bilKey)(be[e.bilKey]||(be[e.bilKey]=[])).push(e);
       });
-      return Object.values(byCompte).filter(r=>r.months.slice(0,lastMonth).some(v=>v!==0));
-    }
 
-    const bfrKeys=[{key:'clients',label:'Clients et comptes rattachés (41x, 49x)'},{key:'fournisseurs',label:'Fournisseurs et comptes rattachés (40x)'},{key:'stocks',label:'Stocks (3x)'}];
-    const autresKeys=[{key:'capitaux',label:'Capitaux propres (10-13)'},{key:'provisions',label:'Provisions (14-15)'},{key:'emprunts',label:'Emprunts et dettes assimilées (16)'},{key:'participations',label:'Participations (17-19)'},{key:'immobilisations',label:'Immobilisations (2x)'},{key:'dette_sociale',label:'Dette sociale et salariale (42-43)'},{key:'dette_etat',label:'Dettes envers l\'État (44)'},{key:'comptes_courants',label:'Comptes courants (45)'},{key:'autre',label:'Autre (46-48, 5x sauf 51)'}];
+      const MOIS=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+      const fmt=v=>{if(v===0||v===null||v===undefined||isNaN(v))return '';return String(Math.round(v*100)/100).replace('.',',');};
+      const esc=v=>{const s=String(v??'');return /[;"\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
+      const sumArr=a=>a.reduce((x,y)=>x+y,0);
+      const lastNZ=a=>[...a].reverse().find(v=>v!==0)??0;
+      const toArr12=(obj,sign=1)=>{const arr=Array(12).fill(0);Object.entries(obj||{}).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]+=sign*v;});return arr;};
+      const fullLabel=e=>{const parts=[];[e.libPiece,e.libLigne,e.tiers].forEach(x=>{const t=(x||'').trim();if(t&&!parts.includes(t))parts.push(t);});return parts.join(' · ')||'—';};
+      const sortEntries=list=>[...list].filter(e=>e.month>=1&&e.month<=lastMonth).sort((a,b)=>a.month-b.month||(a.date||'').localeCompare(b.date||'')||(a.compte||'').localeCompare(b.compte||''));
 
-    const anBanques=bfrData?.banques?.banques?.an||{};
-    let startBal=-Object.values(anBanques).reduce((s,v)=>s+v,0);
-    const banquesVarM=(()=>{const d=bfrData?.banques?.banques?.months||{};const arr=Array(12).fill(0);Object.entries(d).forEach(([k,v])=>{const m=parseInt(k.split('-')[1])-1;if(m>=0&&m<12)arr[m]-=v;});return arr;})();
-    const banquesSolde=(()=>{let c=startBal;return banquesVarM.map(v=>{c+=v;return c;});})();
-    const anStocks=bfrData?.bfr?.stocks?.an||{};
-    let stocksAN=-Object.values(anStocks).reduce((s,v)=>s+v,0);
-    const stocksVarM=bilM('bfr','stocks').map(v=>-v);
-    const stocksSolde=(()=>{let c=stocksAN;return stocksVarM.map(v=>{c+=v;return c;});})();
-    const caT=Array(12).fill(0).map((_,i)=>REPORTING_CANALS.reduce((s,c)=>s+(caByCanal[c]?.[i]||0),0));
-    const bfrT=Array(12).fill(0).map((_,i)=>bfrKeys.reduce((s,{key})=>s+bilM('bfr',key)[i],0));
-    const autresT=Array(12).fill(0).map((_,i)=>autresKeys.reduce((s,{key})=>s+bilM('autres',key)[i],0));
+      const NLEV=5;
+      const DETAIL_COLS=['Date','Compte','Libellé de compte','Libellé de pièce','Libellé de ligne','Tiers','N° facture','Code analytique','Journal'];
+      const NCOLS=NLEV+DETAIL_COLS.length+14;
+      const rows=[];
+      const keys={};
+      rows.push([...Array.from({length:NLEV},(_,i)=>`Niveau ${i+1}`),...DETAIL_COLS,...MOIS,'YTD','Total']);
+      const blank=()=>rows.push(Array(NCOLS).fill(''));
+      const section=label=>{blank();const r=Array(NCOLS).fill('');r[0]=label.toUpperCase();rows.push(r);};
+      // Ligne agrégée
+      function addRow(label,arr,lvl=0,{stock=false,key=null,cells=null}={}){
+        if(key)keys[key]=true;
+        const r=Array(NCOLS).fill('');
+        r[Math.min(lvl,NLEV-1)]=label;
+        const ytd=stock?lastNZ(arr.slice(0,lastMonth)):sumArr(arr.slice(0,lastMonth));
+        const tot=stock?lastNZ(arr):sumArr(arr);
+        const vals=cells||[...arr.map(fmt),fmt(ytd),fmt(tot)];
+        vals.forEach((v,i)=>{r[NLEV+DETAIL_COLS.length+i]=v;});
+        rows.push(r);
+      }
+      // Ligne écriture (libellé complet + colonnes de détail)
+      function addEntry(e,lvl,prefix=''){
+        const r=Array(NCOLS).fill('');
+        r[Math.min(lvl,NLEV-1)]=`${prefix}${e.date||''} · ${fullLabel(e)}`;
+        [e.date,e.compte,e.libCompte,e.libPiece,e.libLigne,e.tiers,e.facture,e.subcat,e.codeJournal].forEach((v,i)=>{r[NLEV+i]=v||'';});
+        const base=NLEV+DETAIL_COLS.length;
+        r[base+e.month-1]=fmt(e.amount);
+        r[base+12]=fmt(e.amount);
+        r[base+13]=fmt(e.amount);
+        rows.push(r);
+      }
 
-    const rows=[];
-    // Header row: indent placeholder columns + months + YTD + Total
-    // We use 4 indent levels (0-3) → 4 label columns
-    const MAX_INDENT=4;
-    rows.push([...Array(MAX_INDENT).fill('').map((_,i)=>i===0?'Ligne':''),...MOIS,'YTD','Total']);
-
-    function addRow(label,arr,indent=0,isStock=false){
-      const yt=isStock?lastFn(arr):ytdFn(arr);
-      const tot=isStock?lastFn(arr):arr.reduce((a,b)=>a+b,0);
-      const labelCols=Array(MAX_INDENT).fill('');
-      labelCols[indent]=label;
-      rows.push([...labelCols,...arr.map(v=>fmt(v)),fmt(yt),fmt(tot)]);
-    }
-
-    // EXPLOITATION
-    addRow("Chiffre d\'Affaires",caT,0);
-    if(expanded['ca']){
+      // ═══ EXPLOITATION ═══
+      section('Exploitation');
+      addRow("Chiffre d'Affaires",caTotal,0,{key:'ca'});
       REPORTING_CANALS.forEach(c=>addRow(c,caByCanal[c]||Array(12).fill(0),1));
-    }
-    addRow('Marge Brute',mbTotal,0);
-    addRow("Charges d\'exploitation",chargesExpl,0);
-    if(expanded['charges_expl']||expanded['autres_charges']){
-      ['charges_expl','autres_charges'].forEach(type=>{
-        if(!expanded[type]&&type==='charges_expl')return;
-        if(!expanded[type]&&type==='autres_charges')return;
+      addRow('Marge Brute',mbTotal,0,{key:'mb'});
+      REPORTING_CANALS.forEach(c=>{
+        const dr=CANAL_MARGIN[c]??DEFAULT_CANAL_MARGIN;
+        const rates=Array(12).fill(0).map((_,i)=>canalMargin[c]?.[i+1]??canalMargin[c]??dr);
+        const avg=sumArr(rates)/12;
+        addRow(`${c} (taux de marge)`,rates,1,{cells:[...rates.map(fmtPct),fmtPct(avg),fmtPct(avg)]});
+      });
+      function exportGroup(type,label){
         const cats=chargeByType[type]||{};
         const ordCats=CATEGORIES_ORDER.filter(c=>cats[c]&&catTypes[c]===type);
-        const typeM=Array(12).fill(0).map((_,i)=>ordCats.reduce((s,cat)=>s+Object.values(cats[cat]||{}).reduce((ss,d)=>ss+(d.months[i]||0),0),0));
-        addRow(type==='charges_expl'?"Charges d\'exploitation":'Autres charges',typeM,0);
-        if(expanded[type]){
-          ordCats.forEach(cat=>{
-            const catKey=type+'-'+cat;
-            const catM=Array(12).fill(0).map((_,i)=>Object.values(cats[cat]||{}).reduce((s,d)=>s+(d.months[i]||0),0));
-            addRow(cat,catM,1);
-            if(expanded[catKey]){
-              Object.entries(cats[cat]||{}).sort(([a],[b])=>a.localeCompare(b)).forEach(([subcat,d])=>{
-                const subcatKey=catKey+'-'+subcat;
-                const label2=`${subcat} · ${effectiveLabels[subcat]||subcatLabels[subcat]||''}`;
-                addRow(label2,d.months,2);
-                if(expanded[subcatKey]){
-                  // Transaction level for Exploitation
-                  const rows=(d.rows||[]).filter(r=>r.month<=lastMonth);
-                  rows.sort((a,b)=>a.month-b.month).forEach(r=>{
-                    const txLabel=`${r.date||''} · ${glEntryLabel(r)}`;
-                    const txM=Array(12).fill(0);
-                    if(r.month>=1&&r.month<=12)txM[r.month-1]=r.amount||0;
-                    addRow(txLabel,txM,3);
-                  });
-                }
-              });
-            }
-          });
-        }
-      });
-    }
-    addRow('EBITDA',ebitda,0);
-    addRow('Autres charges',autresCharges,0);
-    if(expanded['autres_charges']){
-      const cats=chargeByType['autres_charges']||{};
-      const ordCats=CATEGORIES_ORDER.filter(c=>cats[c]&&catTypes[c]==='autres_charges');
-      ordCats.forEach(cat=>{
-        const catKey='autres_charges-'+cat;
-        const catM=Array(12).fill(0).map((_,i)=>Object.values(cats[cat]||{}).reduce((s,d)=>s+(d.months[i]||0),0));
-        addRow(cat,catM,1);
-        if(expanded[catKey]){
+        addRow(label,getGroupTotal(type),0,{key:type});
+        ordCats.forEach(cat=>{
+          const catKey=type+'-'+cat;
+          const catM=Array(12).fill(0).map((_,i)=>Object.values(cats[cat]||{}).reduce((s,d)=>s+(d.months[i]||0),0));
+          addRow(cat,catM,1,{key:catKey});
           Object.entries(cats[cat]||{}).sort(([a],[b])=>a.localeCompare(b)).forEach(([subcat,d])=>{
             const subcatKey=catKey+'-'+subcat;
-            const label2=`${subcat} · ${effectiveLabels[subcat]||subcatLabels[subcat]||''}`;
-            addRow(label2,d.months,2);
-            if(expanded[subcatKey]){
-              const rows=(d.rows||[]).filter(r=>r.month<=lastMonth);
-              rows.sort((a,b)=>a.month-b.month).forEach(r=>{
-                const txLabel=`${r.date||''} · ${glEntryLabel(r)}`;
-                const txM=Array(12).fill(0);
-                if(r.month>=1&&r.month<=12)txM[r.month-1]=r.amount||0;
-                addRow(txLabel,txM,3);
+            addRow(`${subcat} · ${effectiveLabels[subcat]||subcatLabels[subcat]||''}`,d.months,2,{key:subcatKey});
+            const ents=ce[subcat]||[];
+            const compteEntries=Object.entries(d.comptes||{}).sort(([a],[b])=>a.localeCompare(b));
+            if(compteEntries.length>0){
+              compteEntries.forEach(([compte,cpd])=>{
+                addRow(`${compte} · ${cpd.libCompte||''}`,cpd.months,3,{key:subcatKey+'-'+compte});
+                sortEntries(ents.filter(e=>e.compte===compte)).forEach(e=>addEntry(e,4,d.isAU&&e.subcat?e.subcat+' · ':''));
               });
+            } else {
+              sortEntries(ents).forEach(e=>addEntry(e,3,d.isAU&&e.subcat?e.subcat+' · ':''));
             }
           });
-        }
-      });
-    }
-    addRow('Résultat net',resultat,0);
+        });
+      }
+      exportGroup('charges_expl',"Charges d'exploitation");
+      addRow('EBITDA',ebitda,0);
+      exportGroup('autres_charges','Autres charges');
+      addRow('Résultat net',resultat,0);
 
-    // TRÉSORERIE
-    rows.push(Array(MAX_INDENT+14).fill(''));
-    addRow('Variation de BFR',bfrT,0);
-    if(expanded['bfr']){
-      bfrKeys.forEach(({key,label})=>{
-        const m=bilM('bfr',key);
-        addRow(label,m,1);
-        if(expanded['bfr_'+key]){
-          bilRowsByCompte('bfr',key).forEach(r=>addRow(`${r.compte} · ${r.libCompte}`,r.months,2));
-        }
-      });
-    }
-    addRow("Variations d\'autres comptes de bilan",autresT,0);
-    if(expanded['autres']){
-      autresKeys.forEach(({key,label})=>{
-        const m=bilM('autres',key);
-        if(m.some(v=>v!==0)){
-          addRow(label,m,1);
-          if(expanded['autres_'+key]){
-            bilRowsByCompte('autres',key).forEach(r=>addRow(`${r.compte} · ${r.libCompte}`,r.months,2));
-          }
-        }
-      });
-    }
-    addRow('Variation de Trésorerie',banquesVarM,0);
-    if(expanded['banques']){
-      bilRowsByCompte('banques','banques').forEach(r=>addRow(`${r.compte} · ${r.libCompte}`,r.months,1));
-    }
-    addRow('Trésorerie (solde)',banquesSolde,0,true);
-    if(expanded['treso_solde']){
-      bilRowsByCompte('banques','banques').forEach(r=>{
-        let c2=-(anBanques[r.compte]||0);
-        const solde=r.months.map(v=>{c2+=v;return c2;});
-        addRow(`${r.compte} · ${r.libCompte}`,solde,1,true);
-      });
-    }
+      if(bfrData){
+        // ═══ TRÉSORERIE ═══
+        const getM=(sec,key)=>toArr12(bfrData?.[sec]?.[key]?.months);
+        const bfrKeys=[{key:'clients',label:'Clients et comptes rattachés (41x, 49x)'},{key:'fournisseurs',label:'Fournisseurs et comptes rattachés (40x)'},{key:'stocks',label:'Stocks (3x)'}];
+        const autresKeys=[{key:'capitaux',label:'Capitaux propres (10-13)'},{key:'provisions',label:'Provisions (14-15)'},{key:'emprunts',label:'Emprunts et dettes assimilées (16)'},{key:'participations',label:'Participations (17-19)'},{key:'immobilisations',label:'Immobilisations (2x)'},{key:'dette_sociale',label:'Dette sociale et salariale (42-43)'},{key:'dette_etat',label:"Dettes envers l'État (44)"},{key:'comptes_courants',label:'Comptes courants (45)'},{key:'autre',label:'Autre (46-48, 5x sauf 51)'}];
+        const sumKeys=(sec,list)=>Array(12).fill(0).map((_,i)=>list.reduce((s,{key})=>s+getM(sec,key)[i],0));
+        const detailRows=(sec,key,lvl)=>{
+          const ents=be[`${sec}_${key}`]||[];
+          (bfrData?.[sec]?.[key]?.rows||[]).forEach(r=>{
+            const months=toArr12(typeof r.months==='object'?r.months:{});
+            if(!months.slice(0,lastMonth).some(v=>v!==0))return;
+            addRow(`${r.compte} · ${r.libCompte||'—'}`,months,lvl,{key:`bil_${sec}_${key}_${r.compte}`});
+            sortEntries(ents.filter(e=>e.compte===r.compte)).forEach(e=>addEntry(e,lvl+1));
+          });
+        };
+        section('Trésorerie');
+        addRow('Variation de BFR',sumKeys('bfr',bfrKeys),0,{key:'bfr'});
+        bfrKeys.forEach(({key,label})=>{addRow(label,getM('bfr',key),1,{key:'bfr_'+key});detailRows('bfr',key,2);});
+        addRow("Variations d'autres comptes de bilan",sumKeys('autres',autresKeys),0,{key:'autres'});
+        autresKeys.forEach(({key,label})=>{addRow(label,getM('autres',key),1,{key:'autres_'+key});detailRows('autres',key,2);});
+        const banquesTotal=getM('banques','banques').map(v=>-v);
+        addRow('Variation de Trésorerie',banquesTotal,0,{key:'banques'});
+        addRow('Banques (51x)',banquesTotal,1,{key:'banques_detail'});
+        detailRows('banques','banques',2);
+        const banquesSolde=(()=>{let cum=Object.values(bfrData?.banques?.banques?.an||{}).reduce((s,v)=>s-v,0);return getM('banques','banques').map(v=>{cum-=v;return cum;});})();
+        addRow('Trésorerie (solde)',banquesSolde,0,{stock:true,key:'treso_solde'});
+        (bfrData?.banques?.banques?.rows||[]).forEach(r=>{
+          let cum=-Object.values(r.an||{}).reduce((s,v)=>s+v,0);
+          const varArr=toArr12(r.months&&typeof r.months==='object'&&!Array.isArray(r.months)?r.months:{},-1);
+          addRow(`${r.compte} · ${r.libCompte||'—'}`,varArr.map(v=>{cum+=v;return cum;}),1,{stock:true});
+        });
 
-    // STOCKS
-    rows.push(Array(MAX_INDENT+14).fill(''));
-    addRow('Variation de stocks (3x)',stocksVarM,0);
-    addRow('Stocks (solde)',stocksSolde,0,true);
+        // ═══ BFR DÉTAILLÉ v2 ═══
+        const v2Section=(sectionKey,label,composantes)=>{
+          section(`${label} — Nouveau`);
+          const totalVar=Array(12).fill(0),totalSolde=Array(12).fill(0);
+          composantes.forEach(({section:sec,key})=>{
+            const v=getM(sec,key);v.forEach((x,i)=>totalVar[i]+=x);
+            let cum=Object.values(bfrData?.[sec]?.[key]?.an||{}).reduce((s,x)=>s+x,0);
+            v.forEach((x,i)=>{cum+=x;totalSolde[i]+=cum;});
+          });
+          addRow(`${label} (variation)`,totalVar,0,{key:'v2_'+sectionKey});
+          composantes.forEach(({section:sec,key,label:compLabel})=>{
+            addRow(compLabel,getM(sec,key),1,{key:'v2_'+sectionKey+'_'+key});
+            const byCompte=bfrData?.[sec]?.[key]?.byCompte||{};
+            const anByCompte=bfrData?.[sec]?.[key]?.anByCompte||{};
+            const ents=be[`${sec}_${key}`]||[];
+            [...new Set([...Object.keys(byCompte),...Object.keys(anByCompte)])].sort().forEach(compte=>{
+              const cpData=byCompte[compte]||{};
+              const libC=cpData.libCompte||anByCompte[compte]?.libCompte||'';
+              const cpVar=toArr12(cpData.months);
+              const cpAN=anByCompte[compte]?.amount||0;
+              if(!cpVar.some(v=>v!==0)&&cpAN===0)return;
+              addRow(`${compte} · ${libC}`,cpVar,2,{key:'v2_'+sectionKey+'_'+key+'_'+compte});
+              if(cpAN!==0)addRow('Report à nouveau (AN)',Array(12).fill(0),3,{cells:[...Array(13).fill(''),fmt(cpAN)]});
+              sortEntries(ents.filter(e=>e.compte===compte)).forEach(e=>addEntry(e,3));
+              let c=cpAN;
+              addRow(`→ Solde ${compte}`,cpVar.map(v=>{c+=v;return c;}),3,{stock:true});
+            });
+          });
+          addRow(`${label} (solde réel)`,totalSolde,0,{stock:true});
+        };
+        v2Section('bfr2','Variation de BFR',[
+          {section:'bfr',key:'clients',label:'Clients et comptes rattachés (41x, 49x)'},
+          {section:'bfr',key:'fournisseurs',label:'Fournisseurs et comptes rattachés (40x)'},
+          {section:'bfr',key:'stocks',label:'Stocks (3x)'}]);
+        v2Section('autres2','Variations autres comptes bilan',[
+          {section:'autres',key:'capitaux',label:'Capitaux propres (10-13)'},
+          {section:'autres',key:'provisions',label:'Provisions (14-15)'},
+          {section:'autres',key:'emprunts',label:'Emprunts (16)'},
+          {section:'autres',key:'immobilisations',label:'Immobilisations (2x)'},
+          {section:'autres',key:'dette_sociale',label:'Dette sociale (42-43)'},
+          {section:'autres',key:'dette_etat',label:'Dettes État (44)'},
+          {section:'autres',key:'comptes_courants',label:'Comptes courants (45)'},
+          {section:'autres',key:'autre',label:'Autres (46-48, 5x sauf 51)'}]);
+        v2Section('banques2','Variation de Trésorerie',[{section:'banques',key:'banques',label:'Banques (51x)'}]);
 
-    const csv='\uFEFF'+rows.map(r=>r.join(';')).join('\n');
-    const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');a.href=url;const now=new Date();const ts=`${String(now.getFullYear()).slice(2)}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;a.download=`reporting_calendula_${ts}.csv`;a.click();
-    URL.revokeObjectURL(url);
+        // ═══ STOCKS ═══
+        if(chargeData){
+          section('Stocks');
+          const COGS_KEYS=['Z2-01','Z2-02','Z2-03','Z2-25','Z2-32','Z2-33','Z2-AU'];
+          const subM=k=>chargeData[k]?getMonthArray(chargeData[k].months):Array(12).fill(0);
+          addRow('CoGS',Array(12).fill(0).map((_,i)=>COGS_KEYS.reduce((s,k)=>s+subM(k)[i],0)),0,{key:'cogs'});
+          COGS_KEYS.forEach(k=>addRow(effectiveLabels[k]||subcatLabels[k]||k,subM(k),1));
+          const stVar=getM('bfr','stocks').map(v=>-v);
+          addRow('Variation de stocks (3x)',stVar,0);
+          let cum=-Object.values(bfrData?.bfr?.stocks?.an||{}).reduce((s,v)=>s+v,0);
+          addRow('Stocks (solde)',stVar.map(v=>{cum+=v;return cum;}),0,{stock:true});
+        }
+      }
+
+      // Téléchargement
+      const csv='﻿'+rows.map(r=>r.map(esc).join(';')).join('\n');
+      const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');a.href=url;const now=new Date();const ts=`${String(now.getFullYear()).slice(2)}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;a.download=`reporting_calendula_detail_${ts}.csv`;a.click();
+      URL.revokeObjectURL(url);
+
+      // Dépliage complet à l'écran (écritures déjà en mémoire → aucun read supplémentaire)
+      setChargeEntries(p=>({...p,...ce}));
+      setBilEntries(p=>({...p,...be}));
+      setExpanded(p=>({...p,...keys}));
+    }catch(e){
+      console.error('exportCSV',e);
+      alert("Erreur pendant l'export : "+(e?.message||e));
+    }finally{
+      setExporting(false);
+    }
   }
 
 
@@ -3192,9 +3254,10 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
           Données au {new Date(importedAt).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})} à {new Date(importedAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}
         </span>}
         <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:8}}>
-          {currentUser?.email==='fx@oeforgood.com'&&<button onClick={exportCSV}
+          {currentUser?.email==='fx@oeforgood.com'&&<button onClick={exportCSV} disabled={exporting}
+            title="Déplie tout le tableau et exporte toutes les écritures"
             style={{padding:'3px 10px',borderRadius:10,border:'1px solid #e2ddd6',background:'#fff',
-              color:'#6b6560',cursor:'pointer',fontSize:11}}>📥 Exporter</button>}
+              color:'#6b6560',cursor:exporting?'wait':'pointer',fontSize:11}}>{exporting?'⏳ Export…':'📥 Exporter'}</button>}
           <span style={{fontSize:11,color:'#9e9890'}}>Affichage :</span>
           <button onClick={()=>setInKeur(false)} style={{padding:'3px 10px',borderRadius:10,border:`1px solid ${!inKeur?'#2d6a4f':'#e2ddd6'}`,background:!inKeur?'#2d6a4f':'#fff',color:!inKeur?'#fff':'#6b6560',cursor:'pointer',fontSize:11}}>€</button>
           <button onClick={()=>setInKeur(true)} style={{padding:'3px 10px',borderRadius:10,border:`1px solid ${inKeur?'#2d6a4f':'#e2ddd6'}`,background:inKeur?'#2d6a4f':'#fff',color:inKeur?'#fff':'#6b6560',cursor:'pointer',fontSize:11}}>k€</button>
@@ -3983,6 +4046,32 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
         if(Object.keys(chargeData).length>0)await setDoc(doc(db,'reporting','charges'),{chargeData,importedAt});
         await setDoc(doc(db,'reporting','bfr'),{bilData,importedAt});
         await setDoc(doc(db,'reporting','meta'),{importedAt,source:'grandLivre2026',totalRows:totalSize});
+         // Copie compacte de toutes les écritures (≈ 10 docs) pour l'export détaillé du reporting sans relire toute la collection
+         try{
+           setGlImportMsg('Enregistrement de la copie compacte des écritures (export détaillé)…');
+           const prevMeta=await getDoc(doc(db,'grandLivre2026_detail','meta'));
+           const prevCount=prevMeta.exists()?(prevMeta.data().count||0):0;
+           const libComptes={};
+           const enc=new TextEncoder();
+           const MAXB=850000;
+           const chunks=[];let cur=[],size=2;
+           allDocsData.forEach(g=>{
+             const c=g.compte||'';
+             if(c&&g.libCompte&&!libComptes[c])libComptes[c]=g.libCompte;
+             const js=JSON.stringify([g.date||'',c,g.libPiece||'',g.libLigne||'',g.tiers||'',g.facture||'',g.subcat||'',g.bilKey||'',g.codeJournal||'',+g.month||0,+g.year||0,+g.amount||0]);
+             const b=enc.encode(js).length+1;
+             if(size+b>MAXB&&cur.length){chunks.push(cur);cur=[];size=2;}
+             cur.push(js);size+=b;
+           });
+           if(cur.length)chunks.push(cur);
+           for(let ci=0;ci<chunks.length;ci++){
+             await setDoc(doc(db,'grandLivre2026_detail',`chunk_${String(ci).padStart(3,'0')}`),{data:'['+chunks[ci].join(',')+']'});
+           }
+           for(let ci=chunks.length;ci<prevCount;ci++){
+             await deleteDoc(doc(db,'grandLivre2026_detail',`chunk_${String(ci).padStart(3,'0')}`)).catch(()=>{});
+           }
+           await setDoc(doc(db,'grandLivre2026_detail','meta'),{count:chunks.length,importedAt,totalRows:totalSize,libComptes});
+         }catch(e){console.warn('grandLivre2026_detail',e);}
         const summary=newRows.length>0||updatedRows.length>0
           ?`${newRows.length>0?newRows.length+' nouvelles':''}${newRows.length>0&&updatedRows.length>0?' + ':''}${updatedRows.length>0?updatedRows.length+' modifiée(s)':''} — `
           :'Aucune ligne nouvelle ou modifiée — ';
