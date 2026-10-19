@@ -4365,6 +4365,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   const [clientFilter,setClientFilter]=React.useState('');
   const [clientDropOpen,setClientDropOpen]=React.useState(false);
   const [shopifyId,setShopifyId]=React.useState('');
+  const [refBCClient,setRefBCClient]=React.useState(''); // Réf. bon de commande du client (facultatif, propre à chaque devis/commande)
   const [savedOrders,setSavedOrders]=React.useState([]);
   const [recallTeammate,setRecallTeammate]=React.useState(currentUser?.email||'');
   const [recallClient,setRecallClient]=React.useState('');
@@ -4645,6 +4646,10 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   }
   const prepLabel=PREP_OPTIONS.find(p=>p.k===preparation)?.l||'';
   const expA=sameAddr||retraitLoft?factAddr:expAddr;
+  // Téléphone obligatoire en mode commande (nécessaire pour la livraison) : celui de l'adresse de livraison effective
+  const telLivraisonOk=mode!=='commande'||!!(expA.tel||'').trim();
+  const telFactRequired=mode==='commande'&&(sameAddr||retraitLoft);
+  const telExpRequired=mode==='commande'&&!sameAddr&&!retraitLoft;
   const coiffeOk=!isCoiffePrep||totalBouteilles===0||totalBouteilles%120===0;
   const coiffeManquantes=isCoiffePrep&&!coiffeOk?(120-totalBouteilles%120):0;
   const isCoffretUps=preparation==='coffret_ups';
@@ -4756,9 +4761,11 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
       `Réf : ${ref}  -  ${new Date().toLocaleDateString('fr-FR')}`,
       sep,
       `CLIENT : ${societe}  |  ${contact}`,
+      refBCClient.trim()?`Réf. BC client : ${refBCClient.trim()}`:'',
       `Fact. : ${factAddr.addr}${factAddr.addr2?' '+factAddr.addr2:''}  ${factAddr.cp} ${factAddr.ville} - ${factAddr.pays}`,
       factAddr.email?`Email : ${factAddr.email}`:'',
       `Livr. : ${expInfo}`,
+      expA.tel?`Tél. livraison : ${expA.tel}`:'',
       sep,
       `PREPARATION : ${prepLabel}`,
       `TARIF : ${tarifLabel}`,
@@ -4788,6 +4795,7 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
   async function handleEnvoyer(){
     if(!coreLignes.length){alert('Ajoutez au moins un produit.');return;}
     if(!preparation){alert('Choisissez un mode de préparation.');return;}
+    if(!telLivraisonOk){alert('Le numéro de téléphone est obligatoire pour une commande (nécessaire pour la livraison). Cliquez sur « Modifier » pour le renseigner.');return;}
     if(!coiffeOk){alert(`Rajouter ${coiffeManquantes} bouteille(s) — le total doit être un multiple de 120.`);return;}
     if(!coffretUpsOk){alert(`Coffret UPS : maximum 24 équivalents 75cl (actuellement ${totalEq75}).`);return;}
     if(!minQtyOk){alert(tariEvent?'Il faut au moins 6 bouteilles ou équivalent.':'Il faut au moins 24 bouteilles ou équivalent (ou choisir le tarif Events).');return;}
@@ -4849,8 +4857,9 @@ function DevisCommandePage({onBack,currentUser,teamMember,rolePermissions,onGoOK
     const infoBlock=`<div style="background:${brandBeige};padding:16px 24px;border-bottom:1px solid #e2ddd6">
   <table style="width:100%;border-collapse:collapse;font-size:12px">
     <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0;white-space:nowrap">CLIENT</td><td style="font-weight:600">${societe} — ${contact}</td></tr>
+    ${refBCClient.trim()?`<tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0;white-space:nowrap">RÉF. BC CLIENT</td><td style="font-weight:600">${refBCClient.trim()}</td></tr>`:''}
     <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0">FACTURATION</td><td>${factAddr.addr}, ${factAddr.cp} ${factAddr.ville}${factAddr.email?' · '+factAddr.email:''}</td></tr>
-    <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0">LIVRAISON</td><td>${retraitLoft?'Retrait au Loft Oé · 10bis rue Bellicard, 69003 Lyon':sameAddr?factAddr.addr+', '+factAddr.cp+' '+factAddr.ville:expAddr.addr+', '+expAddr.cp+' '+expAddr.ville}</td></tr>
+    <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0">LIVRAISON</td><td>${retraitLoft?'Retrait au Loft Oé · 10bis rue Bellicard, 69003 Lyon':sameAddr?factAddr.addr+', '+factAddr.cp+' '+factAddr.ville:expAddr.addr+', '+expAddr.cp+' '+expAddr.ville}${expA.tel?' · Tél. '+expA.tel:''}</td></tr>
     <tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0">PRÉPARATION</td><td>${prepLabel}</td></tr>
     ${mode==='commande'?`<tr><td style="color:#6b6560;font-size:11px;padding:2px 12px 2px 0">TARIF</td><td>${tarifLabel}</td></tr>`:''}
   </table>
@@ -4909,7 +4918,7 @@ ${infoBlock}
       }
       return obj;
     }
-    await setDoc(doc(db,'devis_commandes',ref),cleanForFirestore({ref,mode,societe,contact,factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,preparation,tariEvent,infoLivraison,message,lignes:displayLignes,totalHT,totalTVA,totalTTC,remiseJustif:remiseJustif||'',createdAt:Date.now(),createdBy:currentUser?.email}));
+    await setDoc(doc(db,'devis_commandes',ref),cleanForFirestore({ref,mode,societe,contact,factAddr,expAddr:sameAddr||retraitLoft?factAddr:expAddr,retraitLoft,preparation,tariEvent,infoLivraison,message,lignes:displayLignes,totalHT,totalTVA,totalTTC,remiseJustif:remiseJustif||'',refBCClient:refBCClient.trim(),createdAt:Date.now(),createdBy:currentUser?.email}));
     try{
       const toEmail=testMode?'fx@oeforgood.com':mode==='devis'
         ?(factAddr.email||'')
@@ -4932,7 +4941,7 @@ ${infoBlock}
     setExpAddr({addr:'',addr2:'',cp:'',ville:'',pays:'France',tel:'',email:''});
     setSameAddr(false);setRetraitLoft(false);setMessage('');setInfoLivraison('');
     setTariEvent(false);setPrixCoutant(false);setGratuite(false);setGratuiteRaison('');
-    setRemiseJustif('');setRemiseModal(null);
+    setRemiseJustif('');setRemiseModal(null);setRefBCClient('');
     setSelectedClientKey('');setRecallRef('');setRecallClient('');
     // Rechargement depuis Firestore pour inclure ce qui vient d'être créé
     getDocs(collection(db,'devis_clients')).then(snap=>{setSavedClients(snap.docs.map(d=>({key:d.id,...d.data()})).sort((a,b)=>(a.societe||'').localeCompare(b.societe||'')));});
@@ -5146,6 +5155,7 @@ ${infoBlock}
           <div><label style={LBL}>Nom de la société *</label><input value={societe} onChange={e=>{setSociete(e.target.value);setSelectedClientKey('');}} style={INP()}/></div>
             <div><label style={LBL}>Prénom et Nom du contact</label><input value={contact} onChange={e=>setContact(e.target.value)} style={INP()}/></div>
             <div><label style={LBL}>ID Shopify</label><input value={shopifyId} onChange={e=>setShopifyId(e.target.value)} placeholder="ex: 123456789" style={INP()}/></div>
+            <div><label style={LBL}>Réf. bon de commande client <span style={{fontWeight:400,color:'#9e9890'}}>(facultatif)</span></label><input value={refBCClient} onChange={e=>setRefBCClient(e.target.value)} placeholder="ex: PO-2026-0412" style={INP()}/></div>
           </div>
           <div style={{fontSize:12,fontWeight:700,color:'#6b6560',marginBottom:8}}>Adresse de facturation</div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:14}}>
@@ -5154,7 +5164,7 @@ ${infoBlock}
             <div><label style={LBL}>Code postal</label><input value={factAddr.cp} onChange={e=>setFactAddr(p=>({...p,cp:e.target.value}))} style={INP()}/></div>
             <div><label style={LBL}>Ville</label><input value={factAddr.ville} onChange={e=>setFactAddr(p=>({...p,ville:e.target.value}))} style={INP()}/></div>
             <div><label style={LBL}>Pays</label><input value={factAddr.pays} onChange={e=>setFactAddr(p=>({...p,pays:e.target.value}))} style={INP()}/></div>
-            <div><label style={LBL}>Téléphone</label><input value={factAddr.tel} onChange={e=>setFactAddr(p=>({...p,tel:e.target.value}))} style={INP()}/></div>
+            <div><label style={LBL}>Téléphone{telFactRequired?' *':''}</label><input value={factAddr.tel} onChange={e=>setFactAddr(p=>({...p,tel:e.target.value}))} style={{...INP(),...(telFactRequired&&!(factAddr.tel||'').trim()?{borderColor:'#e8a598',background:'#fffafa'}:{})}}/></div>
             <div style={{gridColumn:'1/-1'}}><label style={LBL}>Email{mode==='devis'?' *':''}</label><input value={factAddr.email} onChange={e=>setFactAddr(p=>({...p,email:e.target.value}))} style={INP()}/></div>
           </div>
           <div style={{fontSize:12,fontWeight:700,color:'#6b6560',marginBottom:8}}>Adresse d'expédition</div>
@@ -5172,16 +5182,17 @@ ${infoBlock}
             <div><label style={LBL}>Code postal</label><input value={expAddr.cp} onChange={e=>setExpAddr(p=>({...p,cp:e.target.value}))} style={INP()}/></div>
             <div><label style={LBL}>Ville</label><input value={expAddr.ville} onChange={e=>setExpAddr(p=>({...p,ville:e.target.value}))} style={INP()}/></div>
             <div><label style={LBL}>Pays</label><input value={expAddr.pays} onChange={e=>setExpAddr(p=>({...p,pays:e.target.value}))} style={INP()}/></div>
-            <div><label style={LBL}>Téléphone</label><input value={expAddr.tel} onChange={e=>setExpAddr(p=>({...p,tel:e.target.value}))} style={INP()}/></div>
+            <div><label style={LBL}>Téléphone{telExpRequired?' *':''}</label><input value={expAddr.tel} onChange={e=>setExpAddr(p=>({...p,tel:e.target.value}))} style={{...INP(),...(telExpRequired&&!(expAddr.tel||'').trim()?{borderColor:'#e8a598',background:'#fffafa'}:{})}}/></div>
             <div style={{gridColumn:'1/-1'}}><label style={LBL}>Email</label><input value={expAddr.email} onChange={e=>setExpAddr(p=>({...p,email:e.target.value}))} style={INP()}/></div>
           </div>}
           {retraitLoft&&<div style={{background:'#f0fdf4',border:'1px solid #86efac',borderRadius:8,padding:'10px 14px',fontSize:12,color:'#2d6a4f'}}>
             Retrait au Loft Oé - 10bis rue Bellicard, 69003 Lyon
           </div>}
         </div>
-        <div style={{display:'flex',justifyContent:'flex-end'}}>
-          <button onClick={saveCoords} disabled={!societe.trim()}
-            style={{padding:'11px 28px',background:societe.trim()?'#2d6a4f':'#e2ddd6',color:societe.trim()?'#fff':'#9e9890',border:'none',borderRadius:10,fontSize:14,fontWeight:700,cursor:societe.trim()?'pointer':'default'}}>
+        <div style={{display:'flex',justifyContent:'flex-end',alignItems:'center',gap:12}}>
+          {societe.trim()&&!telLivraisonOk&&<span style={{fontSize:12,color:'#c0392b'}}>📞 Téléphone obligatoire pour une commande{retraitLoft?' (contact du client pour le retrait)':' (livraison)'}</span>}
+          <button onClick={saveCoords} disabled={!societe.trim()||!telLivraisonOk}
+            style={{padding:'11px 28px',background:societe.trim()&&telLivraisonOk?'#2d6a4f':'#e2ddd6',color:societe.trim()&&telLivraisonOk?'#fff':'#9e9890',border:'none',borderRadius:10,fontSize:14,fontWeight:700,cursor:societe.trim()&&telLivraisonOk?'pointer':'default'}}>
             Enregistrer les coordonnées
           </button>
         </div>
@@ -5199,7 +5210,9 @@ ${infoBlock}
             {retraitLoft
               ?<div style={{fontSize:12,color:'#2d6a4f',marginTop:2}}>Retrait au Loft Oé</div>
               :<><div style={{fontSize:12,color:'#6b6560',marginTop:2}}>{expA.addr}</div><div style={{fontSize:12,color:'#6b6560'}}>{expA.cp} {expA.ville}</div></>}
+            {expA.tel?<div style={{fontSize:12,color:'#6b6560'}}>📞 {expA.tel}</div>:mode==='commande'&&<div style={{fontSize:11,color:'#c0392b',marginTop:2}}>📞 Téléphone manquant</div>}
             {infoLivraison&&<div style={{fontSize:11,color:'#b5680f',marginTop:3,fontStyle:'italic'}}>{infoLivraison}</div>}
+            {refBCClient.trim()&&<div style={{fontSize:11,color:'#1a1814',marginTop:4}}><span style={{color:'#9e9890'}}>Réf. BC client :</span> <strong>{refBCClient.trim()}</strong></div>}
           </div>
           <div style={{background:'#fff',borderRadius:10,padding:'14px 16px',border:'1px solid #e2ddd6'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
@@ -5238,6 +5251,7 @@ ${infoBlock}
                 setGratuite(false);setGratuiteRaison('');
                 setLignes((o.lignes||[]).filter(l=>l.qtyMode!=='auto').map(l=>({...l,qtyMode:'select'})));
                 setRemiseJustif(o.remiseJustif||'');
+                setRefBCClient(o.refBCClient||'');
               }
               const baseList=savedOrders.filter(o=>(!recallTeammate||o.createdBy===recallTeammate)&&(!recallClient||o.societe===recallClient)&&o.mode===recallMode);
               const q=(recallFilter||'').toLowerCase().trim();
