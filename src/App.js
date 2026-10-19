@@ -5155,7 +5155,6 @@ ${infoBlock}
           <div><label style={LBL}>Nom de la société *</label><input value={societe} onChange={e=>{setSociete(e.target.value);setSelectedClientKey('');}} style={INP()}/></div>
             <div><label style={LBL}>Prénom et Nom du contact</label><input value={contact} onChange={e=>setContact(e.target.value)} style={INP()}/></div>
             <div><label style={LBL}>ID Shopify</label><input value={shopifyId} onChange={e=>setShopifyId(e.target.value)} placeholder="ex: 123456789" style={INP()}/></div>
-            <div><label style={LBL}>Réf. bon de commande client <span style={{fontWeight:400,color:'#9e9890'}}>(facultatif)</span></label><input value={refBCClient} onChange={e=>setRefBCClient(e.target.value)} placeholder="ex: PO-2026-0412" style={INP()}/></div>
           </div>
           <div style={{fontSize:12,fontWeight:700,color:'#6b6560',marginBottom:8}}>Adresse de facturation</div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:14}}>
@@ -5212,7 +5211,6 @@ ${infoBlock}
               :<><div style={{fontSize:12,color:'#6b6560',marginTop:2}}>{expA.addr}</div><div style={{fontSize:12,color:'#6b6560'}}>{expA.cp} {expA.ville}</div></>}
             {expA.tel?<div style={{fontSize:12,color:'#6b6560'}}>📞 {expA.tel}</div>:mode==='commande'&&<div style={{fontSize:11,color:'#c0392b',marginTop:2}}>📞 Téléphone manquant</div>}
             {infoLivraison&&<div style={{fontSize:11,color:'#b5680f',marginTop:3,fontStyle:'italic'}}>{infoLivraison}</div>}
-            {refBCClient.trim()&&<div style={{fontSize:11,color:'#1a1814',marginTop:4}}><span style={{color:'#9e9890'}}>Réf. BC client :</span> <strong>{refBCClient.trim()}</strong></div>}
           </div>
           <div style={{background:'#fff',borderRadius:10,padding:'14px 16px',border:'1px solid #e2ddd6'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
@@ -5296,6 +5294,10 @@ ${infoBlock}
                 <option key={p.k} value={p.k}>{p.l}</option>
               )}
             </select>
+            <div style={{marginTop:14}}>
+              <label style={LBL}>Réf. bon de commande client <span style={{fontWeight:400,color:'#9e9890'}}>(facultatif)</span></label>
+              <input value={refBCClient} onChange={e=>setRefBCClient(e.target.value)} placeholder="ex: PO-2026-0412" style={INP()}/>
+            </div>
           </div>
           <div style={{borderLeft:'1px solid #f0ede8',paddingLeft:16}}>
             <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>Tarification</div>
