@@ -2127,6 +2127,14 @@ function UpdatePage({teamMember,questions,onSubmit,onDelete,onBack,onGoOKR,onGoU
                       <div style={{flex:1}}>
                         <span style={{fontSize:11,fontFamily:"monospace",color:"#9e9890",marginRight:6}}>{kr.id}</span>
                         <span style={{fontSize:12,color:"#1a1814"}}>{kr.title}</span>
+                        {(()=>{
+                          const dep=+kr.val_depart||0,act=+kr.val_actuel||0,cib=+kr.val_cible||0;
+                          const t=Math.round(calcTaux(dep,act,cib,kr.unite));
+                          return <span style={{fontSize:12,marginLeft:6,whiteSpace:"nowrap"}}>
+                            <strong style={{color:"#1a1814"}}>{t}%</strong>
+                            <span style={{color:"#9e9890",marginLeft:4}}>({fmtV(dep,kr.unite)} → {fmtV(act,kr.unite)} → {fmtV(cib,kr.unite)})</span>
+                          </span>;
+                        })()}
                         {contribs.length>0&&<span style={{marginLeft:8}}>
                           {contribs.map(c=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:20,height:20,borderRadius:"50%",background:pBg(c,teamMembers?.map(m=>m.prenom)),color:"#6b6560",fontSize:9,fontWeight:600,marginLeft:2}}>{ini(c)}</span>)}
                         </span>}
