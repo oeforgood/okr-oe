@@ -7924,7 +7924,7 @@ function FactureModal({rows, onClose, currentUser, onPuceClick, getPuce, puceCol
     return email.split('@')[0];
   }
 
-  const PUCE_EMOJI={grey:'⚫',green:'🟢',orange:'🟠',red:'🔴'};
+  const PUCE_EMOJI={grey:'⚫',green:'🟢',orange:'🟠',red:'🔴',yellow:'🟡'};
   const FX_EMAIL='fx@oeforgood.com';
   const FIONA_EMAIL='fiona@oeforgood.com';
 
@@ -7975,7 +7975,7 @@ function FactureModal({rows, onClose, currentUser, onPuceClick, getPuce, puceCol
     },30000);
   }
 
-  const PUCE_EMOJI_MAP={grey:'⚫',green:'🟢',orange:'🟠',red:'🔴'};
+  const PUCE_EMOJI_MAP={grey:'⚫',green:'🟢',orange:'🟠',red:'🔴',yellow:'🟡'};
   async function toggleCommentPublic(commentId){
     const ref=doc(db,'bsv3_comments',factureNum);
     const snap=await getDoc(ref);
@@ -8290,7 +8290,7 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
   const effectiveFilterPuce=filterPuceFromPage||null;
   const PUCE_OWNERS=['fx@oeforgood.com','fiona@oeforgood.com'];
   const canEditPuceTable=PUCE_OWNERS.includes(currentUser?.email);
-  const PUCE_COLOR={grey:'#d1d5db',green:'#16a34a',orange:'#f97316',red:'#dc2626'};
+  const PUCE_COLOR={grey:'#d1d5db',green:'#16a34a',orange:'#f97316',red:'#dc2626',yellow:'#eab308'};
   // Load factures with comments
   React.useEffect(()=>{
     const unsub=onSnapshot(collection(db,'bsv3_comments'),snap=>{
@@ -8320,7 +8320,8 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
   function getNewColor(cur,email){
     if(email==='fx@oeforgood.com'){
       if(cur==='green')return 'red';
-      if(cur==='red')return 'grey';
+      if(cur==='red')return 'yellow'; // jaune = en attente chez Fx (modifiable par Fx uniquement)
+      if(cur==='yellow')return 'grey';
       return 'green';
     }
     if(email==='fiona@oeforgood.com'){
@@ -8341,7 +8342,7 @@ function Bsv3Table({levels,year,prevYear,validRows,prevRows,allYearRows,ytdMode,
     if(puceCommentTimers.current[fn])clearTimeout(puceCommentTimers.current[fn]);
     puceCommentTimers.current[fn]=setTimeout(async()=>{
       const prenom=email==='fx@oeforgood.com'?'Fx':'Fiona';
-      const PUCE_LABELS={grey:'grise',green:'verte',orange:'orange',red:'rouge'};
+      const PUCE_LABELS={grey:'grise',green:'verte',orange:'orange',red:'rouge',yellow:'jaune (en attente chez Fx)'};
       const commentText=`a changé la puce en ${PUCE_LABELS[nc]||nc}`;
       const newComment={
         id:Date.now()+'_'+Math.random().toString(36).slice(2),
@@ -8957,7 +8958,7 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cu
   const PUCE_OWNERS_PAGE=['fx@oeforgood.com','fiona@oeforgood.com'];
   const canEditPuce=PUCE_OWNERS_PAGE.includes(currentUser?.email);
   const [filterPuce,setFilterPuce]=React.useState(null);
-  const PUCE_COLOR_PAGE={grey:'#d1d5db',green:'#16a34a',orange:'#f97316',red:'#dc2626'};
+  const PUCE_COLOR_PAGE={grey:'#d1d5db',green:'#16a34a',orange:'#f97316',red:'#dc2626',yellow:'#eab308'};
   const [dragFrom,setDragFrom]=React.useState(null);
   const [dragOver,setDragOver]=React.useState(null);
   const [activeLetters,setActiveLetters]=React.useState(null);
@@ -9194,9 +9195,9 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cu
                 background:isAnnee?'#2d6a4f':'#fff',color:isAnnee?'#fff':'#9e9890',
                 fontSize:11,fontWeight:600,cursor:isAnnee?'default':'pointer'}}>Année</button>
             {<div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:4}}>
-              {canEditPuce&&['grey','green','orange','red'].map(c=>{
+              {canEditPuce&&['grey','green','orange','red','yellow'].map(c=>{
                 const on=filterPuce===c;
-                return <button key={c} onClick={()=>setFilterPuce(on?null:c)}
+                return <button key={c} onClick={()=>setFilterPuce(on?null:c)} title={c==='yellow'?'En attente chez Fx':undefined}
                   style={{width:10,height:10,borderRadius:'50%',border:`2px solid ${on?'#1a1814':'transparent'}`,
                     background:PUCE_COLOR_PAGE[c],cursor:'pointer',padding:0,flexShrink:0}}/>;
               })}
