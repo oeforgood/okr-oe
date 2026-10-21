@@ -2209,7 +2209,7 @@ function TopBar({onBack,title,extra,left}){
 }
 
 // ─── SETTINGS PAGE ────────────────────────────────────────────────────────────
-function UpdatesHistoryTab(){
+function UpdatesHistoryTab({questions=DEFAULT_QUESTIONS}){
   const [allUpdates,setAllUpdates]=useState([]);
   const [allNotifs,setAllNotifs]=useState([]);
   const [allTmNotifs,setAllTmNotifs]=useState([]);
@@ -2231,7 +2231,7 @@ function UpdatesHistoryTab(){
     const u3=onSnapshot(collection(db,"teammate_notifications"),(snap)=>{
       setAllTmNotifs(snap.docs.map(d=>({id:d.id,...d.data()})));check();
     });
-    return()=>{u1();u2();u3();u3b();};
+    return()=>{u1();u2();u3();};
   },[]);
 
   const prenoms=[...new Set(allUpdates.map(u=>u.prenom).filter(Boolean))].sort();
@@ -2243,6 +2243,42 @@ function UpdatesHistoryTab(){
     .sort((a,b)=>(b.weekKey||"").localeCompare(a.weekKey||""));
 
   const fmtTs=ts=>ts?new Date(ts).toLocaleDateString("fr-FR",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}):"—";
+
+  // Questions affichées / exportées : questions configurées + anciennes questions par défaut, SANS les confidentielles
+  const publicQuestions=(()=>{
+    const list=[...(questions||[])];
+    DEFAULT_QUESTIONS.forEach(q=>{if(!list.some(x=>x.id===q.id))list.push(q);});
+    return list.filter(q=>!q.confidentiel);
+  })();
+
+  function exportUpdatesCSV(){
+    const esc=v=>{const t=String(v??'');return /[;"\n\r]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t;};
+    const fmtD=ts=>ts?new Date(ts).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}):"";
+    const header=["Prénom","Email","Semaine","Période","Soumis le","Modifié le",...publicQuestions.map(q=>q.text.replace(" *","").trim())];
+    const lines=[header.map(esc).join(";")];
+    filtered.forEach(u=>{
+      let periode="";
+      try{const{mon,fri}=getWeekBounds(u.weekKey||"");periode=`${mon.toLocaleDateString("fr-FR")} → ${fri.toLocaleDateString("fr-FR")}`;}catch(e){}
+      const vals=publicQuestions.map(q=>{
+        const val=u.answers?.[q.id];
+        if(val===undefined||val===null)return "";
+        if(q.type==="okr"||typeof val==="object"){
+          const ids=val?.krIds||[];
+          if(ids.includes("__aucun__"))return "Aucun OKR cette semaine";
+          const seasonKRs=(window._okrSeasons&&val?.seasonKey?window._okrSeasons[val.seasonKey]?.keyresults:null)||[];
+          return ids.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return kr?`${id} ${kr.title}`:id;}).join(" | ");
+        }
+        return String(val);
+      });
+      lines.push([u.prenom||"",u.email||"",u.weekKey||"",periode,fmtD(u.submittedAt),fmtD(u.updatedAt),...vals].map(esc).join(";"));
+    });
+    const blob=new Blob(["\uFEFF"+lines.join("\n")],{type:"text/csv;charset=utf-8"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");a.href=url;
+    const suffix=[filterPrenom,filterWeek].filter(Boolean).join("_");
+    a.download=`updates_oe${suffix?"_"+suffix:""}_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();URL.revokeObjectURL(url);
+  }
 
   return <div>
     {/* Filters */}
@@ -2256,6 +2292,11 @@ function UpdatesHistoryTab(){
         {weeks.map(w=>{const{mon,fri}=getWeekBounds(w);const sameM=mon.getMonth()===fri.getMonth();const label=sameM?`${w} · lundi ${mon.getDate()} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"long"})}`:`${w} · lundi ${mon.getDate()} ${mon.toLocaleString("fr-FR",{month:"short"})} au vendredi ${fri.getDate()} ${fri.toLocaleString("fr-FR",{month:"short"})}`;return <option key={w} value={w}>{label}</option>;})}
       </select>
       <span style={{fontSize:12,color:"#9e9890",alignSelf:"center"}}>{filtered.length} update{filtered.length>1?"s":""}</span>
+      <button onClick={exportUpdatesCSV} disabled={loading||filtered.length===0}
+        title="Exporte les updates affichés (filtres appliqués), sans les questions confidentielles"
+        style={{marginLeft:"auto",padding:"6px 14px",borderRadius:8,border:"1px solid #2d6a4f",background:"#f0fdf4",color:"#2d6a4f",fontSize:12,fontWeight:600,cursor:loading||filtered.length===0?"default":"pointer"}}>
+        📥 Exporter en CSV (hors confidentiel)
+      </button>
     </div>
 
     {loading?<div style={{textAlign:"center",padding:32,color:"#9e9890"}}>Chargement…</div>
@@ -2300,13 +2341,9 @@ function UpdatesHistoryTab(){
                 </div>
                 :<div>Aucune notification envoyée (pas de référent ou délai non dépassé)</div>
               }
-              {notif?.confidentiel&&<div style={{marginTop:6,padding:"6px 8px",background:"#fdf4ff",borderRadius:4,border:"1px solid #e9d5ff"}}>
-                <span style={{fontSize:10,color:"#a21caf",fontWeight:600}}>🔒 Message confidentiel : </span>
-                <span style={{color:"#1a1814"}}>{notif.confidentiel}</span>
-              </div>}
             </div>
             {/* Answers */}
-            {DEFAULT_QUESTIONS.filter(q=>u.answers?.[q.id]).map(q=>{
+            {publicQuestions.filter(q=>u.answers?.[q.id]).map(q=>{
               const val=u.answers[q.id];
               if(q.type==="mood")return <div key={q.id} style={{marginBottom:8,display:"flex",gap:8,alignItems:"center"}}><span style={{fontSize:10,color:"#9e9890",flex:1}}>{q.text.replace(" *","")}</span><span style={{fontSize:20}}>{val}</span></div>;
               if(q.type==="presence")return <div key={q.id} style={{marginBottom:8}}><div style={{fontSize:10,color:"#9e9890",marginBottom:2}}>{q.text.replace(" *","")}</div><div style={{fontSize:12,background:"#f5f3ef",borderRadius:4,padding:"3px 8px"}}>{val}</div></div>;
@@ -2315,7 +2352,7 @@ function UpdatesHistoryTab(){
         const seasonKRs=(window._okrSeasons&&val.seasonKey?window._okrSeasons[val.seasonKey]?.keyresults:null)||[];
         return <div key={q.id} style={{marginBottom:8,background:"#fff",borderRadius:6,border:"1px solid #e2ddd6",padding:"8px 10px"}}>
           <div style={{fontSize:11,fontWeight:600,color:"#9e9890",marginBottom:4}}>{q.text.replace(" *","")}</div>
-          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(()=>{const avs=(kr?.contributors||[]).filter(c=>c!==kr?.owner);return avs.length>0?<span style={{display:"inline-flex",marginLeft:4,border:"2px solid #fff"}}>{avs.map((c,i)=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:20,height:20,borderRadius:"50%",background:pBg(c,teamMembers?.map?.(m=>m.prenom)),color:"#6b6560",fontSize:9,fontWeight:600,marginLeft:i===0?0:-6,border:"2px solid #fff"}}>{ini(c)}</span>)}</span>:null;})()}</div>;})}
+          {krIds.map(id=>{const kr=seasonKRs.find(k=>k.id===id);return <div key={id} style={{fontSize:12,color:"#1a1814",padding:"2px 0"}}>✅ <span style={{fontFamily:"monospace",color:"#9e9890",marginRight:4}}>{id}</span>{kr?.title||''}{(()=>{const avs=(kr?.contributors||[]).filter(c=>c!==kr?.owner);return avs.length>0?<span style={{display:"inline-flex",marginLeft:4,border:"2px solid #fff"}}>{avs.map((c,i)=><span key={c} title={c} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:20,height:20,borderRadius:"50%",background:pBg(c,(window._teamMembers||[]).map(m=>m.prenom)),color:"#6b6560",fontSize:9,fontWeight:600,marginLeft:i===0?0:-6,border:"2px solid #fff"}}>{ini(c)}</span>)}</span>:null;})()}</div>;})}
         </div>;
       }
               return <div key={q.id} style={{marginBottom:8,background:q.confidentiel?"#fdf4ff":"#f8f7f5",borderRadius:6,padding:"6px 10px",border:q.confidentiel?"1px solid #e9d5ff":"none"}}>
@@ -6608,7 +6645,7 @@ function SettingsPage({onBack,currentUser,teamMembers,onSaveMembers,questions,on
 
       {tab==="questions"&&<QuestionsEditor qs={qs} onSave={newQs=>{setQs(newQs);onSaveQuestions&&onSaveQuestions(newQs);}}/> }
 
-      {tab==="history"&&<UpdatesHistoryTab/>}
+      {tab==="history"&&<UpdatesHistoryTab questions={questions}/>}
       {tab==="feedback"&&<FeedbackAdminTab/>}
       {tab==="reporting_params"&&<ReportingParamsTab
           onUploadReporting={onUploadReporting}
