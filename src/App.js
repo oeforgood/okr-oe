@@ -749,7 +749,7 @@ function Bsv3Banner({onGoBsv3}) {
         const importDate=at?new Date(at):new Date();
         const yr=importDate.getMonth()===0?importDate.getFullYear()-1:importDate.getFullYear();
         setBsv3Year(yr);
-        const valid=all.filter(r=>r['Année Emission']===String(yr)&&!['CASIER-OE','COIFFE-OE','CONTENANT BOUTEILLE'].includes(r['Contenant+Appelation/Robe'])&&['CHR','Grands Comptes','Retail','Export'].includes(r['Canal']));
+        const valid=all.filter(r=>r['Année Emission']===String(yr)&&!['CASIER-OE','COIFFE-OE','CONTENANT BOUTEILLE'].includes(r['Contenant+Appelation/Robe'])&&['RHF','Retail','Export'].includes(r['Canal']));
         setBsv3Rows(valid);
       }
     }).catch(()=>{});
@@ -764,7 +764,7 @@ function Bsv3Banner({onGoBsv3}) {
       if(!snap.empty){
         let all=[];
         snap.docs.sort((a,b)=>a.id.localeCompare(b.id)).forEach(d=>all=all.concat(d.data().rows||[]));
-        setBsv3AllRows(all.filter(r=>!['CASIER-OE','COIFFE-OE','CONTENANT BOUTEILLE'].includes(r['Contenant+Appelation/Robe'])&&['CHR','Grands Comptes','Retail','Export'].includes(r['Canal'])));
+        setBsv3AllRows(all.filter(r=>!['CASIER-OE','COIFFE-OE','CONTENANT BOUTEILLE'].includes(r['Contenant+Appelation/Robe'])&&['RHF','Retail','Export'].includes(r['Canal'])));
       }
     }).catch(()=>{});
   },[]);
@@ -843,7 +843,7 @@ function ReportingBanner({onGoReporting}) {
     const u1=onSnapshot(doc(db,'reporting','ca'),(snap)=>{if(snap.exists()){setCaData(snap.data().caData);}});
     const u2=onSnapshot(doc(db,'reporting','charges'),(snap)=>{if(snap.exists())setChargeData(snap.data().chargeData);});
     const u3b=onSnapshot(doc(db,'reporting','bfr'),(snap)=>{if(snap.exists())setBfrBanner(snap.data().bilData);});
-    const u3=onSnapshot(doc(db,'reporting','meta'),(snap)=>{if(snap.exists()){if(snap.data().importedAt)setImportedAt(snap.data().importedAt);if(snap.data().canalMargin)setLiveCanalMargin(snap.data().canalMargin);}});
+    const u3=onSnapshot(doc(db,'reporting','meta'),(snap)=>{if(snap.exists()){if(snap.data().importedAt)setImportedAt(snap.data().importedAt);if(snap.data().canalMargin)setLiveCanalMargin(normalizeCanalMargin(snap.data().canalMargin));}});
     return()=>{u1();u2();u3();};
 
   },[]);
@@ -851,8 +851,8 @@ function ReportingBanner({onGoReporting}) {
   if (!caData) return null;
 
   // Compute YTD from CA data
-  const REPORTING_CANALS_ALL = ['E-commerce B2C','CHR','Grands Comptes','Retail','Export','Autres B2B','Régénération'];
-  const CANAL_MARGIN2 = {'E-commerce B2C':0.270,'CHR':0.293,'Grands Comptes':0.266,'Retail':0.292,'Export':0.231,'Autres B2B':0.225,'Régénération':1.0};
+  const REPORTING_CANALS_ALL = ['E-commerce B2C','RHF','Retail','Export','Autres B2B','Régénération'];
+  const CANAL_MARGIN2 = {'E-commerce B2C':0.270,'RHF':0.282,'Retail':0.292,'Export':0.231,'Autres B2B':0.225,'Régénération':1.0};
 
   function sumYTD(dataByKey) {
     return Object.entries(dataByKey||{}).reduce((s,[,v])=>s+v,0);
@@ -1108,7 +1108,7 @@ function DashboardMobile({currentUser,teamMember,teamMembers=[],myUpdates,allUpd
       const at=snap.docs[0]?.data()?.importedAt||null;
       let allRows=[];
       snap.docs.sort((a,b)=>a.id.localeCompare(b.id)).forEach(d=>allRows=allRows.concat(d.data().rows||[]));
-      const CA_CANAUX=['CHR','Grands Comptes','Retail','Export'];
+      const CA_CANAUX=['RHF','Retail','Export'];
       const yr=new Date().getFullYear();
       const valid=allRows.filter(r=>r['Année Emission']===String(yr)&&CA_CANAUX.includes(r['Canal'])&&!['CASIER-OE','COIFFE-OE','CONTENANT BOUTEILLE'].includes(r['Contenant+Appelation/Robe']));
       const lastMo=valid.length?Math.max(...valid.map(r=>parseInt(r['Mois Emission'])||0).filter(m=>m>0)):0;
@@ -2506,18 +2506,42 @@ const DEFAULT_SUBCAT_LABELS = {
   "Z2-33": "Variation des stocks"
 };
 
-const REPORTING_CANALS = ['E-commerce B2C','CHR','Grands Comptes','Retail','Export','Autres B2B','Régénération'];
-const CANAL_CSV_MAP = {'E-commerce B2C':'E-commerce B2C','CHR':'CHR','Grands Comptes':'Grands Comptes','Retail':'Retail','Export':'Export','Autres B2B':'Autres B2B','Régénération':'Régénération'}; // clés normalisées
+const REPORTING_CANALS = ['E-commerce B2C','RHF','Retail','Export','Autres B2B','Régénération'];
+const CANAL_CSV_MAP = {'E-commerce B2C':'E-commerce B2C','RHF':'RHF','Retail':'Retail','Export':'Export','Autres B2B':'Autres B2B','Régénération':'Régénération'}; // clés normalisées
 const CANAL_MARGIN = {
   'E-commerce B2C': 0.270,
-  'CHR': 0.293,
-  'Grands Comptes': 0.266,
+  'RHF': 0.282, // moyenne pondérée CHR 29,3 % × 403 + Grands Comptes 26,6 % × 283 (CA budget)
   'Retail': 0.292,
   'Export': 0.231,
   'Autres B2B': 0.225,
   'Régénération': 1.0,
 };
 const DEFAULT_CANAL_MARGIN = 0.263;
+// Migration oct. 2026 : les canaux CHR et Grands Comptes sont fusionnés en RHF.
+// Les taux saisis (mensuels ou forfaitaires) sont convertis en moyenne pondérée par le CA budget (CHR 403, GC 283).
+const OLD_RHF_CANALS={'CHR':{w:403,def:0.293},'Grands Comptes':{w:283,def:0.266}};
+function normalizeCanalMargin(src){
+  const s={...(src||{})};
+  const hasOld=Object.keys(OLD_RHF_CANALS).some(c=>s[c]!=null);
+  if(s['RHF']==null&&hasOld){
+    const get=(c,m)=>{const v=s[c];if(v&&typeof v==='object')return v[m]??OLD_RHF_CANALS[c].def;return v??OLD_RHF_CANALS[c].def;};
+    const tw=Object.values(OLD_RHF_CANALS).reduce((a,x)=>a+x.w,0);
+    const rhf={};
+    for(let m=1;m<=12;m++)rhf[m]=Math.round(Object.entries(OLD_RHF_CANALS).reduce((a,[c,x])=>a+get(c,m)*x.w,0)/tw*10000)/10000;
+    s['RHF']=rhf;
+  }
+  Object.keys(OLD_RHF_CANALS).forEach(c=>delete s[c]);
+  return s;
+}
+function toMonthlyCanalMargin(src){
+  const s=normalizeCanalMargin(src||CANAL_MARGIN);
+  const r={};
+  REPORTING_CANALS.forEach(c=>{
+    if(s[c]&&typeof s[c]==='object')r[c]=s[c];
+    else{const v=s[c]??CANAL_MARGIN[c]??DEFAULT_CANAL_MARGIN;r[c]={};for(let m=1;m<=12;m++)r[c][m]=v;}
+  });
+  return r;
+}
 const MONTHS_FR = ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'];
 
 const DEFAULT_CODE_TO_CAT = {
@@ -2820,7 +2844,7 @@ function ReportingTab({onSaveCatTypes, savedCatTypes, savedCodeMap, onSaveCodeMa
         setSubcatLabels(snap.data().subcatLabels||{});
         setImportedAt(snap.data().importedAt);
         if(snap.data().activeSubcats) setActiveSubcats(snap.data().activeSubcats);
-        if(snap.data().canalMargin) setCanalMargin(snap.data().canalMargin);
+        if(snap.data().canalMargin) setCanalMargin(toMonthlyCanalMargin(snap.data().canalMargin));
       }
       setLoading(false);
     });
@@ -3778,7 +3802,7 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
 
   function getBsv3Rate(canal, month){
     // Map reporting canal names to BSv3 canal names
-    const canalMap={'CHR':'CHR','Retail':'Retail','GMS':'Retail','Export':'Export','RHF':'Grands Comptes','Grands Comptes':'Grands Comptes','B2C':'E-commerce B2C','E-commerce B2C':'B2C','Autres':'Autres B2B'};
+    const canalMap={'RHF':'RHF','Retail':'Retail','GMS':'Retail','Export':'Export','B2C':'E-commerce B2C','E-commerce B2C':'B2C','Autres':'Autres B2B'};
     const bsv3Canal=canalMap[canal]||canal;
     const rows=bsv3Rows.filter(r=>r['Canal']===bsv3Canal&&parseInt(r['Mois Emission'])===month&&r['Année Emission']===String(bsv3Year)&&!['CASIER-OE','COIFFE-OE','CONTENANT BOUTEILLE'].includes(r['Contenant+Appelation/Robe']));
     if(!rows.length)return null;
@@ -3989,9 +4013,9 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
         const allDocsData=existingSnap.docs.map(d=>writtenMap.has(d.id)?writtenMap.get(d.id):d.data());
         newRows.forEach(r=>{const{_id,...data}=r;allDocsData.push(data);});
         const totalSize=allDocsData.length;
-        const RCANALS=['E-commerce B2C','B2C','CHR','Grands Comptes','Retail','Export','Autres B2B','Régénération'];
+        const RCANALS=['E-commerce B2C','B2C','RHF','CHR','Grands Comptes','Retail','Export','Autres B2B','Régénération'];
         // Normaliser B2C → E-commerce B2C (valeur CSV GSheets)
-        const CANAL_NORM={'B2C':'E-commerce B2C'};
+        const CANAL_NORM={'B2C':'E-commerce B2C','CHR':'RHF','Grands Comptes':'RHF'};
         const caData={},caRows={},chargeData={},bilData={};
         function getBilKey(c){
           if(!c)return null;
@@ -4082,7 +4106,7 @@ function ReportingParamsTab({codeMap, onSaveCodeMap, customSubcatLabels={}, onSa
         await setDoc(doc(db,'reporting','ca'),{caData,caRows,importedAt});
         if(Object.keys(chargeData).length>0)await setDoc(doc(db,'reporting','charges'),{chargeData,importedAt});
         await setDoc(doc(db,'reporting','bfr'),{bilData,importedAt});
-        await setDoc(doc(db,'reporting','meta'),{importedAt,source:'grandLivre2026',totalRows:totalSize});
+        await setDoc(doc(db,'reporting','meta'),{importedAt,source:'grandLivre2026',totalRows:totalSize},{merge:true});
          // Copie compacte de toutes les écritures (≈ 10 docs) pour l'export détaillé du reporting sans relire toute la collection
          try{
            setGlImportMsg('Enregistrement de la copie compacte des écritures (export détaillé)…');
@@ -7805,7 +7829,7 @@ function Bsv3MonthRow({month,year,rows,rowsPrev,allRows,expanded,onToggle}){
   </React.Fragment>;
 }
 
-const CANAL_ORDER=['#N/A','Tiers absent de Hubspot','B2C','CHR','Grands Comptes','Retail','Export'];
+const CANAL_ORDER=['#N/A','Tiers absent de Hubspot','B2C','RHF','Retail','Export'];
 const CANAL_LAST=['Régénération'];
 function sortCanaux(vals){
   return [...vals].sort((a,b)=>{
@@ -8514,7 +8538,7 @@ function getBsv3ProdLabel(rows, prod){
 
 
 function Bsv3CaTable({rows, importedAt, clientFilter='', proprietaireFilter=''}){
-  const CA_CANAUX=['CHR','Grands Comptes','Retail','Export'];
+  const CA_CANAUX=['RHF','Retail','Export'];
   const [expandedCanaux,setExpandedCanaux]=React.useState({});
   const [expandedClients,setExpandedClients]=React.useState({});
   const [collapsedYears,setCollapsedYears]=React.useState({});
@@ -8969,7 +8993,7 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cu
   const year=importDate.getMonth()===0?importDate.getFullYear()-1:importDate.getFullYear();
   const prevYear=year-1;
 
-  const CA_CANAUX=['CHR','Grands Comptes','Retail','Export'];
+  const CA_CANAUX=['RHF','Retail','Export'];
   const clientFilterLower=clientFilterLowerRaw.toLowerCase();
   const baseFilter=r=>{
     if(BSV3_EXCLUDE_PRODUITS.has(r['Contenant+Appelation/Robe']))return false;
@@ -9112,7 +9136,7 @@ function Bsv3Page({onBack,onGoOKR,onGoUpdate,onGoReporting,onGoBsv3,onGoDevis,cu
         </div>
         {/* Canal filter */}
         {(()=>{
-          const VCANAUX=['CHR','Grands Comptes','Retail','Export','__autres__'];
+          const VCANAUX=['RHF','Retail','Export','__autres__'];
           const isTousCanaux=!activeVentesCanaux;
           function setCanal(next){
             if(next.size===0||next.size===VCANAUX.length)setActiveVentesCanaux(null);
@@ -9356,7 +9380,7 @@ export default function App(){
       const at=snap.docs[0]?.data()?.importedAt||null;
       let allRows=[];
       snap.docs.sort((a,b)=>a.id.localeCompare(b.id)).forEach(d=>allRows=allRows.concat(d.data().rows||[]));
-      const CA_CANAUX=['CHR','Grands Comptes','Retail','Export'];
+      const CA_CANAUX=['RHF','Retail','Export'];
       const yr=new Date().getFullYear();
       const valid=allRows.filter(r=>r['Année Emission']===String(yr)&&CA_CANAUX.includes(r['Canal'])&&!['CASIER-OE','COIFFE-OE','CONTENANT BOUTEILLE'].includes(r['Contenant+Appelation/Robe']));
       const lastMo=valid.length?Math.max(...valid.map(r=>parseInt(r['Mois Emission'])||0).filter(m=>m>0)):0;
@@ -9436,7 +9460,7 @@ export default function App(){
   // Load reporting meta (canalMargin) from Firebase
   useEffect(()=>{
     const unsubMeta=onSnapshot(doc(db,'reporting','meta'),(snap)=>{
-      if(snap.exists()&&snap.data().canalMargin)setSavedCanalMargin(snap.data().canalMargin);
+      if(snap.exists()&&snap.data().canalMargin)setSavedCanalMargin(normalizeCanalMargin(snap.data().canalMargin));
     });
     return()=>unsubMeta();
   },[]);
@@ -9691,7 +9715,7 @@ export default function App(){
       const text=await file.text();
       function parseCSVLine(line){const result=[];let cur='',inQ=false;for(const ch of line){if(ch=='"')inQ=!inQ;else if(ch===','&&!inQ){result.push(cur);cur='';}else cur+=ch;}result.push(cur);return result;}
       function parseAmount(s){const clean=String(s||'').replace(/[\u202f\u00a0\u20ac \u2019\u2018'\'"\s]/g,'').replace(',','.').trim();return parseFloat(clean)||0;}
-      const REPORTING_CANALS=['Autres B2B','B2C','CHR','Export','Grands Comptes','Retail','R\u00e9g\u00e9n\u00e9ration'];
+      const REPORTING_CANALS=['Autres B2B','B2C','RHF','Export','Retail','R\u00e9g\u00e9n\u00e9ration'];
       const rawLines=text.replace(/^\uFEFF/,'').split('\n');
       const csvRows=[];
       for(let i=1;i<rawLines.length;i++){if(!rawLines[i].trim())continue;const r=parseCSVLine(rawLines[i]);if(r.length>=32)csvRows.push({_raw:r,_idx:i-1});}
@@ -9777,7 +9801,7 @@ export default function App(){
       await setDoc(doc(db,'reporting','ca'),{caData,caRows,importedAt});
       if(Object.keys(chargeData).length>0)await setDoc(doc(db,'reporting','charges'),{chargeData,importedAt});
       await setDoc(doc(db,'reporting','bfr'),{bilData,importedAt});
-      await setDoc(doc(db,'reporting','meta'),{importedAt,source:'grandLivre2026',totalRows:allGlRows.length});
+      await setDoc(doc(db,'reporting','meta'),{importedAt,source:'grandLivre2026',totalRows:allGlRows.length},{merge:true});
       const newCount=toInsert.length;
       return `\u2705 ${newCount>0?newCount.toLocaleString('fr-FR')+' nouvelles lignes ajout\u00e9es \u2014 ':''}Reporting recalcul\u00e9 depuis ${allGlRows.length.toLocaleString('fr-FR')} lignes \u2014 CA\u00a0: ${Object.keys(caData).length} canaux, Charges\u00a0: ${Object.keys(chargeData).length} sous-cat\u00e9gories`;
     }catch(e){return '\u274c '+e.message;}
